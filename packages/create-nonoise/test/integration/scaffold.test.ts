@@ -84,6 +84,7 @@ describe('scaffold() integration', () => {
       'quint-fpf',
       'arch-brainstorm',
       'arch-decision',
+      'sprint-manifest',
     ];
     for (const name of expected) {
       const content = await readFile(

@@ -34,6 +34,7 @@ const MVP_SKILL_BUNDLE = [
   'quint-fpf',
   'arch-brainstorm',
   'arch-decision',
+  'sprint-manifest',
 ] as const;
 
 export type ScaffoldPaths = {

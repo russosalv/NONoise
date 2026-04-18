@@ -180,7 +180,7 @@ audited_at: <today>
 | Check | Description |
 |-------|-------------|
 | **Type check** | Types, DTOs, interfaces compatible with the system? |
-| **Constraint check** | Does it violate absolute constraints from `arch-docs` (if present) or `CLAUDE.md`/`AGENTS.md` of the project? |
+| **Constraint check** | Does it violate absolute constraints from `docs/architecture/01-constraints.md` or `CLAUDE.md`/`AGENTS.md` of the project? |
 | **Consistency check** | Does the internal logic hold? Race condition, deadlock, circularity? |
 | **Compatibility check** | Does it coexist with the existing architecture? API contracts, bounded context? |
 

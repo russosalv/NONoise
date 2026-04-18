@@ -1,6 +1,6 @@
 # Folder conventions — naming, frontmatter, lifecycle states
 
-Mandatory conventions for the folder structure and files produced by `arch-brainstorm` (and processed by `arch-decision`, `arch-docs`, `sprint-manifest`).
+Mandatory conventions for the folder structure and files produced by `arch-brainstorm` (and processed by `arch-decision`, `sprint-manifest`).
 
 ## Directory structure
 
@@ -23,16 +23,16 @@ docs/prd/
 
 ```
 docs/sprints/Sprint-XX/
+├── sprint-manifest.md                   ← ONE aggregated manifest per sprint (all areas)
 └── <area-slug>/                         ← same area, same slug
-    ├── prd/
-    │   ├── 01-<study-slug>.md           ← PRDs moved from draft
-    │   └── 02-<study-slug>.md
-    └── manifest/
-        ├── 01-<study-slug>.md           ← sprint manifests (from sprint-manifest skill)
-        └── 02-<study-slug>.md
+    ├── 01-<study-slug>.md               ← PRDs moved from draft
+    ├── 01-<study-slug>-diagrams.md
+    ├── 02-<study-slug>.md
+    └── audit/
+        └── 01-<study-slug>-fpf.md       ← FPF audits carried over
 ```
 
-(Exact sprint folder layout is determined by the `sprint-manifest` skill of your project. This is a reasonable default.)
+One single `sprint-manifest.md` at the sprint root aggregates all PRDs into user stories + macro functional tasks with cross-area dependencies — not one manifest per PRD. Layout produced by the `sprint-manifest` skill.
 
 ## Naming convention
 
@@ -295,21 +295,22 @@ The area brief must be **updated every time a new study is added** or a relevant
 - Delegates the methodology to `quint-fpf`
 - Updates frontmatter (`status: in-validation` → `validated` or `rejected`)
 - Creates `audit/NN-<study>-fpf.md`
-- **Automatically triggers** `arch-docs` in sync mode (if PASS)
+- On PASS: produces a concrete "Impact on `docs/architecture/`" checklist for the architect to apply manually
 - **Does not move** files (everything stays in `docs/prd/`)
+- **Does not write** to `docs/architecture/` — that is the architect's responsibility
 
-### `arch-docs` (automatic after arch-decision):
-- **Reads** the validated `<area>/NN-<study>.md`
-- **Does not touch** files in `docs/prd/`
-- Updates `docs/architecture/*`
+### Updating `docs/architecture/` (manual, after arch-decision PASS):
+- The architect applies the "Impact on docs/architecture/" checklist produced by `arch-decision` Phase 6
+- Typical edits: add a new component to `04-components.md`, add a constraint to `01-constraints.md`, append a new pattern to `03-patterns.md`
+- Keep this change as a separate commit from the PRD validation — audit and source-of-truth changes stay decoupled
 
 ### `sprint-manifest` (when ready for sprint):
 - **Scans** `<area>/` for all PRDs
-- Requires all to be in `validated` state (or `superseded` — those are ignored)
-- Asks for target sprint
-- **Moves** validated PRDs to `docs/sprints/Sprint-X/<area>/prd/`
-- Generates sprint manifests in `docs/sprints/Sprint-X/<area>/manifest/`
-- Updates PRD frontmatter → `status: promoted, sprint: X`
+- Requires all to be in `validated` state (`superseded` is ignored, `rejected` is ignored)
+- Asks for target sprint (mandatory)
+- **Moves** validated PRDs (+ their diagrams and audit reports) to `docs/sprints/Sprint-X/<area>/`
+- Generates (or updates via impact analysis) **one aggregated manifest** at `docs/sprints/Sprint-X/sprint-manifest.md` — user stories, macro tasks, cross-area dependencies, CL1 risk flags
+- Updates PRD frontmatter → `status: promoted, sprint: X, promoted_at: YYYY-MM-DD`
 - Updates `00-area-brief.md` with note "promoted to Sprint X"
 
 ## Special folders to ignore
@@ -328,7 +329,6 @@ status: external
 Rules:
 - `arch-brainstorm` **does not** touch these folders
 - `arch-decision` **does not** validate documents inside them
-- `arch-docs` **does not** sync from them
 - `sprint-manifest` **does not** promote them
 
 If an architect wants to convert an external folder into a normal study area, they must:

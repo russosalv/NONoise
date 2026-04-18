@@ -11,7 +11,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/.gitkeep": "",
   ".claude/skills/arch-brainstorm/SKILL.md": "---
 name: arch-brainstorm
-description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading project guidelines from \`arch-docs\` (if present), and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under \`docs/prd/<area>/\`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Quint FPF validation via \`quint-fpf\`) → arch-docs (source-of-truth sync) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
+description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading the project's source of truth at \`docs/architecture/\` plus \`docs/requirements/\` and \`docs/calls/\`, and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under \`docs/prd/<area>/\`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Quint FPF validation via \`quint-fpf\`) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral
 ---
@@ -23,21 +23,23 @@ This skill is **step 1** of the NONoise architectural workflow. It turns an idea
 ## Position in the workflow
 
 \`\`\`
-┌─────────────┐   ┌──────────────┐   ┌────────────────┐   ┌──────────────────┐
-│ arch-       │──▶│ arch-        │──▶│ arch-docs      │──▶│ sprint-manifest  │
-│ brainstorm  │   │ decision     │   │ (auto sync)    │   │                  │
-│             │   │              │   │                │   │                  │
-│ explore +   │   │ validate via │   │ update source  │   │ promote to       │
-│ dialog +    │   │ quint-fpf    │   │ of truth docs/ │   │ sprint manifest  │
-│ write PRD   │   │              │   │ architecture   │   │                  │
-└─────────────┘   └──────────────┘   └────────────────┘   └──────────────────┘
-     STEP 1            STEP 2              STEP 3                STEP 4
+┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
+│ arch-       │──▶│ arch-        │──▶│ sprint-manifest  │
+│ brainstorm  │   │ decision     │   │                  │
+│             │   │              │   │                  │
+│ explore +   │   │ validate via │   │ promote to       │
+│ dialog +    │   │ quint-fpf    │   │ sprint manifest  │
+│ write PRD   │   │              │   │                  │
+└─────────────┘   └──────────────┘   └──────────────────┘
+     STEP 1            STEP 2              STEP 3
 \`\`\`
+
+After \`arch-decision\` validates a PRD (PASS), the architect updates \`docs/architecture/\` (the project's source of truth) manually — NONoise does not ship an auto-sync skill.
 
 ## What this skill does
 
 1. **Explores** the codebase relevant to the area (components involved, existing patterns, stubs/gaps).
-2. **Reads** guidelines from the project source of truth (\`docs/architecture/\`, or the \`arch-docs\` skill if installed) — absolute constraints, patterns, component registry.
+2. **Reads the source of truth** at \`docs/architecture/\` — absolute constraints (\`01-constraints.md\`), patterns, stack, component registry. Also reads \`docs/requirements/\` for relevant functional requirements, \`docs/calls/\` for recent meeting context if relevant, and \`docs/support/\` for prior research.
 3. **Reads** prior studies in the area (if \`docs/prd/<area>/\` already exists).
 4. **Dialogs** with the architect via Q&A — one question at a time, multiple-choice preferred — in the style of \`superpowers:brainstorming\` but tuned to project-specific context.
 5. **Writes** a PRD with a mandatory narrative structure (see [\`references/prd-template.md\`](./references/prd-template.md)), saved as \`docs/prd/<area>/NN-<study>.md\`.
@@ -48,7 +50,7 @@ This skill is **step 1** of the NONoise architectural workflow. It turns an idea
 ## What this skill does NOT do
 
 - **Does not validate** decisions — that is \`arch-decision\`'s job (via \`quint-fpf\`).
-- **Does not update** \`docs/architecture/\` or the component registry — that is \`arch-docs\`' job.
+- **Does not update** \`docs/architecture/\` or the component registry — the architect does that manually after a PRD is validated.
 - **Does not promote** to a sprint — that is \`sprint-manifest\`'s job.
 - **Does not generate code** — it only produces design documents.
 - **Does not create formal ADR-DRAFT files** with tabulated pros/cons — the narrative decision story in the PRD replaces that format with readable prose.
@@ -88,9 +90,12 @@ The skill can be triggered in several ways:
    - **Exists with marker \`README-status.md\` declaring \`status: external\`** → external argumentative folder; **do not touch it**. Propose a different slug (e.g. \`-v2\` suffix).
 
 3. **Read the project source of truth** — always. In particular:
-   - \`docs/architecture/\` (if present) — constraints, patterns, registry
-   - \`.claude/skills/arch-docs/SKILL.md\` (if installed) — same but actionable
-   - Any \`CLAUDE.md\`, \`AGENTS.md\`, \`nonoise.config.json\` at repo root — additional project context
+   - \`docs/architecture/01-constraints.md\` — absolute constraints (first stop)
+   - Other numbered files in \`docs/architecture/\` — patterns, stack, conventions, component registry
+   - \`docs/requirements/\` filtered to the area — functional requirements to honor
+   - \`docs/calls/\` recent meetings relevant to the area — stakeholder context, pre-decisions
+   - \`docs/support/\` — any legacy analysis, external research, or vendor docs for the area
+   - \`CLAUDE.md\`, \`AGENTS.md\`, \`nonoise.config.json\` at repo root — additional project context
 
 4. **Explore the codebase** — identify:
    - Components potentially involved in the area (match by name, by domain, by keyword)
@@ -266,7 +271,7 @@ Fix inline before saving.
    >
    > **\`arch-decision <path-to-prd>\`**
    >
-   > arch-decision will apply the Quint FPF methodology (via \`quint-fpf\`) to validate the decisions embedded in the narrative. On PASS, the frontmatter becomes \`status: validated\` and \`arch-docs\` sync will be triggered automatically.
+   > arch-decision will apply the Quint FPF methodology (via \`quint-fpf\`) to validate the decisions embedded in the narrative. On PASS the frontmatter becomes \`status: validated\`, and \`arch-decision\` will produce a concrete list of changes to apply to \`docs/architecture/\` manually.
 
 #### Phase 4 checkpoint
 
@@ -346,13 +351,13 @@ If the user has already started a previous session with this skill (existing are
 - [\`references/prd-template.md\`](./references/prd-template.md) — Mandatory narrative template
 - [\`references/folder-conventions.md\`](./references/folder-conventions.md) — Naming, frontmatter, lifecycle states
 - Sibling skill \`quint-fpf\` — the formal validation methodology invoked by \`arch-decision\`
-- Sibling skill \`arch-decision\` — step 2 of the workflow (auto-triggered after this skill's handoff)
-- Sibling skill \`arch-docs\` — step 3 (source-of-truth sync after \`arch-decision\` PASS)
-- Sibling skill \`sprint-manifest\` — step 4 (promotion to sprint)
+- Sibling skill \`arch-decision\` — step 2 of the workflow (invoked after this skill's handoff)
+- Sibling skill \`sprint-manifest\` — step 3 (promotion to sprint)
+- Project source of truth: \`docs/architecture/\` (maintained manually by the architect)
 ",
   ".claude/skills/arch-brainstorm/references/folder-conventions.md": "# Folder conventions — naming, frontmatter, lifecycle states
 
-Mandatory conventions for the folder structure and files produced by \`arch-brainstorm\` (and processed by \`arch-decision\`, \`arch-docs\`, \`sprint-manifest\`).
+Mandatory conventions for the folder structure and files produced by \`arch-brainstorm\` (and processed by \`arch-decision\`, \`sprint-manifest\`).
 
 ## Directory structure
 
@@ -375,16 +380,16 @@ docs/prd/
 
 \`\`\`
 docs/sprints/Sprint-XX/
+├── sprint-manifest.md                   ← ONE aggregated manifest per sprint (all areas)
 └── <area-slug>/                         ← same area, same slug
-    ├── prd/
-    │   ├── 01-<study-slug>.md           ← PRDs moved from draft
-    │   └── 02-<study-slug>.md
-    └── manifest/
-        ├── 01-<study-slug>.md           ← sprint manifests (from sprint-manifest skill)
-        └── 02-<study-slug>.md
+    ├── 01-<study-slug>.md               ← PRDs moved from draft
+    ├── 01-<study-slug>-diagrams.md
+    ├── 02-<study-slug>.md
+    └── audit/
+        └── 01-<study-slug>-fpf.md       ← FPF audits carried over
 \`\`\`
 
-(Exact sprint folder layout is determined by the \`sprint-manifest\` skill of your project. This is a reasonable default.)
+One single \`sprint-manifest.md\` at the sprint root aggregates all PRDs into user stories + macro functional tasks with cross-area dependencies — not one manifest per PRD. Layout produced by the \`sprint-manifest\` skill.
 
 ## Naming convention
 
@@ -647,21 +652,22 @@ The area brief must be **updated every time a new study is added** or a relevant
 - Delegates the methodology to \`quint-fpf\`
 - Updates frontmatter (\`status: in-validation\` → \`validated\` or \`rejected\`)
 - Creates \`audit/NN-<study>-fpf.md\`
-- **Automatically triggers** \`arch-docs\` in sync mode (if PASS)
+- On PASS: produces a concrete "Impact on \`docs/architecture/\`" checklist for the architect to apply manually
 - **Does not move** files (everything stays in \`docs/prd/\`)
+- **Does not write** to \`docs/architecture/\` — that is the architect's responsibility
 
-### \`arch-docs\` (automatic after arch-decision):
-- **Reads** the validated \`<area>/NN-<study>.md\`
-- **Does not touch** files in \`docs/prd/\`
-- Updates \`docs/architecture/*\`
+### Updating \`docs/architecture/\` (manual, after arch-decision PASS):
+- The architect applies the "Impact on docs/architecture/" checklist produced by \`arch-decision\` Phase 6
+- Typical edits: add a new component to \`04-components.md\`, add a constraint to \`01-constraints.md\`, append a new pattern to \`03-patterns.md\`
+- Keep this change as a separate commit from the PRD validation — audit and source-of-truth changes stay decoupled
 
 ### \`sprint-manifest\` (when ready for sprint):
 - **Scans** \`<area>/\` for all PRDs
-- Requires all to be in \`validated\` state (or \`superseded\` — those are ignored)
-- Asks for target sprint
-- **Moves** validated PRDs to \`docs/sprints/Sprint-X/<area>/prd/\`
-- Generates sprint manifests in \`docs/sprints/Sprint-X/<area>/manifest/\`
-- Updates PRD frontmatter → \`status: promoted, sprint: X\`
+- Requires all to be in \`validated\` state (\`superseded\` is ignored, \`rejected\` is ignored)
+- Asks for target sprint (mandatory)
+- **Moves** validated PRDs (+ their diagrams and audit reports) to \`docs/sprints/Sprint-X/<area>/\`
+- Generates (or updates via impact analysis) **one aggregated manifest** at \`docs/sprints/Sprint-X/sprint-manifest.md\` — user stories, macro tasks, cross-area dependencies, CL1 risk flags
+- Updates PRD frontmatter → \`status: promoted, sprint: X, promoted_at: YYYY-MM-DD\`
 - Updates \`00-area-brief.md\` with note "promoted to Sprint X"
 
 ## Special folders to ignore
@@ -680,7 +686,6 @@ status: external
 Rules:
 - \`arch-brainstorm\` **does not** touch these folders
 - \`arch-decision\` **does not** validate documents inside them
-- \`arch-docs\` **does not** sync from them
 - \`sprint-manifest\` **does not** promote them
 
 If an architect wants to convert an external folder into a normal study area, they must:
@@ -1046,7 +1051,7 @@ If even one of these checks fails, **do not save**. Fix first.
 ",
   ".claude/skills/arch-decision/SKILL.md": "---
 name: arch-decision
-description: Formal validation of an existing PRD (produced by \`arch-brainstorm\`) using the Quint FPF methodology via the \`quint-fpf\` sub-skill. Reads a PRD in \`draft\` status, extracts architectural hypotheses from the decision story, verifies them through abduction → deduction → induction, computes R_eff via WLNK, produces an audit report, updates the frontmatter to \`validated\`/\`rejected\`, and automatically triggers \`arch-docs\` source-of-truth sync on PASS. USE AS STEP 2 of the NONoise architectural workflow — \`arch-brainstorm\` → **\`arch-decision\`** → \`arch-docs\` → \`sprint-manifest\`. Input is a path to a \`draft\` PRD; output is validation or revision requests. Does not create PRDs from scratch (that is \`arch-brainstorm\`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
+description: Formal validation of an existing PRD (produced by \`arch-brainstorm\`) using the Quint FPF methodology via the \`quint-fpf\` sub-skill. Reads a PRD in \`draft\` status, extracts architectural hypotheses from the decision story, verifies them through abduction → deduction → induction, computes R_eff via WLNK, produces an audit report, and updates the frontmatter to \`validated\`/\`rejected\`. On PASS it reminds the architect to update \`docs/architecture/\` (the source of truth) manually — NONoise does not prescribe an auto-sync skill. USE AS STEP 2 of the NONoise architectural workflow — \`arch-brainstorm\` → **\`arch-decision\`** → \`sprint-manifest\`. Input is a path to a \`draft\` PRD; output is validation or revision requests. Does not create PRDs from scratch (that is \`arch-brainstorm\`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; delegates methodology to quint-fpf
 ---
@@ -1058,16 +1063,18 @@ This skill is **step 2** of the NONoise architectural workflow. It applies the *
 ## Position in the workflow
 
 \`\`\`
-┌─────────────┐   ┌──────────────┐   ┌────────────────┐   ┌──────────────────┐
-│ arch-       │──▶│ arch-        │──▶│ arch-docs      │──▶│ sprint-manifest  │
-│ brainstorm  │   │ decision     │   │ (auto sync)    │   │                  │
-│             │   │ (THIS SKILL) │   │                │   │                  │
-│ explore +   │   │ validate via │   │ update source  │   │ promote to       │
-│ dialog +    │   │ quint-fpf    │   │ of truth docs/ │   │ sprint manifest  │
-│ write PRD   │   │              │   │ architecture   │   │                  │
-└─────────────┘   └──────────────┘   └────────────────┘   └──────────────────┘
-     STEP 1            STEP 2              STEP 3                STEP 4
+┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
+│ arch-       │──▶│ arch-        │──▶│ sprint-manifest  │
+│ brainstorm  │   │ decision     │   │                  │
+│             │   │ (THIS SKILL) │   │                  │
+│ explore +   │   │ validate via │   │ promote to       │
+│ dialog +    │   │ quint-fpf    │   │ sprint manifest  │
+│ write PRD   │   │              │   │                  │
+└─────────────┘   └──────────────┘   └──────────────────┘
+     STEP 1            STEP 2              STEP 3
 \`\`\`
+
+After a PRD reaches \`validated\` state, **the architect updates \`docs/architecture/\` manually** to reflect the new decision. NONoise does not ship an auto-sync skill — the source of truth is governed by the human, not the framework. Projects with a strong architecture governance model can install a project-specific sync skill via \`skill-finder\`.
 
 ## Relationship with other skills
 
@@ -1076,10 +1083,10 @@ This skill is **step 2** of the NONoise architectural workflow. It applies the *
 - **Output**:
   - Audit report at \`docs/prd/<area>/audit/NN-<study>-fpf.md\`
   - PRD frontmatter updated with \`status: validated | rejected\`, \`validated_at\`, \`validated_by\`
-  - **Automatic trigger** of \`arch-docs\` in sync mode on the just-validated PRD (only on PASS)
+  - Reminder message to the architect to update \`docs/architecture/\` manually on PASS
 - **Does NOT**:
   - Create drafts from scratch → that is \`arch-brainstorm\`'s job
-  - Publish into \`docs/architecture/\` → that is \`arch-docs\`' job
+  - Publish into \`docs/architecture/\` → the architect does that manually after reading the validated PRD
   - Explore the codebase to produce a design → the design is already in the PRD
 
 ## Methodology: Quint FPF in brief
@@ -1224,7 +1231,7 @@ audited_at: <today>
 | Check | Description |
 |-------|-------------|
 | **Type check** | Types, DTOs, interfaces compatible with the system? |
-| **Constraint check** | Does it violate absolute constraints from \`arch-docs\` (if present) or \`CLAUDE.md\`/\`AGENTS.md\` of the project? |
+| **Constraint check** | Does it violate absolute constraints from \`docs/architecture/01-constraints.md\` or \`CLAUDE.md\`/\`AGENTS.md\` of the project? |
 | **Consistency check** | Does the internal logic hold? Race condition, deadlock, circularity? |
 | **Compatibility check** | Does it coexist with the existing architecture? API contracts, bounded context? |
 
@@ -1237,10 +1244,10 @@ audited_at: <today>
 ### Actions
 
 1. **Read project constraints**:
-   - \`docs/architecture/\` (if present)
-   - \`.claude/skills/arch-docs/\` (if installed) — absolute constraints section
-   - \`CLAUDE.md\`, \`AGENTS.md\`, \`nonoise.config.json\`
-   - Reference files relevant to the PRD's domain
+   - \`docs/architecture/01-constraints.md\` — absolute constraints (project-maintained source of truth)
+   - Other numbered files in \`docs/architecture/\` (patterns, stack, conventions) relevant to the area
+   - \`CLAUDE.md\`, \`AGENTS.md\`, \`nonoise.config.json\` at repo root
+   - Any project-specific arch skill installed via \`skill-finder\` (rare)
 
 2. **For each hypothesis**, run the 4 checks and document them in the report:
 
@@ -1539,13 +1546,7 @@ audited_at: YYYY-MM-DD
 
 Make sure the report contains all 5 phases filled in.
 
-3. **Automatically trigger \`arch-docs\`** in sync mode:
-
-   Invoke the \`arch-docs\` skill passing "sync-from-validated-prd" + the path of the just-validated PRD. Let that skill update \`docs/architecture/\`. If the user prefers to defer sync (rare), document it but warn that the source of truth will stay out-of-sync until the sync runs.
-
-   If \`arch-docs\` is not installed in the project, skip this step and inform the architect that source-of-truth sync is manual.
-
-4. **Inform the architect** of the result and next steps:
+3. **Inform the architect** of the result, the impact on the source of truth, and next steps:
 
 \`\`\`
 ✅ PRD successfully validated.
@@ -1554,11 +1555,16 @@ Make sure the report contains all 5 phases filled in.
 **Verdict**: PASS
 **Audit report**: <path>
 
+**Impact on docs/architecture/** (update manually):
+- <list concrete changes the architect should write: new constraint / new pattern / new component in 04-components.md / etc.>
+
 **Next step**:
-- Source of truth (docs/architecture) was synced automatically (if arch-docs is installed).
+- Review and apply the impacts above to \`docs/architecture/\` (manual — NONoise does not auto-sync)
 - When ready to promote the PRD to a sprint, invoke: \`sprint-manifest area <area> sprint <N>\`
 - If you have more studies to add to the area, invoke \`arch-brainstorm\` again.
 \`\`\`
+
+Populate the "Impact on docs/architecture/" section with actual concrete changes extracted from the validated PRD — e.g. "Add to \`04-components.md\` a new \`draft\` entry for \`notifications-worker\`", "Add constraint to \`01-constraints.md\`: always acknowledge events within 5s", "Append new pattern to \`03-patterns.md\`: outbox-table for cross-component writes". Be specific — this list is the architect's work checklist.
 
 ### Actions for FAIL or NEEDS-REVISION verdict
 
@@ -1581,7 +1587,7 @@ last_audit_verdict: NEEDS-REVISION
 
 2. **Finalize the audit report** with \`verdict: FAIL | NEEDS-REVISION\` and the detailed list of proposed revisions.
 
-3. **DO NOT trigger \`arch-docs\`** — the source of truth must not be updated with rejected decisions.
+3. **DO NOT suggest updates to \`docs/architecture/\`** — the source of truth must not be updated with rejected decisions.
 
 4. **Inform the architect**:
 
@@ -1605,7 +1611,7 @@ last_audit_verdict: NEEDS-REVISION
 
 - [ ] PRD frontmatter updated (validated | rejected | draft)
 - [ ] Audit report finalized with all 5 phases
-- [ ] \`arch-docs\` triggered (on PASS, if installed)
+- [ ] On PASS: concrete "Impact on docs/architecture/" checklist produced for the architect
 - [ ] Architect informed of next steps
 
 ---
@@ -1629,13 +1635,13 @@ If a partial audit report already exists at \`audit/NN-<study>-fpf.md\`:
 3. **Weak evidence treated as strong proof** — CL1 does not beat CL3
 4. **Validating by inertia** — if evidence is insufficient, it is OK to say "FAIL, more analysis needed"
 5. **Over-engineering the audit** — small decisions do not need 6 phases. If the PRD covers a local choice, tell the architect "Quint FPF is overkill for this" and skip
-6. **Publishing to \`docs/architecture/\`** — not this skill's job; delegate to \`arch-docs\`
+6. **Writing directly to \`docs/architecture/\`** — not this skill's job. The architect applies the "Impact on docs/architecture/" checklist produced at Phase 6 manually, in a separate commit. Keep audit and source-of-truth changes decoupled.
 7. **Creating drafts from scratch** — not this skill's job; delegate to \`arch-brainstorm\`
 
 ## When NOT to use
 
 - The PRD does not exist yet → use \`arch-brainstorm\` first
-- Decisions already in the absolute constraints of \`arch-docs\` → the PRD should already honor them; no FPF validation needed
+- Decisions already in the absolute constraints at \`docs/architecture/01-constraints.md\` → the PRD should already honor them; no FPF validation needed
 - Local choices that do not affect architecture (naming, formatting)
 - Bug fix → use \`superpowers:systematic-debugging\`
 
@@ -1645,8 +1651,8 @@ If a partial audit report already exists at \`audit/NN-<study>-fpf.md\`:
 
 - Sibling skill [\`quint-fpf\`](../quint-fpf/SKILL.md) — the underlying methodology, 6 phases, tooled/conversational modes
 - Sibling skill [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — step 1 (produces the PRD this skill validates)
-- Sibling skill \`arch-docs\` — step 3 (auto-triggered after PASS)
-- Sibling skill \`sprint-manifest\` — step 4 (promotion to sprint)
+- Sibling skill \`sprint-manifest\` — step 3 (promotion to sprint)
+- Project source of truth: \`docs/architecture/\` (maintained manually by the architect)
 ",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md": "---
 name: bmad-advanced-elicitation
@@ -1909,7 +1915,7 @@ When you are in this persona and the user calls a skill, this persona must carry
 |------|-------------|---------|
 | BRA | Architecture brainstorming — explore options starting from a problem area | \`arch-brainstorm\` skill (fallback: inline if not installed) |
 | DEC | Formal validation of a PRD using Quint FPF (abduction → deduction → induction, R_eff via WLNK) | \`arch-decision\` skill (uses \`quint-fpf\` sub-skill) |
-| DOC | Sync source-of-truth architecture docs after a validated PRD | \`arch-docs\` skill |
+| DOC | Apply post-validation changes to \`docs/architecture/\` (source of truth) after a PASS PRD | Inline — Alex opens each file listed in \`arch-decision\` Phase 6 "Impact" checklist and edits it manually |
 | IR | Implementation readiness check — verify PRD/UX/Architecture/Epics alignment | Inline (Alex reviews all docs in \`docs/\` and flags gaps) |
 | LSP | Suggest LSP plugins for the detected stack (Claude Code + Copilot commands, never auto-install) | Inline advisor — uses LSP matrix |
 | EL | Deep elicitation / critique of an architecture draft | \`bmad-advanced-elicitation\` skill |
@@ -1931,8 +1937,8 @@ When you are in this persona and the user calls a skill, this persona must carry
    **STOP and WAIT for user input** — Do NOT execute menu items automatically. Accept number, menu code, or fuzzy command match.
 
 **CRITICAL Handling:** When user responds with a code, line number, or named skill:
-- If the code maps to a NONoise skill (\`arch-brainstorm\`, \`arch-decision\`, \`arch-docs\`, \`quint-fpf\`, \`bmad-advanced-elicitation\`): invoke it by exact name.
-- If the code maps to "Inline" (IR, LSP): Alex leads the conversation personally, producing artifacts in standard locations.
+- If the code maps to a NONoise skill (\`arch-brainstorm\`, \`arch-decision\`, \`quint-fpf\`, \`bmad-advanced-elicitation\`): invoke it by exact name.
+- If the code maps to "Inline" (DOC, IR, LSP): Alex leads the conversation personally, producing or editing artifacts in standard locations.
 - If a target skill is not installed: Alex does the work inline with best-effort methodology and flags the gap ("fyi, \`arch-decision\` isn't ported yet — I'll do abduction→deduction→induction manually and produce the ADR").
 
 DO NOT invent capabilities outside this table.
@@ -1978,9 +1984,9 @@ setup lsp
 
 ## Artifacts & output locations
 
-- Architecture options brainstorm → \`docs/prd/<slug>.md\` (handoff output from \`arch-brainstorm\`)
-- Validated PRD / ADR → \`docs/adr/<n>-<slug>.md\` (from \`arch-decision\`)
-- Source-of-truth architecture → \`docs/architecture/\` (from \`arch-docs\`)
+- Architecture options brainstorm → \`docs/prd/<area>/NN-<study>.md\` (handoff output from \`arch-brainstorm\`)
+- FPF audit of a validated PRD → \`docs/prd/<area>/audit/NN-<study>-fpf.md\` (from \`arch-decision\`)
+- Source-of-truth architecture → \`docs/architecture/\` (edited manually by Alex via DOC capability, after \`arch-decision\` PASS)
 - Readiness check report → \`docs/review/<date>-implementation-readiness.md\`
 
 ## Integration with Polly
@@ -5409,6 +5415,493 @@ Bumps the limit to 5000/hour. Skill‑finder never requires a token — falls ba
   ]
 }
 ",
+  ".claude/skills/sprint-manifest/SKILL.md": "---
+name: sprint-manifest
+description: Step 3 of the NONoise architectural workflow. Promotes \`validated\` PRDs from \`docs/prd/<area>/\` to \`docs/sprints/Sprint-N/<area>/\` and produces **one aggregated Sprint Manifest** at \`docs/sprints/Sprint-N/sprint-manifest.md\` that lists all promoted PRDs, derives user stories, breaks work into **macro functional tasks (vertical slices)**, assigns confidence CL1/CL2/CL3, flags CL1 tasks requiring a decision record, and computes cross-area dependencies. Also handles impact analysis when a new PRD is added to an already-open sprint. USE WHEN the user wants to promote one or more validated PRDs to a sprint, talks about "sprint manifest", "sprint plan", "promotion to sprint", "task breakdown macro", "impact analysis on sprint", or "update sprint with new PRD". Triggers — \`sprint-manifest area <area> sprint <N>\`, \`sprint-manifest sprint <N>\` (all validated areas), \`sprint-manifest sprint <N> update\` (impact analysis). Also triggers without explicit mention when the user says "promote <area> to sprint <N>" or "create sprint <N> plan".
+source: Risko reference-project (reworked whitelabel for NONoise)
+variant: nonoise generic; stack-neutral; one aggregated manifest per sprint
+---
+
+# sprint-manifest — Sprint Manifest + PRD promotion
+
+This skill is **step 3** of the NONoise architectural workflow. It takes \`validated\` PRDs (output of \`arch-decision\`) and promotes them into a specific sprint, producing **one aggregated Sprint Manifest** per sprint that coordinates execution and defines the **macro functional tasks** developers will implement.
+
+## Position in the workflow
+
+\`\`\`
+┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
+│ arch-       │──▶│ arch-        │──▶│ sprint-manifest  │
+│ brainstorm  │   │ decision     │   │ (THIS SKILL)     │
+│             │   │              │   │                  │
+│ produces    │   │ validates    │   │ promotes PRDs    │
+│ PRDs as     │   │ via          │   │ to sprint +      │
+│ draft       │   │ quint-fpf    │   │ aggregated       │
+│             │   │              │   │ manifest         │
+└─────────────┘   └──────────────┘   └──────────────────┘
+     STEP 1            STEP 2              STEP 3
+\`\`\`
+
+## What this skill does
+
+1. **Promotes \`validated\` PRDs** by moving them from \`docs/prd/<area>/\` to \`docs/sprints/Sprint-N/<area>/\`.
+2. **Generates (or updates) one aggregated Sprint Manifest** at \`docs/sprints/Sprint-N/sprint-manifest.md\` — a single sprint-level document listing all PRDs, deriving user stories, breaking work into macro tasks, mapping dependencies.
+3. **Runs impact analysis** when a new PRD is added to an already-open sprint with an existing manifest.
+4. **Assigns confidence CL1 / CL2 / CL3** to tasks and flags CL1 tasks that require a dedicated decision record before implementation.
+5. **Provides the seed** for downstream work-item export skills (e.g. \`spec-to-workitem\`, \`devops-push\` if installed).
+
+## What this skill does NOT do
+
+- **Does not create PRDs** — that is \`arch-brainstorm\`'s job. If the user wants a new PRD, redirect.
+- **Does not validate PRDs** — if a PRD is not \`validated\`, stop and redirect to \`arch-decision\`.
+- **Does not write to \`docs/architecture/\`** — the architect updates the source of truth manually (driven by \`arch-decision\` Phase 6 "Impact on docs/architecture/" checklist), independently from this skill.
+- **Does not generate per-feature micro-manifests** — one aggregated manifest per sprint, never split by area or by PRD.
+- **Does not produce technical breakdowns** — tasks are **vertical functional slices**, not lists of files/classes/migrations to create.
+- **Does not push to external issue trackers** — that is a separate skill invoked explicitly afterwards.
+
+---
+
+## Golden rule — MACRO granularity (read twice)
+
+This is the most important rule of this skill. **Tasks and user stories must be VERTICAL FUNCTIONAL SLICES, not horizontal technical layers.**
+
+A developer must be able to take a task, implement it end-to-end, test it in a visibly-functional way, and deliver it as a unit of value. Decomposition into files, classes, migrations, unit tests is **implementation detail** and is the developer's responsibility — **it must not be in the manifest**.
+
+### Concrete example — hypothetical study \`user-signup/01-email-otp\`
+
+#### ❌ WRONG — technical-layer tasks
+
+\`\`\`
+- Task 1: Create migration for table \`SignupSessions\`
+- Task 2: Create \`SignupSession\` entity in auth-service
+- Task 3: Create ORM mapping for the new entity
+- Task 4: Create \`IEmailProvider\` interface
+- Task 5: Create \`SendgridEmailProvider\` implementation
+- Task 6: Create \`IOtpPolicy\` interface
+- Task 7: Create \`DefaultOtpPolicy\` implementation
+- Task 8: Create \`StartSignupHandler\` skeleton
+- Task 9: Create \`SignupController\` with POST /signup/start
+- Task 10: Create \`VerifyOtpCommand\` in auth-service
+- Task 11: Create \`VerifyOtpHandler\` in auth-service
+- Task 12: Create endpoint POST /signup/verify-otp
+- Task 13: Create \`SignupNotificationHandler\` in notifications
+- ... (continues for another 10 tasks)
+\`\`\`
+
+**Why this is wrong:**
+- No task delivers **visible functional value**. Task 1 alone does nothing testable.
+- The dev can't deliver incrementally — must do everything before seeing a result.
+- The breakdown assumes the full technical architecture (classes, files). The manifest is deciding it, not the dev.
+- Separate-layer tasks (DB, handler, controller) → forces rigid ordering and blocks parallel work at the functional level.
+
+#### ✅ RIGHT — functional-slice tasks
+
+\`\`\`
+- Task 1: "Operator starts signup with email and receives an OTP"
+  POST /signup/start accepts an email, creates a session, emits an OTP via email provider.
+  Visible test: curl POST → 200 + email received in Mailhog with 6-digit OTP.
+  Confidence: CL2 (email pattern already in use for password-reset)
+  Effort: 3–5 days
+
+- Task 2: "Operator verifies OTP and receives a session token"
+  POST /signup/verify-otp validates the OTP, marks the session complete, returns a JWT.
+  Visible test: end-to-end — start signup, read OTP, submit it, get token, token validates on protected endpoint.
+  Confidence: CL2 (JWT issuance pattern already in production)
+  Effort: 2–3 days
+
+- Task 3: "Expired OTP blocks verification with clear error"
+  Sessions older than 10 minutes reject verification with a 410 Gone and a human message.
+  Visible test: wait 11 minutes, submit OTP, receive 410 with error code \`OTP_EXPIRED\`.
+  Confidence: CL3 (straightforward TTL check)
+  Effort: 1 day
+
+- Task 4: "Operator receives email with branded template and correct locale"
+  Email template derives from locale header, uses shared branding, OTP is bold 6 chars.
+  Visible test: send signup with \`Accept-Language: it\` → email body is in Italian.
+  Confidence: CL1 (new template system, no prior) → [DECISION RECORD NEEDED on template resolution]
+  Effort: 2–4 days
+\`\`\`
+
+**Why this is right:**
+- Each task delivers **visible, testable functional value**.
+- The dev can work on them in parallel (with clear inter-task deps where they exist).
+- The dev decides how to structure classes, files, migrations autonomously. The task says "what it does", not "how".
+- Confidence CL is on the functional task, not on a single file — more meaningful.
+- The developer can demo at the end of each task.
+
+### Practical rule
+
+| Question | If NO → the task is too micro |
+|---|---|
+| Does the task deliver a visible feature or end-to-end-testable behavior? | Too micro |
+| Could a developer demo the result of this task alone? | Too micro |
+| Would the task survive a refactor of internal file/class structure? | Too micro (too tied to code shape) |
+| Does the task name sound like "implement feature X" or "enable Y"? | OK, macro |
+
+If the task name is "Create class X.ts" or "Add column Y to table Z", **it's wrong**. If it's "Let the operator do Q" or "Enable flow R", it's right.
+
+### Typical task size
+
+| Measure | Typical value |
+|---|---|
+| Effort | 2–5 days of dev (includes tests) |
+| Files touched | Typically 5–15 files across 2–4 layers |
+| Components involved | Typically 1–3 |
+| Demo-ability | Yes — result shown in ~5 minutes |
+
+If a task is estimated >8–10 days, it is probably too big and should be split into 2 separate functional tasks. If a task is estimated <1 day, it is probably a hidden technical refactor and should be absorbed into a neighboring macro task.
+
+### User stories sit above tasks
+
+User stories are even higher than tasks — they are **complete user experiences**. Example for area \`user-signup\`:
+
+- **US1 — Self-serve signup**: "As a new visitor, entering my email I receive an OTP and, after verifying it, I have an authenticated session."
+- **US2 — Clear error recovery**: "As a new visitor with an expired OTP, I see a clear error and can request a new one without losing my progress."
+
+A user story is delivered by **multiple tasks** (typically 3–8 per US). Tasks are the internal units of work; the user story is the externally-visible outcome.
+
+---
+
+## Arguments
+
+\`$ARGUMENTS\` can be:
+
+- \`sprint N\` — sprint N, process all \`validated\` PRDs from all areas
+- \`sprint N area=<slug>\` — sprint N, process only the specified area
+- \`sprint N area=<slug> prd=NN\` — sprint N, promote only one specific PRD of the area
+- \`sprint N update\` — sprint N, update the existing manifest with a new PRD (impact analysis)
+- \`sprint N regenerate\` — rebuild the manifest from scratch reading all already-promoted PRDs
+
+If arguments are missing, ask the user for sprint + source.
+
+---
+
+## Flow — 5 steps
+
+### Step 0 — determine the mode
+
+Inspect arguments and repo state:
+
+| Mode | Trigger | What it does |
+|------|---------|--------------|
+| **A. First manifest** | \`Sprint-N/sprint-manifest.md\` does not exist, validated PRDs ready | Promote PRDs, create manifest from scratch |
+| **B. Impact analysis** | \`Sprint-N/sprint-manifest.md\` exists, a new PRD arrives | Promote the new PRD, update the existing manifest with impact analysis |
+| **C. Regenerate** | User wants to rebuild the manifest without changing PRDs | Re-read promoted PRDs and rebuild the manifest |
+
+Always announce the detected mode to the user.
+
+---
+
+### Step 1 — check prerequisites
+
+Before touching any file:
+
+1. **Check PRD state**: every PRD to process must have \`status: validated\` in its frontmatter.
+   - \`draft\` → redirect: "PRD X is still in draft. Run \`arch-decision <path>\` before promoting it."
+   - \`superseded\` → skip with a log entry (not an error)
+   - \`rejected\` → skip with a log entry
+   - \`promoted\` → already in a sprint, skip
+   - Unrecognized frontmatter → error, ask the user what to do
+
+2. **Check target sprint**: if the user has not specified the sprint, **ask explicitly** via \`AskUserQuestion\`. The sprint is mandatory.
+
+3. **Check area consistency**: the \`area\` slug in the PRD frontmatter must match the folder name under \`docs/prd/\`. If there is a mismatch, flag it.
+
+4. **Check audit report**: for every \`validated\` PRD there should be a matching audit report at \`docs/prd/<area>/audit/NN-<study>-fpf.md\`. If missing, flag as warning but continue (non-blocking).
+
+If any check fails and is not recoverable, **stop** and ask the user how to proceed.
+
+---
+
+### Step 2 — promote PRDs
+
+For every \`validated\` PRD to process:
+
+1. **Move the files** from draft to sprint area:
+
+   \`\`\`
+   docs/prd/<area>/NN-<study>.md
+   → docs/sprints/Sprint-N/<area>/NN-<study>.md
+
+   docs/prd/<area>/NN-<study>-diagrams.md
+   → docs/sprints/Sprint-N/<area>/NN-<study>-diagrams.md
+
+   docs/prd/<area>/audit/NN-<study>-fpf.md
+   → docs/sprints/Sprint-N/<area>/audit/NN-<study>-fpf.md
+   \`\`\`
+
+2. **Copy \`00-area-brief.md\`** into the sprint area folder on first promotion of that area, annotated with "Promoted to Sprint N in YYYY-MM-DD".
+
+3. **Update the frontmatter** of the moved PRDs:
+
+   \`\`\`yaml
+   status: promoted
+   sprint: <N>
+   promoted_at: YYYY-MM-DD
+   \`\`\`
+
+4. **Leave a short pointer** in \`docs/prd/<area>/\` if the area has no remaining drafts — add a note in \`00-area-brief.md\` (don't remove the brief): "Studies promoted to Sprint N. Reuse this slug for new studies on this area." If there are still \`draft\` or \`validated\` non-promoted studies in the area, keep them in place and update the brief index accordingly.
+
+---
+
+### Step 3 — generate or update the Sprint Manifest
+
+The sprint manifest lives at \`docs/sprints/Sprint-N/sprint-manifest.md\`. **One file per sprint**, not per area or per PRD.
+
+#### Mode A (first manifest)
+
+Create the file from scratch using the template below.
+
+#### Mode B (impact analysis)
+
+1. Read the existing manifest.
+2. Read the newly-promoted PRDs.
+3. For each task in the existing manifest, classify the impact:
+
+   | Class | Meaning | Action |
+   |---|---|---|
+   | **UNCHANGED** | No new PRD touches this functional area | Skip |
+   | **UPDATE** | A new PRD modifies contracts/behavior that affect this task | Update the task in the manifest (inline \`Edit\`) |
+   | **NEW** | Feature not covered by any existing task | Add a new task to the manifest |
+   | **CONFLICT** | The new PRD contradicts an existing task | Flag, ask the user |
+
+4. **Present the impact table to the user before touching any file**. Explicit approval required.
+
+5. Apply changes via \`Edit\`, never overwrite the whole file.
+
+6. Append a changelog entry to the manifest:
+
+   \`\`\`markdown
+   ## Changelog
+   - YYYY-MM-DD — Updated with PRD <area>/<NN-study>: [tasks X, Y added; tasks Z updated]
+   \`\`\`
+
+#### Mode C (regenerate)
+
+Rebuild the manifest from scratch by reading all promoted PRDs. Use with caution — overwrites the existing manifest. Ask for explicit confirmation.
+
+---
+
+### Step 4 — apply the macro-granularity principle
+
+When generating tasks for the manifest, **rigorously apply the macro principle described above**:
+
+1. **Start from user stories**: for every PRD, extract 1–3 user stories from the "Decision story" and "Code changes checklist" sections. User stories are complete user experiences.
+
+2. **From user stories to tasks**: for every user story, identify 3–8 macro functional tasks. Every task is a testable vertical slice.
+
+3. **Do not split by layer**: if you find yourself writing "Create aggregate X", "Create repository X", "Create handler X", **stop and aggregate**. They are all part of the same functional task ("Enable operation on X").
+
+4. **Every task has**:
+   - **Functional name** (not "Create class X")
+   - **Description** (what it does when done — visible behavior)
+   - **Visible acceptance test** (how to verify, typically integration / end-to-end)
+   - **Confidence CL1 / CL2 / CL3** (how well-known the pattern is)
+   - **Effort** (days, typically 2–5)
+   - **Dependencies** (other tasks that must be done first)
+   - **Area** (reference to the source PRD)
+
+5. **If total effort of an area exceeds the sprint**, flag it to the user. Do not arbitrarily shrink.
+
+6. **Reject micro patterns**: if a user who read the manifest says "I need more detail", answer that detail is the developer's responsibility during implementation and belongs in code, not in the manifest.
+
+---
+
+### Step 5 — output and next steps
+
+1. **Summary to the user**:
+   - Target sprint: N
+   - Promoted PRDs: list (area / NN-study)
+   - Manifest: path
+   - User stories: N
+   - Macro tasks: N (total effort X days)
+   - Tasks with confidence CL1 (decision record needed): N
+   - Conflicts detected (mode B): N resolved / N open
+
+2. **CL1 flag → decision record needed**:
+
+   \`\`\`
+   The following tasks have confidence CL1 and require an explicit decision record
+   before implementation:
+
+   - Task X: "<name>" → reason: <new pattern, no prior>
+   - Task Y: "<name>" → reason: <new tech never used in the project>
+
+   Want me to open an arch-brainstorm study for one of these?
+   \`\`\`
+
+3. **Suggested next step**:
+
+   \`\`\`
+   ✅ Sprint <N> ready with manifest.
+
+   Next recommended steps:
+   - Human review of the manifest: <path>
+   - For CL1 tasks: run \`arch-brainstorm\` on the topic to close the knowledge gap
+   - For external work-item export: if a skill like \`spec-to-workitem\` or \`devops-push\` is
+     installed, invoke it on the manifest; otherwise copy tasks manually to your tracker
+   - To add more PRDs to this sprint: \`arch-brainstorm\` + \`arch-decision\` + \`sprint-manifest sprint <N> update\`
+   \`\`\`
+
+4. **Never push automatically** to external trackers. That is an action with external side effects — it must be explicit and invoked separately.
+
+---
+
+## Sprint Manifest template
+
+Mandatory structure for \`docs/sprints/Sprint-N/sprint-manifest.md\`:
+
+\`\`\`markdown
+---
+title: "Sprint <N> — Manifest"
+sprint: <N>
+kind: sprint-manifest
+status: draft | approved | completed
+created_at: YYYY-MM-DD
+updated_at: YYYY-MM-DD
+areas_covered: [<area-1>, <area-2>]
+prd_refs:
+  - area: <area-1>
+    studies: [01-<study>, 02-<study>]
+  - area: <area-2>
+    studies: [01-<study>]
+total_effort_days: <number>
+---
+
+# Sprint <N> — Manifest
+
+> Sprint-level aggregator of the validated PRDs promoted to this sprint.
+> Contains the breakdown in user stories and macro functional tasks for implementation.
+
+## 1. Sprint goal
+
+<1–2 sentences summarizing the sprint objective, derived from the goals of the promoted
+PRDs. Example: "Enable self-serve signup with email + OTP verification, with clear error
+recovery paths and audit trail of all attempts.">
+
+## 2. PRDs included in this sprint
+
+| Area | Study | Path | Goal | Aggregate confidence |
+|---|---|---|---|---|
+| user-signup | 01-email-otp | [path](./user-signup/01-email-otp.md) | OTP-based signup flow | CL2 |
+| ... | ... | ... | ... | ... |
+
+## 3. User stories
+
+### US1 — <user-experience name>
+
+**As** <role>, **I want** <what>, **so that** <why>.
+
+**Covered by PRD**: <area>/<study>
+**Acceptance test**: <how to verify end-to-end>
+**Confidence**: CL2
+
+### US2 — ...
+
+## 4. Macro functional tasks
+
+### Task T1 — <functional name>
+
+- **Area**: <area-slug>
+- **User story**: US1
+- **Description**: <visible behavior when the task is done. 2–3 sentences, not a file list.>
+- **Acceptance test**: <how to verify. Typically integration / end-to-end.>
+- **Confidence**: CL1 | CL2 | CL3
+- **Estimated effort**: <X> days
+- **Dependencies**: [T2, T5] (or "none")
+- **Components touched**: [auth-service, notifications]
+- **Relevant PRD sections**: §2.2 "Flow", §5 "Target architecture"
+
+### Task T2 — ...
+
+## 5. Dependencies and execution order
+
+\`\`\`mermaid
+graph LR
+    T2[T2: notifications email template] --> T1[T1: signup start + OTP]
+    T1 --> T3[T3: OTP verify + token]
+    T1 --> T4[T4: expired OTP error]
+    T5[T5: locale resolution] --> T2
+\`\`\`
+
+<brief prose explanation of the suggested order>
+
+## 6. Tasks with CL1 confidence (decision record needed)
+
+Every CL1 task requires a dedicated decision record **before** implementation:
+
+| Task | CL1 reason | Proposed DR / new arch-brainstorm study |
+|---|---|---|
+| T5 | Locale resolution policy new, no prior pattern | DR-NNN: "Locale resolution for templated emails" |
+
+## 7. Risks and mitigations
+
+| Risk | Severity | Mitigation |
+|---|---|---|
+| <risk> | 🔴/🟠/🟡 | <how to mitigate> |
+
+## 8. Out of scope for this sprint
+
+Explicit list of things NOT being done this sprint (even if they appear in PRDs):
+
+- <item> — reason for deferral
+
+## 9. Next steps after manifest
+
+- [ ] Human review of the manifest by the architect
+- [ ] Decision records for CL1 tasks: see section 6
+- [ ] Export to external tracker: via \`spec-to-workitem\` / \`devops-push\` if installed
+- [ ] External push (explicit, not automatic)
+
+## Changelog
+
+- YYYY-MM-DD — Manifest created by sprint-manifest (first run)
+- YYYY-MM-DD — Updated with PRD <area>/<study> (impact analysis)
+\`\`\`
+
+---
+
+## Operating principles
+
+1. **One manifest per sprint** — never separate files by area or by PRD. The manifest is the only sprint-level artifact.
+2. **PRDs are immutable after promotion** — once promoted, the PRD in the sprint folder is frozen. If an important change is needed, create a new study (\`02-<study>\`) in \`docs/prd/<area>/\` and promote it with impact analysis.
+3. **Macro granularity is mandatory** — reject any attempt at technical-layer tasks. If the user asks for more detail, explain that it is the developer's responsibility.
+4. **CL1 → explicit decision record** — every CL1 task generates an entry in section 6 of the manifest. Do not swallow the risk.
+5. **Impact analysis with approval** — never touch an existing manifest without presenting the impact table and getting approval.
+6. **No automatic external push** — the manifest is a planning document. Export to a tracker is a separate, explicit action.
+
+---
+
+## Anti-patterns
+
+1. **Technical-layer tasks** — "Create class X", "Create migration Y", "Add field Z". Always wrong. See the macro-granularity principle.
+2. **Manifest too granular** — 50+ tasks per sprint is a signal that you are over-splitting. Aim at 10–20 macro tasks.
+3. **Manifest too vague** — tasks without a visible acceptance test are not implementable.
+4. **Over-generous confidence** — do not rate everything CL3. Be honest: if you have not seen the pattern in the codebase, it is CL2 at most. If the technology is new, it is CL1 and needs a decision record.
+5. **Ignoring conflicts** — if a new PRD conflicts with an existing task, you MUST stop and ask the user. Never resolve silently.
+6. **Unchanged PRD after impact analysis** — if a new PRD causes UPDATE on another PRD's tasks, that is a signal the two PRDs should be reviewed together. Flag it.
+
+## When NOT to use this skill
+
+- No PRD is in \`validated\` state → use \`arch-brainstorm\` + \`arch-decision\` first
+- The user wants to push work items directly → use a dedicated export skill
+- The user wants to change a PRD already promoted → create a new study, do not edit the promoted one
+
+---
+
+## Reference files
+
+- \`docs/prd/<area>/*.md\` — source of validated PRDs
+- \`docs/sprints/Sprint-N/\` — promotion destination (one folder per sprint)
+- \`docs/sprints/Sprint-N/sprint-manifest.md\` — the aggregated sprint manifest (one per sprint)
+- \`docs/sprints/Sprint-N/<area>/*.md\` — promoted PRDs + audits
+- \`docs/architecture/\` — source of truth (read-only for this skill)
+
+## Related skills
+
+- [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — produces PRDs (step 1)
+- [\`arch-decision\`](../arch-decision/SKILL.md) — validates PRDs via \`quint-fpf\` (step 2)
+- Future \`spec-to-workitem\` / \`devops-push\` — translate the manifest into external work items (next step after this skill, optional)
+",
   ".claude/skills/vscode-config-generator/SKILL.md": "---
 name: vscode-config-generator
 description: Creates or updates .vscode/tasks.json and .vscode/launch.json based on the stack detected in the project (Node, .NET, Python). Use when the user asks to "create vscode tasks", "generate launch.json", "configure vscode for debug", or similar.
@@ -5801,9 +6294,389 @@ cd snap-proj
 
 TBD
 ",
-  "docs/adr/.gitkeep": "",
-  "docs/guides/.gitkeep": "",
-  "docs/specs/.gitkeep": "",
+  "docs/README.md": "# \`docs/\` — project knowledge base
+
+This folder is the **structured knowledge base** for the project. Every subfolder has a specific purpose. NONoise skills read from these folders in well-known ways.
+
+## Structure
+
+\`\`\`
+docs/
+├── architecture/     ← source of truth for architecture, stack, constraints
+├── requirements/     ← business/functional requirements
+├── calls/            ← meeting notes, call transcripts
+├── support/          ← research, legacy analysis, supporting documents
+├── prd/              ← PRD drafts (output of arch-brainstorm, input of arch-decision)
+└── sprints/          ← promoted work (output of sprint-manifest)
+\`\`\`
+
+Each subfolder has its own \`README.md\` that documents contents and conventions.
+
+## How NONoise skills interact with \`docs/\`
+
+| Skill | Reads | Writes |
+|---|---|---|
+| \`arch-brainstorm\` | \`architecture/\`, \`requirements/\`, \`calls/\`, \`support/\`, existing \`prd/<area>/\` | \`prd/<area>/NN-<study>.md\`, \`prd/<area>/00-area-brief.md\`, \`prd/<area>/NN-<study>-diagrams.md\` |
+| \`arch-decision\` (via \`quint-fpf\`) | \`prd/<area>/NN-<study>.md\`, \`architecture/\` | \`prd/<area>/audit/NN-<study>-fpf.md\`, updates PRD frontmatter |
+| \`sprint-manifest\` | \`prd/<area>/\` (validated PRDs) | \`sprints/Sprint-XX/<area>/prd|manifest/\` |
+| \`atr\` | \`requirements/\`, \`sprints/\` | acceptance test reports |
+| \`arch-brainstorm\`/\`arch-decision\` | \`calls/\` (context for dialog) | — |
+
+## Filling it in
+
+This is a template. When you bootstrap a new area of work:
+
+1. Populate \`architecture/\` with your stack, patterns, and absolute constraints (see \`architecture/README.md\`)
+2. Drop functional requirements into \`requirements/\` as they arrive
+3. Keep meeting notes in \`calls/\` — they feed the brainstorming context
+4. Put supporting research, legacy analysis, or external references in \`support/\`
+5. Open PRDs under \`prd/<area>/\` via \`arch-brainstorm\`
+6. Promote validated PRDs to \`sprints/\` via \`sprint-manifest\`
+
+Nothing in this tree is load-bearing for the framework itself — the tree only becomes useful when you start populating it. Empty folders are fine at day 0.
+",
+  "docs/architecture/00-index.md": "# 00 — Architecture index
+
+> **Stub.** Replace this file's body with a one-paragraph description of your system and pointers to the rest of \`docs/architecture/\`. NONoise skills read this file first when orienting themselves to the project.
+
+## What this system is
+
+_<one short paragraph — what the system does, who it serves, what makes it distinct>_
+
+## Documents in this folder
+
+- [\`01-constraints.md\`](./01-constraints.md) — absolute architectural constraints
+- _(add more as they are written)_
+
+## How to update
+
+- **Add a new doc**: pick the next available \`NN-\` prefix, write it, link it here
+- **Validate an architectural decision**: use \`arch-brainstorm\` → \`arch-decision\` to produce a PRD, then update these docs manually to reflect the validated decision
+",
+  "docs/architecture/01-constraints.md": "# 01 — Absolute architectural constraints
+
+> **Stub.** Replace this file's body with the constraints that are non-negotiable in this project. These are the rules \`arch-decision\` checks during Phase 2 (VERIFY) — if a PRD hypothesis violates one of these, it fails deduction.
+
+## Format
+
+Each constraint is a single imperative bullet. Keep it short. Add a one-line "Why" only if the reason is non-obvious.
+
+## Examples of what belongs here
+
+- **Never store user passwords in cleartext** — always hash with a KDF
+- **Always validate input at the API boundary** — do not trust internal callers
+- **Never introduce a new runtime without architect approval** — stack bloat is a killer
+- **Always emit domain events through the shared event bus** — no direct cross-component writes
+
+## Project constraints
+
+_<populate with your project's own rules>_
+
+- _TBD — add at least one constraint before running \`arch-decision\` for the first time_
+",
+  "docs/architecture/README.md": "# \`docs/architecture/\` — source of truth
+
+This folder is the **single source of truth** for the project's target architecture: stack choices, absolute constraints, reusable patterns, and component registry. NONoise skills (\`arch-brainstorm\`, \`arch-decision\`) read from here to understand what is allowed, what is mandatory, and what already exists.
+
+## Convention
+
+Files are numbered two-digit prefix to impose reading order:
+
+\`\`\`
+architecture/
+├── 00-index.md             ← entry point — one-paragraph system description + pointers
+├── 01-constraints.md       ← absolute constraints ("never do X", "always do Y")
+├── 02-stack.md             ← chosen stack: runtime, frameworks, infrastructure
+├── 03-patterns.md          ← mandatory / recommended patterns (CQRS, hexagonal, layered, ...)
+├── 04-components.md        ← component registry (services, modules, libraries) with status
+├── 05-conventions.md       ← naming, folder structure, file layout
+└── NN-<topic>.md           ← further guideline docs as the project grows
+\`\`\`
+
+Not every file needs to exist from day 0. Start with \`00-index.md\` + \`01-constraints.md\` and grow organically.
+
+## Component lifecycle (for \`04-components.md\`)
+
+Each component in the registry has a state:
+
+| State | Meaning |
+|---|---|
+| \`approved\` | Built and in production |
+| \`draft\` | Planned, PRD validated but not built |
+| \`deprecated\` | Being phased out |
+
+## Relationship with PRDs
+
+- \`arch-brainstorm\` reads this folder during its DISCOVER phase to ground the dialog in real constraints
+- \`arch-decision\` reads this folder during Phase 2 (VERIFY) to check that PRD hypotheses do not violate absolute constraints
+- After a PRD reaches \`validated\` state, **you update this folder manually** to reflect the new decision (stack change, new pattern, new component). NONoise does not auto-sync — the architect is the one who commits the decision into the source of truth.
+- Alternative: install a project-specific sync skill (e.g. a fork of \`andreani-arch-docs\` for heavily-opinionated stacks) via \`skill-finder\`.
+
+## Style
+
+- English or the project's working language — be consistent
+- Mandatory constraints in \`01-constraints.md\` as bullet imperatives: "Never X", "Always Y"
+- Examples welcome, but reference the codebase (\`file:line\`) rather than duplicating code
+- Keep each file focused — split when one file exceeds ~400 lines
+",
+  "docs/calls/README.md": "# \`docs/calls/\` — meeting notes and call transcripts
+
+This folder holds **raw meeting material**: notes, transcripts, recordings-to-text from business calls, technical calls, stakeholder interviews.
+
+## Why this folder exists
+
+When \`arch-brainstorm\` runs its DISCOVER phase, it can read recent call notes to understand the context of the architect's request — what was discussed with stakeholders, what concerns were raised, what trade-offs were implicit. This dramatically shortens the Q&A phase.
+
+Calls are the **source material**; requirements (\`docs/requirements/\`) and PRDs (\`docs/prd/\`) are the refined output.
+
+## Suggested naming
+
+\`\`\`
+calls/
+├── YYYY-MM-DD-<type>-<topic>.md
+│   e.g. 2026-04-18-business-user-signup.md
+│        2026-04-20-architect-review-payments.md
+\`\`\`
+
+The ISO date prefix makes chronological sorting trivial. \`<type>\` can be \`business\`, \`architect\`, \`stakeholder\`, \`br\` (business requirements), \`review\`, etc.
+
+## Suggested content
+
+Each file should include:
+
+- **Date, participants, type of call**
+- **Agenda** (what was planned)
+- **Decisions taken** (with caveats / pending validations)
+- **Open questions** (what was not resolved)
+- **Action items** (who owns what)
+
+Raw transcript is optional — if you have it, put it in a fenced block at the bottom or link to the source.
+
+## Retention
+
+These are historical records. Do not edit old calls; if a decision is later revised, write a new call note or a PRD that supersedes — do not rewrite history.
+",
+  "docs/prd/README.md": "# \`docs/prd/\` — PRD drafts (arch-brainstorm output)
+
+This folder holds **narrative PRDs** produced by the \`arch-brainstorm\` skill and validated by the \`arch-decision\` skill. It is the workspace where architectural decisions are explored, debated, validated, and either promoted to sprints or superseded.
+
+## Structure
+
+One folder per architectural **area**, containing one or more **studies** plus audit reports:
+
+\`\`\`
+prd/
+├── <area-slug>/
+│   ├── 00-area-brief.md              ← area index
+│   ├── 01-<study-slug>.md            ← PRD narrative
+│   ├── 01-<study-slug>-diagrams.md   ← standalone Mermaid diagrams
+│   ├── 02-<study-slug>.md            ← second study
+│   └── audit/
+│       ├── 01-<study-slug>-fpf.md    ← Quint FPF audit report (from arch-decision)
+│       └── 02-<study-slug>-fpf.md
+\`\`\`
+
+See [\`arch-brainstorm\`'s folder-conventions reference](../../.claude/skills/arch-brainstorm/references/folder-conventions.md) for full details (naming, frontmatter, lifecycle states).
+
+## Lifecycle
+
+Each PRD goes through these states in its frontmatter:
+
+\`\`\`
+draft → in-validation → validated → { promoted | superseded | rejected }
+\`\`\`
+
+- \`arch-brainstorm\` creates \`draft\` PRDs
+- \`arch-decision\` transitions them to \`in-validation\` → \`validated\` (or \`rejected\`)
+- \`sprint-manifest\` transitions \`validated\` PRDs to \`promoted\` when moving them into a sprint
+- The architect manually marks \`superseded\` if a later study replaces an earlier one
+
+## Typical workflow
+
+\`\`\`bash
+# 1. Start a new study
+arch-brainstorm area user-signup
+
+# 2. Validate it via Quint FPF
+arch-decision docs/prd/user-signup/01-email-otp.md
+
+# 3. When ready for sprint, promote
+sprint-manifest area user-signup sprint 5
+\`\`\`
+",
+  "docs/requirements/README.md": "# \`docs/requirements/\` — functional and business requirements
+
+This folder holds the **requirements** that drive the project: user-facing features, business rules, acceptance criteria, compliance obligations.
+
+## What goes here
+
+- Functional requirements from stakeholders (what the product must do)
+- Business rules (what the domain says must be true)
+- Acceptance criteria (how we know a feature is done)
+- Compliance and regulatory obligations
+- Out-of-scope declarations (what the product explicitly will NOT do)
+
+## What does NOT go here
+
+- Architectural decisions → \`docs/architecture/\`
+- PRDs / design studies → \`docs/prd/\`
+- Meeting notes / call transcripts → \`docs/calls/\`
+- External research / legacy analysis → \`docs/support/\`
+
+## Suggested layout
+
+Organize by domain, feature, or epic — whichever matches how your team reasons about the product:
+
+\`\`\`
+requirements/
+├── <domain-or-epic>/
+│   ├── <feature>.md
+│   └── <feature>.md
+└── <another-domain>/
+    └── <feature>.md
+\`\`\`
+
+Each requirement file should include:
+
+- **Who needs it** (persona / stakeholder)
+- **What** they need to do
+- **Why** (the outcome they care about)
+- **Acceptance criteria** (observable, testable)
+- **Out-of-scope** (explicit exclusions)
+
+## How NONoise skills use this folder
+
+- \`arch-brainstorm\` reads relevant requirement files during DISCOVER to seed the dialog
+- \`atr\` (acceptance test runner) reads acceptance criteria to generate testbooks
+- \`arch-decision\` may reference specific requirements when validating that a PRD addresses them
+",
+  "docs/sprints/README.md": "# \`docs/sprints/\` — promoted work (sprint-manifest output)
+
+This folder holds **sprints**: PRDs that have been validated and promoted to active development, plus **one aggregated sprint manifest per sprint** that drives implementation.
+
+## Structure
+
+One folder per sprint. At its root lives a single \`sprint-manifest.md\` that aggregates all the areas touched in that sprint. PRDs and their audits sit in subfolders by area:
+
+\`\`\`
+sprints/
+└── Sprint-XX/
+    ├── sprint-manifest.md              ← ONE aggregated manifest per sprint
+    └── <area-slug>/
+        ├── NN-<study-slug>.md          ← PRDs moved from docs/prd/<area>/
+        ├── NN-<study-slug>-diagrams.md
+        └── audit/
+            └── NN-<study-slug>-fpf.md  ← FPF audits carried over from docs/prd/<area>/audit/
+\`\`\`
+
+Rationale for "one manifest per sprint" instead of "one per PRD": sprint planning needs a single view of all user stories, task dependencies across areas, and CL1 risk flags. A single file beats N scattered ones when the architect is driving a sprint kickoff or reporting to stakeholders.
+
+## How PRDs get here
+
+\`sprint-manifest\` scans \`docs/prd/<area>/\` for \`validated\` PRDs and **moves** them into the target sprint folder, then generates (or updates) the single \`sprint-manifest.md\`. After promotion:
+
+- The PRD frontmatter becomes \`status: promoted, sprint: XX\`
+- The file no longer lives in \`docs/prd/<area>/\` — it lives here
+- \`docs/prd/<area>/00-area-brief.md\` is updated with a "promoted to Sprint XX" note
+
+## Sprint manifest content (\`sprint-manifest.md\`)
+
+One file per sprint, aggregating **all areas**. Structure:
+
+1. **Sprint goal** — 1–2 sentences derived from the goals of the promoted PRDs
+2. **PRDs included** — table with area / study / path / goal / aggregate confidence
+3. **User stories** — 1–3 user stories per PRD, in the form "As <role>, I want <outcome> so that <value>"
+4. **Task macro breakdown** — 10–20 vertical slices (NOT layer-tech tasks — see below) with:
+   - Functional name (e.g. "Enable operator to download the PDF", NOT "Create class X")
+   - Description of visible behavior when done
+   - End-to-end acceptance test
+   - Confidence CL1 / CL2 / CL3
+   - Effort in days
+   - Cross-task dependencies
+5. **Dependency graph** — Mermaid \`graph LR\` showing cross-task, cross-area dependencies
+6. **CL1 tasks → decision record needed** — each CL1 task requires an atomic decision record (a mini ADR) or a new \`arch-brainstorm\` study before implementation
+7. **Risks and mitigations** — known risks with severity and mitigation plan
+8. **Out of scope for this sprint** — explicit exclusions with rationale
+9. **Next steps** — human review, work-item export, etc.
+10. **Changelog** — every update of the manifest adds an entry
+
+## Vertical slices — golden rule
+
+Task breakdown must be **vertical slices of functionality**, not horizontal layers. A developer must be able to take a task, implement it end-to-end, demo it, and deliver it as a unit of value.
+
+- ❌ "Create migration for table X" — layer, not value
+- ✅ "Enable operator to submit X and see the result persisted" — slice, demoable
+
+Tasks that sound like "create class Y" or "add field Z to table W" are **wrong** and must be absorbed into a larger functional task.
+
+## Dev workflow
+
+\`\`\`bash
+# Promote all validated PRDs of an area to Sprint 5
+sprint-manifest area user-signup sprint 5
+
+# Add another validated PRD to an already-open sprint (impact analysis)
+sprint-manifest area payments sprint 5 update
+
+# Regenerate the manifest after manual edits (use with care — overwrites)
+sprint-manifest area user-signup sprint 5 regenerate
+\`\`\`
+
+## How other skills use this folder
+
+- \`atr\` (acceptance test runner) reads the sprint manifest to generate testbooks from task acceptance criteria
+- Future \`spec-to-workitem\` / \`devops-push\` skills translate tasks into external issue-tracker items (GitHub Issues, Azure DevOps, Jira, Linear, …)
+
+## Lifecycle of a promoted PRD
+
+\`\`\`
+validated → promoted → (stays in sprint folder forever as historical record)
+\`\`\`
+
+A promoted PRD is **immutable**. If a change is needed, create a new study (\`02-<study-slug>\`) under the same area in \`docs/prd/\` and run the flow again — do not edit in place.
+",
+  "docs/support/README.md": "# \`docs/support/\` — supporting documents
+
+This folder is the **catch-all for contextual material** that does not fit the other top-level folders but is still valuable context for the team and for NONoise skills.
+
+## What goes here
+
+- External research (vendor docs, articles, RFC links with excerpts)
+- Legacy system analysis (reverse-engineering notes on older codebases)
+- Historical decisions that predate the current workflow
+- Market / competitor analysis
+- Regulatory documents (raw, before being distilled into requirements)
+- Third-party API reference material specific to this project
+- Diagrams or artifacts not tied to a specific PRD
+
+## What does NOT go here
+
+- Current architecture → \`docs/architecture/\`
+- Current requirements → \`docs/requirements/\`
+- Meeting notes → \`docs/calls/\`
+- PRD drafts → \`docs/prd/\`
+
+## Suggested layout
+
+Free-form. Organize by topic:
+
+\`\`\`
+support/
+├── legacy/
+│   └── <notes-on-existing-system>.md
+├── research/
+│   └── <external-reference>.md
+├── vendor/
+│   └── <third-party>.md
+└── regulatory/
+    └── <standard-or-law>.md
+\`\`\`
+
+## How NONoise skills use this folder
+
+- \`arch-brainstorm\` reads \`support/\` during DISCOVER when the area-slug maps to an existing support document — e.g. a legacy analysis relevant to the area under study
+- Other skills may cite support material as evidence (CL1 — external research) during \`arch-decision\` / \`quint-fpf\` VALIDATE phase
+",
   "nonoise.config.json": "{
   "$schema": "https://nonoise.dev/schemas/project-config.v1.json",
   "frameworkVersion": "0.0.0-snapshot",
@@ -5831,7 +6704,8 @@ TBD
     "bmad-agent-ux-designer",
     "quint-fpf",
     "arch-brainstorm",
-    "arch-decision"
+    "arch-decision",
+    "sprint-manifest"
   ]
 }
 ",
@@ -5885,6 +6759,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/skill-finder/registry.json",
   ".claude/skills/skill-finder/scripts/fetch-registry.mjs",
   ".claude/skills/skill-finder/scripts/install-skill.mjs",
+  ".claude/skills/sprint-manifest/SKILL.md",
   ".claude/skills/vscode-config-generator/SKILL.md",
   ".claude/skills/vscode-config-generator/assets/launch.dotnet.json.hbs",
   ".claude/skills/vscode-config-generator/assets/launch.node.json.hbs",
@@ -5903,9 +6778,15 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   "CLAUDE.md",
   "GEMINI.md",
   "README.md",
-  "docs/adr/.gitkeep",
-  "docs/guides/.gitkeep",
-  "docs/specs/.gitkeep",
+  "docs/README.md",
+  "docs/architecture/00-index.md",
+  "docs/architecture/01-constraints.md",
+  "docs/architecture/README.md",
+  "docs/calls/README.md",
+  "docs/prd/README.md",
+  "docs/requirements/README.md",
+  "docs/sprints/README.md",
+  "docs/support/README.md",
   "nonoise.config.json",
   "src/.gitkeep",
   "tools/.gitkeep",

@@ -1,6 +1,6 @@
 ---
 name: arch-brainstorm
-description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading project guidelines from `arch-docs` (if present), and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under `docs/prd/<area>/`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Quint FPF validation via `quint-fpf`) → arch-docs (source-of-truth sync) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
+description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading the project's source of truth at `docs/architecture/` plus `docs/requirements/` and `docs/calls/`, and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under `docs/prd/<area>/`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Quint FPF validation via `quint-fpf`) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral
 ---
@@ -12,21 +12,23 @@ This skill is **step 1** of the NONoise architectural workflow. It turns an idea
 ## Position in the workflow
 
 ```
-┌─────────────┐   ┌──────────────┐   ┌────────────────┐   ┌──────────────────┐
-│ arch-       │──▶│ arch-        │──▶│ arch-docs      │──▶│ sprint-manifest  │
-│ brainstorm  │   │ decision     │   │ (auto sync)    │   │                  │
-│             │   │              │   │                │   │                  │
-│ explore +   │   │ validate via │   │ update source  │   │ promote to       │
-│ dialog +    │   │ quint-fpf    │   │ of truth docs/ │   │ sprint manifest  │
-│ write PRD   │   │              │   │ architecture   │   │                  │
-└─────────────┘   └──────────────┘   └────────────────┘   └──────────────────┘
-     STEP 1            STEP 2              STEP 3                STEP 4
+┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
+│ arch-       │──▶│ arch-        │──▶│ sprint-manifest  │
+│ brainstorm  │   │ decision     │   │                  │
+│             │   │              │   │                  │
+│ explore +   │   │ validate via │   │ promote to       │
+│ dialog +    │   │ quint-fpf    │   │ sprint manifest  │
+│ write PRD   │   │              │   │                  │
+└─────────────┘   └──────────────┘   └──────────────────┘
+     STEP 1            STEP 2              STEP 3
 ```
+
+After `arch-decision` validates a PRD (PASS), the architect updates `docs/architecture/` (the project's source of truth) manually — NONoise does not ship an auto-sync skill.
 
 ## What this skill does
 
 1. **Explores** the codebase relevant to the area (components involved, existing patterns, stubs/gaps).
-2. **Reads** guidelines from the project source of truth (`docs/architecture/`, or the `arch-docs` skill if installed) — absolute constraints, patterns, component registry.
+2. **Reads the source of truth** at `docs/architecture/` — absolute constraints (`01-constraints.md`), patterns, stack, component registry. Also reads `docs/requirements/` for relevant functional requirements, `docs/calls/` for recent meeting context if relevant, and `docs/support/` for prior research.
 3. **Reads** prior studies in the area (if `docs/prd/<area>/` already exists).
 4. **Dialogs** with the architect via Q&A — one question at a time, multiple-choice preferred — in the style of `superpowers:brainstorming` but tuned to project-specific context.
 5. **Writes** a PRD with a mandatory narrative structure (see [`references/prd-template.md`](./references/prd-template.md)), saved as `docs/prd/<area>/NN-<study>.md`.
@@ -37,7 +39,7 @@ This skill is **step 1** of the NONoise architectural workflow. It turns an idea
 ## What this skill does NOT do
 
 - **Does not validate** decisions — that is `arch-decision`'s job (via `quint-fpf`).
-- **Does not update** `docs/architecture/` or the component registry — that is `arch-docs`' job.
+- **Does not update** `docs/architecture/` or the component registry — the architect does that manually after a PRD is validated.
 - **Does not promote** to a sprint — that is `sprint-manifest`'s job.
 - **Does not generate code** — it only produces design documents.
 - **Does not create formal ADR-DRAFT files** with tabulated pros/cons — the narrative decision story in the PRD replaces that format with readable prose.
@@ -77,9 +79,12 @@ The skill can be triggered in several ways:
    - **Exists with marker `README-status.md` declaring `status: external`** → external argumentative folder; **do not touch it**. Propose a different slug (e.g. `-v2` suffix).
 
 3. **Read the project source of truth** — always. In particular:
-   - `docs/architecture/` (if present) — constraints, patterns, registry
-   - `.claude/skills/arch-docs/SKILL.md` (if installed) — same but actionable
-   - Any `CLAUDE.md`, `AGENTS.md`, `nonoise.config.json` at repo root — additional project context
+   - `docs/architecture/01-constraints.md` — absolute constraints (first stop)
+   - Other numbered files in `docs/architecture/` — patterns, stack, conventions, component registry
+   - `docs/requirements/` filtered to the area — functional requirements to honor
+   - `docs/calls/` recent meetings relevant to the area — stakeholder context, pre-decisions
+   - `docs/support/` — any legacy analysis, external research, or vendor docs for the area
+   - `CLAUDE.md`, `AGENTS.md`, `nonoise.config.json` at repo root — additional project context
 
 4. **Explore the codebase** — identify:
    - Components potentially involved in the area (match by name, by domain, by keyword)
@@ -255,7 +260,7 @@ Fix inline before saving.
    >
    > **`arch-decision <path-to-prd>`**
    >
-   > arch-decision will apply the Quint FPF methodology (via `quint-fpf`) to validate the decisions embedded in the narrative. On PASS, the frontmatter becomes `status: validated` and `arch-docs` sync will be triggered automatically.
+   > arch-decision will apply the Quint FPF methodology (via `quint-fpf`) to validate the decisions embedded in the narrative. On PASS the frontmatter becomes `status: validated`, and `arch-decision` will produce a concrete list of changes to apply to `docs/architecture/` manually.
 
 #### Phase 4 checkpoint
 
@@ -335,6 +340,6 @@ If the user has already started a previous session with this skill (existing are
 - [`references/prd-template.md`](./references/prd-template.md) — Mandatory narrative template
 - [`references/folder-conventions.md`](./references/folder-conventions.md) — Naming, frontmatter, lifecycle states
 - Sibling skill `quint-fpf` — the formal validation methodology invoked by `arch-decision`
-- Sibling skill `arch-decision` — step 2 of the workflow (auto-triggered after this skill's handoff)
-- Sibling skill `arch-docs` — step 3 (source-of-truth sync after `arch-decision` PASS)
-- Sibling skill `sprint-manifest` — step 4 (promotion to sprint)
+- Sibling skill `arch-decision` — step 2 of the workflow (invoked after this skill's handoff)
+- Sibling skill `sprint-manifest` — step 3 (promotion to sprint)
+- Project source of truth: `docs/architecture/` (maintained manually by the architect)
