@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tasks-schema.json",
+  "title": "Sprint Task Breakdown JSON",
+  "description": "Schema for the <taskSetId>-tasks.json files consumed by devops-push to create work items on Azure DevOps. One file per task set (e.g. one per area or one per PRD). A task set maps to a Feature, each user story to a User Story work item, and each task to a Task work item.",
+  "type": "object",
+  "required": ["taskSetId", "sprint", "generatedDate", "globalConfidence", "dependencies", "feature", "userStories", "devops"],
+  "additionalProperties": false,
+  "properties": {
+    "taskSetId": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9-]*$",
+      "description": "Identifier of the task set, stable across runs (used for idempotency). Examples: 'USER-SIGNUP', 'PAYMENTS-CORE', 'T-001'."
+    },
+    "sprint": {
+      "type": "string",
+      "description": "Sprint name (e.g. 'Sprint 5')"
+    },
+    "generatedDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Generation date YYYY-MM-DD"
+    },
+    "globalConfidence": {
+      "type": "string",
+      "enum": ["CL1", "CL2", "CL3"],
+      "description": "Global confidence level (CL1 = low, CL2 = medium, CL3 = high)"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Cross-taskSet dependencies (e.g. ['PAYMENTS-CORE'])"
+    },
+    "sourceDocument": {
+      "type": "string",
+      "description": "Relative path to the source markdown that generated this breakdown (e.g. the sprint manifest or a PRD)"
+    },
+    "feature": { "$ref": "#/$defs/feature" },
+    "userStories": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/userStory" }
+    },
+    "devops": { "$ref": "#/$defs/devops" }
+  },
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "required": ["title", "description", "storyPoints", "tags"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Feature title — convention: '[<taskSetId>] <Title>'"
+        },
+        "description": {
+          "type": "string",
+          "description": "HTML description (minimal)"
+        },
+        "storyPoints": { "type": "number", "minimum": 0 },
+        "tags": {
+          "type": "string",
+          "description": "Tags separated by ';' (e.g. 'Sprint 5;USER-SIGNUP;auth-service')"
+        }
+      }
+    },
+    "userStory": {
+      "type": "object",
+      "required": ["id", "title", "description", "acceptanceCriteria", "storyPoints", "dependsOn", "tasks"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^US-",
+          "description": "Local ID unique within the task set (e.g. 'US-001')"
+        },
+        "title": { "type": "string" },
+        "description": {
+          "type": "string",
+          "description": "HTML description — convention: 'As <role>, I want <action>, so that <value>'"
+        },
+        "acceptanceCriteria": {
+          "type": "string",
+          "description": "Acceptance criteria in HTML"
+        },
+        "storyPoints": { "type": "number", "minimum": 0 },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Local IDs of predecessor US/Tasks inside this task set (e.g. ['US-001']). Empty array if none."
+        },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/task" }
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["id", "title", "description", "category", "originalEstimate", "confidence", "dependsOn"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Local ID unique within the task set (e.g. 'T1.1' or 'T-1.1')"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title — convention: '[<Category>] <short description> (<taskSetId>)'"
+        },
+        "description": {
+          "type": "string",
+          "description": "Extended HTML description with implementation details. Should end with a reference to the source breakdown."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Backend", "BFF", "Frontend", "DB", "Test", "Infra", "Docs"],
+          "description": "Task category"
+        },
+        "originalEstimate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Estimated hours"
+        },
+        "assignedTo": {
+          "type": ["string", "null"],
+          "format": "email",
+          "description": "Developer email (must exist in developers.json)"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["CL1", "CL2", "CL3"],
+          "description": "Task confidence level"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Local IDs of predecessor US/Tasks inside this task set. Empty array if none. The tool creates Predecessor links on Azure DevOps."
+        }
+      }
+    },
+    "devops": {
+      "type": "object",
+      "required": ["epicId", "featureId", "mapping"],
+      "additionalProperties": false,
+      "properties": {
+        "epicId": {
+          "type": ["integer", "null"],
+          "description": "Parent Epic work item ID on Azure DevOps (provided by the user at push time)"
+        },
+        "featureId": {
+          "type": ["integer", "null"],
+          "description": "Feature work item ID (populated after first successful push)"
+        },
+        "mapping": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" },
+          "description": "Local ID -> Azure DevOps work item ID (populated after push)"
+        }
+      }
+    }
+  }
+}

@@ -3260,6 +3260,585 @@ DO NOT invent capabilities outside this table.
 
 In Polly's greenfield flow, Giulia typically runs before \`frontend-design\` — she captures the UX plan, drafts \`design.md\`, and then hands off to \`frontend-design\` for implementation. After implementation, Giulia often loops back via \`impeccable/critique\` and \`impeccable/polish\` to reach production quality. Giulia can also work hand-in-hand with Isa (analyst) during early elicitation when the product's user experience shape is still fluid.
 ",
+  ".claude/skills/c4-doc-writer/SKILL.md": "---
+name: c4-doc-writer
+description: Produces and maintains living C4 architecture diagrams (Context / Container / Component / Code) for a NONoise project by emitting and updating a single Structurizr DSL workspace (\`docs/architecture/c4/workspace.dsl\`), from which multiple views are regenerated on demand. Unlike static Mermaid, the DSL is source-controlled, diff-able, and yields Context + Container + Component views from a single model. USE THIS SKILL right after \`arch-decision\` returns PASS on a PRD — the "Impact on docs/architecture/" checklist should include a call into this skill so the diagrams stay in sync with the validated decision. Also triggers on manual invocation — "/c4 update", "update c4", "update C4 diagrams", "generate C4 diagrams", "refresh the architecture diagrams", "structurizr", "rebuild the container view after this ADR", "sync the C4 with the new PRD". Also triggers without explicit mention when the user says they want to refresh the architectural diagrams after a PRD/ADR was validated. Stack-neutral — works for any project that has \`docs/architecture/\` populated, whether Angular+dotnet, Node+React, Python, Go, Flutter, data pipelines, or CLIs.
+source: NONoise framework (new skill)
+variant: nonoise generic; stack-neutral; Structurizr DSL as the single source
+---
+
+# c4-doc-writer — Living C4 diagrams via Structurizr DSL
+
+This skill keeps the project's C4 architecture diagrams in sync with the validated architectural decisions. It does **not** brainstorm architecture (\`arch-brainstorm\`) nor validate it (\`arch-decision\`) — it is invoked **after** a validated PRD to update the diagram source (\`docs/architecture/c4/workspace.dsl\`) and regenerate views.
+
+## Why Structurizr DSL (not Mermaid, not PlantUML)
+
+Mermaid is great for one-off sketches but it ages fast — every view is hand-written and there is no model underneath. Structurizr DSL is:
+
+- **Model-first**: you declare \`person\`, \`softwareSystem\`, \`container\`, \`component\` once; the views block derives multiple diagrams from the same model
+- **Source-controlled**: plain text, diff-able, reviewable in PR
+- **Portable**: renders to Mermaid, PlantUML, Structurizr native, DOT — pick what your stack reads best
+- **Standard**: official C4 reference implementation (https://structurizr.com)
+
+See \`references/structurizr-dsl-cheatsheet.md\` for the canonical patterns and \`references/c4-levels-primer.md\` for what each level means and how it maps to NONoise artifacts.
+
+## Position in the workflow
+
+\`\`\`
+arch-brainstorm ──▶ arch-decision ──PASS──▶ c4-doc-writer ──▶ sprint-manifest
+                        │                       │
+                        │                       └─▶ docs/architecture/c4/workspace.dsl
+                        │                           + rendered views (Mermaid/PlantUML)
+                        │
+                        └─▶ "Impact on docs/architecture/" checklist includes
+                            "refresh C4 via c4-doc-writer"
+\`\`\`
+
+Three valid entry points:
+
+1. **After \`arch-decision\` PASS** (primary) — the architect or Polly engages this skill to reflect the validated decision in the diagrams
+2. **Manual refresh** — user says "update C4", "refresh diagrams", "/c4 update"
+3. **Initial setup** — first time the project has a validated architecture and no \`workspace.dsl\` exists yet: the skill scaffolds from \`assets/workspace.dsl.template\`
+
+## Inputs
+
+Before writing anything, the skill collects context from:
+
+- \`nonoise.config.json\` — project name, stack, template
+- \`docs/architecture/01-constraints.md\` and any ADRs (\`docs/architecture/02-*.md\` …) — the source of truth
+- \`docs/prd/<area>/\` — **only** PRDs with \`status: validated\` in frontmatter. Skip \`draft\` and \`rejected\`.
+- \`docs/sprints/Sprint-N/sprint-manifest.md\` if present — component-level breakdown hints
+- Existing \`docs/architecture/c4/workspace.dsl\` if present — **never overwrite blindly**, always diff and propose changes
+
+If \`docs/architecture/\` is empty, stop and tell the user to run the arch workflow first (\`arch-brainstorm\` → \`arch-decision\`).
+
+## Flow — 5 phases
+
+Each phase is a checkpoint. Ask for confirmation before the next one. Polly-style: **one question at a time**, never dump the full plan.
+
+### Phase 1 — Discover
+
+1. Read \`nonoise.config.json\` — extract \`projectName\`, template, aiTools
+2. List \`docs/architecture/*.md\` — record which constraints/ADRs exist
+3. List \`docs/prd/*/\` — filter \`status: validated\` only
+4. Check whether \`docs/architecture/c4/workspace.dsl\` already exists
+5. Produce a short discovery summary:
+
+\`\`\`
+Found:
+  - project: <projectName>
+  - constraints: 01-constraints.md (+ N ADRs)
+  - validated PRDs: 3 (user-signup/01-email-otp, notifications/02-pubsub, …)
+  - existing workspace.dsl: yes, last modified <date>
+\`\`\`
+
+Ask: **"Proceed to propose model updates?"** Wait for confirmation.
+
+### Phase 2 — Propose model updates (Q&A, no disk writes)
+
+Walk the architect through the model dimensions, one question at a time. Do **not** write to \`workspace.dsl\` during this phase — accumulate the proposed changes in working memory first.
+
+Canonical question set — ask only the ones that are unclear from the discovered material:
+
+1. **Software system name** — default from \`nonoise.config.json\` \`projectName\`. Ask only if the architect wants a different display name (e.g. code name vs product name).
+2. **Actors (persons)** — extract candidates from \`docs/requirements/<domain>/\` personas. Ask: "I see these user roles: <list>. Are any missing or should any be merged?"
+3. **External systems** — from ADRs, integration tables, \`docs/calls/\` mentions. Ask: "External systems this app talks to? I see <list> mentioned in ADRs."
+4. **Containers** — from \`docs/architecture/\` "components" / "services" sections and the validated PRDs. Ask one at a time: "Container \`X\` — purpose, tech, one-line description?"
+5. **Relationships** — for each pair of containers with likely traffic, ask: "\`A -> B\`: what does A send to B, and over what protocol?"
+6. **Components (optional, per container)** — only if the architect wants Component-level views. Usually skipped in initial runs.
+
+Phase 2 output = a proposal diff printed to the chat:
+
+\`\`\`
+Proposed DSL changes:
++ person "Compliance Officer"
++ container "ms-auth" ".NET" "Authentication service"
+~ container "bff" tech updated from ".NET 8" to ".NET 10"
+- container "legacy-worker" (removed — superseded by ms-notifications per PRD 02-pubsub)
+\`\`\`
+
+Ask: **"Apply this diff to \`workspace.dsl\`?"** Wait for confirmation.
+
+### Phase 3 — Write / update DSL
+
+1. If \`workspace.dsl\` does **not** exist: render \`assets/workspace.dsl.template\` with \`{{projectName}}\` replaced, then layer the Phase 2 proposals on top
+2. If it exists: apply the Phase 2 diff precisely. Preserve style, formatting, comments, and custom elements the architect added by hand (tags, styles, custom views)
+3. Ensure the file ends with a \`views\` block that contains at least:
+   - A \`systemContext\` view
+   - A \`systemLandscape\` view (if there are external systems)
+   - One \`container\` view per software system
+   - Dynamic views for flows that matter (e.g. "user signup sequence") — only if the architect asked for them
+4. **Syntactic validation** — parse the DSL mentally for balanced braces, required blocks (\`workspace { model { … } views { … } }\`), and naming uniqueness. If in doubt, tell the user to run \`structurizr-cli validate -workspace workspace.dsl\` (install info in \`references/install-structurizr-cli.md\`).
+5. Write the file. One atomic write, not piecemeal.
+
+### Phase 4 — Regenerate views
+
+The skill does **not** run Structurizr CLI itself (framework rule: no auto-install of third-party tooling, see \`references/install-structurizr-cli.md\`). Instead, it prints the exact commands the user runs:
+
+\`\`\`bash
+# Option A — local CLI (recommended for dev loop)
+structurizr-cli export -workspace docs/architecture/c4/workspace.dsl \\
+  -format mermaid \\
+  -output docs/architecture/c4/rendered
+
+# Option B — one-shot docker (no install)
+docker run --rm -v "$PWD:/usr/local/structurizr" structurizr/cli \\
+  export -workspace /usr/local/structurizr/docs/architecture/c4/workspace.dsl \\
+  -format mermaid \\
+  -output /usr/local/structurizr/docs/architecture/c4/rendered
+
+# Optional — PlantUML in addition to Mermaid
+structurizr-cli export -workspace docs/architecture/c4/workspace.dsl \\
+  -format plantuml \\
+  -output docs/architecture/c4/rendered
+\`\`\`
+
+Expected output layout:
+
+\`\`\`
+docs/architecture/c4/
+  workspace.dsl                 (the single source)
+  rendered/
+    structurizr-SystemContext.md      (Mermaid)
+    structurizr-Container.md          (Mermaid)
+    structurizr-Component-<name>.md   (Mermaid, if Component views declared)
+    structurizr-SignupSequence.md     (Mermaid dynamic view)
+    *.puml                            (PlantUML — if Option C ran)
+  CHANGELOG.md
+\`\`\`
+
+If the user prefers PNG / SVG directly, Structurizr Lite in docker can render to a browser at \`http://localhost:8080\`:
+
+\`\`\`bash
+docker run -it --rm -p 8080:8080 -v "$PWD/docs/architecture/c4:/usr/local/structurizr" structurizr/lite
+\`\`\`
+
+Tell the user, don't run it.
+
+### Phase 5 — Changelog
+
+Append to \`docs/architecture/c4/CHANGELOG.md\` a dated entry. Create the file if absent. Template:
+
+\`\`\`markdown
+## YYYY-MM-DD — <headline>
+
+- Triggered by: <which ADR / PRD / manual run>
+- Added: <new containers / actors / external systems>
+- Changed: <modified tech / renamed / relocated>
+- Removed: <deleted containers or relations>
+- Views affected: <systemContext | container | component-<x> | dynamic-<name>>
+- Rendered formats: <mermaid | plantuml | both>
+\`\`\`
+
+Keep entries terse — one bullet per change, one paragraph max. The changelog is for humans scanning the history, not for CI machines.
+
+## Output summary (end of run)
+
+Print a block like this at the end:
+
+\`\`\`
+C4 workspace updated.
+  source   : docs/architecture/c4/workspace.dsl
+  changelog: docs/architecture/c4/CHANGELOG.md  (+1 entry)
+  next     : run \`structurizr-cli export ...\` (see Phase 4) to regenerate views
+  tracker  : triggered by arch-decision PASS on docs/prd/<area>/NN-<study>.md
+\`\`\`
+
+Return control to Polly (or to the user directly if invoked standalone). Do **not** invoke \`sprint-manifest\` — that's a separate decision.
+
+## Resuming mid-flow
+
+If the user aborts at Phase 2 (e.g. one question too many), save no state. Next time the skill runs it re-reads the architecture and starts fresh. The DSL file on disk is the only persistent state.
+
+## Anti-patterns
+
+1. **Silent overwrite of \`workspace.dsl\`** — always diff and confirm. Architects may have hand-edited styling, tags, or custom views.
+2. **Running Structurizr CLI automatically** — advisor-only per framework policy (same rule as LSP / voice tools). Print the command, let the user run it.
+3. **Drawing from \`draft\` PRDs** — only \`validated\` PRDs inform the diagrams. Draft architecture is not ground truth.
+4. **Invoking \`arch-decision\` from here** — wrong direction. This skill is downstream of validation, not upstream.
+5. **Per-view DSL fragments** — keep one \`workspace.dsl\`. Do not scatter DSL across per-area files. If the project is a monorepo with multiple independent systems, use multiple \`softwareSystem\` blocks inside one workspace.
+6. **Code level by default** — C4 Code is rarely useful outside a few hot spots. Do not emit Code views unless the architect explicitly asked.
+
+## When NOT to use
+
+- The project has no \`docs/architecture/\` yet → run \`arch-brainstorm\` + \`arch-decision\` first
+- A draft PRD needs to be validated → that's \`arch-decision\`'s job
+- The user wants a one-shot Mermaid diagram for a slide deck → pure Mermaid is faster; this skill is for the living source
+- The project is a pure-data artifact (notebook, dataset, single script) with no system boundary → C4 is overkill
+
+## References
+
+- \`references/structurizr-dsl-cheatsheet.md\` — the DSL patterns you will use 95% of the time
+- \`references/install-structurizr-cli.md\` — how the user installs the CLI (advisor-only)
+- \`references/c4-levels-primer.md\` — what Context/Container/Component/Code mean, mapped to NONoise inputs
+- \`assets/workspace.dsl.template\` — scaffold used when no \`workspace.dsl\` exists yet
+- Sibling skill [\`arch-decision\`](../arch-decision/SKILL.md) — the upstream validator; its "Impact on docs/architecture/" checklist should mention this skill
+- Sibling skill [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — produces the PRDs this skill reads
+- Sibling skill [\`polly\`](../polly/SKILL.md) — the orchestrator; engages this skill after \`arch-decision\` PASS
+- External: https://structurizr.com — official DSL reference and playground
+- External: https://c4model.com — C4 levels reference (Simon Brown)
+",
+  ".claude/skills/c4-doc-writer/references/c4-levels-primer.md": "# C4 levels — primer and NONoise mapping
+
+The C4 model (by Simon Brown, https://c4model.com) defines four levels of architecture diagrams, each zooming in further than the previous one. This primer is a quick reference for \`c4-doc-writer\` invocations; it does not replace the official model documentation.
+
+## Level 1 — System Context
+
+**Question answered**: "What is this system, who uses it, and what does it talk to?"
+
+**Scope**: the system as a single box, with its users and the external systems it integrates with.
+
+**NONoise source**:
+- Users → \`docs/requirements/<domain>/\` personas (explicit \`actors:\` list in the requirement frontmatter, or the "Users" section of the template)
+- External systems → mentions in ADRs (\`docs/architecture/02-*.md\` …) and integration tables under \`docs/architecture/\`
+- The system itself → \`projectName\` from \`nonoise.config.json\`
+
+**Emit when**: always. A context view is the minimum deliverable of this skill.
+
+## Level 2 — Container
+
+**Question answered**: "What are the high-level building blocks of the system and how do they communicate?"
+
+**Scope**: the runtime-deployable units — web apps, services, databases, message brokers, caches. Each container is something you can point at in your deployment.
+
+**NONoise source**:
+- MFEs, BFF, microservices → \`docs/architecture/\` (components list / service catalog / MFE catalog) and the validated PRDs
+- Databases, queues, caches → same sources; often declared in the ADR that introduced them
+- Tech stack per container → \`nonoise.config.json\` stack + ADR "technologies" sections
+
+**Emit when**: the project has more than one deployable unit. Monoliths with one process can skip this level — context + component may be enough.
+
+## Level 3 — Component
+
+**Question answered**: "What are the main building blocks inside this specific container?"
+
+**Scope**: modules, bounded contexts, layers (API / Application / Domain / Infrastructure), significant classes or packages — but not individual methods.
+
+**NONoise source**:
+- Module breakdown → \`docs/sprints/Sprint-N/sprint-manifest.md\` "macro tasks" often map cleanly to components
+- Bounded contexts → DDD-style ADRs if the project uses them
+- Layer structure → project conventions in \`docs/architecture/\` or the stack's defaults (Clean Arch, Hexagonal, etc.)
+
+**Emit when**: the architect specifically asked for a component view, or a container is complex enough that "what's inside" is a recurring question in reviews. Default = do **not** emit component views on the first run.
+
+## Level 4 — Code
+
+**Question answered**: "What does the implementation look like?"
+
+**Scope**: class diagrams, module dependency graphs. Usually UML.
+
+**NONoise source**:
+- Rarely relevant. Source code is the source of truth at this level; a hand-drawn Code diagram ages within days of being written.
+
+**Emit when**: almost never. If the user explicitly asks, point them at the language's own tooling (TypeDoc, javadoc, pydoc, etc.) rather than hand-writing Code-level DSL. Structurizr DSL supports Code views but the maintenance cost outweighs the benefit in all but the most stable core algorithms.
+
+## How \`c4-doc-writer\` picks levels
+
+Default output per run (no user override):
+
+| Level | Emitted by default? | Notes |
+|---|---|---|
+| Context | Yes | Always |
+| Container | Yes, if ≥2 containers discovered | Skip for single-process monoliths |
+| Component | No | Ask the architect; usually deferred to a later run |
+| Code | No | Pointer-only; never scaffolded |
+
+The architect can force any level during Phase 2 Q&A. The skill prefers to under-emit than to over-emit — it is easier to add a view later than to maintain a view nobody reads.
+
+## Dynamic views — orthogonal to levels
+
+Besides the 4 static levels, Structurizr supports **dynamic views** — numbered-step flows across containers (e.g. "user signup", "checkout", "order-placed event propagation"). They are not a fifth level; they are a different way to render the same model, focused on a specific flow.
+
+\`c4-doc-writer\` emits a dynamic view when the architect points at a specific flow that recurs in multiple conversations — it is the reference artifact the team converges on.
+",
+  ".claude/skills/c4-doc-writer/references/install-structurizr-cli.md": "# Installing Structurizr CLI — advisor-only
+
+The \`c4-doc-writer\` skill **never auto-installs** Structurizr CLI. This follows the NONoise framework policy for third-party tooling (same rule applied to LSPs and voice-to-text tools): the skill prints the command and lets the user run it.
+
+## Option A — Homebrew (macOS / Linux)
+
+\`\`\`bash
+brew install structurizr-cli
+structurizr-cli version
+\`\`\`
+
+The formula is maintained at https://github.com/structurizr/cli.
+
+## Option B — Docker one-shot (no install, any OS)
+
+Runs the official image inline. Works on Windows, macOS, Linux identically.
+
+\`\`\`bash
+docker run --rm \\
+  -v "$PWD:/usr/local/structurizr" \\
+  structurizr/cli \\
+  export -workspace /usr/local/structurizr/docs/architecture/c4/workspace.dsl \\
+    -format mermaid \\
+    -output /usr/local/structurizr/docs/architecture/c4/rendered
+\`\`\`
+
+On Windows PowerShell, swap \`"$PWD"\` for \`\${PWD}\`:
+
+\`\`\`powershell
+docker run --rm \`
+  -v "\${PWD}:/usr/local/structurizr" \`
+  structurizr/cli \`
+  export -workspace /usr/local/structurizr/docs/architecture/c4/workspace.dsl \`
+    -format mermaid \`
+    -output /usr/local/structurizr/docs/architecture/c4/rendered
+\`\`\`
+
+## Option C — npm wrapper
+
+Community wrapper, no JVM installed separately (it still downloads the Structurizr jar under the hood):
+
+\`\`\`bash
+npm install -g @structurizr/cli
+structurizr-cli version
+\`\`\`
+
+Check the package is current on npm before recommending — the official flavour is the JVM build; the npm wrapper is convenient but not universally used.
+
+## Option D — Structurizr Lite (interactive browser)
+
+Runs a local web UI at \`http://localhost:8080\` that reads \`workspace.dsl\` live. Great for iterating on views.
+
+\`\`\`bash
+docker run -it --rm -p 8080:8080 \\
+  -v "$PWD/docs/architecture/c4:/usr/local/structurizr" \\
+  structurizr/lite
+\`\`\`
+
+Stop with \`Ctrl+C\`. No persistent state outside the mounted folder.
+
+## Validating without rendering
+
+If you only want to check the DSL parses:
+
+\`\`\`bash
+structurizr-cli validate -workspace docs/architecture/c4/workspace.dsl
+\`\`\`
+
+Fast feedback loop — runs in under a second for normal-size workspaces.
+
+## Version pinning
+
+The skill does not pin a CLI version. If the user's render breaks because of a DSL feature that requires a newer CLI, suggest upgrading (\`brew upgrade structurizr-cli\` or \`docker pull structurizr/cli\`) rather than downgrading the DSL.
+
+## When NOT to install
+
+If the user only runs \`c4-doc-writer\` once a month and is fine viewing the DSL as text in PR reviews, they do not need the CLI at all. The workspace.dsl is self-documenting enough that human reviewers can follow it. Install the CLI only when someone wants rendered diagrams for a stakeholder presentation or documentation site.
+",
+  ".claude/skills/c4-doc-writer/references/structurizr-dsl-cheatsheet.md": "# Structurizr DSL cheatsheet — canonical patterns
+
+The 95% of the DSL you will write for NONoise projects. Full reference at https://docs.structurizr.com/dsl. This file is not exhaustive — it covers the patterns the \`c4-doc-writer\` skill emits.
+
+## Top-level shape
+
+Every Structurizr DSL file is wrapped in a single \`workspace { ... }\` block. Inside, a \`model\` declares entities, and a \`views\` block declares which diagrams to render.
+
+\`\`\`dsl
+workspace "ProjectName" "Short description of the project." {
+
+    model {
+        // actors, systems, containers, components, relationships
+    }
+
+    views {
+        // systemLandscape, systemContext, container, component, dynamic, styles
+    }
+}
+\`\`\`
+
+Keep quotes around the workspace name and description — the DSL allows unquoted identifiers but quoted strings are easier to read in diffs.
+
+## People (Level 1 — Context)
+
+\`\`\`dsl
+operator      = person "Operator"       "Handles day-to-day operations."
+admin         = person "Administrator"  "Manages users, roles, and configurations."
+endUser       = person "End User"       "Consumes the public-facing app."
+\`\`\`
+
+The left side (\`operator\`) is the identifier used in relationships. The first string is the display name, the second is the description.
+
+## Software systems (Level 1 — Context)
+
+\`\`\`dsl
+mySystem = softwareSystem "Project Name" "The app we're building." {
+    // containers go here
+}
+
+// External systems — same syntax, often with the "External" tag
+paymentGw = softwareSystem "Payment Gateway" "Third-party payments." {
+    tags "External"
+}
+
+emailProvider = softwareSystem "Email Provider" "Transactional email." {
+    tags "External"
+}
+\`\`\`
+
+The \`tags\` block inside a system / container / component is how you attach styling (see "Styles" below).
+
+## Containers (Level 2 — Container)
+
+A container is a runtime-deployable unit: a webapp, a service, a database, a message broker.
+
+\`\`\`dsl
+mySystem = softwareSystem "MySystem" {
+
+    shell     = container "Shell"          "Angular 20 host"        "TypeScript, Angular"
+    bff       = container "BFF"            "Backend-for-frontend"   "TypeScript, Node 22"
+    msAuth    = container "ms-auth"        "Authentication service" ".NET 10"
+    msOrders  = container "ms-orders"      "Order processing"       ".NET 10"
+    db        = container "Postgres"       "Primary database"       "Postgres 16" {
+        tags "Database"
+    }
+    queue     = container "RabbitMQ"       "Event broker"           "RabbitMQ 3.13" {
+        tags "Queue"
+    }
+}
+\`\`\`
+
+Argument order: \`name\`, \`description\`, \`technology\`. Any of them can be omitted but keep the order consistent.
+
+## Components (Level 3 — Component)
+
+Components live inside a container. Use when you need to show the internal structure of a service (layers, bounded contexts, modules).
+
+\`\`\`dsl
+msAuth = container "ms-auth" "Auth service" ".NET 10" {
+    apiController  = component "Api Controller"  "Handles HTTP"       "ASP.NET Core"
+    authService    = component "Auth Service"    "Business rules"     "C# class"
+    userRepo       = component "User Repository" "DB access"          "EF Core"
+    tokenIssuer    = component "Token Issuer"    "JWT signing"        "C# class"
+
+    apiController -> authService  "Calls"
+    authService   -> userRepo     "Reads/writes users"
+    authService   -> tokenIssuer  "Issues JWT"
+}
+\`\`\`
+
+Most NONoise projects skip Component-level views at first pass. Add them when the architect is specifically studying internal module design.
+
+## Relationships
+
+Declared inside \`model { … }\` using the \`->\` arrow. Can be declared at any level (person → system, container → container, component → component).
+
+\`\`\`dsl
+// basic
+operator -> shell "Uses"
+
+// with protocol / technology
+shell    -> bff      "JSON over HTTPS"  "HTTPS"
+bff      -> msAuth   "gRPC service call" "gRPC"
+msAuth   -> db       "Reads/writes"     "EF Core"
+
+// cross-system
+bff      -> emailProvider "Sends transactional emails" "HTTPS/SMTP"
+\`\`\`
+
+Third argument (after description) is the technology/protocol label — optional but improves the diagram.
+
+## Views
+
+The \`views\` block declares which diagrams to render. The same model drives many views — that's Structurizr's main advantage over hand-drawn Mermaid.
+
+\`\`\`dsl
+views {
+
+    systemLandscape "landscape" {
+        include *
+        autoLayout lr
+    }
+
+    systemContext mySystem "context" {
+        include *
+        autoLayout
+    }
+
+    container mySystem "containers" {
+        include *
+        autoLayout
+    }
+
+    component msAuth "auth-internals" {
+        include *
+        autoLayout
+    }
+
+    // Dynamic view — shows a flow across containers
+    dynamic mySystem "signup" "User signup flow" {
+        operator -> shell     "1. Submits signup form"
+        shell    -> bff       "2. POST /signup"
+        bff      -> msAuth    "3. CreateUser"
+        msAuth   -> db        "4. INSERT user"
+        msAuth   -> emailProvider "5. Send welcome email"
+    }
+
+    styles {
+        element "Person" {
+            shape Person
+            background #08427B
+            color #ffffff
+        }
+        element "External" {
+            background #999999
+            color #ffffff
+        }
+        element "Database" {
+            shape Cylinder
+        }
+        element "Queue" {
+            shape Pipe
+        }
+    }
+}
+\`\`\`
+
+Notes:
+- \`include *\` is the easy default; use \`include <identifier>\` when you want to scope a view to specific elements
+- \`autoLayout\` can be \`tb\` (top-bottom, default), \`lr\` (left-right), \`bt\`, \`rl\` — pick what reads best
+- Styles target tags — add a tag to the element and the style applies
+
+## Deployment views (advanced — skip at first pass)
+
+Rarely needed in a NONoise project's initial C4. If the user asks for "deploy topology" or "infra diagram", search https://docs.structurizr.com/dsl/deployment — do not pre-emptively emit a \`deploymentEnvironment\` block.
+
+## Dynamic views — when to use
+
+Dynamic views are great for:
+- Sign-up / login flows
+- Checkout / order placement
+- Event propagation across services (e.g. "order-placed → pricing → inventory → shipping")
+
+They are **not** sequence diagrams in the UML sense; they show the high-level hops between containers with a numbered order. For detailed sequence diagrams (method-level), use Mermaid \`sequenceDiagram\` outside Structurizr — trying to force the DSL to that level creates noise.
+
+## Identifiers and naming
+
+- Identifiers (left side of \`=\`) are \`camelCase\` by convention — \`msAuth\`, not \`ms-auth\` or \`MsAuth\`
+- Display names in quotes can use any characters — spaces, dashes, dots
+- Keep identifiers stable — they are used in relationships and renaming them is a noisy diff. Renaming the display name is cheap.
+
+## Comments
+
+\`\`\`dsl
+// single-line comment
+/* multi-line
+   comment */
+\`\`\`
+
+Use comments sparingly — the DSL is already declarative. Reserve comments for "why", not "what".
+
+## Common mistakes
+
+1. **Forgetting \`workspace { }\`** — the file won't parse
+2. **Declaring a container outside a softwareSystem** — valid but unusual; most container views need a system parent
+3. **Using unquoted identifiers with dashes** — \`ms-auth = container …\` fails. Quote it or use camelCase: \`msAuth = container "ms-auth" …\`
+4. **Redefining the same identifier** — DSL allows extending with \`!extend\` but a second \`=\` line throws. If you need to add relationships to an existing element, use the identifier directly: \`msAuth -> db "Reads"\`.
+5. **Forgetting the \`views\` block** — the model alone won't render anything; the CLI needs at least one view declaration.
+",
   ".claude/skills/design-md-generator/SKILL.md": "---
 name: design-md-generator
 description: Generates a DESIGN.md design-system document for the current project following the Stitch DESIGN.md format popularized by getdesign.md (VoltAgent/awesome-design-md). Use when the user asks to "create a design.md", "generate design system docs", "write DESIGN.md", "bootstrap UI style guide", "document the design system for AI agents", or when starting a frontend project and no design spec exists yet. Can start from scratch via guided Q&A or clone an existing community DESIGN.md as a starting point.
@@ -3423,33 +4002,689 @@ Repeat the same pattern for sections 2-9 with real content filled in from the Q&
 ",
   ".claude/skills/docs-md-generator/SKILL.md": "---
 name: docs-md-generator
-description: (Stub — implementation lands in SP-7.b.) Generates and keeps coherent CLAUDE.md, AGENTS.md, and .github/copilot-instructions.md from a single AGENTS.md source-of-truth. When invoked today, this skill tells the user the skill is not yet operational and asks them to edit those files manually.
+description: Generate and keep in sync the three meta-docs of a NONoise project — \`AGENTS.md\` (root, cross-tool, source of truth), \`CLAUDE.md\` (root, Claude Code adapter), and \`.github/copilot-instructions.md\` (GitHub Copilot adapter) — treating \`AGENTS.md\` as the single source of truth and preserving skill-owned managed blocks verbatim. Use this skill whenever the user says "generate CLAUDE.md", "generate AGENTS.md", "generate copilot-instructions.md", "sync the meta-docs", "sync CLAUDE.md and AGENTS.md", "the docs are out of date", "AGENTS.md changed — regenerate the others", "bootstrap docs from scratch", "import this project into NONoise conventions", "reconcile CLAUDE.md and AGENTS.md", "AGENTS.md is the source of truth — fix the others", or when they say they started with an existing codebase (brownfield, no NONoise scaffold) and want NONoise-style meta-docs produced consistently. Also trigger proactively when the user edits \`AGENTS.md\` and asks for "the others to match", or when the three files visibly disagree. This is the meta-docs keeper — do not wait for a perfect phrase, engage whenever the three files are in scope together.
 ---
 
-# docs-md-generator (STUB — SP-1)
+# docs-md-generator
 
-> **Status**: stub. Real implementation will ship in SP-7.b.
+Keep the three AI-context meta-docs of a NONoise project coherent:
 
-## Intended behavior (SP-7.b)
+- \`AGENTS.md\` (root) — **source of truth**, cross-tool, tool-agnostic.
+- \`CLAUDE.md\` (root) — Claude Code adapter, derived from \`AGENTS.md\`.
+- \`.github/copilot-instructions.md\` — GitHub Copilot adapter, derived from \`AGENTS.md\`.
 
-Maintain three AI-context files in sync by treating \`AGENTS.md\` as source-of-truth and rendering per-tool adapters:
+This skill **writes and reconciles** those three files. It never writes
+source code, never touches templates under \`packages/templates/\`, and
+never touches tests.
+
+## Source of truth — \`AGENTS.md\`
+
+The contract is simple: if the three files disagree about a project-level
+rule, \`AGENTS.md\` wins. The tool-specific files may add tool-specific
+prose (slash commands, tool-specific triggers) but they must not
+contradict \`AGENTS.md\` on anything cross-tool — project structure,
+build/test commands, conventions, installed skills list.
+
+Consequence: when \`AGENTS.md\` changes, the other two must be regenerated.
+When the other two drift from \`AGENTS.md\`, they must be reconciled.
+
+## Three modes
+
+This skill has three operating modes. Pick one by looking at what exists:
+
+| State on disk | Mode | What to do |
+|---|---|---|
+| Only \`AGENTS.md\` exists | **Bootstrap** | Generate \`CLAUDE.md\` and \`.github/copilot-instructions.md\` from \`AGENTS.md\`. |
+| All three exist but differ | **Import** | Reconcile all three into a coherent triad with \`AGENTS.md\` as source of truth. |
+| All three exist, consistent, but \`AGENTS.md\` was just edited | **Sync** | Regenerate the tool-specific files from \`AGENTS.md\`, preserving managed blocks. |
+
+If nothing exists, ask the user whether the project was meant to be
+NONoise-scaffolded. If yes, point them at \`create-nonoise\`. This skill
+does not scaffold from zero — it maintains an existing \`AGENTS.md\`.
+
+See \`references/mode-prompts.md\` for the exact Q&A phrasing per mode
+(EN + IT).
+
+## Managed blocks — NEVER edit the inside
+
+\`CLAUDE.md\` and \`.github/copilot-instructions.md\` contain **managed
+blocks** owned by OTHER skills. A managed block looks like:
+
+\`\`\`markdown
+<!-- >>> polly (managed by polly skill) -->
+## polly
+...body written by polly...
+<!-- <<< polly -->
+\`\`\`
+
+The rule is one line long: **content inside \`<!-- >>> name --> ... <!-- <<< name -->\`
+is owned by another skill. Preserve it verbatim.** Do not reformat, do
+not re-wrap, do not "improve" prose inside a managed block. Copy the
+bytes as-is from the old file into the new one.
+
+Known markers in the NONoise framework today:
+
+- \`polly\` — owned by the \`polly\` skill (entry-point reminder for Polly).
+- \`graphify\` — owned by the \`graphify-setup\` skill (knowledge-graph rules).
+- \`design-md\` — optional, owned by \`design-md-generator\` (pointer to
+  \`docs/design.md\` for UI code generation).
+
+If you encounter a marker not on this list, treat it as orphan: leave
+the block alone, flag it in the summary ("Found unknown managed block
+\`foo\` — left intact."). Other skills may introduce their own markers
+over time; the pattern is designed to extend.
+
+See \`references/managed-blocks-protocol.md\` for the parsing regex, the
+extension rule, and the orphan-marker policy in detail.
+
+## Mode 1 — Bootstrap
+
+**State**: only \`AGENTS.md\` exists. Generate the other two.
+
+Step by step:
+
+1. **Inventory**. Read \`AGENTS.md\` in full. Note the project name (top
+   H1), the stack mentions, the installed skills section (if any), the
+   existing managed blocks (there will be at least \`graphify\` usually).
+2. **Ask the minimum**. If the following are not already obvious from
+   \`AGENTS.md\`, ask them one at a time (Polly-style — one question at a
+   time, wait for an answer, move on):
+   - Is this project using Claude Code, GitHub Copilot, or both? (Affects
+     which of the two files to create. Default: both.)
+   - Is Polly installed as the orchestrator? (Yes → add the Polly
+     managed block in each tool file. Default: yes for NONoise projects.)
+   - Language for the generated prose. (Follow the language already
+     used in \`AGENTS.md\`. Default: English.)
+3. **Emit \`CLAUDE.md\`** at project root if Claude Code is selected. Use
+   the canonical structure from \`references/output-templates.md\`:
+   title, intro line, Polly entry-point section (if Polly present),
+   installed skills section (copied or rephrased from \`AGENTS.md\`),
+   "Working in this project" conventions section, managed blocks area
+   (copy \`polly\` block and \`graphify\` block from \`AGENTS.md\`
+   equivalents, plus any other known markers present), footer.
+4. **Emit \`.github/copilot-instructions.md\`** if Copilot is selected.
+   Same content spine as \`CLAUDE.md\` but rephrased for Copilot (no
+   slash-command references; instead, tell Copilot to read
+   \`.claude/skills/<name>/SKILL.md\` when triggers match).
+5. **Summarize**. Show the user: which files were written, byte counts,
+   and any managed blocks carried over. Do not write without showing
+   the summary first if either target file already existed (it
+   shouldn't, in bootstrap mode — but double-check).
+
+## Mode 2 — Import
+
+**State**: all three files exist but drifted. Reconcile.
+
+This is the longest mode. The project was probably built without
+NONoise and the user now wants NONoise conventions applied.
+
+Step by step:
+
+1. **Read all three files** into memory. Record the set of H2 sections
+   in each.
+2. **Parse managed blocks** in \`CLAUDE.md\` and
+   \`.github/copilot-instructions.md\`. Store them keyed by marker name.
+   These are sacred — they will be re-emitted verbatim.
+3. **Build a section-by-section diff**. For each H2 section that
+   appears in at least one file, classify it:
+   - **Only in \`AGENTS.md\`** → propagate to the other two.
+   - **Only in a tool-specific file, and the section name is tool-neutral**
+     (e.g. \`## Build & test\`, \`## Project structure\`) → propose moving
+     the content into \`AGENTS.md\` as the new source of truth.
+   - **Only in a tool-specific file, and the section name is
+     tool-specific** (e.g. Claude slash commands, Copilot-specific
+     hints) → leave as tool-specific; do not copy to \`AGENTS.md\`.
+   - **In multiple files with different wording** → flag a conflict.
+4. **Resolve conflicts one at a time**. For each flagged conflict, ask
+   the user: "\`AGENTS.md\` says X, \`CLAUDE.md\` says Y — which wins?"
+   Default answer is \`AGENTS.md\` wins. Record the decision.
+5. **Rewrite all three** coherently:
+   - \`AGENTS.md\` gets the agreed content, plus any tool-neutral
+     sections lifted from the tool files.
+   - \`CLAUDE.md\` and \`.github/copilot-instructions.md\` get the shared
+     content (from \`AGENTS.md\`) + their managed blocks (verbatim) + any
+     legitimately tool-specific sections they had before.
+6. **Summarize aggressively**. List every section that was moved,
+   every conflict that was resolved, every managed block that was
+   preserved. Show the diff-size per file before asking for the
+   go-ahead to write.
+
+See \`references/mode-prompts.md\` for conflict-resolution Q&A templates.
+
+## Mode 3 — Sync
+
+**State**: \`AGENTS.md\` was edited, the other two are stale.
+
+This mode is mostly silent — no questions unless something unrecognized
+appears.
+
+Step by step:
+
+1. **Diff** \`AGENTS.md\` against \`CLAUDE.md\` and
+   \`.github/copilot-instructions.md\` section-by-section.
+2. **For each unchanged section**, skip.
+3. **For each section in \`AGENTS.md\` that changed**, regenerate the
+   corresponding section in each tool file, rewriting only the prose
+   *outside* managed blocks.
+4. **Preserve verbatim**:
+   - All managed blocks (match by marker name).
+   - All tool-specific sections that have no equivalent in \`AGENTS.md\`
+     (Claude slash-command hints, Copilot \`.github/instructions/*.md\`
+     pointers, etc.).
+5. **Unrecognized new H2 in \`AGENTS.md\`**: ask the user one question —
+   "AGENTS.md has a new section \`## X\` — should I mirror it verbatim
+   into CLAUDE.md and copilot-instructions.md, or adapt it per tool?"
+6. **Write** and show a short summary (N sections changed, M managed
+   blocks preserved).
+
+## Trigger detection — pick the mode automatically
+
+When the skill is invoked, look at the filesystem and the user's message:
+
+- If the user mentions "bootstrap", "new project", "from scratch", or
+  only \`AGENTS.md\` exists → **Mode 1**.
+- If the user mentions "import", "brownfield", "existing codebase",
+  "reconcile", "fix the drift", or the three files exist with visible
+  disagreements → **Mode 2**.
+- If the user says "sync", "AGENTS.md changed", "update the others",
+  or \`AGENTS.md\` has a newer mtime than the others → **Mode 3**.
+
+If the mode is ambiguous, ask the user once: "I see all three files
+exist. Do you want me to (a) reconcile them (Import mode — assumes
+they may disagree), or (b) propagate recent AGENTS.md changes (Sync
+mode — assumes they agreed until recently)?"
+
+## Output format conventions
+
+- **H2 structure**. Every first-level section in the generated files
+  uses \`##\`. The file starts with a single \`#\` title and a one-line
+  intro.
+- **Skills list**. Group the installed skills by purpose (SDLC
+  orchestrator, Requirements & discovery, Architecture & validation,
+  Sprint & implementation, Brownfield, Ops & observability,
+  Integrations, Generators, Utility). Keep the group headings in bold,
+  list the skills inline with backticks.
+- **Language**. Follow the language used in \`AGENTS.md\`. If \`AGENTS.md\`
+  is in Italian, produce Italian prose; if English, English. Never mix.
+- **Managed blocks area**. Place managed blocks at the bottom of the
+  file, just before the footer. Order: \`polly\` first (if present),
+  then \`graphify\`, then any other known markers, then orphans.
+- **Footer**. If the file had \`Generated by create-nonoise v{{frameworkVersion}}.\`
+  keep it as-is. Do not invent a version string.
+
+See \`references/output-templates.md\` for the canonical skeletons of
+all three files.
+
+## Safety rules
+
+- **Never destroy a managed block.** If you cannot parse the closing
+  marker for an opened block, abort the write and ask the user to
+  repair the file manually. Better to do nothing than to corrupt a
+  skill-owned section.
+- **Never overwrite without confirmation on a large diff.** Threshold:
+  if more than 30% of the target file would change, present the diff
+  summary and ask for explicit "go ahead" before writing.
+- **Always show a summary before writing**, even on a small change.
+  The user should never be surprised by what ended up on disk.
+- **Idempotent**: running the skill twice in a row on an unchanged
+  state must produce no diff. If your second run changes anything,
+  something is wrong — investigate before committing.
+- **No scope creep**. This skill does not touch \`README.md\`,
+  \`docs/**/*\`, \`GEMINI.md\`, \`.cursor/rules.md\`, or any other file.
+  Those belong to other skills or to the user. If the user asks for
+  them, politely say this skill's scope is the AGENTS/CLAUDE/Copilot
+  triad and route the rest elsewhere.
+- **No Handlebars rendering.** This skill operates on rendered
+  markdown files. The \`{{projectName}}\` and \`{{frameworkVersion}}\`
+  placeholders are a scaffolding-time concern — if the user's files
+  still contain them, flag it but do not try to re-render.
+
+## References
+
+- \`references/managed-blocks-protocol.md\` — full list of known
+  markers, regex for parsing, extension rule, orphan policy.
+- \`references/mode-prompts.md\` — verbatim Q&A prompts for each mode
+  in English and Italian.
+- \`references/output-templates.md\` — canonical skeletons of
+  \`AGENTS.md\`, \`CLAUDE.md\`, and \`.github/copilot-instructions.md\`.
+
+## Out of scope (v1)
+
+- Scaffolding the files from zero with no prior \`AGENTS.md\`. That's
+  \`create-nonoise\`'s job.
+- Rendering Handlebars templates. Handled at scaffold time.
+- Maintaining \`GEMINI.md\`, \`.cursor/rules.md\`, \`.codex/*\`. Those are
+  owned by other tool-specific adapters (possibly future skills).
+- Non-interactive / CLI mode. Today this skill is conversational.
+  Noted as backlog — a \`--sync\` flag invoked from a pre-commit hook
+  would enable automation.
+",
+  ".claude/skills/docs-md-generator/references/managed-blocks-protocol.md": "# Managed blocks — protocol
+
+Managed blocks are the mechanism skills use to own a slice of
+\`CLAUDE.md\` / \`.github/copilot-instructions.md\` / \`AGENTS.md\` without
+stepping on each other. Each block is delimited by two HTML comments,
+one to open and one to close:
+
+\`\`\`markdown
+<!-- >>> <marker> (managed by <skill-name> skill) -->
+## <human-readable heading>
+
+...body owned by the skill...
+<!-- <<< <marker> -->
+\`\`\`
+
+- \`<marker>\` is a short lowercase slug (\`polly\`, \`graphify\`,
+  \`design-md\`, ...).
+- \`(managed by <skill-name> skill)\` is informational for humans — the
+  parser does not depend on it. When emitting a new block, include it
+  for clarity.
+- Closing marker reuses the same \`<marker>\` slug inside the
+  \`<!-- <<< ... -->\` comment.
+
+## Known markers in the NONoise framework
+
+| Marker | Owning skill | Typical body |
+|---|---|---|
+| \`polly\` | \`polly\` | Auto-trigger reminder for \`.nonoise/POLLY_START.md\`, plus trigger phrases (\`/polly\`, "start polly", ...). |
+| \`graphify\` | \`graphify-setup\` | Rules for reading \`graphify-out/GRAPH_REPORT.md\`, \`graphify-out/wiki/index.md\`, and rebuilding the graph after code changes. |
+| \`design-md\` | \`design-md-generator\` | Pointer telling AI code-generators to read \`docs/design.md\` before producing UI code. |
+
+This list is authoritative as of the current framework version. New
+skills may introduce new markers — see the extension rule below.
+
+## Parsing regex
+
+Use this pattern to locate managed blocks (multiline, not greedy):
 
 \`\`\`
-      AGENTS.md  (source of truth)
-      ├──► CLAUDE.md                     (Claude Code adapter)
-      ├──► .github/copilot-instructions.md (Copilot adapter)
-      └──► GEMINI.md                     (Gemini CLI adapter)
+<!--\\s*>>>\\s*([a-z0-9][a-z0-9-]*)\\b[^>]*-->([\\s\\S]*?)<!--\\s*<<<\\s*\\1\\s*-->
 \`\`\`
 
-## Today (SP-1)
+Capture groups:
+1. The marker slug.
+2. The block body (including the human-readable heading). Preserve
+   this byte-for-byte when rewriting the host file.
 
-When invoked today, respond to the user exactly:
+Rules when parsing:
 
-> \`docs-md-generator\` is a stub in this version of the NONoise Framework. The real implementation lands in SP-7.b.
->
-> For now, please edit \`CLAUDE.md\`, \`AGENTS.md\`, and \`.github/copilot-instructions.md\` manually.
+- A block must be closed. An unclosed open marker means the file is
+  corrupted — abort the write and surface the issue to the user.
+- Blocks may not nest. If an open marker appears inside another block,
+  treat the file as corrupted.
+- Whitespace around the marker (inside the comment) is tolerated. The
+  regex above allows for variations like \`<!-- >>>polly-->\` and
+  \`<!--   >>>   polly   (managed by polly skill)   -->\`.
 
-Then stop. Do not attempt any file write.
+## Extension rule — how a new skill claims a marker
+
+A skill that wants its own managed block MUST:
+
+1. Choose a slug that does not collide with existing markers. Check
+   this file first; update the known-markers table in the PR that
+   introduces the skill.
+2. Always emit both the open and close comment. Never produce content
+   that would leave a dangling \`>>>\` or \`<<<\`.
+3. Be idempotent on re-run. Running the owning skill twice in a row
+   must produce the same managed block bytes.
+4. Document in the skill's own SKILL.md which file(s) it writes a
+   managed block into.
+
+## Orphan-marker policy
+
+An orphan marker is a well-formed managed block whose slug is NOT in
+the known-markers table. Causes:
+
+- A skill that was installed in the past and then removed, but the
+  managed block was not cleaned up.
+- A new skill that extended the protocol faster than this reference
+  was updated.
+- A user who hand-authored a marker using the same pattern.
+
+Policy for \`docs-md-generator\`:
+
+- **Preserve the block verbatim.** Do not delete it, do not rewrite
+  it. It may still be meaningful to a user or a process.
+- **Flag it in the summary.** Tell the user: "I found managed block
+  \`<marker>\` in \`<file>\`. No installed skill claims it. I kept it
+  intact. Remove it manually if it is obsolete, or add it to the
+  known-markers table if a skill owns it."
+- **Never propagate an orphan from a tool-specific file into
+  \`AGENTS.md\`.** Managed blocks belong in the files they are in. If
+  the user wants the orphan content elsewhere, that is a manual
+  decision.
+
+## Interaction with \`AGENTS.md\`
+
+\`AGENTS.md\` may also contain managed blocks (at minimum the \`graphify\`
+block lives there too). The same rules apply: preserve verbatim, do
+not invent new ones from this skill.
+
+This skill only writes managed blocks that already exist in the
+source file. It does not create \`polly\` or \`graphify\` blocks from
+scratch — those are the responsibility of \`polly\` and
+\`graphify-setup\`. If the user's \`AGENTS.md\` lacks a block that their
+tool file clearly needs, tell the user to run the relevant skill
+(e.g. \`graphify-setup\`) before re-running this one.
+",
+  ".claude/skills/docs-md-generator/references/mode-prompts.md": "# Mode prompts — verbatim Q&A flows
+
+One question at a time. Wait for the answer before moving on. Follow
+the language already in use in \`AGENTS.md\` (or, if the file is empty,
+the user's language in the conversation).
+
+## Mode 1 — Bootstrap
+
+Use these when only \`AGENTS.md\` exists and the user wants the other
+two files generated.
+
+### Q1 — Target tools
+
+- EN: "I can generate \`CLAUDE.md\` (for Claude Code) and
+  \`.github/copilot-instructions.md\` (for GitHub Copilot). Do you want
+  both? (default: both)"
+- IT: "Posso generare \`CLAUDE.md\` (per Claude Code) e
+  \`.github/copilot-instructions.md\` (per GitHub Copilot). Vuoi
+  entrambi? (default: entrambi)"
+
+Accept: "both", "entrambi", "claude", "copilot", "only claude", "solo
+copilot", etc.
+
+### Q2 — Polly entry point
+
+- EN: "Is **Polly** installed in this project as the SDLC
+  orchestrator? (NONoise default: yes.) If yes, I'll add the Polly
+  managed block to both generated files."
+- IT: "Polly è installato in questo progetto come orchestratore SDLC?
+  (default NONoise: sì.) Se sì, aggiungo il blocco gestito di Polly a
+  entrambi i file."
+
+If the user answers yes but there's no \`polly\` managed block in
+\`AGENTS.md\`, say: "\`AGENTS.md\` doesn't have a Polly block yet — I'll
+insert a minimal one based on the framework default. Run the \`polly\`
+skill afterwards if you want it fine-tuned."
+
+### Q3 — Language confirm
+
+- EN: "I see \`AGENTS.md\` is written in <detected-language>. The
+  generated files will follow the same language. Correct?"
+- IT: "Vedo che \`AGENTS.md\` è in <lingua-rilevata>. I file generati
+  seguiranno la stessa lingua. Confermi?"
+
+## Mode 2 — Import (conflict resolution)
+
+Fire one of these for each conflict found during section-by-section
+diff.
+
+### Template — tool-neutral conflict
+
+- EN: "Conflict on section \`## <heading>\`:
+  - \`AGENTS.md\` says: <snippet-a>
+  - \`<tool-file>\` says: <snippet-b>
+  Which version wins? (a) \`AGENTS.md\` [default], (b) \`<tool-file>\`,
+  (c) merge (you dictate the merged text), (d) keep both — move the
+  tool-file version into a tool-specific section."
+- IT: "Conflitto sulla sezione \`## <titolo>\`:
+  - \`AGENTS.md\` dice: <snippet-a>
+  - \`<file-tool>\` dice: <snippet-b>
+  Quale versione vince? (a) \`AGENTS.md\` [default], (b) \`<file-tool>\`,
+  (c) fondi (mi detti il testo fuso), (d) tienili entrambi — sposto
+  quella di \`<file-tool>\` in una sezione tool-specific."
+
+### Template — tool-file-only, tool-neutral content
+
+- EN: "Section \`## <heading>\` exists only in \`<tool-file>\`. The
+  content looks tool-neutral (<1-line rationale>). Should I lift it
+  into \`AGENTS.md\` as source of truth? (y/n, default y)"
+- IT: "La sezione \`## <titolo>\` esiste solo in \`<file-tool>\`. Il
+  contenuto sembra tool-neutro (<1-riga motivo>). La sposto in
+  \`AGENTS.md\` come source of truth? (s/n, default s)"
+
+### Template — tool-file-only, tool-specific content
+
+No question needed. Log: "Keeping \`## <heading>\` in \`<tool-file>\`
+only (tool-specific)."
+
+### Template — managed block inventory
+
+Before writing, show: "Managed blocks I will preserve verbatim:
+- \`polly\` (in CLAUDE.md, copilot-instructions.md)
+- \`graphify\` (in AGENTS.md, CLAUDE.md, copilot-instructions.md)
+Any orphans flagged separately below."
+
+## Mode 3 — Sync (silent mode)
+
+Sync is mostly silent. Only one question template applies:
+
+### Template — unrecognized new H2
+
+- EN: "\`AGENTS.md\` has a new section \`## <heading>\` that doesn't exist
+  in the tool files. Options:
+  (a) mirror it verbatim into both tool files,
+  (b) rephrase for each tool (I'll draft and show you),
+  (c) keep it tool-neutral — put a one-line pointer in the tool files
+  that says 'see AGENTS.md §<heading>',
+  (d) skip — don't propagate.
+  Default: (a)."
+- IT: "\`AGENTS.md\` ha una nuova sezione \`## <titolo>\` che non esiste
+  nei file tool-specific. Opzioni:
+  (a) la copio verbatim in entrambi,
+  (b) la riformulo per ciascun tool (mostro le bozze),
+  (c) la lascio tool-neutra — nei file tool metto solo un puntatore
+  'vedi AGENTS.md §<titolo>',
+  (d) salto — non la propago.
+  Default: (a)."
+
+## Pre-write summary (all modes)
+
+Before any write, show this structured summary:
+
+\`\`\`
+Files to write:
+- <path> — <N> bytes, <M>% changed vs on-disk
+
+Managed blocks preserved:
+- <marker> (in <file>)
+- ...
+
+Unresolved orphans flagged (left intact):
+- <marker> (in <file>)
+
+Conflicts resolved:
+- <section> → <decision>
+
+Proceed? (yes / no / dry-run)
+\`\`\`
+
+- \`dry-run\` writes the proposed content to \`/tmp/\` (or equivalent) and
+  shows the user the paths to inspect before the real write.
+- Default on empty reply is \`no\`. Never write without an explicit yes.
+",
+  ".claude/skills/docs-md-generator/references/output-templates.md": "# Output templates — canonical skeletons
+
+These are the skeletons the skill emits. Handlebars-style placeholders
+(\`{{projectName}}\`, \`{{frameworkVersion}}\`) are ONLY meaningful at
+scaffolding time (\`create-nonoise\`). This skill operates on already-
+rendered files — it treats those placeholders as ordinary text and
+leaves them alone if found. If the skill is creating a file from
+scratch (Mode 1 — Bootstrap), fill the placeholders with real values
+taken from \`AGENTS.md\` or asked from the user.
+
+## \`AGENTS.md\` — source of truth
+
+\`\`\`markdown
+# <projectName>
+
+AI-agents context for this project.
+
+See \`CLAUDE.md\` for Claude Code-specific conventions.
+See \`.github/copilot-instructions.md\` for GitHub Copilot rules.
+
+## Project structure
+
+- \`src/\` — application code
+- \`docs/\` — architecture docs, ADRs, specs
+- \`tools/\` — utility scripts
+
+## Build & test
+
+<fill in once the project has code>
+
+## Installed skills
+
+<skills listing, grouped by purpose — see "Skills listing format" below>
+
+## Working conventions
+
+<cross-tool conventions — things that apply regardless of which AI
+tool the developer uses>
+
+<!-- >>> graphify (managed by graphify-setup skill) -->
+## graphify
+...owned by graphify-setup...
+<!-- <<< graphify -->
+
+---
+
+Generated by create-nonoise v<frameworkVersion>.
+\`\`\`
+
+## \`CLAUDE.md\` — Claude Code adapter
+
+\`\`\`markdown
+# <projectName> — Claude Code context
+
+Claude Code-specific conventions for this project. For cross-tool
+context see \`AGENTS.md\`.
+
+## Entry point — Polly
+
+This project ships with **Polly**, the NONoise SDLC orchestrator.
+Start there whenever you don't know what to do next:
+
+- Type \`/polly\` to launch
+- Or say "start polly" / "avvia polly" / "orchestrate this project"
+- Or, if \`.nonoise/POLLY_START.md\` exists, Polly auto-triggers on the
+  next session
+
+Polly will ask whether the project is greenfield or brownfield, then
+engage the right bundled skill for each SDLC step.
+
+## Installed skills
+
+<skills listing — same grouping as AGENTS.md, optionally annotated
+with Claude-specific notes like slash commands>
+
+## Working in this project
+
+<cross-tool conventions from AGENTS.md, rephrased imperatively for
+Claude Code>
+
+<!-- >>> polly (managed by polly skill) -->
+## polly
+...owned by polly...
+<!-- <<< polly -->
+
+<!-- >>> graphify (managed by graphify-setup skill) -->
+## graphify
+...owned by graphify-setup...
+<!-- <<< graphify -->
+
+---
+
+Generated by create-nonoise v<frameworkVersion>.
+\`\`\`
+
+## \`.github/copilot-instructions.md\` — Copilot adapter
+
+\`\`\`markdown
+# <projectName> — GitHub Copilot instructions
+
+Project-scoped rules for Copilot. For cross-tool context see
+\`AGENTS.md\`.
+
+## Entry point — Polly
+
+This project ships with **Polly**, the NONoise SDLC orchestrator.
+Whenever the developer is unsure what to do next, or asks "start polly"
+/ "avvia polly" / "orchestrate this project", read
+\`.claude/skills/polly/SKILL.md\` and follow its decision tree.
+
+If the file \`.nonoise/POLLY_START.md\` exists in the project root, your
+FIRST action this session is to invoke Polly, then delete
+\`.nonoise/POLLY_START.md\` so it doesn't re-trigger.
+
+## Conventions
+
+<cross-tool conventions from AGENTS.md, rephrased for a Copilot
+audience — no slash commands>
+
+## Available skills (cross-tool)
+
+This project contains a library of AI skills in \`.claude/skills/\`. The
+skills are plain markdown and apply to every AI tool, including
+Copilot. When the user's task matches the description of one of these
+skills, open the corresponding \`SKILL.md\` file and follow its
+instructions.
+
+<skills listing — same grouping as AGENTS.md>
+
+<!-- >>> polly (managed by polly skill) -->
+## polly
+...owned by polly...
+<!-- <<< polly -->
+
+<!-- >>> graphify (managed by graphify-setup skill) -->
+## graphify
+...owned by graphify-setup...
+<!-- <<< graphify -->
+
+---
+
+Generated by create-nonoise v<frameworkVersion>.
+\`\`\`
+
+## Skills listing format
+
+Group by purpose. Use bold group headings and inline backticked skill
+names, separated by commas. Reference NONoise default grouping:
+
+\`\`\`
+**SDLC orchestrator** — \`polly\`
+
+**Requirements & discovery** — \`requirements-ingest\`,
+\`bmad-agent-analyst\`, \`bmad-advanced-elicitation\`
+
+**Architecture & validation** — \`arch-brainstorm\`, \`arch-decision\`,
+\`quint-fpf\`, \`bmad-agent-architect\`
+
+**Sprint & implementation** — \`sprint-manifest\`, \`atr\`
+
+**Brownfield** — \`graphify-setup\`, \`reverse-engineering\`
+
+**Ops & observability** — \`ops-skill-builder\`, \`observability-debug\`
+
+**Integrations** — \`spec-to-workitem\`, \`playwright-cli\`,
+\`frontend-design\`, \`bmad-agent-ux-designer\`, \`bmad-agent-tech-writer\`
+
+**Generators** — \`vscode-config-generator\`, \`docs-md-generator\`,
+\`design-md-generator\`
+
+**Utility** — \`skill-finder\`
+\`\`\`
+
+If the project installed vendored superpowers, add a \`**Superpowers**\`
+group at the end with the full list (or reference the
+\`.claude/skills/superpowers/\` folder).
+
+## Language notes
+
+- Detect the language of the source \`AGENTS.md\` by looking at the
+  intro prose (not H2 headings, which are often English even in
+  Italian docs).
+- If mixed, default to English and flag it in the summary.
+- Never translate managed-block bodies — they are owned by their
+  skills and preserved byte-for-byte.
 ",
   ".claude/skills/frontend-design/SKILL.md": "---
 name: frontend-design
@@ -7830,6 +9065,7 @@ Sometimes the user's need does not fit the main SDLC loop. Recognize and route:
 | "design this UI" | \`frontend-design\` |
 | "generate VSCode configs" | \`vscode-config-generator\` |
 | "I need a docs / design / prd markdown file" | \`docs-md-generator\` / \`design-md-generator\` |
+| "update C4 diagrams" | \`c4-doc-writer\` |
 | "I don't know which skill I want" | \`skill-finder\` |
 
 ## Fallback for missing skills
@@ -8042,6 +9278,8 @@ Prompt:
 Output is a validated PRD + FPF audit at \`docs/prd/<area>/audit/\`. No
 auto-sync to \`docs/architecture/\` — Alex does that manually with the DOC
 capability.
+
+After \`arch-decision\` PASS, engage \`c4-doc-writer\` to update \`docs/architecture/c4/workspace.dsl\`. This keeps the architectural diagrams in sync with the validated decision — one Structurizr DSL source, many regenerated views (Context / Container / Component). The skill is advisory on CLI install (never auto-installs Structurizr) and appends a dated entry to \`docs/architecture/c4/CHANGELOG.md\` noting which ADR triggered the refresh.
 
 ## Greenfield — Step 2.7 — Sprint breakdown     \`[pair]\`
 
@@ -21472,7 +22710,8 @@ support/
     "spec-to-workitem",
     "ops-skill-builder",
     "observability-debug",
-    "polly"
+    "polly",
+    "c4-doc-writer"
   ]
 }
 ",
@@ -22458,8 +23697,16 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/bmad-agent-architect/SKILL.md",
   ".claude/skills/bmad-agent-tech-writer/SKILL.md",
   ".claude/skills/bmad-agent-ux-designer/SKILL.md",
+  ".claude/skills/c4-doc-writer/SKILL.md",
+  ".claude/skills/c4-doc-writer/assets/workspace.dsl.template",
+  ".claude/skills/c4-doc-writer/references/c4-levels-primer.md",
+  ".claude/skills/c4-doc-writer/references/install-structurizr-cli.md",
+  ".claude/skills/c4-doc-writer/references/structurizr-dsl-cheatsheet.md",
   ".claude/skills/design-md-generator/SKILL.md",
   ".claude/skills/docs-md-generator/SKILL.md",
+  ".claude/skills/docs-md-generator/references/managed-blocks-protocol.md",
+  ".claude/skills/docs-md-generator/references/mode-prompts.md",
+  ".claude/skills/docs-md-generator/references/output-templates.md",
   ".claude/skills/frontend-design/SKILL.md",
   ".claude/skills/graphify-setup/SKILL.md",
   ".claude/skills/observability-debug/SKILL.md",

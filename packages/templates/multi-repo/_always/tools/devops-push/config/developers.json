@@ -1,0 +1,17 @@
+{
+  "_comment": "Neutral example — replace with your team. Each entry is checked when validating task assignments in the work-item JSON files. Email must match `assignedTo` in tasks. The `skills` / `team` fields are informative and consumed by an external AI planner (e.g. spec-to-workitem skill) to propose assignments.",
+  "developers": [
+    {
+      "name": "Alice Example",
+      "email": "alice.example@example.com",
+      "team": "Example Team",
+      "skills": ["BE", "BFF", "DB", "Infra"]
+    },
+    {
+      "name": "Bob Example",
+      "email": "bob.example@example.com",
+      "team": "Example Team",
+      "skills": ["FE", "Test"]
+    }
+  ]
+}

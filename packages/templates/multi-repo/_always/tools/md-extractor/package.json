@@ -1,0 +1,15 @@
+{
+  "name": "@nonoise/md-extractor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "md-extract": "./extract.js"
+  },
+  "scripts": {
+    "start": "node extract.js"
+  },
+  "dependencies": {
+    "@llamaindex/llama-cloud": "^2.3.0"
+  }
+}

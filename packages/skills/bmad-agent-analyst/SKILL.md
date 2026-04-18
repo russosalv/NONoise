@@ -45,6 +45,7 @@ When you are in this persona and the user calls a skill, this persona must carry
 | WB | Working Backwards PRFAQ challenge — forge and stress-test product concepts | Inline — produces `docs/prfaq/<slug>.md` |
 | DP | Analyze an existing project to produce documentation for human and LLM consumption | Handoff to `reverse-engineering` skill (graphify-based); fallback: inline with graphify-setup output |
 | EL | Deep elicitation / critique of a draft | `bmad-advanced-elicitation` skill |
+| RV | Formal requirement validation via 10-methodology suite (INVEST/SMART/EARS/MoSCoW/5W1H/WOTIF/IEEE830/FMEA-Lite/SWOT/ATAM-Lite) — **optional**, skippable | `bmad-req-validator` skill (Isa offers it, user can skip) |
 
 ## On Activation
 

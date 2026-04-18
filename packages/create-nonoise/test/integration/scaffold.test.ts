@@ -92,6 +92,7 @@ describe('scaffold() integration', () => {
       'ops-skill-builder',
       'observability-debug',
       'polly',
+      'c4-doc-writer',
     ];
     for (const name of expected) {
       const content = await readFile(

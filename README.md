@@ -16,6 +16,13 @@ NONoise takes a blank directory and turns it into a fully-wired, AI-ready projec
 
 **Polly is the conductor.** A well-stocked skill library is useless if nobody knows what to use when. Polly is the orchestrator skill that auto-triggers on a freshly scaffolded project, asks greenfield-vs-brownfield, then walks the SDLC in order — requirements, discovery, architecture, sprint, implementation, acceptance. You never pick the wrong skill; you always know the next step.
 
+### What NONoise is not
+
+- **Not an agent framework.** We don't compete with LangGraph, AutoGen, or Claude Agent SDK. We assume you're already using one of the AI-assistant IDEs (Claude Code, Copilot, Cursor) and we wire them up so they're productive on day one.
+- **Not a code generator.** None of the skills write your production code without your involvement. The architecture skills produce PRDs; the sprint skills produce manifests; the implementation skills wrap `superpowers:*` planning and execution under human review.
+- **Not opinionated about your stack.** `src/` is empty on purpose. Pick .NET, Node, Python, Rust, Go, whatever — the SDLC flow doesn't care.
+- **Not a service.** Everything runs locally inside your AI tool of choice. No server, no telemetry, no account.
+
 ---
 
 ## Quickstart
@@ -102,6 +109,22 @@ Full specification lives in [`packages/skills/polly/SKILL.md`](packages/skills/p
 ## Bundled skills catalog
 
 **37 skills total at time of writing** — 23 NONoise-native, 14 vendored from [obra/superpowers](https://github.com/obra/superpowers). All ship under `.claude/skills/` in scaffolded projects and work cross-tool (markdown files readable by any AI).
+
+### At-a-glance
+
+| Group | Count | Primary purpose |
+|---|---:|---|
+| Orchestrator | 1 | Conduct the SDLC |
+| Requirements & discovery | 3 | Turn raw input into structured requirements |
+| Architecture & validation | 4 | Draft and formally validate architecture decisions |
+| Sprint & implementation | 2 | Break work down, run acceptance tests |
+| Brownfield | 2 | Index and document existing code |
+| Ops & observability | 2 | Operate systems and triage incidents |
+| Integrations | 5 | Trackers, browsers, UI / UX, tech writing |
+| Generators | 3 | VSCode config, docs MDs, design MD |
+| Utility | 1 | Discover and install more skills |
+| Vendored `superpowers:*` | 14 | Planning / execution / review / worktrees |
+| **Total** | **37** | |
 
 ### Orchestrator
 | Skill | What it does |
