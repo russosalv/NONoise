@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scaffold, defaultScaffoldPaths } from './scaffold.js';
 import { runPrompts, outro, spinner, note } from './prompts.js';
+import { printBanner } from './banner.js';
 import type { CliFlags } from './prompts.js';
 import type { TemplateName } from './types.js';
 
@@ -17,6 +18,8 @@ export async function main(): Promise<void> {
     console.log(readVersion());
     return;
   }
+
+  printBanner();
 
   try {
     const ctx = await runPrompts(flags, readVersion());

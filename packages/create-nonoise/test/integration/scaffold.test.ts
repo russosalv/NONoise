@@ -308,3 +308,95 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     }
   });
 });
+
+describe('scaffold() — multi-repo template', () => {
+  let parent: string;
+  let projectPath: string;
+
+  beforeEach(async () => {
+    parent = await mkdtemp(join(tmpdir(), 'nonoise-multirepo-'));
+    projectPath = join(parent, 'my-workspace');
+  });
+
+  afterEach(async () => {
+    await rm(parent, { recursive: true, force: true });
+  });
+
+  function buildCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
+    return {
+      projectName: 'my-workspace',
+      projectPath,
+      template: 'multi-repo',
+      aiTools: {
+        claudeCode: true,
+        copilot: true,
+        codex: false,
+        cursor: false,
+        geminiCli: false,
+      },
+      gitInit: false,
+      frameworkVersion: '0.1.0',
+      ...overrides,
+    };
+  }
+
+  it('produces repositories.json at workspace root', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const raw = await readFile(join(projectPath, 'repositories.json'), 'utf8');
+    const cfg = JSON.parse(raw) as { repositories: unknown[]; version: string };
+    expect(Array.isArray(cfg.repositories)).toBe(true);
+    expect(cfg.version).toBeDefined();
+  });
+
+  it('creates repos/ folder with .gitkeep', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const s = await stat(join(projectPath, 'repos', '.gitkeep'));
+    expect(s.isFile()).toBe(true);
+  });
+
+  it('ships all 6 scripts (ps1 + sh for clone-all, switch-branch, pull-all)', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const scripts = [
+      'clone-all.ps1', 'clone-all.sh',
+      'switch-branch.ps1', 'switch-branch.sh',
+      'pull-all.ps1', 'pull-all.sh',
+    ];
+    for (const name of scripts) {
+      const s = await stat(join(projectPath, 'scripts', name));
+      expect(s.isFile(), `scripts/${name} should exist`).toBe(true);
+    }
+  });
+
+  it('AGENTS.md flags the project as a multi-repo workspace', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const agents = await readFile(join(projectPath, 'AGENTS.md'), 'utf8');
+    expect(agents.toLowerCase()).toContain('multi-repo');
+  });
+
+  it('nonoise.config.json carries the "workspace": "multi-repo" marker', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const raw = await readFile(join(projectPath, 'nonoise.config.json'), 'utf8');
+    const cfg = JSON.parse(raw) as { workspace?: string };
+    expect(cfg.workspace).toBe('multi-repo');
+  });
+
+  it('.gitignore ignores repos/*/ but keeps .gitkeep', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const gi = await readFile(join(projectPath, '.gitignore'), 'utf8');
+    expect(gi).toMatch(/repos\/\*\//);
+    expect(gi).toMatch(/!repos\/\.gitkeep/);
+  });
+
+  it('still installs the full MVP skill bundle at workspace root', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const polly = await readFile(join(projectPath, '.claude', 'skills', 'polly', 'SKILL.md'), 'utf8');
+    expect(polly).toContain('polly');
+  });
+
+  it('single-project template does NOT produce repositories.json', async () => {
+    await scaffold(buildCtx({ template: 'single-project' }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    await expect(stat(join(projectPath, 'repositories.json'))).rejects.toThrow();
+  });
+});

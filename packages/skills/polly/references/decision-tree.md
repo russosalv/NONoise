@@ -21,6 +21,56 @@ Adaptation (IT):
 Wait for an explicit answer. Do not infer from directory contents — an empty
 `docs/` tree is produced by both paths.
 
+## Step 1.5 — Multi-repo workspace detection (fire before proceeding)
+
+Detection signals (any one is enough):
+
+- `repositories.json` exists at project root
+- `nonoise.config.json` has `"workspace": "multi-repo"`
+- `repos/` folder exists with `.gitkeep`
+
+If detected, handle BEFORE continuing with Step 2 or Step 3:
+
+**1. Acknowledge the workspace shape**
+> This is a multi-repo workspace. Sub-repos live under `repos/<path>` and are
+> managed by the scripts in `./scripts/`:
+> - `clone-all.(sh|ps1)` — reads `repositories.json`, clones each `active`
+>   repo into `repos/<path>`
+> - `switch-branch.(sh|ps1) <branch>` — checkout the same branch across all
+>   sub-repos (creates if missing)
+> - `pull-all.(sh|ps1)` — `git pull --ff-only` across all active sub-repos
+
+**2. Check bootstrap state** — is `repos/` empty (only `.gitkeep`)?
+
+- **If yes**: offer two paths:
+  - *Guided*: "I can walk you through `repositories.json` entry-by-entry —
+    for each repo ask URL / path inside repos / branch / status. Then run
+    clone-all for you."
+  - *Manual*: "Edit `repositories.json` yourself, flip `status` to `active`
+    for the repos you want, then run `./scripts/clone-all.sh` and come back
+    to me."
+
+- **If no** (sub-repos already cloned): skip, move on.
+
+**3. Skills policy reminder**
+
+> This workspace is **workspace-centric**: skills live only at the workspace
+> root (`.claude/skills/` here). Open this directory in Claude Code / Copilot
+> and you have all skills available. Sub-repos under `repos/` are plain code
+> — they don't carry their own skill tree. If you ever need skills inside a
+> specific sub-repo (e.g. working isolated on a single service), say so and
+> I'll copy `.claude/` into that sub-repo on demand.
+
+**4. VibeKanban hint** (only if the user later mentions bugs in UAT/SIT — see
+`external-tools.md` § VibeKanban)
+
+> In a multi-repo workspace, `./scripts/switch-branch.sh <branch>` aligns all
+> sub-repos on the same branch — VibeKanban then treats the workspace as one
+> unit during bug triage.
+
+**5. Proceed with Step 1** — greenfield vs brownfield question still applies
+(a multi-repo workspace can be either).
+
 ## Pair vs solo mode per step
 
 Every step is annotated with a **mode**: `[pair]` means gather multiple

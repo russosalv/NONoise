@@ -61,6 +61,27 @@ Ask exactly this:
 Don't guess from the scaffold — both greenfield and brownfield start with an
 empty `docs/` tree. Wait for the answer.
 
+### Multi-repo workspace detection
+
+Before starting the main flow, check if `repositories.json` exists at project
+root (or if `nonoise.config.json` has `"workspace": "multi-repo"`). If yes:
+
+1. Tell the user: "This is a multi-repo workspace. Sub-repos live under
+   `repos/<path>` and are managed via `./scripts/clone-all.(sh|ps1)`,
+   `./scripts/switch-branch.(sh|ps1)`, `./scripts/pull-all.(sh|ps1)`."
+2. Check `repos/` — is it empty? If yes, ask: "Have you filled in
+   `repositories.json` yet? Want me to walk through it with you, then run
+   clone-all?"
+3. Remind about skills policy: "Workspace-centric — skills live here at
+   workspace root. Open this directory in your AI tool to have them all.
+   If you ever need skills inside a specific sub-repo, I can copy `.claude/`
+   into that sub-repo on demand — just ask."
+4. Also mention the VibeKanban compatibility: aligning all sub-repos on
+   the same branch via `switch-branch.sh` makes VibeKanban treat the
+   workspace as one unit during bug triage.
+
+Then proceed with Step 1 normally.
+
 ## Pair vs solo — two modes per step
 
 Each step has a **mode**: `[pair]` means work together on one screen with a
