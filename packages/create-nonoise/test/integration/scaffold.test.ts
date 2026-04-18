@@ -164,3 +164,146 @@ function buildAi(overrides: Partial<ProjectContext['aiTools']> = {}): ProjectCon
     ...overrides,
   };
 }
+
+describe('scaffold() — Polly & superpowers wiring', () => {
+  let parent: string;
+  let projectPath: string;
+
+  beforeEach(async () => {
+    parent = await mkdtemp(join(tmpdir(), 'nonoise-polly-'));
+    projectPath = join(parent, 'my-app');
+  });
+
+  afterEach(async () => {
+    await rm(parent, { recursive: true, force: true });
+  });
+
+  function buildCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
+    return {
+      projectName: 'my-app',
+      projectPath,
+      template: 'single-project',
+      aiTools: {
+        claudeCode: true,
+        copilot: true,
+        codex: false,
+        cursor: false,
+        geminiCli: false,
+      },
+      gitInit: false,
+      frameworkVersion: '0.1.0',
+      ...overrides,
+    };
+  }
+
+  it('writes .nonoise/POLLY_START.md when Claude is selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const marker = await readFile(join(projectPath, '.nonoise', 'POLLY_START.md'), 'utf8');
+    expect(marker).toContain('Polly auto-trigger marker');
+  });
+
+  it('writes .nonoise/POLLY_START.md when only Copilot is selected (cross-tool)', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const marker = await readFile(join(projectPath, '.nonoise', 'POLLY_START.md'), 'utf8');
+    expect(marker).toContain('Polly auto-trigger marker');
+  });
+
+  it('does NOT write POLLY_START.md when zero AI tools are selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi() }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    await expect(
+      stat(join(projectPath, '.nonoise', 'POLLY_START.md')),
+    ).rejects.toThrow();
+  });
+
+  it('does NOT write POLLY_START.md when only non-Polly tools are selected (cursor only)', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ cursor: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    await expect(
+      stat(join(projectPath, '.nonoise', 'POLLY_START.md')),
+    ).rejects.toThrow();
+  });
+
+  it('injects the polly block into CLAUDE.md when Claude is selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const claude = await readFile(join(projectPath, 'CLAUDE.md'), 'utf8');
+    expect(claude).toContain('<!-- >>> polly (managed by polly skill) -->');
+    expect(claude).toContain('.nonoise/POLLY_START.md');
+  });
+
+  it('injects the polly block into .github/copilot-instructions.md when Copilot is selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const copilot = await readFile(
+      join(projectPath, '.github', 'copilot-instructions.md'),
+      'utf8',
+    );
+    expect(copilot).toContain('<!-- >>> polly (managed by polly skill) -->');
+    expect(copilot).toContain('.nonoise/POLLY_START.md');
+  });
+
+  it('creates .claude/commands/polly.md when Claude is selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const cmd = await readFile(
+      join(projectPath, '.claude', 'commands', 'polly.md'),
+      'utf8',
+    );
+    expect(cmd).toContain('polly');
+  });
+
+  it('does NOT create .claude/commands/polly.md when only Copilot is selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    await expect(
+      stat(join(projectPath, '.claude', 'commands', 'polly.md')),
+    ).rejects.toThrow();
+  });
+
+  it('installs polly SKILL when only Copilot is selected (cross-tool)', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const skill = await readFile(
+      join(projectPath, '.claude', 'skills', 'polly', 'SKILL.md'),
+      'utf8',
+    );
+    expect(skill).toContain('polly');
+  });
+
+  it('installs vendored superpowers skill for Copilot-only but NOT the Claude-only commands', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const spSkill = await readFile(
+      join(projectPath, '.claude', 'skills', 'superpowers', 'brainstorming', 'SKILL.md'),
+      'utf8',
+    );
+    expect(spSkill.length).toBeGreaterThan(0);
+    await expect(
+      stat(join(projectPath, '.claude', 'commands', 'superpowers', 'brainstorm.md')),
+    ).rejects.toThrow();
+  });
+
+  it('installs vendored superpowers skills+commands+agents+hooks when Claude is selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const subtrees = ['skills', 'commands', 'agents', 'hooks'];
+    for (const sub of subtrees) {
+      const s = await stat(join(projectPath, '.claude', sub, 'superpowers'));
+      expect(s.isDirectory(), `.claude/${sub}/superpowers should be a directory`).toBe(true);
+    }
+  });
+});

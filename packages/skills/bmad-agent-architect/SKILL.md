@@ -115,4 +115,4 @@ setup lsp
 
 ## Integration with Polly
 
-In Polly's greenfield flow, Alex runs at steps 5–6 (architecture). In brownfield, Alex also helps evolve the architecture starting from `legacy-analyzer` output. Alex typically hands off to Daniel (tech writer) for final doc polish, or back to Isa (analyst) if requirements shift.
+In Polly's greenfield flow, Alex runs at steps 5–6 (architecture). In brownfield, Alex also helps evolve the architecture starting from `reverse-engineering` output. Alex typically hands off to Daniel (tech writer) for final doc polish, or back to Isa (analyst) if requirements shift.
