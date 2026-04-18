@@ -1,0 +1,37 @@
+{
+  "name": "create-nonoise",
+  "version": "0.1.0",
+  "description": "SDLC bootstrapper — scaffolds projects with skills, agents, and tools",
+  "type": "module",
+  "bin": {
+    "create-nonoise": "./bin/create-nonoise.mjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "templates",
+    "skills"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json && node scripts/bundle-assets.mjs",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0",
+    "handlebars": "^4.7.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "keywords": ["scaffold", "cli", "sdlc", "claude-code", "copilot", "nonoise"],
+  "license": "MIT"
+}
