@@ -18,7 +18,8 @@ describe('skill manifest validation', () => {
       const s = await stat(skillPath).catch(() => null);
       expect(s, `${name}: SKILL.md must exist`).not.toBeNull();
 
-      const content = await readFile(skillPath, 'utf8');
+      const raw = await readFile(skillPath, 'utf8');
+      const content = raw.replace(/\r\n/g, '\n');
       const m = content.match(/^---\n([\s\S]*?)\n---/);
       expect(m, `${name}: missing frontmatter`).not.toBeNull();
       const fm = m![1];
