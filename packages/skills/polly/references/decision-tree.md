@@ -21,7 +21,27 @@ Adaptation (IT):
 Wait for an explicit answer. Do not infer from directory contents — an empty
 `docs/` tree is produced by both paths.
 
-## Greenfield — Step 2.1 — Stack
+## Pair vs solo mode per step
+
+Every step is annotated with a **mode**: `[pair]` means gather multiple
+humans on one screen with a large model (decisional phases); `[solo]`
+means distributed per-task work (implementation). Announce the mode when
+engaging a step. Rationale: see `feedback_pair_vs_solo_workflow` — NONoise
+is explicit about this; most AI frameworks assume one-man-band.
+
+## Skip rules (when to bypass a step)
+
+- **Pure refactor, no new feature** → skip Step 2.4, start at Step 2.5
+  with an area-slug.
+- **Simple feature on known architecture (no new ADR)** → skip Step 2.5
+  and Step 2.6, go from Step 2.4 straight to Step 2.7. `sprint-manifest`
+  will consume the `docs/superpowers/specs/` design doc directly.
+- **Architectural study with no feature yet** → skip Step 2.4, start at
+  Step 2.5.
+- **Brownfield** → follow Step 3, then resume greenfield at Step 2.4 or
+  2.5 depending on scope (new feature vs architectural refactor).
+
+## Greenfield — Step 2.1 — Stack     `[pair]`
 
 Prompt:
 > What's the stack you're building? Short form is fine — "Node + React",
@@ -32,12 +52,14 @@ Prompt:
 Record the answer in your working memory — later steps (`arch-brainstorm`,
 `sprint-manifest`, `atr`) will use it. Don't write it to disk yet.
 
-## Greenfield — Step 2.2 — Existing source material
+## Greenfield — Step 2.2 — Existing source material     `[pair]`
 
 Prompt:
 > Do you already have any material about this project — meeting notes,
 > email threads, briefs, regulatory documents, sketches, a PRD draft? Even
-> rough stuff counts.
+> rough stuff counts. Transcripts of stakeholder calls are gold — if you
+> have them, see `external-tools.md` § call transcriptions for the
+> cleanest workflow.
 
 If **yes**:
 1. Ask where the files are.
@@ -48,7 +70,7 @@ If **yes**:
 
 If **no**: skip, move to Step 2.3.
 
-## Greenfield — Step 2.3 — Requirements elicitation
+## Greenfield — Step 2.3 — Requirements elicitation     `[pair]`
 
 Prompt:
 > Let's capture what we know about the project. I'll engage
@@ -61,59 +83,107 @@ If the user wants a lighter touch, substitute `bmad-advanced-elicitation`
 
 Output lives in `docs/requirements/<domain>/`.
 
-## Greenfield — Step 2.4 — PRD drafting
+## Greenfield — Step 2.4 — Feature / product design     `[pair]`
 
 Prompt:
-> Now the PRD. I'll engage `superpowers:brainstorming` — it drafts a first
-> PRD version, we iterate together. Then it'll land in `docs/prd/`.
+> Now the feature design. I'll engage `superpowers:brainstorming` — a
+> disciplined Q&A where we explore the *what* and *why* before the *how*.
+> It ends with a design spec at
+> `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`. It even offers a
+> visual companion (browser mockups) if we hit UI questions. One question
+> at a time, no hurry.
 
-`superpowers:brainstorming` ships with the MVP bundle (vendored from
-`obra/superpowers`), so this step should always succeed. If the user
-removed it manually, fall back per `fallback-messages.md` § brainstorming.
+`superpowers:brainstorming` is product/feature level — it does NOT read
+`docs/architecture/` constraints, so if you also need architectural
+decisions, continue to Step 2.5. If the feature is simple and the
+architecture is already known (just plumbing), skip Step 2.5 → 2.6 and
+go straight to Step 2.7 (sprint-manifest consumes the design spec).
 
-## Greenfield — Step 2.5 — Architecture options
+**Fallback**: if `superpowers:brainstorming` was removed manually, see
+`fallback-messages.md` § brainstorming.
 
-Prompt:
-> With the PRD in place, let's explore architecture options. I'll engage
-> `arch-brainstorm` — it reads the PRD, the requirements, and
-> `docs/architecture/01-constraints.md`, then produces a decision document
-> with 2-3 alternative designs scored against constraints.
-
-Output lands in `docs/prd/<feature-slug>/arch-brainstorm.md` (per the skill's
-own convention).
-
-## Greenfield — Step 2.6 — Architecture decision
+## Greenfield — Step 2.5 — Architecture options     `[pair]`  *(skip if arch is known)*
 
 Prompt:
-> Time to pick one architecture and commit to it. I'll engage
-> `arch-decision` — it takes the brainstorm doc, runs Quint FPF validation
-> (`quint-fpf` as a sub-skill), and produces an ADR in
-> `docs/architecture/adr/NNNN-<slug>.md`.
+> With the feature design in hand, let's pick the architecture. I'll
+> engage `arch-brainstorm` — it takes the area-slug, reads
+> `docs/architecture/01-constraints.md` (your source of truth),
+> `docs/requirements/`, and the Step 2.4 design spec, then produces a
+> narrative PRD under `docs/prd/<area>/NN-<study>.md` with 2-3
+> alternatives, Mermaid diagrams, and explicit anti-scope.
 
-Output is a signed ADR plus a "Impact on docs/architecture/" checklist the
-architect applies manually.
+Unlike `superpowers:brainstorming`, `arch-brainstorm` is project-aware —
+it pulls constraints and past ADRs from `docs/architecture/`. Use it
+when the architecture is non-trivial, or when the user explicitly wants
+to explore system-level options.
 
-## Greenfield — Step 2.7 — Sprint breakdown
+**Alex personality note**: if the architect reaches for exotic patterns,
+Alex (`bmad-agent-architect`) will push back per
+`feedback_canonical_architectures_alex` — prefer canonical patterns
+(MVC, Repository, CQRS, Clean, hexagonal) unless there's a strong reason.
+
+## Greenfield — Step 2.6 — Architecture decision     `[pair]`
 
 Prompt:
-> The architecture is set. Time to break it into a sprint. I'll engage
-> `sprint-manifest` — it produces **one** aggregated manifest at
-> `docs/sprints/Sprint-N/sprint-manifest.md` listing all the vertical slices
-> we'll ship in this sprint.
+> Time to commit. I'll engage `arch-decision` — it takes the Step 2.5
+> study, runs Quint FPF validation (`quint-fpf` as a sub-skill:
+> abduction → deduction → induction → R_eff via WLNK), and updates the
+> PRD frontmatter to `validated` or `rejected`. On PASS it produces an
+> "Impact on docs/architecture/" checklist you apply manually.
+
+Output is a validated PRD + FPF audit at `docs/prd/<area>/audit/`. No
+auto-sync to `docs/architecture/` — Alex does that manually with the DOC
+capability.
+
+## Greenfield — Step 2.7 — Sprint breakdown     `[pair]`
+
+Prompt:
+> Architecture locked. Let's plan the sprint. I'll engage
+> `sprint-manifest` — it promotes all validated PRDs to
+> `docs/sprints/Sprint-N/<area>/` and produces **one aggregated manifest**
+> at `docs/sprints/Sprint-N/sprint-manifest.md` — vertical slices, user
+> stories, macro tasks, confidence CL1/CL2/CL3, cross-area dependencies.
 
 Ask for the sprint number if the user hasn't specified.
 
-## Greenfield — Step 2.8 — Implementation loop
+## Greenfield — Step 2.8 — Implementation loop (dev trio + ATR)     `[solo]`
 
-Prompt:
-> For each item in the sprint manifest, I'll engage `atr` — it writes the
-> acceptance artifact, guides you through the TDD cycle, and lands test +
-> implementation in the right places. Ready to start with the first item?
+This is where the mode flips. Decisional phases were pair; per-task work
+is solo — ideally distributed across the team.
 
-Stay in the loop: after each `atr` pass, return to Polly and ask "next
-item?". Polly is the conductor across items.
+For **each task** in the manifest, Polly engages the superpowers dev
+trio + atr as the default shipping path (not optional):
 
-## Brownfield — Step 3.1 — Code path
+**Prompt (per task):**
+> Task `<task-id>`: `<task-title>`. Solo work — one dev picks this up.
+> The shipping sequence is:
+>
+> **a.** `superpowers:writing-plans` — I'll turn this task into a
+> numbered plan with explicit dependencies.
+>
+> **b.** `superpowers:executing-plans` — runs the plan with review
+> checkpoints; uses `superpowers:subagent-driven-development` and
+> `superpowers:dispatching-parallel-agents` where the plan allows,
+> plus `superpowers:test-driven-development` for red-green-refactor.
+>
+> **c.** `atr` — acceptance runner: generates the testbook from
+> acceptance criteria in the manifest, runs it with Playwright,
+> produces the report + screenshots at
+> `docs/sprints/Sprint-N/acceptance/`.
+>
+> **d.** `superpowers:finishing-a-development-branch` — structured
+> merge/PR decision; picks the right integration path.
+>
+> Ready to start?
+
+After each task, return to Polly and ask "next one?". Polly is the
+conductor across tasks.
+
+**Bug triage interlude** (during sprint, before release): if the user
+mentions bugs from UAT / SIT / QA, route to `external-tools.md` §
+VibeKanban and `observability-debug` — they compound.
+
+## Brownfield — Step 3.1 — Code path     `[pair]`
 
 Prompt:
 > Where's the code? Absolute path or relative to the scaffold root.
@@ -121,7 +191,7 @@ Prompt:
 If the code is inside the scaffold (same repo), check that `.git` exists so
 `graphify` can scan. If it's in a sibling repo, note the path.
 
-## Brownfield — Step 3.2 — Graphify setup
+## Brownfield — Step 3.2 — Graphify setup     `[pair]`
 
 Prompt:
 > I'll engage `graphify-setup` first — it verifies Python is installed and
@@ -131,7 +201,7 @@ Prompt:
 If `graphify-setup` reports Python missing, show the install instructions
 and offer the user the chance to install manually, then retry.
 
-## Brownfield — Step 3.3 — Reverse engineering
+## Brownfield — Step 3.3 — Reverse engineering     `[pair]`
 
 Prompt:
 > Now I'll engage `reverse-engineering` — it reads the graphify index and
@@ -143,17 +213,25 @@ Prompt:
 `reverse-engineering` has a strong "don't write without permission" rule —
 trust it, don't override.
 
-## Brownfield — Step 3.4 — Existing source material
+## Brownfield — Step 3.4 — Existing source material     `[pair]`
 
 Identical to greenfield Step 2.2. If there are emails / calls / briefs about
-the legacy system, route them through `requirements-ingest` before moving
-to arch-brainstorm.
+the legacy system, route them through `requirements-ingest`.
 
-## Brownfield — Step 3.5 onward
+## Brownfield — Step 3.5 — Resume greenfield at the right step
 
-From arch-brainstorm onward, brownfield == greenfield. The same skills, the
-same prompts. The difference is that `arch-brainstorm` in brownfield mode
-also reads `docs/support/reverse/` — the skill figures this out on its own.
+From here, brownfield joins greenfield. The entry point depends on what
+the user wants:
+
+| User intent | Resume at |
+|---|---|
+| New feature on top of the legacy code | Step 2.4 (feature / product design) |
+| Architectural refactor, no new feature | Step 2.5 (arch-brainstorm with area-slug) |
+| Simple maintenance change on known arch | Step 2.7 (sprint-manifest directly) |
+
+`arch-brainstorm` in brownfield mode also reads `docs/support/reverse/`
+automatically — the skill figures this out on its own, no extra config
+needed.
 
 ## Orthogonal entry points
 

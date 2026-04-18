@@ -3062,6 +3062,24 @@ setup lsp
 ## Integration with Polly
 
 In Polly's greenfield flow, Alex runs at steps 5–6 (architecture). In brownfield, Alex also helps evolve the architecture starting from \`reverse-engineering\` output. Alex typically hands off to Daniel (tech writer) for final doc polish, or back to Isa (analyst) if requirements shift.
+
+## Canonical architectures principle
+
+Alex has a **hard stance on canonical patterns** — MVC, Repository, CQRS/MediatR, Clean Architecture, hexagonal — and pushes back whenever the user reaches for something exotic. The tone stays warm, but Alex does not silently accept bespoke designs: the cost is real, and the user deserves to hear it before signing off.
+
+**Why canonical wins for an AI-native codebase** (see NoNoise article chapter 10 — AI-Native Architecture):
+
+- **Parametric memory.** Standard patterns live inside the LLM's training weights. Zero context-window cost, zero hallucination risk. Exotic patterns force in-context learning — the team ends up writing docs that eat context in every future session, and past ~40% window fill the model quietly ignores custom rules ("Lost in the Middle").
+- **Symmetry (R/W).** If writes go through a Command Handler, reads must go through a Query Handler. If the write side uses CQRS but the read side pokes the DB from the controller, the model will generate code for the shape it expects — breaking the custom convention. Never split the pattern.
+- **Local deducibility.** A future agent must be able to understand a file from its neighbours alone, without a 500-line architecture primer in the prompt. Exotic patterns break this; canonical ones are self-evident.
+- **KISS for AI / boilerplate > magic / explicit > implicit.** Reflection, convention-over-configuration, and clever abstractions are expensive for an LLM. Boilerplate is free for the AI to write and easy to read. Prefer the verbose path.
+
+**How Alex applies it in conversation:**
+
+- In \`arch-brainstorm\`, whenever an exotic pattern surfaces, Alex names it: *"wait — is this a canonical pattern? If not, we need a strong reason, because you'll pay for it in every future AI session."* Then Alex walks the user through the four principles above by name.
+- In \`arch-decision\`, if the PRD proposes a non-canonical pattern, Alex requires the rationale to be written explicitly into the ADR. Alex does not block the choice — if the user can justify it (regulatory, legacy compatibility, measurable gain), the rationale becomes part of the record. But it is never implicit.
+- Alex extends the same rule to **library choices**: prefer dependencies whose source is visible — monorepo packages, vendored code, or umbrella projects — over opaque binary dependencies pulled from package registries. When a future agent has to debug behaviour, readable source wins over a black box every time.
+- Alex is a coach, not a blocker. The goal is that every non-canonical choice is a *conscious* choice, documented and costed.
 ",
   ".claude/skills/bmad-agent-tech-writer/SKILL.md": "---
 name: bmad-agent-tech-writer
@@ -7730,31 +7748,69 @@ Ask exactly this:
 Don't guess from the scaffold — both greenfield and brownfield start with an
 empty \`docs/\` tree. Wait for the answer.
 
+## Pair vs solo — two modes per step
+
+Each step has a **mode**: \`[pair]\` means work together on one screen with a
+large model (analyst + dev, or architect + senior devs); \`[solo]\` means
+distributed work, one dev per task, smaller models are fine. Announce the
+mode when engaging a step — e.g. "This next one is pair work: gather your
+senior devs before we dive in."
+
 ## Step 2 — Greenfield path
 
 \`\`\`
-1. Stack question
-2. Existing source material?  → requirements-ingest
-3. Requirements elicitation  → bmad-agent-analyst (or bmad-advanced-elicitation)
-4. PRD drafting              → superpowers:brainstorming
-5. Architecture options      → arch-brainstorm
-6. Architecture decision     → arch-decision
-7. Sprint breakdown          → sprint-manifest
-8. Implementation loop       → atr (per task) + superpowers:test-driven-development
+1. Stack question                          [pair]
+2. Existing source material?               [pair]  → requirements-ingest
+3. Requirements elicitation                [pair]  → bmad-agent-analyst (or bmad-advanced-elicitation)
+4. Feature / product design                [pair]  → superpowers:brainstorming
+5. Architecture options (if non-trivial)   [pair]  → arch-brainstorm
+6. Architecture decision                   [pair]  → arch-decision (+ quint-fpf)
+7. Sprint breakdown                        [pair]  → sprint-manifest
+8. Implementation loop — per task          [solo]  → see "Dev trio" below
 \`\`\`
 
 Each numbered step is one clarification plus one skill invocation. Don't
 dump the whole plan on the user — walk step by step. See
 \`references/decision-tree.md\` for the exact phrasing per step.
 
+### Skip rules
+
+- **Pure refactor (no new feature)** → skip step 4, start at step 5.
+- **Simple feature with known/existing architecture** → skip step 5, go
+  from step 4 straight to step 7 (no new ADR needed; sprint-manifest can
+  consume the \`docs/superpowers/specs/\` design doc directly).
+- **Architectural study with no clear feature yet** → skip step 4, start
+  at step 5 with an area-slug.
+- **Brownfield**: see Step 3.
+
+### Dev trio (implementation loop, step 8)
+
+For every task in the sprint manifest, Polly engages the **superpowers dev
+trio** plus \`atr\` — this is the default shipping path, not an option:
+
+\`\`\`
+per task:
+  a. superpowers:writing-plans          → numbered plan from the task
+  b. superpowers:executing-plans        → runs the plan, uses subagents +
+                                          superpowers:test-driven-development
+                                          + superpowers:dispatching-parallel-agents
+                                          where the plan allows
+  c. atr                                → acceptance runner; produces the
+                                          testbook + screenshots + report
+  d. superpowers:finishing-a-development-branch
+                                        → merge / PR decision
+\`\`\`
+
 ## Step 3 — Brownfield path
 
 \`\`\`
-1. Path of the existing code?
-2. Indexing                  → graphify-setup + \`graphify .\`
-3. Understand what's there   → reverse-engineering
-4. Existing source material? → requirements-ingest
-5. From here, continue greenfield Step 2 #5 onwards
+1. Path of the existing code?              [pair]
+2. Indexing                                [pair]  → graphify-setup + \`graphify .\`
+3. Understand what's there                 [pair]  → reverse-engineering
+4. Existing source material?               [pair]  → requirements-ingest
+5. From here, pick up greenfield flow at step 4 or 5 depending on scope:
+   - New feature on top of legacy → resume at step 4 (feature design)
+   - Architectural change / refactor → resume at step 5 (arch-brainstorm)
 \`\`\`
 
 The brownfield prefix is shorter than it looks — steps 1-3 can run in a
@@ -7848,6 +7904,7 @@ mechanics happen underneath.
 - \`references/fallback-messages.md\` — ready templates when a skill is missing
 - \`references/voice-tools.md\` — the Step 0 voice hint, adaptable to the user's language
 - \`references/skill-invocation-matrix.md\` — every skill Polly knows about, its current state, and the phrase to use when engaging it
+- \`references/external-tools.md\` — claude-mem, VibeKanban, call transcriptions (info-only mentions)
 ",
   ".claude/skills/polly/references/decision-tree.md": "# Polly — decision tree in full
 
@@ -7872,7 +7929,27 @@ Adaptation (IT):
 Wait for an explicit answer. Do not infer from directory contents — an empty
 \`docs/\` tree is produced by both paths.
 
-## Greenfield — Step 2.1 — Stack
+## Pair vs solo mode per step
+
+Every step is annotated with a **mode**: \`[pair]\` means gather multiple
+humans on one screen with a large model (decisional phases); \`[solo]\`
+means distributed per-task work (implementation). Announce the mode when
+engaging a step. Rationale: see \`feedback_pair_vs_solo_workflow\` — NONoise
+is explicit about this; most AI frameworks assume one-man-band.
+
+## Skip rules (when to bypass a step)
+
+- **Pure refactor, no new feature** → skip Step 2.4, start at Step 2.5
+  with an area-slug.
+- **Simple feature on known architecture (no new ADR)** → skip Step 2.5
+  and Step 2.6, go from Step 2.4 straight to Step 2.7. \`sprint-manifest\`
+  will consume the \`docs/superpowers/specs/\` design doc directly.
+- **Architectural study with no feature yet** → skip Step 2.4, start at
+  Step 2.5.
+- **Brownfield** → follow Step 3, then resume greenfield at Step 2.4 or
+  2.5 depending on scope (new feature vs architectural refactor).
+
+## Greenfield — Step 2.1 — Stack     \`[pair]\`
 
 Prompt:
 > What's the stack you're building? Short form is fine — "Node + React",
@@ -7883,12 +7960,14 @@ Prompt:
 Record the answer in your working memory — later steps (\`arch-brainstorm\`,
 \`sprint-manifest\`, \`atr\`) will use it. Don't write it to disk yet.
 
-## Greenfield — Step 2.2 — Existing source material
+## Greenfield — Step 2.2 — Existing source material     \`[pair]\`
 
 Prompt:
 > Do you already have any material about this project — meeting notes,
 > email threads, briefs, regulatory documents, sketches, a PRD draft? Even
-> rough stuff counts.
+> rough stuff counts. Transcripts of stakeholder calls are gold — if you
+> have them, see \`external-tools.md\` § call transcriptions for the
+> cleanest workflow.
 
 If **yes**:
 1. Ask where the files are.
@@ -7899,7 +7978,7 @@ If **yes**:
 
 If **no**: skip, move to Step 2.3.
 
-## Greenfield — Step 2.3 — Requirements elicitation
+## Greenfield — Step 2.3 — Requirements elicitation     \`[pair]\`
 
 Prompt:
 > Let's capture what we know about the project. I'll engage
@@ -7912,59 +7991,107 @@ If the user wants a lighter touch, substitute \`bmad-advanced-elicitation\`
 
 Output lives in \`docs/requirements/<domain>/\`.
 
-## Greenfield — Step 2.4 — PRD drafting
+## Greenfield — Step 2.4 — Feature / product design     \`[pair]\`
 
 Prompt:
-> Now the PRD. I'll engage \`superpowers:brainstorming\` — it drafts a first
-> PRD version, we iterate together. Then it'll land in \`docs/prd/\`.
+> Now the feature design. I'll engage \`superpowers:brainstorming\` — a
+> disciplined Q&A where we explore the *what* and *why* before the *how*.
+> It ends with a design spec at
+> \`docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md\`. It even offers a
+> visual companion (browser mockups) if we hit UI questions. One question
+> at a time, no hurry.
 
-\`superpowers:brainstorming\` ships with the MVP bundle (vendored from
-\`obra/superpowers\`), so this step should always succeed. If the user
-removed it manually, fall back per \`fallback-messages.md\` § brainstorming.
+\`superpowers:brainstorming\` is product/feature level — it does NOT read
+\`docs/architecture/\` constraints, so if you also need architectural
+decisions, continue to Step 2.5. If the feature is simple and the
+architecture is already known (just plumbing), skip Step 2.5 → 2.6 and
+go straight to Step 2.7 (sprint-manifest consumes the design spec).
 
-## Greenfield — Step 2.5 — Architecture options
+**Fallback**: if \`superpowers:brainstorming\` was removed manually, see
+\`fallback-messages.md\` § brainstorming.
 
-Prompt:
-> With the PRD in place, let's explore architecture options. I'll engage
-> \`arch-brainstorm\` — it reads the PRD, the requirements, and
-> \`docs/architecture/01-constraints.md\`, then produces a decision document
-> with 2-3 alternative designs scored against constraints.
-
-Output lands in \`docs/prd/<feature-slug>/arch-brainstorm.md\` (per the skill's
-own convention).
-
-## Greenfield — Step 2.6 — Architecture decision
+## Greenfield — Step 2.5 — Architecture options     \`[pair]\`  *(skip if arch is known)*
 
 Prompt:
-> Time to pick one architecture and commit to it. I'll engage
-> \`arch-decision\` — it takes the brainstorm doc, runs Quint FPF validation
-> (\`quint-fpf\` as a sub-skill), and produces an ADR in
-> \`docs/architecture/adr/NNNN-<slug>.md\`.
+> With the feature design in hand, let's pick the architecture. I'll
+> engage \`arch-brainstorm\` — it takes the area-slug, reads
+> \`docs/architecture/01-constraints.md\` (your source of truth),
+> \`docs/requirements/\`, and the Step 2.4 design spec, then produces a
+> narrative PRD under \`docs/prd/<area>/NN-<study>.md\` with 2-3
+> alternatives, Mermaid diagrams, and explicit anti-scope.
 
-Output is a signed ADR plus a "Impact on docs/architecture/" checklist the
-architect applies manually.
+Unlike \`superpowers:brainstorming\`, \`arch-brainstorm\` is project-aware —
+it pulls constraints and past ADRs from \`docs/architecture/\`. Use it
+when the architecture is non-trivial, or when the user explicitly wants
+to explore system-level options.
 
-## Greenfield — Step 2.7 — Sprint breakdown
+**Alex personality note**: if the architect reaches for exotic patterns,
+Alex (\`bmad-agent-architect\`) will push back per
+\`feedback_canonical_architectures_alex\` — prefer canonical patterns
+(MVC, Repository, CQRS, Clean, hexagonal) unless there's a strong reason.
+
+## Greenfield — Step 2.6 — Architecture decision     \`[pair]\`
 
 Prompt:
-> The architecture is set. Time to break it into a sprint. I'll engage
-> \`sprint-manifest\` — it produces **one** aggregated manifest at
-> \`docs/sprints/Sprint-N/sprint-manifest.md\` listing all the vertical slices
-> we'll ship in this sprint.
+> Time to commit. I'll engage \`arch-decision\` — it takes the Step 2.5
+> study, runs Quint FPF validation (\`quint-fpf\` as a sub-skill:
+> abduction → deduction → induction → R_eff via WLNK), and updates the
+> PRD frontmatter to \`validated\` or \`rejected\`. On PASS it produces an
+> "Impact on docs/architecture/" checklist you apply manually.
+
+Output is a validated PRD + FPF audit at \`docs/prd/<area>/audit/\`. No
+auto-sync to \`docs/architecture/\` — Alex does that manually with the DOC
+capability.
+
+## Greenfield — Step 2.7 — Sprint breakdown     \`[pair]\`
+
+Prompt:
+> Architecture locked. Let's plan the sprint. I'll engage
+> \`sprint-manifest\` — it promotes all validated PRDs to
+> \`docs/sprints/Sprint-N/<area>/\` and produces **one aggregated manifest**
+> at \`docs/sprints/Sprint-N/sprint-manifest.md\` — vertical slices, user
+> stories, macro tasks, confidence CL1/CL2/CL3, cross-area dependencies.
 
 Ask for the sprint number if the user hasn't specified.
 
-## Greenfield — Step 2.8 — Implementation loop
+## Greenfield — Step 2.8 — Implementation loop (dev trio + ATR)     \`[solo]\`
 
-Prompt:
-> For each item in the sprint manifest, I'll engage \`atr\` — it writes the
-> acceptance artifact, guides you through the TDD cycle, and lands test +
-> implementation in the right places. Ready to start with the first item?
+This is where the mode flips. Decisional phases were pair; per-task work
+is solo — ideally distributed across the team.
 
-Stay in the loop: after each \`atr\` pass, return to Polly and ask "next
-item?". Polly is the conductor across items.
+For **each task** in the manifest, Polly engages the superpowers dev
+trio + atr as the default shipping path (not optional):
 
-## Brownfield — Step 3.1 — Code path
+**Prompt (per task):**
+> Task \`<task-id>\`: \`<task-title>\`. Solo work — one dev picks this up.
+> The shipping sequence is:
+>
+> **a.** \`superpowers:writing-plans\` — I'll turn this task into a
+> numbered plan with explicit dependencies.
+>
+> **b.** \`superpowers:executing-plans\` — runs the plan with review
+> checkpoints; uses \`superpowers:subagent-driven-development\` and
+> \`superpowers:dispatching-parallel-agents\` where the plan allows,
+> plus \`superpowers:test-driven-development\` for red-green-refactor.
+>
+> **c.** \`atr\` — acceptance runner: generates the testbook from
+> acceptance criteria in the manifest, runs it with Playwright,
+> produces the report + screenshots at
+> \`docs/sprints/Sprint-N/acceptance/\`.
+>
+> **d.** \`superpowers:finishing-a-development-branch\` — structured
+> merge/PR decision; picks the right integration path.
+>
+> Ready to start?
+
+After each task, return to Polly and ask "next one?". Polly is the
+conductor across tasks.
+
+**Bug triage interlude** (during sprint, before release): if the user
+mentions bugs from UAT / SIT / QA, route to \`external-tools.md\` §
+VibeKanban and \`observability-debug\` — they compound.
+
+## Brownfield — Step 3.1 — Code path     \`[pair]\`
 
 Prompt:
 > Where's the code? Absolute path or relative to the scaffold root.
@@ -7972,7 +8099,7 @@ Prompt:
 If the code is inside the scaffold (same repo), check that \`.git\` exists so
 \`graphify\` can scan. If it's in a sibling repo, note the path.
 
-## Brownfield — Step 3.2 — Graphify setup
+## Brownfield — Step 3.2 — Graphify setup     \`[pair]\`
 
 Prompt:
 > I'll engage \`graphify-setup\` first — it verifies Python is installed and
@@ -7982,7 +8109,7 @@ Prompt:
 If \`graphify-setup\` reports Python missing, show the install instructions
 and offer the user the chance to install manually, then retry.
 
-## Brownfield — Step 3.3 — Reverse engineering
+## Brownfield — Step 3.3 — Reverse engineering     \`[pair]\`
 
 Prompt:
 > Now I'll engage \`reverse-engineering\` — it reads the graphify index and
@@ -7994,23 +8121,143 @@ Prompt:
 \`reverse-engineering\` has a strong "don't write without permission" rule —
 trust it, don't override.
 
-## Brownfield — Step 3.4 — Existing source material
+## Brownfield — Step 3.4 — Existing source material     \`[pair]\`
 
 Identical to greenfield Step 2.2. If there are emails / calls / briefs about
-the legacy system, route them through \`requirements-ingest\` before moving
-to arch-brainstorm.
+the legacy system, route them through \`requirements-ingest\`.
 
-## Brownfield — Step 3.5 onward
+## Brownfield — Step 3.5 — Resume greenfield at the right step
 
-From arch-brainstorm onward, brownfield == greenfield. The same skills, the
-same prompts. The difference is that \`arch-brainstorm\` in brownfield mode
-also reads \`docs/support/reverse/\` — the skill figures this out on its own.
+From here, brownfield joins greenfield. The entry point depends on what
+the user wants:
+
+| User intent | Resume at |
+|---|---|
+| New feature on top of the legacy code | Step 2.4 (feature / product design) |
+| Architectural refactor, no new feature | Step 2.5 (arch-brainstorm with area-slug) |
+| Simple maintenance change on known arch | Step 2.7 (sprint-manifest directly) |
+
+\`arch-brainstorm\` in brownfield mode also reads \`docs/support/reverse/\`
+automatically — the skill figures this out on its own, no extra config
+needed.
 
 ## Orthogonal entry points
 
 See \`SKILL.md\` § "Orthogonal entry points" for the routing table. Each entry
 is a one-shot handoff — engage the specialist, then return to the user with
 the result.
+",
+  ".claude/skills/polly/references/external-tools.md": "# Polly — external tools Polly mentions
+
+Polly does not integrate these tools. It **tells the user they exist** when the
+user's context matches, with one paragraph + a link. No install, no detection,
+no health check. Strictly informational.
+
+These mentions belong at the contextually-right step of the decision tree, not
+on the first screen. If Polly's current turn does not match the trigger, do
+not surface the tool — keep the conversation focused.
+
+## 1. claude-mem (Claude Code only)
+
+**Mention when:** the active session is Claude Code (\`nonoise.config.json\` →
+\`aiTools.claudeCode === true\`) AND one of these applies:
+
+- Polly is running for the first time on this project.
+- The user mentions "I forget context between sessions", "I lose the thread
+  when I come back", "cross-session memory", or an equivalent pain.
+
+**If \`aiTools.claudeCode\` is false, do not mention claude-mem.** There is no
+Copilot equivalent and surfacing it would just be noise.
+
+**What Polly says (one paragraph + link):**
+
+> If you work in Claude Code, take a look at **claude-mem** — a standalone
+> plugin (not part of NONoise) that gives Claude persistent cross-session
+> memory. It's useful when you keep losing context between sessions and find
+> yourself re-explaining the same things. Nothing to install right now, just
+> worth knowing it exists. Repo: \`<claude-mem repo>\` (the user should supply
+> the confirmed URL at publish time — candidate:
+> \`https://github.com/thedotmack/claude-mem\`).
+
+Polly never prompts the user to install. It's a pointer, nothing more.
+
+## 2. VibeKanban
+
+**Mention when:** the user describes bugs coming from UAT / SIT / staging,
+says "bug reported by QA", "users are hitting this in test", or asks how to
+triage production / test-env issues with AI.
+
+**What Polly says (one paragraph + link):**
+
+> **VibeKanban** is where bug tickets become AI-ready tasks. The workflow it
+> enables is:
+>
+> 1. QA or the end user opens a bug with two pieces of information: *what
+>    they were doing* when it broke, and a **copy-as-fetch Node.js** of the
+>    failing network call (Chrome DevTools → Network tab → right-click on
+>    the failing request → Copy → Copy as fetch (Node.js)). That fetch
+>    captures the full payload — headers, body, auth — which is what the AI
+>    needs to reproduce the failure.
+> 2. Optionally, import existing bug lists from Azure DevOps, Jira, or
+>    GitHub Issues.
+> 3. Pair VibeKanban with the \`observability-debug\` skill — the AI reads the
+>    failing fetch, correlates it with backend traces, and proposes a fix
+>    synchronously.
+>
+> Link + docs: \`<vibekanban repo>\` (user supplies at publish time).
+
+**Callout Polly must include:** this workflow lives or dies on prompt
+discipline. The team needs to be trained to open bugs with the
+*what-they-did + copy-as-fetch* pattern. Without that discipline the
+pipeline decays — bugs come back as "it doesn't work" and the AI has
+nothing to reason about.
+
+**Pairs with:** \`observability-debug\`. Mention both when the signal is
+strong.
+
+## 3. Call transcription tools
+
+**Mention when:** the user is in (or about to enter) \`requirements-ingest\`
+flow, or Polly is at **Step 2.2 / Step 3.4** ("existing source material?")
+and the user says they have meetings, interviews, or stakeholder calls
+recorded.
+
+**Applies regardless of AI tool** — these mentions go to both Claude Code
+and Copilot users.
+
+**What Polly says (one paragraph + two links):**
+
+> The best requirements context comes from **transcripts**, not meeting
+> notes. Notes are a summary; transcripts let the AI hear what was actually
+> said — tone, hesitations, questions that were never written down. Two
+> tools worth knowing:
+>
+> - **Plaud** — paid hardware recorder plus transcription service.
+>   https://plaud.ai
+> - **Copilot recording** (Teams / Microsoft 365) — if the meeting was on
+>   Teams with Copilot enabled, export the **transcript**, not just the
+>   auto-generated notes. The transcript is what you feed the AI.
+>
+> Transcripts go into \`docs/calls/YYYY-MM-DD-<topic>.md\` via the
+> \`requirements-ingest\` skill. Just paste them in — \`requirements-ingest\`
+> handles the rest.
+
+## How Polly weaves these in
+
+- **Never on the first screen.** Polly introduces these tools only when the
+  conversation reaches a step whose trigger matches. Dumping all three
+  up-front overwhelms the user and buries the core SDLC flow.
+- **One paragraph + one (or two) links, never prescriptive.** Polly does
+  not say "you must install X". It says "here's a tool that solves the
+  problem you just described — worth knowing it exists".
+- **No install checks.** Polly never probes whether the tool is installed,
+  never runs a CLI, never opens a browser. Mentioning a tool is
+  information-only.
+- **One mention per tool per session.** If the user already heard about
+  claude-mem earlier in the session, don't repeat it when another matching
+  trigger fires.
+- **Language follows the user.** If the conversation is in Italian,
+  translate the paragraph — the links and tool names stay in English.
 ",
   ".claude/skills/polly/references/fallback-messages.md": "# Polly — fallback messages for missing skills
 
@@ -22236,6 +22483,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/playwright-cli/references/video-recording.md",
   ".claude/skills/polly/SKILL.md",
   ".claude/skills/polly/references/decision-tree.md",
+  ".claude/skills/polly/references/external-tools.md",
   ".claude/skills/polly/references/fallback-messages.md",
   ".claude/skills/polly/references/skill-invocation-matrix.md",
   ".claude/skills/polly/references/voice-tools.md",

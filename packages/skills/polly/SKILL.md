@@ -61,31 +61,69 @@ Ask exactly this:
 Don't guess from the scaffold — both greenfield and brownfield start with an
 empty `docs/` tree. Wait for the answer.
 
+## Pair vs solo — two modes per step
+
+Each step has a **mode**: `[pair]` means work together on one screen with a
+large model (analyst + dev, or architect + senior devs); `[solo]` means
+distributed work, one dev per task, smaller models are fine. Announce the
+mode when engaging a step — e.g. "This next one is pair work: gather your
+senior devs before we dive in."
+
 ## Step 2 — Greenfield path
 
 ```
-1. Stack question
-2. Existing source material?  → requirements-ingest
-3. Requirements elicitation  → bmad-agent-analyst (or bmad-advanced-elicitation)
-4. PRD drafting              → superpowers:brainstorming
-5. Architecture options      → arch-brainstorm
-6. Architecture decision     → arch-decision
-7. Sprint breakdown          → sprint-manifest
-8. Implementation loop       → atr (per task) + superpowers:test-driven-development
+1. Stack question                          [pair]
+2. Existing source material?               [pair]  → requirements-ingest
+3. Requirements elicitation                [pair]  → bmad-agent-analyst (or bmad-advanced-elicitation)
+4. Feature / product design                [pair]  → superpowers:brainstorming
+5. Architecture options (if non-trivial)   [pair]  → arch-brainstorm
+6. Architecture decision                   [pair]  → arch-decision (+ quint-fpf)
+7. Sprint breakdown                        [pair]  → sprint-manifest
+8. Implementation loop — per task          [solo]  → see "Dev trio" below
 ```
 
 Each numbered step is one clarification plus one skill invocation. Don't
 dump the whole plan on the user — walk step by step. See
 `references/decision-tree.md` for the exact phrasing per step.
 
+### Skip rules
+
+- **Pure refactor (no new feature)** → skip step 4, start at step 5.
+- **Simple feature with known/existing architecture** → skip step 5, go
+  from step 4 straight to step 7 (no new ADR needed; sprint-manifest can
+  consume the `docs/superpowers/specs/` design doc directly).
+- **Architectural study with no clear feature yet** → skip step 4, start
+  at step 5 with an area-slug.
+- **Brownfield**: see Step 3.
+
+### Dev trio (implementation loop, step 8)
+
+For every task in the sprint manifest, Polly engages the **superpowers dev
+trio** plus `atr` — this is the default shipping path, not an option:
+
+```
+per task:
+  a. superpowers:writing-plans          → numbered plan from the task
+  b. superpowers:executing-plans        → runs the plan, uses subagents +
+                                          superpowers:test-driven-development
+                                          + superpowers:dispatching-parallel-agents
+                                          where the plan allows
+  c. atr                                → acceptance runner; produces the
+                                          testbook + screenshots + report
+  d. superpowers:finishing-a-development-branch
+                                        → merge / PR decision
+```
+
 ## Step 3 — Brownfield path
 
 ```
-1. Path of the existing code?
-2. Indexing                  → graphify-setup + `graphify .`
-3. Understand what's there   → reverse-engineering
-4. Existing source material? → requirements-ingest
-5. From here, continue greenfield Step 2 #5 onwards
+1. Path of the existing code?              [pair]
+2. Indexing                                [pair]  → graphify-setup + `graphify .`
+3. Understand what's there                 [pair]  → reverse-engineering
+4. Existing source material?               [pair]  → requirements-ingest
+5. From here, pick up greenfield flow at step 4 or 5 depending on scope:
+   - New feature on top of legacy → resume at step 4 (feature design)
+   - Architectural change / refactor → resume at step 5 (arch-brainstorm)
 ```
 
 The brownfield prefix is shorter than it looks — steps 1-3 can run in a
@@ -179,3 +217,4 @@ mechanics happen underneath.
 - `references/fallback-messages.md` — ready templates when a skill is missing
 - `references/voice-tools.md` — the Step 0 voice hint, adaptable to the user's language
 - `references/skill-invocation-matrix.md` — every skill Polly knows about, its current state, and the phrase to use when engaging it
+- `references/external-tools.md` — claude-mem, VibeKanban, call transcriptions (info-only mentions)
