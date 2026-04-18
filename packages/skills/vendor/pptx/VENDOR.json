@@ -1,0 +1,12 @@
+{
+  "source": "https://github.com/anthropics/skills",
+  "ref": "main",
+  "subpath": "skills/pptx",
+  "scope": [
+    "."
+  ],
+  "commit": "2c7ec5e78b8e5d43ea02e90bb8826f6b9f147b0c",
+  "fetchedAt": "2026-04-18T13:54:06.117Z",
+  "license": "see upstream LICENSE",
+  "notes": ""
+}

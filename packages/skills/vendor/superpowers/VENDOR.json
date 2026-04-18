@@ -1,0 +1,15 @@
+{
+  "source": "https://github.com/obra/superpowers",
+  "ref": "main",
+  "subpath": null,
+  "scope": [
+    "skills",
+    "agents",
+    "commands",
+    "hooks"
+  ],
+  "commit": "b55764852ac78870e65c6565fb585b6cd8b3c5c9",
+  "fetchedAt": "2026-04-18T13:53:42.649Z",
+  "license": "see upstream LICENSE",
+  "notes": ""
+}

@@ -1,0 +1,12 @@
+{
+  "source": "https://github.com/pbakaus/impeccable",
+  "ref": "main",
+  "subpath": "source/skills",
+  "scope": [
+    "."
+  ],
+  "commit": "00d485659af82982aef0328d0419c49a2716d123",
+  "fetchedAt": "2026-04-18T13:54:41.265Z",
+  "license": "see upstream LICENSE",
+  "notes": ""
+}
