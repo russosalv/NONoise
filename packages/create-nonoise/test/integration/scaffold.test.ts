@@ -83,6 +83,7 @@ describe('scaffold() integration', () => {
       'bmad-agent-ux-designer',
       'quint-fpf',
       'arch-brainstorm',
+      'arch-decision',
     ];
     for (const name of expected) {
       const content = await readFile(
