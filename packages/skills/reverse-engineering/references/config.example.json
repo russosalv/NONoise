@@ -1,0 +1,27 @@
+{
+  "subjects": {
+    "legacy-billing": {
+      "source_path": "C:\\path\\to\\legacy-billing",
+      "last_run": "2026-04-15T10:00:00Z",
+      "last_source_indexed": "docs/sprints/Sprint-3"
+    },
+    "vendor-stripe-api": {
+      "source_path": "docs/support/vendor-stripe-api/openapi",
+      "last_run": "2026-04-12T09:30:00Z",
+      "last_source_indexed": "docs/requirements/payments"
+    },
+    "microservice-payments": {
+      "source_path": "services/payments",
+      "last_run": "2026-04-14T16:45:00Z",
+      "last_source_indexed": "docs/sprints/Sprint-4"
+    }
+  },
+  "_notes": {
+    "file_purpose": "Per-developer local config for the reverse-engineering skill. Holds absolute/relative paths to each subject's source that the skill indexes with graphify.",
+    "subjects.<slug>.source_path": "Path (absolute or repo-relative) where the subject's code/artifacts live. On Windows use double backslashes as shown. On Linux/macOS use forward slashes. The skill validates the path exists before indexing.",
+    "subjects.<slug>.last_run": "ISO 8601 timestamp of the last successful save. Auto-updated in Step 6.3.",
+    "subjects.<slug>.last_source_indexed": "Path of the first Q2 document folder used in the previous run. Used as the default suggestion for Q2 on the next run for the same subject.",
+    "gitignore": "This file MUST be in .gitignore — paths are developer-specific. The skill adds the entry in Step 0.2 on first run.",
+    "adding_a_subject": "A new entry is created automatically when the user introduces a new slug in Q1. You can also pre-seed entries here to skip Q3 on known subjects."
+  }
+}

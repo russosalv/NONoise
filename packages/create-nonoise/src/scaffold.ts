@@ -35,6 +35,10 @@ const MVP_SKILL_BUNDLE = [
   'arch-brainstorm',
   'arch-decision',
   'sprint-manifest',
+  'atr',
+  'reverse-engineering',
+  'requirements-ingest',
+  'spec-to-workitem',
 ] as const;
 
 export type ScaffoldPaths = {

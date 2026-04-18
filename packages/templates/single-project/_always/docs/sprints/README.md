@@ -10,11 +10,19 @@ One folder per sprint. At its root lives a single `sprint-manifest.md` that aggr
 sprints/
 └── Sprint-XX/
     ├── sprint-manifest.md              ← ONE aggregated manifest per sprint
-    └── <area-slug>/
-        ├── NN-<study-slug>.md          ← PRDs moved from docs/prd/<area>/
-        ├── NN-<study-slug>-diagrams.md
-        └── audit/
-            └── NN-<study-slug>-fpf.md  ← FPF audits carried over from docs/prd/<area>/audit/
+    ├── <area-slug>/
+    │   ├── NN-<study-slug>.md          ← PRDs moved from docs/prd/<area>/
+    │   ├── NN-<study-slug>-diagrams.md
+    │   └── audit/
+    │       └── NN-<study-slug>-fpf.md  ← FPF audits carried over from docs/prd/<area>/audit/
+    ├── acceptance/                     ← ATR workspace (output of the `atr` skill)
+    │   ├── testbook.yml                ← generated test definitions
+    │   ├── testbook-plan.md            ← stakeholder-friendly plan (optional)
+    │   ├── report-<area>.md            ← PASS/FAIL report, one per area
+    │   ├── backlog.md                  ← failure list for tracker push
+    │   └── screenshots/*.png           ← visual evidence, committed to git
+    └── export/                         ← spec-to-workitem audit trail
+        └── spec-to-workitem-<adapter>-<YYYY-MM-DD>.md
 ```
 
 Rationale for "one manifest per sprint" instead of "one per PRD": sprint planning needs a single view of all user stories, task dependencies across areas, and CL1 risk flags. A single file beats N scattered ones when the architect is driving a sprint kickoff or reporting to stakeholders.
@@ -72,7 +80,7 @@ sprint-manifest area user-signup sprint 5 regenerate
 
 ## How other skills use this folder
 
-- `atr` (acceptance test runner) reads the sprint manifest to generate testbooks from task acceptance criteria
+- `atr` (acceptance test runner) reads the sprint manifest to generate testbooks under `acceptance/`, then runs them via `playwright-cli` producing reports + screenshots in the same folder
 - Future `spec-to-workitem` / `devops-push` skills translate tasks into external issue-tracker items (GitHub Issues, Azure DevOps, Jira, Linear, …)
 
 ## Lifecycle of a promoted PRD

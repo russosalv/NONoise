@@ -85,6 +85,10 @@ describe('scaffold() integration', () => {
       'arch-brainstorm',
       'arch-decision',
       'sprint-manifest',
+      'atr',
+      'reverse-engineering',
+      'requirements-ingest',
+      'spec-to-workitem',
     ];
     for (const name of expected) {
       const content = await readFile(

@@ -1654,6 +1654,955 @@ If a partial audit report already exists at \`audit/NN-<study>-fpf.md\`:
 - Sibling skill \`sprint-manifest\` — step 3 (promotion to sprint)
 - Project source of truth: \`docs/architecture/\` (maintained manually by the architect)
 ",
+  ".claude/skills/atr/SKILL.md": "---
+name: atr
+description: Acceptance Test Runner — reads acceptance criteria from a sprint manifest and/or requirements files, generates a machine-readable testbook, executes it via Playwright against the running app, produces markdown reports with screenshots, and maintains a backlog of failures. Optionally pushes failures to an external tracker (VibeKanban integration planned as future work). Use this skill when the user mentions acceptance testing, testbook, running tests against the app, producing a stakeholder-friendly test plan, verifying the app against the sprint manifest, or pushing test failures to a tracker. Triggers — \`/atr generate\`, \`/atr run\`, \`/atr doc\`, \`/atr push\`, "run acceptance tests", "generate testbook for sprint N", "check the app against the manifest", "create a readable test plan for stakeholders". Language — reports and testbook descriptions follow the project's working language (inferred from the sprint manifest / requirements content, or from \`nonoise.config.json\` \`language\` if set; defaults to English).
+source: Risko reference-project (reworked whitelabel for NONoise)
+variant: nonoise generic; stack-neutral; output under docs/sprints/Sprint-N/acceptance/
+---
+
+# atr — Acceptance Test Runner
+
+AI-driven acceptance testing. Reads **acceptance criteria** (from the sprint manifest and, optionally, from requirements files), generates **structured test cases**, executes them via **Playwright** (through the \`playwright-cli\` sibling skill), and produces **markdown reports with screenshots** plus a **backlog of failures**.
+
+Everything stays under \`docs/sprints/Sprint-N/acceptance/\` — one folder per sprint, alongside the sprint manifest and promoted PRDs.
+
+## Commands
+
+### \`/atr generate\`
+
+Reads a sprint manifest (\`docs/sprints/Sprint-N/sprint-manifest.md\`) — and optionally related requirements from \`docs/requirements/\` — and generates a testbook YAML covering the acceptance criteria of every task / user story in the sprint.
+
+**Usage**:
+- \`/atr generate\` — uses the most recent sprint folder under \`docs/sprints/\`
+- \`/atr generate docs/sprints/Sprint-5/sprint-manifest.md\` — specific sprint
+
+### \`/atr run\`
+
+Executes a testbook and produces markdown reports with screenshots.
+
+**Usage**:
+- \`/atr run\` — uses the latest testbook, runs against \`app_url\` declared in the testbook (or \`http://localhost:3000\` as a neutral default)
+- \`/atr run docs/sprints/Sprint-5/acceptance/testbook.yml\` — specific testbook
+- \`/atr run --url https://staging.example.com\` — run against a remote environment
+- \`/atr run docs/sprints/Sprint-5/acceptance/testbook.yml --url https://staging.example.com\` — both
+
+### \`/atr doc\`
+
+Generates a stakeholder-friendly markdown document from a testbook YAML — for product owners, business analysts, project managers, customers — describing what will be tested in natural language without technical artifacts.
+
+**Usage**:
+- \`/atr doc\` — uses the latest testbook, writes next to it
+- \`/atr doc docs/sprints/Sprint-5/acceptance/testbook.yml\` — specific testbook
+
+### \`/atr push\`
+
+Reads \`backlog.md\` and creates issues on an external tracker for each failure.
+
+**Supported integrations (current + planned)**:
+- **VibeKanban via MCP** — planned future integration; the skill will be wired to it once the MCP server is part of the NONoise bundle. Reference template is already in \`references/vibekanban.md\`.
+- **GitHub Issues / Azure DevOps / Jira / Linear** — out of scope for v1; user can still use \`/atr push\` to produce a structured backlog that their own export skill or CI job can consume.
+
+**Usage**: \`/atr push\` (uses the latest backlog) or \`/atr push docs/sprints/Sprint-5/acceptance/backlog.md\`
+
+---
+
+## Phase 1: Generate (\`/atr generate\`)
+
+### Input
+
+- **Primary**: \`docs/sprints/Sprint-N/sprint-manifest.md\` — user stories + macro tasks with acceptance criteria, areas_covered
+- **Secondary (enrichment)**: \`docs/requirements/<domain>/<feature>.md\` if referenced from the manifest — for additional business context and edge cases not explicit in the manifest
+- **Tertiary (enrichment)**: promoted PRDs at \`docs/sprints/Sprint-N/<area>/NN-<study>.md\` — may contain specific acceptance-test hints in §N-2 "Testing strategy"
+
+If no input path is provided, scan \`docs/sprints/\` for the most recent sprint folder.
+
+### Process
+
+1. **Read the sprint manifest** completely
+2. **Identify sections** — one per **area** covered in the sprint (from \`areas_covered\` in the manifest frontmatter). One report file per area.
+3. **Extract testable requirements** — from the manifest's:
+   - Task list (\`## 4. Macro functional tasks\` — each task's "Acceptance test" becomes a test case)
+   - User stories (\`## 3. User stories\` — each US becomes a test suite grouping its related tasks)
+   - Risks (\`## 7. Risks and mitigations\` — may become edge-case tests)
+   - If a task's acceptance test is too abstract, read the relevant promoted PRD's \`§N-2 Testing strategy > Acceptance\` section for more detail
+4. **Generate Playwright steps** per test:
+   - Navigation: \`goto\`, \`click\` on sidebar/tab links
+   - Interaction: \`fill\`, \`click\`, \`select\` for forms and filters
+   - Verification: \`snapshot\` (read accessibility tree), \`screenshot\` (capture PNG), \`eval\` (DOM queries)
+   - Waits: \`wait\` for async content to appear
+5. **Write testbook YAML** to \`docs/sprints/Sprint-N/acceptance/testbook.yml\`
+
+### ID convention
+
+Test IDs derive from the **area slug** of the sprint manifest — take the uppercase initials of the area slug's words, joined with \`-\`, plus a 3-digit sequential suffix:
+
+| Area slug | Prefix |
+|---|---|
+| \`user-signup\` | \`US-\` |
+| \`pdf-export\` | \`PE-\` |
+| \`payment-reconciliation\` | \`PR-\` |
+| \`notifications-push\` | \`NP-\` |
+| \`settings\` | \`SET-\` (if single word, take first 2-3 letters) |
+
+Number sequentially within each prefix: \`US-001\`, \`US-002\`, etc.
+
+If the user wants to override the prefix (e.g. collision with another area), they can set it in the testbook frontmatter manually.
+
+### Testbook YAML schema
+
+\`\`\`yaml
+meta:
+  sprint: 5
+  sprint_manifest: "docs/sprints/Sprint-5/sprint-manifest.md"
+  generated: "YYYY-MM-DDTHH:MM:SSZ"
+  app_url: "http://localhost:3000"
+  auth:
+    # the skill DOES NOT hardcode auth mechanism.
+    # Fill this based on your project's auth flow — examples:
+    #   type: "none"
+    #   type: "basic" ; credentials_env: "ATR_BASIC_CREDS"
+    #   type: "oidc" ; provider: "auth0" ; test_user_env: "ATR_USER"
+    #   type: "custom" ; see references/auth-flows.md for how to wire your own
+    type: "none"
+  language: "en"   # report language, inferred from project (en/it/es/...)
+
+sections:
+  - id: <area-slug>
+    title: "Area title (from manifest)"
+    manifest_ref: "§4 task T1, T2"
+    report_file: "report-<area-slug>.md"
+    tests:
+      - id: US-001
+        title: "Test title (derived from task acceptance test)"
+        manifest_ref: "§4 T1"
+        preconditions:
+          - "User authenticated as test user"
+          - "Application open at /signup"
+        steps:
+          - action: goto
+            target: "/signup"
+          - action: wait
+            duration: 2
+          - action: screenshot
+            filename: "US-001-signup-form.png"
+            caption: "Signup form rendered"
+          - action: snapshot
+            verify:
+              - "Email input visible"
+              - "'Start signup' button visible"
+          - action: eval
+            script: "document.querySelectorAll('input').length"
+            expected: ">= 1"
+          - action: click
+            description: "Submit the signup form"
+            target_hint: "'Start signup' button"
+          - action: fill
+            description: "Enter email"
+            target_hint: "Email input in signup form"
+            value: "alice@example.com"
+          - action: note
+            text: "Manual verification recommended for accessibility labels"
+        expected:
+          - "Signup session created"
+          - "OTP email delivered to configured test inbox"
+        skip: false
+        skip_reason: ""
+\`\`\`
+
+### Step actions reference
+
+| Action | Fields | Maps to |
+|--------|--------|---------|
+| \`goto\` | \`target\` (relative or absolute URL) | \`playwright-cli goto {app_url}{target}\` |
+| \`wait\` | \`duration\` (seconds) | \`sleep {duration}\` |
+| \`screenshot\` | \`filename\`, \`caption\` | \`playwright-cli screenshot --filename=screenshots/{filename}\` |
+| \`snapshot\` | \`verify\` (list of strings) | \`playwright-cli snapshot\`, then AI checks verify items |
+| \`eval\` | \`script\`, \`expected\` | \`playwright-cli eval "{script}"\`, then AI compares the result |
+| \`click\` | \`description\`, \`target_hint\` | \`playwright-cli snapshot\` then \`playwright-cli click {ref}\` |
+| \`fill\` | \`description\`, \`target_hint\`, \`value\` | \`playwright-cli fill {ref} "{value}"\` |
+| \`select\` | \`description\`, \`target_hint\`, \`value\` | \`playwright-cli snapshot\` + select option |
+| \`note\` | \`text\` | No browser action — the AI records a manual note |
+
+**IMPORTANT for \`click\`, \`fill\`, \`select\`**: these use \`target_hint\` (a human description), not a Playwright ref. At execution time, the AI must:
+
+1. Run \`playwright-cli snapshot\`
+2. Find the element matching \`target_hint\` in the snapshot
+3. Use the actual ref from the snapshot to perform the action
+
+Refs change between sessions — never cache them.
+
+### Skip rules
+
+Set \`skip: true\` with an appropriate \`skip_reason\` when:
+- The feature is not yet implemented in the current sprint (the manifest lists it as future-scope)
+- The test requires backend error injection or data not reproducible locally
+- The test requires specific data that may not exist in the current environment
+
+### Output
+
+After generating the testbook:
+1. Create the output directory: \`docs/sprints/Sprint-N/acceptance/\`
+2. Create \`screenshots/\` subdirectory (empty)
+3. Write \`testbook.yml\`
+4. Print summary: total sections, total tests, skipped tests, prefixes used
+5. Ask the user to review before running
+
+---
+
+## Phase 2: Run (\`/atr run\`)
+
+### Prerequisites
+
+- \`playwright-cli\` skill available (it is — bundled by NONoise)
+- App running at the configured \`app_url\` (or reachable at the \`--url\` override)
+- Auth configured (see \`meta.auth\` in testbook)
+
+### Invocation pattern
+
+Invoke the \`playwright-cli\` skill for browser commands. **Do NOT hardcode any project-specific auth pattern** — the testbook's \`meta.auth\` declares how auth is performed; follow it, or ask the user if unclear.
+
+### Temporary files (\`.temp/\`)
+
+During execution, save intermediate files (accessibility snapshots, auth state) to \`.temp/\` at the project root. This directory must be git-ignored.
+
+- **\`.temp/auth.json\`** — Playwright browser auth state (cookies, localStorage). Reused across runs to skip login.
+- **\`.temp/snapshots/\`** — accessibility tree dumps for debugging. Named \`{test-id}-{step}.yml\`. Ephemeral.
+
+Never save temporary files inside \`docs/sprints/…\`.
+
+### Process
+
+1. **Read testbook YAML** from the specified path
+2. **Resolve target URL**: if \`--url\` is provided, use it as base URL for all navigation (overrides \`meta.app_url\`). Record the actual URL used in each report header.
+3. **Authenticate** — skip the login flow whenever possible:
+   - Open the target URL: \`playwright-cli open {target_url}\`
+   - If \`.temp/auth.json\` exists, restore it: \`playwright-cli state-load .temp/auth.json\`
+   - After restoring, navigate to the app and verify you are logged in. If the session is still valid, **do NOT re-authenticate**.
+   - Only if \`.temp/auth.json\` is missing or the restored session is invalid, perform the auth flow described in \`meta.auth\` of the testbook.
+   - After a successful login, save the state: \`playwright-cli state-save .temp/auth.json\`
+   - Auth state saved from localhost may not work on remote (cookie domain mismatch). If restore fails on remote, re-login and save again.
+4. **Set viewport**: \`playwright-cli resize 1920 1080\`
+5. **Screenshot naming rule**: all screenshots use the \`filename\` defined in the testbook YAML step — that is the single source of truth for names. Do NOT invent alternative names (no \`-pass.png\` / \`-fail.png\` suffixes by default). When saving, always pass \`--filename=screenshots/{filename}\` using the exact value from the testbook step.
+   - Every PASS or FAIL test needs **at least one screenshot** as evidence. If the testbook already has a \`screenshot\` step, that one counts. If not, take one at the end and name it \`{test-id}.png\` (e.g. \`US-001.png\`).
+   - For FAIL tests, if the failure happens at a different point than the planned screenshot, take an additional one named \`{test-id}-fail.png\` capturing the failure state.
+   - SKIP tests need no screenshot.
+   - Save to \`docs/sprints/Sprint-N/acceptance/screenshots/\` — these are final deliverables committed to git.
+   - When writing the report, reference the **exact filename** saved.
+6. **Initialize report files** — before executing any test, create each section's report file with header + empty summary table (all counts zero). The user can open the files and watch them fill up.
+7. **Execute tests and write results incrementally**:
+   - For each test in the current section:
+     - If \`skip: true\`: record as SKIP with reason
+     - If \`skip: false\`: execute steps one by one
+       - For \`screenshot\`: save PNG, record path
+       - For \`snapshot\` with \`verify\`: read snapshot text, check each verify item, mark pass/fail
+       - For \`eval\` with \`expected\`: compare result, mark pass/fail
+     - Determine overall test result (PASS / FAIL / SKIP)
+     - **MANDATORY: delegate report writing to a separate agent.** Do NOT write the report yourself — that blocks test execution.
+       - **Claude Code**: use the \`Agent\` tool with \`run_in_background: true\`
+       - **GitHub Copilot**: spawn a sub-task for the file write
+       - **Other tools**: use whatever background-task mechanism is available
+     - The delegated agent must:
+       1. **Append** the test result block to the section report markdown (using the format below)
+       2. **Update the summary table** at the top of the report (increment PASS/FAIL/SKIP)
+       3. If FAIL, **append** the failure entry to \`backlog.md\` (create the file with header on first failure)
+     - The main agent does NOT wait — it proceeds to the next test immediately.
+   - The report grows in real time: the user can open it and see results appearing as tests complete.
+
+### Why delegating report writing is mandatory
+
+Writing the report after each test in the main agent blocks execution — the AI spends time formatting markdown instead of running the next test. Delegating keeps the main agent focused on browser interaction (the bottleneck), and the report is updated concurrently.
+
+**This is NOT optional.** If you are executing tests and writing reports in the same sequential flow, you are doing it wrong.
+
+### Delegated agent prompt template
+
+Read \`references/templates.md\` → "Delegated Agent Prompt" for the full prompt template.
+
+### Backlog incremental updates
+
+The backlog (\`backlog.md\`) is also written incrementally. On the first FAIL, the delegated agent creates the file with header. On subsequent FAILs, it appends entries. After all tests complete, the main agent reads the backlog and updates the total-failures count in the header.
+
+### After all sections complete
+
+1. Do a final read of each report file to verify completeness (all tests accounted for)
+2. Update backlog header with final failure count
+3. Print the overall summary to the user
+
+### Pass/Fail evaluation
+
+The AI evaluates each verification using:
+
+1. **Snapshot text matching** — from \`playwright-cli snapshot\`, check if expected elements/labels/values are present
+2. **Visual verification** — interpret screenshots to detect obvious issues (empty areas, missing components, broken layout)
+3. **DOM assertions** — use \`playwright-cli eval\` for concrete checks (element count, CSS properties, computed styles)
+4. **Judgment calls** — for subjective requirements ("layout clear"), mark PASS with a note and defer final judgment to a human
+
+A test is FAIL only with concrete evidence of mismatch. When unsure, mark PASS with a note.
+
+### Report & backlog formats
+
+See \`references/templates.md\` for:
+- **Report format** — section header, summary table, PASS/FAIL/SKIP blocks
+- **Backlog format** — failure entries with manifest reference, severity, suggested fix
+- **Severity guide** — critical / high / medium / low
+
+### Error handling during execution
+
+- If a step fails (element not found, timeout):
+  1. Take a screenshot of the current state
+  2. Record the error in the test result
+  3. Mark the test as FAIL
+  4. Continue to the next test (never stop execution)
+- If authentication fails, stop and ask the user
+- If the app is not running, stop and ask the user
+
+### Navigation reset between tests
+
+Before each test, navigate to the base URL and then follow the test's navigation steps. This ensures test independence — a failure in one test does not affect the next.
+
+---
+
+## Phase 3: Push (\`/atr push\`)
+
+Reads \`backlog.md\` and creates one issue per failure on an external tracker.
+
+### Current status
+
+**VibeKanban via MCP** — planned future integration. The reference for the MCP workflow lives in \`references/vibekanban.md\`. When the VibeKanban MCP is wired into the NONoise bundle, this phase will be fully automated.
+
+**For v1**: without a configured MCP, \`/atr push\` prints a report of what **would** be pushed (dry run) and lists the backlog entries, so the user can manually copy them to their tracker or hook their own export flow.
+
+See \`references/vibekanban.md\` for the (future) MCP setup, severity-to-priority mapping, issue description template, and idempotency rules.
+
+---
+
+## Phase 4: Doc (\`/atr doc\`)
+
+Generates a stakeholder-friendly test plan document from a testbook YAML. The output is a polished markdown file that non-technical readers (product owners, business analysts, customers) can read to understand test coverage without technical knowledge.
+
+### Input
+
+A testbook YAML file. If no path is given, scan \`docs/sprints/Sprint-N/acceptance/\` for the most recent testbook.
+
+### Output
+
+A markdown file named \`{testbook-basename}-plan.md\` next to the testbook. Example:
+- \`testbook.yml\` → \`testbook-plan.md\`
+- \`testbook-smoke.yml\` → \`testbook-smoke-plan.md\`
+
+### Process
+
+1. **Read the testbook YAML** completely
+2. **Read the sprint manifest** referenced in \`meta.sprint_manifest\` — provides the business context that enriches the document beyond the testbook alone
+3. **Generate the document** following the template in \`references/templates.md\` → "Stakeholder Test Plan Document"
+
+### Language
+
+Use \`meta.language\` from the testbook to choose the document language. If not set, fall back to the sprint manifest language (inferable from content), then to \`nonoise.config.json\` \`language\` if present, then English as the final default.
+
+### Transformation rules
+
+Translating technical test definitions into natural-language stakeholder text. Apply these rules:
+
+**What to include (from testbook):**
+- \`meta\` → document header (sprint, date)
+- Section \`title\` and \`manifest_ref\` → section heading with traceability
+- Test \`id\`, \`title\`, \`manifest_ref\` → test-case identification
+- Test \`preconditions\` → "Initial conditions" in plain language
+- Test \`expected\` → "Expected results" — already business-readable, use as is
+- Test \`skip\` / \`skip_reason\` → mark as "Not verifiable" with explanation
+- Step \`description\` fields (from \`click\`, \`fill\`, \`select\`) → human-readable action sequence
+- Step \`screenshot.caption\` → describe what visual evidence will be captured
+- Step \`snapshot.verify\` items → rephrase as "The system verifies that..."
+- Step \`note.text\` → include as operational notes
+
+**What to exclude (technical artifacts):**
+- \`action\` types (goto, wait, eval, snapshot internals)
+- \`target\`, \`target_hint\`, \`script\`, \`expected\` (eval-level)
+- Playwright selectors, CSS queries, DOM references
+- \`app_url\`, \`auth\` — replace with "the application"
+- JavaScript code (eval scripts, console interceptors)
+- \`report_file\`, internal IDs like \`section-slug\`
+- Wait durations
+
+**How to rephrase steps:**
+- \`goto /signup\` → "The user navigates to the Signup area"
+- \`click\` with description → use \`description\` directly
+- \`fill\` with description + value → "The value '{value}' is entered in the '{description}' field"
+- \`select\` with description + value → "'{value}' is selected in the '{description}' field"
+- \`screenshot\` → "Visual evidence is captured: {caption}"
+- \`snapshot\` with verify → "The system verifies: {verify items as bullets}"
+- \`eval\` → omit entirely unless the purpose is clear from context; if so, summarize the intent
+- \`note\` → include the text as is
+- \`wait\` → omit entirely
+
+**Language and tone:**
+- Match \`meta.language\` — first-person-free, professional
+- First occurrence of acronyms: spell out
+- Third person ("The user…", "The system…")
+- Group consecutive technical steps into one narrative sentence when they form a logical action
+
+### After generation
+
+1. Write the document to the output path
+2. Print summary: number of sections, total test cases, skipped tests
+3. Print the output file path
+
+See \`references/templates.md\` → "Stakeholder Test Plan Document" for the full template.
+
+---
+
+## Folder layout
+
+Every artifact lives under the sprint folder:
+
+\`\`\`
+docs/sprints/Sprint-N/
+├── sprint-manifest.md              ← input (read by /atr generate)
+├── <area-slug>/                    ← promoted PRDs
+└── acceptance/                     ← ATR workspace
+    ├── testbook.yml                ← generated (/atr generate)
+    ├── testbook-plan.md            ← generated (/atr doc, optional)
+    ├── report-<area-slug>.md       ← generated (/atr run) — one per area
+    ├── backlog.md                  ← generated (/atr run) — failures
+    └── screenshots/
+        └── *.png                   ← evidence — committed to git
+\`\`\`
+
+## Operating principles
+
+1. **One testbook per sprint**, one report per area. Do not fragment further.
+2. **Reports are historical**. Once written, do not edit them — regenerate a new run with a different filename if needed (\`report-<area>-<YYYYMMDD>.md\`).
+3. **Screenshots are evidence** and are committed. Use \`.gitignore\` for \`.temp/\` only.
+4. **Delegation is mandatory** in \`/atr run\`. Sequential report writing blocks execution.
+5. **Auth is project-specific** and never hardcoded. The testbook's \`meta.auth\` declares it; without it, ask the user.
+6. **Language follows the project** — do not hardcode Italian/English in output.
+7. **No silent regressions** — a FAIL always produces a backlog entry with enough context to be actioned by a separate AI session.
+
+## Anti-patterns
+
+1. **Cross-sprint testbooks** — never mix tests from different sprints.
+2. **Hardcoded auth flow** — never hardcode EntraID / Auth0 / custom — always honor \`meta.auth\`.
+3. **Screenshot-less FAIL** — if a test fails without a screenshot, the report is useless. Always capture.
+4. **Sequential report writing** — if you are not delegating, you are doing it wrong.
+5. **Custom screenshot names** — never invent suffixes like \`-pass.png\`; use the testbook-declared name.
+6. **Running \`/atr push\` without a tracker** — will print a dry-run until VibeKanban MCP (or another tracker integration) is wired.
+
+## When NOT to use
+
+- No sprint manifest exists for the target sprint → use \`sprint-manifest\` first
+- The user wants to write unit tests → different tool (\`vitest\`, \`pytest\`, etc.)
+- The user wants exploratory testing → this skill is for acceptance tests against a manifest; exploratory is out of scope
+
+---
+
+## References
+
+- [\`references/templates.md\`](./references/templates.md) — Report / backlog / stakeholder-plan formats + transformation examples
+- [\`references/vibekanban.md\`](./references/vibekanban.md) — Planned VibeKanban MCP integration (future)
+- Sibling skill \`playwright-cli\` — browser automation backend
+- Sibling skill \`sprint-manifest\` — source of acceptance criteria
+",
+  ".claude/skills/atr/references/templates.md": "# ATR Output Templates
+
+Templates for reports, backlog entries, delegated agent prompts, and stakeholder-friendly test plans used across \`/atr run\` and \`/atr doc\`.
+
+All snippets below use **English** as default display language; adapt to \`meta.language\` of the testbook when rendering.
+
+## Table of Contents
+
+- [Delegated Agent Prompt](#delegated-agent-prompt)
+- [Report Format (PASS/FAIL)](#report-format)
+- [Report Format (SKIP)](#report-format-skip)
+- [Backlog Format](#backlog-format)
+- [Severity Guide](#severity-guide)
+- [Stakeholder Test Plan Document](#stakeholder-test-plan-document)
+- [Transformation Examples](#transformation-examples)
+
+---
+
+## Delegated Agent Prompt
+
+When delegating report writing to a background agent, provide all the data it needs. The delegated agent has no browser access — it only writes files.
+
+\`\`\`
+Update the ATR report file at {report_path}.
+
+Test result to append:
+- ID: {test_id}
+- Title: {test_title}
+- Manifest ref: {manifest_ref}
+- Status: {PASS|FAIL|SKIP}
+- Preconditions: {preconditions}
+- Evidence screenshot: {exact filename from testbook step, or {test_id}.png if none defined}
+- Verifications: {list of check text + pass/fail + observation}
+- Notes: {any notes}
+- Skip reason: {if SKIP}
+
+Instructions:
+1. Read the current report file
+2. Append the test-result block using the ATR report format (below)
+3. Update the summary table at the top: increment the {status} count by 1
+4. If status is FAIL, also read/create {backlog_path} and append a failure entry
+\`\`\`
+
+---
+
+## Report Format
+
+Each section (one per area of the sprint) gets its own markdown file.
+
+\`\`\`markdown
+# ATR Sprint {N} — {Section Title}
+
+**Run date**: {date} {time}
+**Runner**: ATR skill
+**Manifest reference**: {manifest_ref}
+**App URL**: {app_url}
+**Auth**: {auth.type from testbook}
+
+## Summary
+
+| Status | Count |
+|--------|-------|
+| PASS   | {count} |
+| FAIL   | {count} |
+| SKIP   | {count} |
+
+---
+
+## {test_id} — {test_title}
+
+**Manifest**: {manifest_ref} | **Status**: {PASS|FAIL|SKIP}
+
+**Preconditions**: {preconditions joined}
+
+**Screenshot**:
+![{caption}](screenshots/{filename})
+
+**Verifications**:
+- [x] Verification that passed
+- [ ] Verification that failed <- **FAIL: {what was observed instead}**
+
+**Notes**: {any additional observations}
+
+---
+\`\`\`
+
+## Report Format (SKIP)
+
+\`\`\`markdown
+## {test_id} — {test_title}
+
+**Manifest**: {manifest_ref} | **Status**: SKIP
+
+**Reason**: {skip_reason}
+
+**Requirements to verify** (when the feature becomes available):
+- [ ] {expected item 1}
+- [ ] {expected item 2}
+\`\`\`
+
+---
+
+## Backlog Format
+
+\`\`\`markdown
+# ATR Sprint {N} — Failure Backlog
+
+**Date**: {date}
+**Total failures**: {count}
+**Testbook**: {testbook path}
+
+This document lists every test that failed during ATR execution.
+Each entry has enough context to be worked on autonomously by a separate AI session.
+
+---
+
+## {test_id} — {short description of the failure}
+
+- **Manifest section**: {manifest_ref}
+- **Test title**: {test_title}
+- **Manifest requirement**: "{exact requirement text from sprint manifest}"
+- **Expected**: {expected}
+- **Observed**: {actual observation}
+- **Screenshot**: [screenshots/{filename}](screenshots/{filename})
+- **Severity**: {critical|high|medium|low}
+- **Likely files**: \`{path to suspected source files}\`
+- **Fix hint**: {AI's best guess at what needs to change}
+\`\`\`
+
+---
+
+## Severity Guide
+
+| Severity | Criteria |
+|----------|----------|
+| **critical** | Feature completely broken; blocks core workflow |
+| **high** | Feature works but a key manifest requirement is not met |
+| **medium** | Minor UI/UX mismatch (wrong label, missing hyphen, styling off) |
+| **low** | Edge case not handled; cosmetic issue |
+
+---
+
+## Stakeholder Test Plan Document
+
+Used by \`/atr doc\` to generate a stakeholder-friendly document from a testbook YAML. Written in the project's working language (from \`meta.language\`), professional tone, no jargon.
+
+### Document Structure
+
+\`\`\`markdown
+# Test Plan — Sprint {N}
+
+| | |
+|---|---|
+| **Project** | {project name, from nonoise.config.json} |
+| **Sprint** | Sprint {N} |
+| **Reference document** | {sprint manifest path} |
+| **Generated** | {date} |
+| **Generated by** | ATR (Acceptance Test Runner) |
+
+## Introduction
+
+This document describes the acceptance-test plan for Sprint {N}.
+The tests are derived from the sprint manifest and verify that the application
+meets the functional requirements agreed with stakeholders.
+
+Each test case describes:
+- **what** is being verified (the functional requirement)
+- **how** it is verified (the actions performed on the application)
+- **what result** is expected
+
+Tests are executed automatically using browser-automation tooling,
+with visual evidence (screenshots) captured at every verification step.
+
+## Summary
+
+| Section | Manifest ref | Test cases | Of which not verifiable |
+|---------|--------------|------------|-------------------------|
+| {section title} | {manifest_ref} | {count} | {skip count} |
+| ... | ... | ... | ... |
+| **Total** | | **{total}** | **{total skip}** |
+
+---
+
+## {N}. {Section Title}
+
+*Manifest reference: {manifest_ref}*
+
+{Brief 1-2 sentence description of what this section covers, derived from the
+sprint manifest's task descriptions. Example: "This section verifies the signup
+flow via email and OTP, as described in tasks T1–T3 of the manifest."}
+
+### {N}.{M} {Test Title}
+
+**ID**: {test_id}
+**Manifest reference**: {manifest_ref}
+
+**Initial conditions**:
+- {precondition 1, rephrased in business language}
+- {precondition 2}
+
+**Actions performed**:
+1. {Step description in business language — combine multiple technical steps into one logical action}
+2. {Next logical action}
+3. Visual evidence is captured: "{screenshot caption}"
+4. {Verification rephrased as "The system verifies that..."}
+
+**Expected results**:
+- {expected item 1}
+- {expected item 2}
+
+---
+\`\`\`
+
+### For skipped tests
+
+\`\`\`markdown
+### {N}.{M} {Test Title}
+
+**ID**: {test_id}
+**Manifest reference**: {manifest_ref}
+**Status**: Not verifiable
+
+**Reason**: {skip_reason rephrased in business language}
+
+**Requirements to verify** (when the feature becomes available):
+- {expected item 1}
+- {expected item 2}
+
+---
+\`\`\`
+
+### Document Footer
+
+\`\`\`markdown
+---
+
+## Methodology notes
+
+The tests described in this document are executed automatically using browser
+automation that simulates real user actions against the application.
+
+Each test case captures at least one piece of visual evidence (a screenshot)
+documenting the state of the application at the verification moment.
+These pieces of evidence are attached to the execution report.
+
+Tests marked as "Not verifiable" concern features not yet implemented or
+requiring special conditions not reproducible in the test environment.
+
+### Status legend
+
+| Status | Meaning |
+|--------|---------|
+| Verifiable | The test can be executed automatically |
+| Not verifiable | The test requires features not yet implemented or special conditions |
+
+### ID prefix legend
+
+| Prefix | Functional area |
+|--------|-----------------|
+| {PR1-} | {Area 1 from sprint manifest} |
+| {PR2-} | {Area 2 from sprint manifest} |
+\`\`\`
+
+---
+
+## Transformation Examples
+
+These show how to convert testbook YAML steps into stakeholder language.
+
+**Example 1 — Navigation + table verification:**
+
+\`\`\`yaml
+steps:
+  - action: goto
+    target: "/users"
+  - action: wait
+    duration: 3
+  - action: snapshot
+    verify:
+      - "User table visible with data rows"
+      - "'Name' column present"
+      - "'Status' column present"
+\`\`\`
+
+Becomes:
+
+> 1. The user navigates to the Users section
+> 2. The system verifies that:
+>    - The user table is visible and contains data
+>    - The columns "Name" and "Status" are present
+
+**Example 2 — Form filling:**
+
+\`\`\`yaml
+steps:
+  - action: fill
+    description: "Enter First Name"
+    target_hint: "'First name' field in the personal-data form"
+    value: "Alice"
+  - action: fill
+    description: "Enter Last Name"
+    target_hint: "'Last name' field in the personal-data form"
+    value: "Smith"
+  - action: select
+    description: "Select country"
+    target_hint: "'Country' dropdown in the personal-data form"
+    value: "IT"
+\`\`\`
+
+Becomes:
+
+> 1. The user fills the form with the following data:
+>    - First name: "Alice"
+>    - Last name: "Smith"
+>    - Country: "IT"
+
+**Example 3 — Console error capture (technical):**
+
+\`\`\`yaml
+steps:
+  - action: eval
+    script: "window.__ATR_CONSOLE_ERRORS = []; ..."
+    expected: "Console interceptor installed"
+\`\`\`
+
+Becomes:
+
+> 1. The system activates application-error monitoring for the duration of the test
+
+**Example 4 — Data verification after creation:**
+
+\`\`\`yaml
+steps:
+  - action: eval
+    script: >
+      JSON.stringify({
+        hasFirstName: document.body.textContent.includes('Alice'),
+        hasLastName: document.body.textContent.includes('Smith')
+      })
+    expected: "contains hasFirstName:true, hasLastName:true"
+\`\`\`
+
+Becomes:
+
+> 1. The system verifies that the entered data is displayed correctly:
+>    - First name "Alice" present in the record
+>    - Last name "Smith" present in the record
+",
+  ".claude/skills/atr/references/vibekanban.md": "# ATR Phase 3 — VibeKanban Push Details (future integration)
+
+> **Status**: planned integration. The VibeKanban MCP server is not yet bundled with NONoise v1. This file documents the target workflow so that when the MCP is wired, \`/atr push\` can be completed without rewriting.
+
+Reference for \`/atr push\` — MCP configuration, issue templates, and workflow details.
+
+## Table of Contents
+
+- [Current status in NONoise v1](#current-status-in-nonoise-v1)
+- [MCP Auto-Configuration (when wired)](#mcp-auto-configuration-when-wired)
+- [Push Process](#push-process)
+- [Severity to Priority Mapping](#severity-to-priority-mapping)
+- [Issue Description Template](#issue-description-template)
+- [Idempotency](#idempotency)
+- [Output Format](#output-format)
+
+---
+
+## Current status in NONoise v1
+
+\`/atr push\` runs in **dry-run mode**: it reads \`backlog.md\` and prints a formatted summary of what would be pushed to a tracker. This gives the user a copy-paste-friendly view of the failures without requiring any external integration.
+
+When the VibeKanban MCP (or another tracker integration) becomes available, the same \`/atr push\` command will switch to live mode automatically — this file documents what that live mode will do.
+
+---
+
+## MCP Auto-Configuration (when wired)
+
+If \`vibe_kanban\` is not in the MCP configuration, ask the user:
+
+> "VibeKanban MCP server is not configured. Do you want me to add it automatically? I can configure it for:
+> 1. **Claude Code** (\`.claude/settings.json\`)
+> 2. **GitHub Copilot** (\`.vscode/mcp.json\`)
+> 3. **Both**
+>
+> Which one?"
+
+**Claude Code configuration** — add to \`.claude/settings.json\`:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "vibe_kanban": {
+      "command": "npx",
+      "args": ["-y", "vibe-kanban@latest", "--mcp"]
+    }
+  }
+}
+\`\`\`
+
+Merge with existing settings (preserve \`enabledPlugins\` and other keys).
+
+**GitHub Copilot configuration** — create or update \`.vscode/mcp.json\`:
+
+\`\`\`json
+{
+  "servers": {
+    "vibe_kanban": {
+      "command": "npx",
+      "args": ["-y", "vibe-kanban@latest", "--mcp"]
+    }
+  }
+}
+\`\`\`
+
+After configuring, inform the user they need to restart Claude Code or reload VS Code for the MCP server to be available, then retry \`/atr push\`.
+
+---
+
+## Push Process
+
+1. **Read \`backlog.md\`** from the specified path (or the latest one under \`docs/sprints/Sprint-N/acceptance/\`)
+2. **Discover VibeKanban context**:
+   - Call \`list_organizations\` to get the org ID
+   - Call \`list_projects\` to find the target project (ask the user which one if multiple exist)
+   - Call \`list_tags\` to check if \`atr\` and \`sprint-{N}\` tags exist
+3. **For each failure entry** in the backlog:
+   - Call \`create_issue\` with:
+     - **title**: \`[{test_id}] {short description}\` (e.g. \`[US-003] Signup form does not show loading state\`)
+     - **description**: full body assembled from the backlog entry (see template below)
+     - **priority**: mapped from ATR severity (see mapping table)
+   - Call \`add_issue_tag\` to tag with \`atr\` and \`sprint-{N}\`
+4. **Report results**: show how many issues were created with their IDs and links
+
+---
+
+## Severity to Priority Mapping
+
+| ATR Severity | VibeKanban Priority |
+|---|---|
+| critical | urgent |
+| high | high |
+| medium | medium |
+| low | low |
+
+---
+
+## Issue Description Template
+
+The body of each VibeKanban issue is assembled from the backlog entry:
+
+\`\`\`markdown
+## Context
+
+**ATR test**: {test_id} — {test_title}
+**Manifest section**: {manifest_ref}
+**Sprint**: {N}
+
+## Problem
+
+**Manifest requirement**: {exact requirement text}
+**Expected**: {expected}
+**Observed**: {actual observation}
+
+## Technical details
+
+**Likely files**: {file paths}
+**Fix hint**: {suggested fix}
+**Screenshot**: {screenshot path} (see the local ATR report)
+
+## References
+
+- ATR report: \`docs/sprints/Sprint-{N}/acceptance/{report_file}\`
+- Manifest: \`docs/sprints/Sprint-{N}/sprint-manifest.md\` {manifest_ref}
+\`\`\`
+
+---
+
+## Idempotency
+
+Before creating an issue, search existing issues (via \`list_issues\` with a query matching the test ID like \`[US-003]\`) to avoid duplicates. If an issue with the same test ID already exists, skip and report it as "already tracked".
+
+---
+
+## Output Format
+
+After pushing, print a summary:
+
+\`\`\`
+ATR Push — Sprint {N}
+
+Created:  5 issues
+Skipped:  2 (already tracked)
+Failed:   0
+
+Issues created:
+  [US-003] Signup form does not show loading state -> #42 (medium)
+  [US-005] Empty fields render as "null" -> #43 (medium)
+  ...
+\`\`\`
+",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md": "---
 name: bmad-advanced-elicitation
 description: Push the LLM to reconsider, refine, and improve its recent output via structured elicitation methods (Socratic, first principles, pre-mortem, red team, SCAMPER, and 25+ others). Use when user asks for deeper critique, wants to stress-test a draft, or explicitly mentions one of the supported methods. Invoked by the bmad-agent-* personas (Isa, Alex, Daniel, Giulia) to enhance their outputs.
@@ -5141,6 +6090,1882 @@ Before proceeding to implementation, verify:
 
 **If any checkbox is unchecked, you MUST complete it before proceeding.**
 ",
+  ".claude/skills/requirements-ingest/SKILL.md": "---
+name: requirements-ingest
+description: Dialogic skill that turns raw business input (PDFs, DOCX, markdown notes, stakeholder emails, call transcripts, meeting summaries) into structured requirement files under \`docs/requirements/<domain>/<feature>.md\`, following NONoise conventions. USE AS PRE-STEP before \`arch-brainstorm\` — it converts unstructured stakeholder material into a stable set of functional/business requirements the architect can safely reason about. Also produces cross-references to source material parked in \`docs/calls/\` or \`docs/support/\`. Triggers — "ingest these requirements", "turn this document into requirement files", "process this call transcript", "extract requirements from <file>", "requirements-ingest", "break this brief into features". Also triggers without explicit mention when the user hands over raw documents (PDF, DOCX, email text) and asks to "organize them into the project" or "prepare for arch-brainstorm".
+source: Risko reference-project (reworked whitelabel for NONoise)
+variant: nonoise generic; stack-neutral
+---
+
+# requirements-ingest — From raw input to structured requirements
+
+This skill is the **pre-architectural ingestion step** of NONoise. It takes raw, unstructured business material (PDFs, DOCX, markdown notes, email text, stakeholder call transcripts, meeting summaries) and turns it into a clean set of requirement files under \`docs/requirements/<domain>/<feature>.md\` — each with a stable structure (who / what / why / acceptance criteria / out-of-scope) and explicit cross-references back to the source documents.
+
+It exists to solve a recurring problem: raw stakeholder input is noisy, overlapping, often contradictory, and mixes functional requests with implementation hints. Feeding that directly to \`arch-brainstorm\` leads to poor PRDs because the architect has to extract and disambiguate requirements on the fly. This skill does that extraction **explicitly and interactively**, so by the time \`arch-brainstorm\` runs the requirement space is already organized.
+
+## Position in the workflow
+
+\`\`\`
+┌──────────────────┐   ┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
+│ requirements-    │──▶│ arch-       │──▶│ arch-        │──▶│ sprint-manifest  │
+│ ingest           │   │ brainstorm  │   │ decision     │   │                  │
+│ (THIS SKILL)     │   │             │   │              │   │                  │
+│ raw input →      │   │ PRD from    │   │ validate via │   │ promote to       │
+│ structured       │   │ requirements│   │ quint-fpf    │   │ sprint manifest  │
+│ requirements     │   │             │   │              │   │                  │
+└──────────────────┘   └─────────────┘   └──────────────┘   └──────────────────┘
+      PRE-STEP              STEP 1            STEP 2              STEP 3
+\`\`\`
+
+The skill is the natural front door for any new engagement where the product team hands the architect a pile of documents. It can also be invoked later, mid-project, to absorb fresh stakeholder input (a new call transcript, a revised brief) without disrupting the existing requirement corpus.
+
+## What this skill does
+
+1. **Collects raw input** — paths to PDF, DOCX, markdown notes, email text, call transcripts, stakeholder summaries. Asks the user interactively if no paths are provided.
+2. **Reads the project source of truth** — \`docs/architecture/\` (for constraints and existing component registry) and \`docs/requirements/\` (for existing domains/features, to avoid duplicates and respect naming).
+3. **Extracts candidate requirements** — walks through each input document and surfaces discrete functional/business asks.
+4. **Proposes a domain / feature breakdown** — groups candidates by functional domain and feature; presents the breakdown to the user for confirmation.
+5. **Dialogs with the user** to disambiguate, deduplicate, and fill gaps — one question at a time, multiple-choice when possible.
+6. **Writes requirement files** under \`docs/requirements/<domain>/<feature>.md\` with standard frontmatter and sections.
+7. **Parks source documents** in \`docs/calls/\` (for meetings / call transcripts) or \`docs/support/\` (for PDFs, legacy analyses, third-party briefs) and cross-references them from each requirement file.
+8. **Suggests the next step** — invoke \`arch-brainstorm area <domain-or-feature>\` to start the architectural design.
+
+## What this skill does NOT do
+
+- **Does not produce architectural decisions** — no diagrams, no technology choices, no component design. That is \`arch-brainstorm\`'s job.
+- **Does not validate anything formally** — no Quint FPF run, no reliability score. That is \`arch-decision\`'s job.
+- **Does not break work into sprint tasks** — no user stories, no vertical slices, no CL1/CL2 confidence. That is \`sprint-manifest\`'s job.
+- **Does not write code** — it only produces requirement documents.
+- **Does not speculate** — if a raw document is ambiguous, the skill asks the user; it does not invent acceptance criteria.
+- **Does not edit \`docs/architecture/\`** — requirements live in \`docs/requirements/\`, architecture in \`docs/architecture/\`. Those are separate.
+
+## Working language
+
+The skill follows the project working language:
+
+1. If \`nonoise.config.json\` at the repo root has a \`language\` field, use that.
+2. Otherwise, infer from the dominant language of the input documents and of existing files under \`docs/requirements/\`.
+3. Fallback: English.
+
+Whatever language is chosen, all frontmatter field **names** stay in English (\`title\`, \`domain\`, \`feature\`, \`status\`, \`created_at\`, \`source_documents\`, …). Only the free-text content follows the project language.
+
+## Possible inputs
+
+| User input | Skill action |
+|---|---|
+| \`requirements-ingest\` (no args) | Ask the user for paths to raw documents, one at a time |
+| \`requirements-ingest <path1> <path2> ...\` | Start from those paths |
+| "ingest these files: A, B, C" | Treat A, B, C as the input set |
+| "process this call transcript from yesterday" | Treat it as a single-source ingestion — tag it as a call, park under \`docs/calls/\` with today's date prefix |
+| "add these new requirements to domain \`billing\`" | Targeted ingestion: constrain output to \`docs/requirements/billing/\`; allow creating new features inside it but do not create new domains |
+
+**Before starting real work**, the skill must always:
+
+1. Confirm the **list of input documents** and their **kind** (call transcript / PDF brief / email / DOCX / markdown note / other).
+2. Check whether \`docs/requirements/\` and \`docs/architecture/\` exist — if either is missing, stop and redirect the user to run \`npx create-nonoise\` first (the folders are part of the standard scaffold).
+3. Decide whether this is a **first-time ingestion** (empty \`docs/requirements/\`) or an **incremental ingestion** (existing requirements — must respect existing domain/feature names).
+
+---
+
+## Flow — 4 phases
+
+### Phase 1: COLLECT — gather raw input and load project context
+
+**Goal**: have all source documents in hand and know the current state of \`docs/requirements/\` and \`docs/architecture/\` before proposing anything.
+
+#### Actions
+
+1. **Gather input paths** — if not provided, ask the user one at a time:
+
+   > What raw documents do you want to ingest? Give me one path per message. Write \`done\` when finished.
+
+   Accept absolute paths, relative paths (from repo root), and remote URLs (if your tool chain supports fetching). For each path, ask its **kind**:
+
+   > \`<path>\` — what kind is this? (1) Call transcript / meeting notes, (2) Stakeholder PDF / DOCX brief, (3) Email or chat excerpt, (4) Markdown note, (5) Other
+
+2. **Read each input document** in full. For PDFs and DOCX, use whatever reader the environment provides; for binary formats without a reader, stop and ask the user to pre-convert to text or markdown.
+
+3. **Load project context**:
+   - \`docs/architecture/01-constraints.md\` (if present) — absolute constraints, so requirements never violate them silently.
+   - \`docs/architecture/04-components.md\` (if present) — component registry, to align domain names with existing components when sensible.
+   - \`docs/requirements/\` — full tree. Note every existing \`<domain>/\` folder and every \`<feature>.md\` already present.
+   - \`nonoise.config.json\` — working language, project-level preferences.
+
+4. **Summarize the landing zone** to the user in ~100 words before extracting:
+
+   > I read 3 input documents (1 call transcript, 2 PDF briefs). The project already has 2 requirement domains (\`billing\`, \`checkout\`) with 5 features total. Architecture constraints include: no long-running cron jobs; all async work must use the existing event bus. Ready to extract candidate requirements from the inputs. Confirm?
+
+#### Phase 1 checkpoint
+
+- [ ] List of input documents confirmed with their kinds
+- [ ] Each input read in full
+- [ ] Existing \`docs/requirements/\` tree in memory
+- [ ] Architecture constraints in memory
+- [ ] Working language decided
+- [ ] Landing-zone summary presented
+
+**Ask for confirmation** before moving to phase 2.
+
+---
+
+### Phase 2: EXTRACT — surface candidate requirements
+
+**Goal**: walk each input document and produce a flat list of **candidate requirements** — atomic, deduplicated, traceable back to the source.
+
+#### Extraction heuristics
+
+For each input document:
+
+1. **Scan for functional signals**:
+   - Verbs of capability: "must be able to", "should allow", "needs to", "we want", "the user can", "enables".
+   - Actor mentions: "the user", "the admin", "the operator", "the system".
+   - Trigger phrases: "when X happens", "if Y", "upon Z".
+   - Outcome phrases: "so that", "in order to", "to achieve".
+
+2. **Scan for business-rule signals**:
+   - Invariants: "always", "never", "only if", "must not".
+   - Constraints: "no more than", "at least", "within N seconds".
+   - Compliance phrases: "per regulation", "GDPR", "SOC2", any referenced norm.
+
+3. **Scan for UI / UX signals** (these mark candidates that likely benefit from a mockup):
+   - Interface nouns: screen, page, form, grid, table, button, dialog, modal, wizard, stepper, tab, dashboard, panel, filter, dropdown, checkbox, radio.
+   - Layout verbs: display, render, show, list, paginate, sort, filter, search.
+
+4. **Scan for out-of-scope signals**:
+   - Exclusion verbs: "will not", "out of scope", "not in this release", "later", "future".
+
+5. **Scan for open questions** (things the source document itself leaves undecided):
+   - "TBD", "to be confirmed", "open question", "TBC", placeholder markers.
+
+For each signal, produce a **candidate row**:
+
+| Field | Content |
+|---|---|
+| \`id\` | temporary ID \`CR-NNN\` (incremental across the ingestion session) |
+| \`source\` | path + section / page / timestamp |
+| \`who\` | actor (if stated) or \`?\` |
+| \`what\` | the capability, rule, or constraint in 1 sentence |
+| \`why\` | the outcome (if stated) or \`?\` |
+| \`signals\` | functional / business-rule / UI / out-of-scope / open-question |
+| \`quote\` | the original sentence from the source, verbatim (short) |
+
+#### Deduplication
+
+After the first pass, group semantically-equivalent candidates across documents. When two candidates overlap:
+
+- Merge them into one, keep **all** \`source\` references
+- Use the more specific \`what\` / \`why\` as the canonical version
+- Flag any disagreement between sources ("Document A says within 5s, document B says within 10s") as an **open point** — do not silently pick one
+
+#### UI-heavy candidates
+
+For each candidate flagged with UI signals, ask the user once at the end of extraction:
+
+> Candidate \`CR-NNN\` describes an interface: *"<short what>"*. Do you have a mockup, wireframe, or screenshot that should be linked from the requirement? (yes — paste path / no / not yet)
+
+If the user provides a mockup path, store it as an additional \`source_documents\` entry when the requirement is written.
+
+#### Phase 2 checkpoint
+
+- [ ] Each input scanned for all 5 signal types
+- [ ] Candidate list produced with \`id\`, \`source\`, \`who\`, \`what\`, \`why\`, \`signals\`, \`quote\`
+- [ ] Semantic duplicates merged with all sources kept
+- [ ] Disagreements between sources flagged as open points
+- [ ] UI-heavy candidates asked about mockups
+
+**Show the candidate list to the user** and ask for confirmation / corrections before moving to phase 3. Typical format: a markdown table. If the list is long (> 30 rows), split by source document.
+
+---
+
+### Phase 3: STRUCTURE — propose domain / feature breakdown
+
+**Goal**: turn the flat candidate list into a two-level structure (\`<domain>/<feature>\`) that matches the project's conventions and existing corpus.
+
+#### Domain selection
+
+A **domain** is a coarse functional area. Typical examples: \`billing\`, \`signup\`, \`checkout\`, \`reporting\`, \`notifications\`, \`admin-console\`. Prefer **existing domains** under \`docs/requirements/\` over inventing new ones.
+
+For each candidate, propose a domain. If multiple domains plausibly apply, ask the user:
+
+> Candidate \`CR-NNN\` (*"<short what>"*) could live under:
+> 1. \`billing\` (existing)
+> 2. \`reporting\` (existing)
+> 3. \`<new-domain-slug>\` (new)
+>
+> Which one?
+
+Never create a new domain silently. Always ask.
+
+#### Feature grouping
+
+A **feature** is a cohesive set of requirements inside a domain. Example inside \`billing\`: \`invoice-generation\`, \`payment-methods\`, \`refunds\`. Feature files live at \`docs/requirements/<domain>/<feature>.md\`.
+
+Heuristics:
+
+- Candidates sharing the same actor + same outcome → likely one feature
+- Candidates that always appear together in the same section of the source documents → likely one feature
+- Candidates that differ only in minor variations → likely acceptance criteria of one feature, not separate features
+
+Propose the feature breakdown as a table:
+
+| Domain | Feature | Candidate IDs | New or existing? |
+|---|---|---|---|
+| billing | invoice-generation | CR-001, CR-003, CR-007 | new |
+| billing | payment-methods | CR-002, CR-004 | existing (adds to file) |
+| signup | email-verification | CR-005, CR-006 | new |
+| signup | social-login | CR-008 | new |
+
+Ask the user to confirm the breakdown before writing anything.
+
+#### Naming conventions
+
+- **Domain slug**: kebab-case, lowercase, singular or functional name (\`billing\`, not \`billings\`; \`reporting\`, not \`reports-module\`). Stable over time.
+- **Feature slug**: kebab-case, lowercase, describes the capability (\`invoice-generation\`, not \`generate-invoices\` or \`invoices\`). One feature per file.
+
+#### Phase 3 checkpoint
+
+- [ ] Every candidate mapped to a domain
+- [ ] Every candidate mapped to a feature within that domain
+- [ ] New domains / features explicitly confirmed by the user
+- [ ] Existing features (when adding to them) identified
+- [ ] Breakdown table confirmed
+
+**Ask for explicit confirmation** before starting to write files.
+
+---
+
+### Phase 4: WRITE — produce requirement files and park sources
+
+**Goal**: for each \`(domain, feature)\` in the confirmed breakdown, write or update the requirement file; for each source document, park it under \`docs/calls/\` or \`docs/support/\` and cross-reference it.
+
+#### Source document parking
+
+First, park the source documents:
+
+- **Call transcripts / meeting notes** → \`docs/calls/<YYYY-MM-DD>-<short-slug>.<ext>\`
+  - Date: the date of the call (from the document if stated, else ask the user)
+  - Example: \`docs/calls/2026-04-18-business-user-signup.md\`
+  - If the original format is not markdown (e.g. DOCX), also drop a markdown companion with the meeting summary when feasible, keeping the binary alongside.
+- **Stakeholder briefs / PDFs / DOCX** → \`docs/support/<slug>.<ext>\`
+  - Example: \`docs/support/vendor-payment-api-spec.pdf\`
+  - If the user already parked the document elsewhere, keep the existing path and only reference it.
+- **Emails / chat excerpts** → \`docs/support/emails/<YYYY-MM-DD>-<short-slug>.md\`
+- **Markdown notes the user wrote** → user's choice: park under \`docs/support/notes/\` or leave in place if already inside \`docs/\`
+
+Before moving files, **ask the user** whether to copy or move. Default: copy (preserve the original path the user referenced). Never silently delete originals.
+
+#### Requirement file — mandatory structure
+
+For each \`(domain, feature)\`:
+
+\`\`\`markdown
+---
+title: "<Readable feature title>"
+domain: <domain-slug>
+feature: <feature-slug>
+status: draft
+source_documents:
+  - path: docs/calls/2026-04-18-business-user-signup.md
+    kind: call-transcript
+    sections: ["3.2 OTP flow"]
+  - path: docs/support/vendor-payment-api-spec.pdf
+    kind: brief
+    sections: ["pp. 12-14"]
+created_at: YYYY-MM-DD
+authors: [<name-or-stakeholder>]
+---
+
+# <Readable feature title>
+
+> **Domain**: \`<domain-slug>\` • **Feature**: \`<feature-slug>\`
+> **Status**: \`draft\` — ingested from raw input on YYYY-MM-DD
+> **Source documents**: see frontmatter \`source_documents\`
+
+## Who needs it
+
+<1-3 sentences naming the actor / persona / stakeholder and the context in which they operate.>
+
+## What they need to do
+
+<Prose description of the capability, in the project's working language. Use short paragraphs, not implementation details. 1-3 paragraphs.>
+
+## Why — the outcome
+
+<The business / user outcome this enables. Tie it back to the source document when possible ("per the vendor brief, this reduces churn by…").>
+
+## Acceptance criteria
+
+Observable, testable criteria. Use Given-When-Then when it clarifies; use numbered bullets when it does not. Each criterion must be falsifiable.
+
+1. **Given** <precondition>, **when** <action>, **then** <observable outcome>.
+2. ...
+
+## Business rules
+
+Invariants and constraints that always hold, independent of a specific scenario.
+
+- <rule 1>
+- <rule 2>
+
+## Out-of-scope
+
+Explicit exclusions — things a reader might reasonably assume are covered but are not, in this requirement.
+
+- <excluded item> — <short reason / deferred to where>
+
+## Open points
+
+TBDs, disagreements between sources, missing information. Every open point must be resolved before \`arch-brainstorm\` runs.
+
+- [ ] <open point 1> — <source of uncertainty>
+- [ ] <open point 2> — <source of uncertainty>
+
+## Source quotes
+
+Verbatim quotes from the source documents that ground this requirement. Useful when the team later wants to check whether the ingestion preserved intent.
+
+> "<quote 1>" — source: \`docs/calls/2026-04-18-business-user-signup.md\` §3.2
+>
+> "<quote 2>" — source: \`docs/support/vendor-payment-api-spec.pdf\` p. 13
+\`\`\`
+
+#### Updating an existing requirement file
+
+If the feature file already exists (incremental ingestion):
+
+1. Read it first.
+2. Merge new candidates into the relevant sections (Acceptance criteria, Business rules, Out-of-scope, Open points).
+3. Append to \`source_documents\` in the frontmatter — do not overwrite.
+4. Append new quotes to \`## Source quotes\` — do not overwrite.
+5. Keep a short change-log note at the bottom under \`## Ingestion history\` (append-only):
+
+   \`\`\`markdown
+   ## Ingestion history
+
+   - 2026-04-18 — added CR-005, CR-006 from \`docs/calls/2026-04-18-business-user-signup.md\`
+   - 2026-03-02 — initial ingestion from \`docs/support/vendor-payment-api-spec.pdf\`
+   \`\`\`
+
+#### Cross-references
+
+After all files are written, update (or create) \`docs/requirements/<domain>/README.md\` with a short index of features in the domain:
+
+\`\`\`markdown
+# Domain — \`<domain-slug>\`
+
+<1-2 paragraphs: what this functional domain covers, stakeholders, scope.>
+
+## Features
+
+| Feature | Status | Description |
+|---|---|---|
+| [invoice-generation](./invoice-generation.md) | draft | <1-sentence description> |
+| [payment-methods](./payment-methods.md) | draft | <1-sentence description> |
+
+## Source documents referenced
+
+- [docs/calls/2026-04-18-business-user-signup.md](../../calls/2026-04-18-business-user-signup.md)
+- [docs/support/vendor-payment-api-spec.pdf](../../support/vendor-payment-api-spec.pdf)
+\`\`\`
+
+#### Self-review before saving
+
+For each requirement file, mentally re-read and verify:
+
+- **Traceability**: every acceptance criterion traces back to at least one source quote or open point.
+- **Testability**: every acceptance criterion is observable and falsifiable.
+- **Scope**: the feature file is focused on one cohesive capability, not a grab-bag.
+- **Placeholders**: every \`?\` from phase 2 is either resolved or listed as an open point.
+- **Out-of-scope**: at least one explicit exclusion is stated (if nothing is out of scope, that itself is worth noting).
+- **No implementation**: no tech stack, no class names, no endpoints. If implementation leaked in from a source document, either move it to an open point ("the source suggests X — confirm during arch-brainstorm") or drop it.
+
+Fix inline before saving.
+
+#### Phase 4 checkpoint
+
+- [ ] Source documents parked (or existing paths confirmed)
+- [ ] Each \`(domain, feature)\` written with mandatory sections
+- [ ] Existing files merged rather than overwritten
+- [ ] \`docs/requirements/<domain>/README.md\` created or updated
+- [ ] Every file passes self-review
+
+---
+
+## Phase 5: HANDOFF — close the loop
+
+**Goal**: summarize, hand over to the architect, and suggest the next step.
+
+#### Actions
+
+1. **Summarize** to the user what was produced — paths, count of new features, count of updated features, list of open points that still block \`arch-brainstorm\`.
+
+2. **Request review** explicitly:
+
+   > Review the requirement files before proceeding. If you want changes, tell me. Otherwise the next step is **\`arch-brainstorm area <domain-or-feature>\`** for any area you want to design.
+
+3. **User gate**: do not declare the skill complete until the user gives the green light or requests changes.
+
+4. **If the user requests changes**: return to phase 2 (re-extract), phase 3 (re-structure), or phase 4 (re-write) depending on the nature of the change.
+
+5. **If the user approves**, explicitly suggest the next skill per area:
+
+   > Requirements are in place. To proceed to architectural design, invoke:
+   >
+   > **\`arch-brainstorm area <domain>\`** (pick one domain at a time)
+   >
+   > \`arch-brainstorm\` will read the requirement files under \`docs/requirements/<domain>/\` as part of its DISCOVER phase and use them to seed the architectural dialog.
+
+#### Phase 5 checkpoint
+
+- [ ] User received the summary
+- [ ] User approved (or requested changes have been applied)
+- [ ] Next step explicitly suggested
+
+---
+
+## Naming and frontmatter
+
+See [\`references/requirement-file-template.md\`](./references/requirement-file-template.md) for the full template. Summary:
+
+- **Domain folder**: \`docs/requirements/<domain-slug>/\`
+- **Feature file**: \`docs/requirements/<domain-slug>/<feature-slug>.md\`
+- **Domain index** (optional but recommended): \`docs/requirements/<domain-slug>/README.md\`
+
+Mandatory requirement-file frontmatter:
+
+\`\`\`yaml
+---
+title: "<Readable feature title>"
+domain: <domain-slug>
+feature: <feature-slug>
+status: draft | reviewed | superseded
+source_documents:
+  - path: <relative-or-absolute-path>
+    kind: call-transcript | brief | email | note | mockup | other
+    sections: ["<optional section references>"]
+created_at: YYYY-MM-DD
+authors: [<name-or-stakeholder>]
+---
+\`\`\`
+
+Lifecycle:
+
+- \`draft\` — just ingested, not yet reviewed by the architect or a senior stakeholder
+- \`reviewed\` — confirmed correct by the team; ready to feed \`arch-brainstorm\`
+- \`superseded\` — replaced by another feature file (state \`superseded_by\` field inline)
+
+---
+
+## Resuming mid-flow
+
+If the user has already started a previous ingestion session (candidates produced, not all written):
+
+1. Ask whether to **resume** or **start over**.
+2. If resuming, re-read existing \`docs/requirements/\` tree, parse any partial files, and continue from the last confirmed phase checkpoint.
+
+The skill is stateless between invocations — state lives entirely in the files already produced on disk.
+
+---
+
+## Anti-patterns
+
+1. **Writing requirement files without confirming the breakdown** — phase 3 confirmation is mandatory; skipping it produces files with bad domain/feature slugs that then pollute the corpus.
+2. **Silently creating new domains** — always ask. A proliferation of near-duplicate domains (\`billing\`, \`invoicing\`, \`payments\`) is a hard mess to clean up later.
+3. **Inventing acceptance criteria from thin air** — if the source document does not support a criterion, mark it as an open point. Never hallucinate to produce a "complete-looking" file.
+4. **Dropping disagreements between sources** — if document A says X and document B says Y, both must appear as an open point. Picking one silently is the worst failure mode of ingestion.
+5. **Leaking implementation into requirements** — no endpoints, no class names, no tech stack choices. Those belong in PRDs, not here.
+6. **Overwriting existing files** — always merge when the feature already exists. Use ingestion history to preserve audit trail.
+7. **Skipping the handoff** — until the user approves, the skill is not complete.
+
+---
+
+## When NOT to use this skill
+
+- **Architectural brainstorming** → \`arch-brainstorm\`
+- **PRD validation** → \`arch-decision\`
+- **Sprint promotion** → \`sprint-manifest\`
+- **Bug reports / incidents** → do not file as requirements; use the project's issue tracker
+- **Pure legacy analysis** (no forward-looking requirements) → park directly under \`docs/support/\` without going through ingestion
+- **Meeting notes you just want to archive** — if there is nothing actionable, park under \`docs/calls/\` directly without creating requirement files
+
+---
+
+## References
+
+- [\`references/requirement-file-template.md\`](./references/requirement-file-template.md) — Full template for a requirement file
+- [\`references/ingestion-heuristics.md\`](./references/ingestion-heuristics.md) — Signal patterns, deduplication rules, domain-naming guidance
+- Sibling skill \`arch-brainstorm\` — the natural next step after ingestion
+- Sibling skill \`arch-decision\` — validation step after \`arch-brainstorm\`
+- Sibling skill \`sprint-manifest\` — promotion to sprint
+- Project folder: \`docs/requirements/README.md\` — ships with the NONoise scaffold, describes the folder purpose
+",
+  ".claude/skills/requirements-ingest/references/ingestion-heuristics.md": "# Ingestion heuristics
+
+Practical reference for phase 2 (EXTRACT) and phase 3 (STRUCTURE) of \`requirements-ingest\`. These are the patterns the skill scans for when walking raw documents, and the rules it uses to group candidates into a clean domain/feature structure.
+
+## Signal taxonomy
+
+The skill classifies each extracted candidate by **signal type**. A single sentence can carry multiple signals.
+
+### 1. Functional signals (who does what)
+
+Marks a concrete capability the product must offer.
+
+**Verbs of capability**:
+
+- \`must be able to\`, \`should allow\`, \`needs to\`, \`has to\`, \`is required to\`
+- \`can\`, \`may\`, \`shall\`, \`will\`
+- \`we want\`, \`we need\`, \`it would be useful if\`
+- \`the user can\`, \`enables <actor> to\`, \`lets <actor>\`
+
+**Actor mentions**:
+
+- \`the user\`, \`the admin\`, \`the operator\`, \`the reviewer\`, \`the stakeholder\`
+- \`the customer\`, \`the employee\`, \`the visitor\`, \`the guest\`
+- \`the system\`, \`the service\` (when "the system" is the actor performing something, not the subject being acted on)
+
+**Trigger phrases**:
+
+- \`when <event>\`, \`upon <event>\`, \`as soon as <event>\`
+- \`if <condition>\`, \`whenever <event>\`
+- \`on <action>\`, \`after <action>\`, \`before <action>\`
+
+**Outcome phrases**:
+
+- \`so that <outcome>\`, \`in order to <outcome>\`, \`to <outcome>\`
+- \`with the goal of\`, \`which lets us\`, \`resulting in\`
+
+**Canonical template**: \`<actor> <verb> <object> <trigger> <outcome>\` →
+\`The billing operator triggers monthly invoice generation on day 1 so that finance approval is ready within 24h.\`
+
+### 2. Business-rule signals (what is always true)
+
+Marks an invariant the domain imposes, independent of any specific flow.
+
+**Invariant verbs**:
+
+- \`always\`, \`never\`, \`must not\`, \`may not\`
+- \`at all times\`, \`under no circumstances\`, \`in every case\`
+- \`for every <entity>\`, \`no <entity> may\`
+
+**Constraint phrases**:
+
+- \`no more than N\`, \`at most N\`, \`up to N\`
+- \`at least N\`, \`no fewer than N\`
+- \`within N <unit>\`, \`before <deadline>\`, \`after <deadline>\`
+- \`exactly one\`, \`exactly N\`, \`unique per <scope>\`
+
+**Compliance phrases**:
+
+- \`per <regulation>\`, \`as required by <law>\`, \`in accordance with <norm>\`
+- \`GDPR\`, \`SOC2\`, \`HIPAA\`, \`PCI-DSS\`, \`ISO 27001\`, or any local regulation
+- \`audit trail required\`, \`retention N years\`, \`right to erasure\`
+
+### 3. UI / UX signals (likely benefits from a mockup)
+
+Marks a candidate whose precise shape depends on an interface design.
+
+**Interface nouns**:
+
+- Layouts: \`screen\`, \`page\`, \`view\`, \`panel\`, \`dashboard\`, \`tab\`
+- Components: \`form\`, \`grid\`, \`table\`, \`list\`, \`card\`, \`tile\`
+- Controls: \`button\`, \`link\`, \`dropdown\`, \`select\`, \`checkbox\`, \`radio\`, \`switch\`, \`toggle\`, \`slider\`
+- Containers: \`dialog\`, \`modal\`, \`sidebar\`, \`drawer\`, \`popover\`, \`tooltip\`, \`wizard\`, \`stepper\`
+
+**Layout verbs**:
+
+- \`display\`, \`show\`, \`render\`, \`list\`, \`paginate\`, \`sort\`, \`filter\`, \`search\`
+- \`highlight\`, \`group\`, \`collapse\`, \`expand\`
+
+**Data-surface verbs**:
+
+- \`export\`, \`download\`, \`print\`, \`share\`, \`copy\`
+- \`upload\`, \`import\`, \`attach\`
+
+When this signal is present, the skill asks at end of phase 2 whether a mockup exists for the candidate.
+
+### 4. Out-of-scope signals
+
+Marks an explicit exclusion — things the source document itself declares not in scope.
+
+**Exclusion verbs**:
+
+- \`will not\`, \`does not\`, \`shall not\`, \`is not\`
+- \`out of scope\`, \`not in scope\`, \`outside this release\`, \`not in this phase\`
+- \`later\`, \`future\`, \`next phase\`, \`v2\`, \`deferred\`
+
+**Negation trigger**:
+
+- \`we are not building\`, \`we are not supporting\`, \`no <feature>\`, \`without <feature>\`
+- \`<feature> is deferred to <phase>\`, \`<feature> will be handled separately\`
+
+### 5. Open-question signals
+
+Marks a point the source document itself leaves undecided.
+
+**Placeholder markers**:
+
+- \`TBD\`, \`TBC\`, \`to be decided\`, \`to be confirmed\`, \`to be discussed\`
+- \`open question\`, \`still deciding\`, \`still thinking\`
+- \`?\`, \`[?]\`, \`???\` (contextual — check that it is a genuine placeholder, not punctuation)
+
+**Doubt verbs**:
+
+- \`maybe\`, \`perhaps\`, \`possibly\`, \`likely\`
+- \`we are not sure\`, \`unclear\`, \`depends on <X>\`
+
+---
+
+## Extraction pass — operational procedure
+
+For each input document, the skill runs this procedure:
+
+1. **Structure pass**: read the document top-to-bottom, noting headings, sections, tables, and any explicit requirements section. Keep a position marker for every candidate (section number, page, timestamp).
+
+2. **Signal pass**: scan sentence-by-sentence for the 5 signal types. When a signal fires, extract the full sentence as the candidate's \`quote\` field.
+
+3. **Normalization pass**: for each candidate, distill the signal into the canonical 1-sentence \`what\` ("<actor> <verb> <object>"), fill \`who\` and \`why\` if stated, and tag the \`signals\` list.
+
+4. **ID assignment**: give each candidate an incremental \`CR-NNN\` ID, stable for the session.
+
+5. **Deduplication pass**: across the full candidate list (all sources pooled), group semantically-equivalent candidates. Two candidates are equivalent if:
+   - Same actor AND same capability, even if wording differs
+   - Same business rule, even if phrased differently
+   - Same out-of-scope exclusion, even if phrased differently
+
+   Merging rule:
+   - Keep the clearer \`what\` / \`why\`
+   - Union \`source\` references (no loss of traceability)
+   - Flag any substantive difference as an **open point** attached to the merged candidate
+
+6. **UI flagging**: candidates with UI signals are flagged for the end-of-phase mockup question.
+
+7. **Open-question pass**: every source \`TBD\` or placeholder becomes a candidate with signal \`open-question\` and no \`who/what/why\` — those are exactly what the skill needs the user to resolve.
+
+---
+
+## Domain and feature grouping
+
+### Domain rules
+
+A **domain** is a coarse functional area. The goal: **few, stable domains**. A proliferation of near-duplicate domains is the worst outcome of ingestion.
+
+**Prefer existing domains**. Always check the tree under \`docs/requirements/\` first. If an incoming candidate fits an existing domain even loosely, use it.
+
+**Examples of good domains**:
+
+- \`billing\`, \`signup\`, \`checkout\`, \`reporting\`
+- \`notifications\`, \`admin-console\`, \`search\`, \`profile\`
+- \`integrations\` (for outbound / 3rd-party connectors when they cluster)
+
+**Anti-examples**:
+
+- \`billing-system\` — the \`-system\` suffix adds nothing
+- \`invoicing\` when \`billing\` already exists — merge into \`billing\`
+- \`user-feature\` — too generic
+- \`new-things-2026\` — not a functional domain, just a time box
+
+**Rule of thumb**: if you can imagine ≥ 3 distinct features living under the domain, it's a good domain. If not, it is probably one feature inside a larger domain.
+
+### Feature rules
+
+A **feature** is a cohesive set of requirements inside a domain. One file per feature.
+
+**Grouping heuristics**:
+
+- Candidates sharing **same actor + same outcome** → likely one feature.
+- Candidates from the **same section of the source document** → often one feature (sources tend to cluster related asks).
+- Candidates that are **variations of one capability** (different inputs, different cases) → one feature with multiple acceptance criteria, not multiple features.
+- Candidates with **different actors but shared data / workflow** → could be one feature with multiple personas, or two features that reference each other. Lean toward separate features when the personas have different primary outcomes.
+
+**Good feature slugs**: \`invoice-generation\`, \`email-verification\`, \`password-reset\`, \`export-to-csv\`, \`bulk-approval\`, \`order-tracking\`
+
+**Anti-examples**:
+
+- \`billing-invoice-generation\` — redundant (the domain is already \`billing\`)
+- \`generate-invoices\` — verb-first; prefer noun-first (\`invoice-generation\`)
+- \`invoices\` — too broad; every invoice-related ask would collapse into it
+- \`feature-1\` — meaningless
+
+**When in doubt, ask**. Phase 3 always presents the proposed breakdown for user confirmation.
+
+---
+
+## Conflict resolution rules
+
+During merging and structuring, conflicts will appear. The skill never resolves them silently. Canonical moves:
+
+| Conflict type | Resolution |
+|---|---|
+| Two sources state different quantitative thresholds | Keep both quotes, flag open point "source A says X, source B says Y — confirm" |
+| Two sources state different actors | Keep both, flag open point "primary actor unclear — confirm" |
+| One source says in scope, another says out of scope | Default to out-of-scope in the file, flag open point "source A includes this, source B excludes it — confirm intent" |
+| Source leaks implementation ("use Redis", "POST /foo") | Park as open point ("source suggests <mechanism> — consider during arch-brainstorm"), do not include in acceptance criteria |
+| Source uses conditional language ("maybe", "probably") | Keep as candidate with \`open-question\` signal; do not treat as firm requirement |
+
+---
+
+## Source-document kinds and parking rules
+
+### Call transcripts / meeting notes
+
+- Park to \`docs/calls/<YYYY-MM-DD>-<short-slug>.<ext>\`
+- Date = date of the meeting (from document or user)
+- Slug = domain or feature focus, kebab-case
+- Examples:
+  - \`2026-04-10-billing-kickoff.md\`
+  - \`2026-04-15-signup-ux-review.md\`
+
+### Stakeholder briefs (PDF, DOCX)
+
+- Park to \`docs/support/<slug>.<ext>\`
+- Slug = short descriptor; no date prefix (briefs are less temporal than calls)
+- If the brief has a natural versioning (v1, v2), include it: \`finance-brief-q2-v2.pdf\`
+
+### Emails / chat excerpts
+
+- Park to \`docs/support/emails/<YYYY-MM-DD>-<slug>.md\`
+- Convert the excerpt to markdown when possible; preserve sender / recipient / date in the file header
+
+### Markdown notes (user-authored)
+
+- Let the user decide: leave in place (if already under \`docs/\`) or park under \`docs/support/notes/<slug>.md\`
+- Never silently move
+
+### Mockups / wireframes / screenshots
+
+- Park to \`docs/support/mockups/<domain>/<feature>-<NN>.<ext>\` where \`NN\` is an incremental index
+- Reference from the requirement file's \`source_documents\` with \`kind: mockup\`
+
+### Copy vs move
+
+Default to **copy**, never move silently. Ask the user if unsure. Users often want to keep the original path for external reasons (shared drive, email attachment, tool export).
+
+---
+
+## Quality bar before writing files
+
+Before phase 4 starts writing, every candidate and every proposed \`(domain, feature)\` row must pass:
+
+- [ ] \`what\` is a single concrete capability, rule, or constraint
+- [ ] \`source\` points to a parked (or to-be-parked) document with a section reference
+- [ ] UI candidates have been asked about mockups (accepted or declined)
+- [ ] Semantic duplicates merged
+- [ ] Source disagreements flagged as open points
+- [ ] Domain exists or has been explicitly approved by the user as new
+- [ ] Feature slug is noun-first, scoped, and distinct from siblings
+
+If any candidate fails the bar, fix it before writing — files once on disk are much more painful to clean up than candidates in memory.
+",
+  ".claude/skills/requirements-ingest/references/requirement-file-template.md": "# Requirement file template
+
+Reference for the mandatory structure of requirement files produced by \`requirements-ingest\`. Every file under \`docs/requirements/<domain>/<feature>.md\` must follow this template.
+
+## Template philosophy
+
+A requirement file is the **input contract** to \`arch-brainstorm\`. It must be:
+
+1. **Unambiguous** — every acceptance criterion has one and only one interpretation.
+2. **Traceable** — every criterion ties back to at least one source quote or open point.
+3. **Testable** — every criterion is observable and falsifiable.
+4. **Scoped** — one cohesive capability per file, with explicit out-of-scope.
+5. **Honest** — unresolved disagreements are open points, not silently picked.
+
+If even one of these is missing, the file is not ready to feed \`arch-brainstorm\`.
+
+---
+
+## Full template
+
+\`\`\`markdown
+---
+title: "<Readable feature title>"
+domain: <domain-slug>
+feature: <feature-slug>
+status: draft
+source_documents:
+  - path: <relative-or-absolute-path>
+    kind: call-transcript | brief | email | note | mockup | other
+    sections: ["<optional section / page / timestamp references>"]
+created_at: YYYY-MM-DD
+authors: [<name-or-stakeholder>]
+---
+
+# <Readable feature title>
+
+> **Domain**: \`<domain-slug>\` • **Feature**: \`<feature-slug>\`
+> **Status**: \`draft\` — ingested from raw input on YYYY-MM-DD
+> **Source documents**: see frontmatter \`source_documents\`
+
+## Who needs it
+
+<Actor, persona, or stakeholder. 1-3 sentences naming them and the context in which they operate. Prefer concrete personas ("the billing operator closing the monthly cycle") over abstract ones ("the user").>
+
+## What they need to do
+
+<Prose description of the capability, in the project's working language. Short paragraphs, not implementation details. 1-3 paragraphs. Describe behavior, not mechanism.>
+
+## Why — the outcome
+
+<The business or user outcome this enables. Tie back to source documents when possible ("per the vendor brief, this reduces churn by ~15%"). If the source does not state an outcome, write "outcome not stated in source — open point".>
+
+## Acceptance criteria
+
+Observable, testable criteria. Each must be falsifiable — a reader must be able to say "this was met" or "this was not met" without interpretation.
+
+Use Given-When-Then when it clarifies scenarios; use numbered bullets when it does not.
+
+1. **Given** <precondition>, **when** <action>, **then** <observable outcome>.
+2. **Given** <precondition>, **when** <action>, **then** <observable outcome>.
+3. <simpler bullet when Given-When-Then is overkill>
+
+## Business rules
+
+Invariants and constraints that always hold, independent of a specific scenario. These are the rules the domain imposes — things that are always true, regardless of which flow is active.
+
+- <rule 1>
+- <rule 2>
+
+## Out-of-scope
+
+Explicit exclusions. A reader should not have to guess what is covered and what is not.
+
+- <excluded item> — <short reason / where it will be handled instead>
+
+## Open points
+
+TBDs, disagreements between source documents, missing information. Every open point must be resolved before \`arch-brainstorm\` runs (the architect will typically ask the stakeholder).
+
+- [ ] <open point 1> — <source of uncertainty>
+- [ ] <open point 2> — <disagreement: source A says X, source B says Y>
+
+## Source quotes
+
+Verbatim quotes from the source documents that ground this requirement. This is the audit trail that lets the team check later whether ingestion preserved the stakeholder's intent.
+
+> "<quote 1>" — source: \`docs/calls/2026-04-18-<slug>.md\` §3.2
+>
+> "<quote 2>" — source: \`docs/support/<brief>.pdf\` p. 13
+
+## Ingestion history
+
+Append-only log of ingestion events for this file. Added on first creation and on every subsequent merge.
+
+- YYYY-MM-DD — initial ingestion from \`<source-path>\`
+- YYYY-MM-DD — added candidates CR-NNN, CR-NNN from \`<source-path>\`
+\`\`\`
+
+---
+
+## Section-by-section guidance
+
+### Frontmatter
+
+**All fields mandatory**. Fill \`null\` only where noted.
+
+- \`title\` — human-readable, roughly sentence-case. Not a slug.
+- \`domain\` — kebab-case slug. Must match an existing domain under \`docs/requirements/\` unless the user has explicitly approved a new one.
+- \`feature\` — kebab-case slug. One per file.
+- \`status\` — lifecycle state: \`draft\` → \`reviewed\` → (optionally) \`superseded\`.
+- \`source_documents\` — list of \`{path, kind, sections}\` triples. At least one entry. If the source is a file that lives outside \`docs/\`, reference the parked copy instead.
+- \`created_at\` — ISO date of creation.
+- \`authors\` — list of people or stakeholders. Use the requestor's name or role, not the skill's name.
+
+### Who needs it
+
+Prefer concrete personas over abstract ones. "The billing operator closing the monthly cycle" reads better than "the user".
+
+If the source document does not name an actor, write:
+
+> Actor not named in source — inferred as \`<best-guess>\`. Confirm during \`arch-brainstorm\`.
+
+and add an open point.
+
+### What they need to do
+
+Describe **behavior**, not **mechanism**. "The operator can approve a batch of pending invoices in one action" is behavior. "The operator clicks the 'Approve Batch' button that triggers POST /invoices/batch-approve" is mechanism and does not belong here.
+
+If the source document drifted into mechanism (UI details, API shapes), distill the behavior and park the mechanism hint in an open point for \`arch-brainstorm\` to consider.
+
+### Acceptance criteria
+
+The most-scrutinized section. Failure modes to avoid:
+
+| Failure mode | Example | Fix |
+|---|---|---|
+| Not observable | "The system should be fast" | "95th-percentile response time is below 500ms under nominal load" |
+| Not falsifiable | "Users should like the new flow" | "In user testing with N participants, at least N-2 complete the flow without assistance" |
+| Mechanism leaked | "The API returns 200 with JSON payload" | "The operator sees the confirmation message within 2 seconds" |
+| Compound criterion | "The operator can approve, reject, and batch-export invoices" | Split into 3 separate criteria |
+
+### Business rules
+
+Keep these **invariant across scenarios**. If a rule only applies to one acceptance criterion, fold it into that criterion instead. Business rules are for cross-cutting invariants (e.g. "no invoice can be approved by the same user who created it").
+
+### Out-of-scope
+
+Every non-trivial requirement has something a reader could reasonably assume is covered. State it explicitly. Examples:
+
+- "Multi-currency invoices — out of scope for v1, tracked under domain \`billing-i18n\` (future)."
+- "Bulk import from legacy system — out of scope; use existing migration tool."
+
+If truly nothing is out of scope, write \`None identified — revisit during arch-brainstorm\`.
+
+### Open points
+
+The health indicator of the file. A mature file has zero open points. A just-ingested file typically has 2-6.
+
+Each open point should name the **source of uncertainty**:
+
+- Source document contradiction (A vs B)
+- Missing information in all sources
+- Inferred fact awaiting confirmation
+- Deferred decision explicitly flagged by stakeholder
+
+### Source quotes
+
+Short, verbatim, traceable. Two purposes:
+
+1. **Audit trail** — someone auditing the ingestion can check that the requirement reflects the source.
+2. **Seed for arch-brainstorm** — the architect can go back to raw context when a criterion is ambiguous.
+
+Keep quotes short (1-2 sentences). If longer context is needed, reference the parked source document by section instead of pasting pages of text.
+
+---
+
+## Worked example
+
+See a realistic filled-in example below for feature \`invoice-generation\` in domain \`billing\`.
+
+\`\`\`markdown
+---
+title: "Invoice generation for monthly billing cycle"
+domain: billing
+feature: invoice-generation
+status: draft
+source_documents:
+  - path: docs/calls/2026-04-10-billing-kickoff.md
+    kind: call-transcript
+    sections: ["§2 Monthly cycle", "§4 Edge cases"]
+  - path: docs/support/finance-team-brief-q2.pdf
+    kind: brief
+    sections: ["pp. 4-7"]
+created_at: 2026-04-18
+authors: ["Finance Team", "Ops Lead"]
+---
+
+# Invoice generation for monthly billing cycle
+
+> **Domain**: \`billing\` • **Feature**: \`invoice-generation\`
+> **Status**: \`draft\` — ingested from raw input on 2026-04-18
+> **Source documents**: see frontmatter \`source_documents\`
+
+## Who needs it
+
+The billing operator running the monthly close. They process ~800 active contracts on the first business day of each month and must produce one invoice per contract, ready for finance approval within the same day.
+
+## What they need to do
+
+The operator triggers a monthly invoice-generation run. The system produces one draft invoice per eligible contract, grouping line items per contract, applying the contract's tax profile, and marking each invoice as \`pending-approval\`. The operator reviews and approves invoices in batches afterwards (different feature).
+
+During the run, the operator sees progress and can pause / resume. Contracts in anomalous states (missing tax profile, expired, disputed) are skipped and surface in an error list for manual handling.
+
+## Why — the outcome
+
+The monthly close currently takes ~3 operator-days of manual spreadsheet work. The finance team wants it reduced to under 4 operator-hours, eliminating spreadsheet errors and ensuring invoices are ready for audit within 24h of cycle close.
+
+## Acceptance criteria
+
+1. **Given** a monthly cycle is active, **when** the operator triggers invoice generation, **then** the system produces exactly one draft invoice per eligible contract.
+2. **Given** a contract is in anomalous state (no tax profile / expired / disputed), **when** the run processes it, **then** it is skipped and appears in the error list with a reason code.
+3. **Given** a run is in progress, **when** the operator clicks pause, **then** no new invoices are started and in-flight ones complete; resume picks up from the next contract.
+4. **Given** a run completes, **when** the operator opens the summary, **then** the count of drafts produced, contracts skipped, and total run duration are visible.
+
+## Business rules
+
+- Exactly one invoice per contract per cycle. Re-running the cycle for a contract already invoiced is a no-op.
+- Tax profile at contract level takes precedence over customer default.
+- Invoices are always created in \`pending-approval\` status. The skill does not auto-approve.
+
+## Out-of-scope
+
+- Invoice approval workflow — separate feature \`invoice-approval\` in the same domain.
+- Multi-currency invoices — out of scope for v1; all contracts in v1 are EUR-denominated.
+- Ad-hoc (non-monthly) invoice generation — deferred to future \`ad-hoc-invoicing\` feature.
+
+## Open points
+
+- [ ] Source A (call) says "skip disputed contracts entirely"; source B (brief) says "generate draft with a warning flag". Confirm with finance team.
+- [ ] Run duration target — brief says "under 30 minutes for 1000 contracts"; call says "overnight is fine". Clarify.
+- [ ] Notification on run completion — not mentioned in any source. Likely needed; confirm.
+
+## Source quotes
+
+> "We need one invoice per contract, same logic as the manual spreadsheet, but automated and finished by lunch on day 1." — source: \`docs/calls/2026-04-10-billing-kickoff.md\` §2
+>
+> "Contracts in a disputed state should not produce invoices — finance handles those manually until the dispute is resolved." — source: \`docs/calls/2026-04-10-billing-kickoff.md\` §4
+>
+> "For contracts without a tax profile, a draft invoice should still be generated with a warning, so finance sees the backlog at-a-glance." — source: \`docs/support/finance-team-brief-q2.pdf\` p. 5
+
+## Ingestion history
+
+- 2026-04-18 — initial ingestion from \`docs/calls/2026-04-10-billing-kickoff.md\` and \`docs/support/finance-team-brief-q2.pdf\` (candidates CR-001 through CR-007)
+\`\`\`
+
+---
+
+## File-update rules (incremental ingestion)
+
+When the feature file already exists and new input brings additional candidates:
+
+1. **Frontmatter**: append to \`source_documents\` — do not overwrite.
+2. **Who needs it** / **What they need to do** / **Why**: update if the new source materially changes the understanding. If it only confirms existing text, no change.
+3. **Acceptance criteria**: append new criteria. Never silently change an existing criterion — if the new source contradicts an existing one, add both, flag the contradiction in **Open points**, and let the architect resolve it.
+4. **Business rules**: append new rules; same contradiction rule as above.
+5. **Out-of-scope**: append new exclusions.
+6. **Open points**: add new ones; resolve existing ones only if the new source explicitly resolves them.
+7. **Source quotes**: append — preserve audit trail.
+8. **Ingestion history**: always append a new entry with date, added candidate IDs, and source path.
+",
+  ".claude/skills/reverse-engineering/SKILL.md": "---
+name: reverse-engineering
+description: Produces and incrementally maintains a versioned reverse-engineering dossier for a specific subject — a legacy codebase, a current microservice, a third-party API, an internal library, a data pipeline, anything worth understanding. Output is a collection of markdown chapters under \`docs/support/reverse/<subject-slug>/\` built by combining project documents (sprint inputs, meeting notes, functional specs) with the subject's code/artifacts indexed via the [graphify](../graphify-setup/SKILL.md) knowledge graph. The flow is (1) graphify indexing — loads context only, writes nothing; (2) long-running interactive Q&A loop on the graph and source; (3) **explicit save trigger from the user** ("save", "ok write it", "make v1.5") bumps the minor version, updates only the chapters in the consolidated intent, appends a changelog entry. Use when the user asks to "reverse-engineer X", "document legacy Y", "build a dossier on vendor Z's API", "refresh the reverse on <subject>", "new version of the reverse", "add what emerged from this meeting to the reverse of <subject>", or mentions a path under \`docs/support/reverse/\` in an update context. Do NOT use for one-shot graph queries (route to \`/graphify query\`) or for single-chapter manual edits outside a versioning flow.
+source: Risko reference-project (reworked whitelabel for NONoise)
+variant: nonoise generic; stack-neutral; output under docs/support/reverse/<subject-slug>/
+---
+
+# reverse-engineering — versioned reverse dossier for any subject
+
+This skill maintains a **reverse-engineering dossier** for a named subject under:
+
+\`\`\`
+docs/support/reverse/<subject-slug>/
+├── 00-overview.md
+├── 01-<chapter>.md
+├── 02-<chapter>.md
+├── ...
+├── CHANGELOG.md                 ← versioned history, newest on top
+└── .meta/
+    └── graphify-index.json      ← pointer to the subject's graph (not versioned content)
+\`\`\`
+
+A subject is anything worth a dedicated dossier: a **legacy codebase** you're porting, a **current microservice** you need to document, a **vendor API** you're integrating, an **internal library** inherited from another team, a **data pipeline**, a **monolith module** being extracted. The methodology applies equally to legacy-understanding and to current-system documentation — the same chapters, the same workflow, the same versioning.
+
+\`<subject-slug>\` is free-form kebab-case. Examples:
+- \`legacy-billing\` — an old billing system being decommissioned
+- \`vendor-stripe-api\` — a third-party API you depend on
+- \`microservice-payments\` — a current service whose behavior is tribal knowledge
+- \`library-internal-orm\` — an internal library inherited from another team
+- \`monolith-inventory\` — a module in an existing monolith being extracted
+
+The output is a **minor-version bump** of the dossier (v1.N → v1.N+1) each time you save: only the chapters impacted by the current intent are rewritten, plus one new entry at the top of \`CHANGELOG.md\`. Everything else stays byte-identical — git diffs stay review-able.
+
+## Guiding principles
+
+1. **Incremental, not one-shot**. The dossier evolves over many sessions. We never rewrite from scratch; we edit the minimum subset of chapters implied by the user's intent.
+2. **Never write on our own initiative**. Indexing and analysis happen freely in chat, but the target folder is **not touched** until the user says "save" (or equivalent). A reverse session can run for hours and produce dozens of scratch drafts — most are discarded; only the final consolidated result reaches disk.
+3. **Graphify is context, not output**. The knowledge graph produced by [graphify](../graphify-setup/SKILL.md) is consumed to answer questions during the loop; it is not re-indexed on save and it is not copied into the dossier.
+4. **Source documents are read-only**. Project inputs (sprint docs, meeting notes, research PDFs, code) are sources. The dossier is a derived artifact. Don't write back.
+
+## When to use this skill
+
+Activate when the user says (either language of the project):
+
+- "reverse-engineer X" / "build a reverse on X" / "document X"
+- "refresh/update/regenerate the reverse of <subject>"
+- "new version of the dossier on <subject>"
+- "add what emerged from <meeting/PRD/spec> to the reverse of <subject>"
+- "we have a new BR/spec/note, update the reverse"
+- "let me walk through <subject> with you, then we save"
+- mentions a path under \`docs/support/reverse/<subject>/\` in an update context
+
+**Do not activate** for:
+
+- Ad-hoc questions on the graph ("how does X work in the legacy?") → route to \`/graphify query\`
+- Single-chapter manual edit outside a version bump → use \`Edit\` directly
+- Pure indexing of a folder with no dossier production → use \`/graphify <path>\`
+
+## Working language
+
+Follow the project's working language. Resolution order:
+1. If \`nonoise.config.json\` has a top-level \`language\` key, use it.
+2. Else, infer from the existing dossier (if \`00-overview.md\` is written in French, continue in French).
+3. Else, default to **English**.
+
+Terminology and chapter titles should match whatever language the dossier already uses. Do not switch language mid-version.
+
+## Position in the workflow
+
+The reverse-engineering skill does **not** belong to the "architectural" workflow (\`arch-brainstorm\` → \`arch-decision\` → \`sprint-manifest\` → \`atr\`). It is an **investigative / documentary** skill that feeds *into* the others:
+
+\`\`\`
+┌─────────────────────┐   feeds context   ┌──────────────────┐
+│ reverse-engineering │ ───────────────▶  │ arch-brainstorm  │
+│ (THIS SKILL)        │   (the dossier    │ arch-decision    │
+│                     │    becomes a      │ sprint-manifest  │
+│ produces a dossier  │    reference      │                  │
+│ under docs/support/ │    during         │                  │
+│ reverse/<subject>/  │    planning)      │                  │
+└─────────────────────┘                   └──────────────────┘
+\`\`\`
+
+The dossier lives in \`docs/support/\` — the NONoise convention for research / supporting docs / legacy analysis / anything that informs decisions without being a decision itself.
+
+---
+
+## Flow — 7 steps
+
+- **Step 0** — prerequisites
+- **Step 1** — collect input (subject slug, source folders)
+- **Step 2** — graphify indexing (loads context only)
+- **Step 3** — interactive analysis loop (the heart — user-driven, no writes)
+- **Step 4** — explicit save trigger + current-version read
+- **Step 5** — regeneration of impacted chapters (only after save)
+- **Step 6** — metadata + CHANGELOG update + summary
+
+Steps 0–3 are linear. Steps 4–6 fire **only** when the user utters a save phrase (see 4.1). Hours and dozens of Q&A rounds can pass between Step 3 and Step 4 — that is normal.
+
+### Step 0 — Prerequisites
+
+**0.1 — graphify installed**
+
+\`\`\`bash
+python -c "import graphify" 2>&1 || graphify --help 2>&1
+\`\`\`
+
+If both checks fail, tell the user:
+
+> Graphify is not installed. This skill uses it to index the subject's code and supporting documents.
+>
+> To install: \`pip install graphifyy\` (note: the package name ends in double‑y — \`graphifyy\`, not \`graphify\`).
+>
+> For the full setup (hooks, always-on, per-tool rules) see the [\`graphify-setup\`](../graphify-setup/SKILL.md) skill.
+>
+> Want me to run the install now? (yes/no)
+
+If not confirmed, stop with: "Can't proceed without graphify — re-run me once it's installed."
+
+**0.2 — Local developer config**
+
+Paths to external/legacy repos are developer-specific. Read them from \`.reverse-engineering.local.json\` at repo root.
+
+\`\`\`bash
+test -f .reverse-engineering.local.json && cat .reverse-engineering.local.json || echo "MISSING"
+\`\`\`
+
+Expected structure (see \`references/config.example.json\`):
+
+\`\`\`json
+{
+  "subjects": {
+    "legacy-billing": {
+      "source_path": "C:\\\\path\\\\to\\\\legacy-billing",
+      "last_run": "2026-04-15T10:00:00Z",
+      "last_source_indexed": "docs/sprints/Sprint-3"
+    }
+  }
+}
+\`\`\`
+
+If the file is missing, create it empty (\`{ "subjects": {} }\`) and **add it to \`.gitignore\`** if it's not already there:
+
+\`\`\`bash
+grep -q "^.reverse-engineering.local.json$" .gitignore 2>/dev/null || echo ".reverse-engineering.local.json" >> .gitignore
+\`\`\`
+
+This file holds machine-local paths and must never be committed.
+
+**0.3 — Destination root exists**
+
+\`\`\`bash
+test -d "docs/support/reverse" || mkdir -p "docs/support/reverse"
+\`\`\`
+
+The per-subject folder (\`docs/support/reverse/<subject-slug>/\`) is created on first save, not here.
+
+### Step 1 — Input collection (pre-indexing)
+
+Collect **only** what is needed to index. Do **not** ask about chapter scope here — that emerges during Step 3.
+
+**Q1 — Subject slug**
+
+> **Q1**: Which subject are we working on? Give me a short kebab-case name (e.g. \`legacy-billing\`, \`vendor-stripe-api\`, \`microservice-payments\`).
+>
+> If a folder \`docs/support/reverse/<slug>/\` already exists, we'll update that dossier. Otherwise we start a new one.
+
+Validate: must match \`^[a-z0-9][a-z0-9-]*$\`. No slashes, no spaces, no uppercase.
+
+Check existence:
+\`\`\`bash
+test -d "docs/support/reverse/<slug>" && echo "UPDATE" || echo "NEW"
+\`\`\`
+
+If \`NEW\`, confirm with the user that they want to create a fresh dossier — first-time generation usually needs a larger initial pass than an incremental update.
+
+**Q2 — Project document folders to index**
+
+These are the **non-code** sources: sprint inputs, meeting notes, business analysis calls, functional specs, requirements, research. Default suggestion:
+
+\`\`\`bash
+# Most recent sprint folder, if any
+ls docs/sprints/ 2>/dev/null | grep -E "^Sprint-[0-9]+$" | sort -V | tail -1
+\`\`\`
+
+Ask:
+
+> **Q2**: Which folders contain the project documents to feed the reverse?
+>
+> Suggested default: \`docs/sprints/<most-recent>/\`.
+>
+> You can accept, change it, or pass multiple comma-separated (e.g. \`docs/requirements/billing, docs/calls/2026-04-10-billing-kickoff\`). Typical sources in NONoise projects are under \`docs/sprints/\`, \`docs/requirements/\`, \`docs/calls/\`, \`docs/support/\`.
+
+**Guard — hard rule**: reject any path that **is** or **contains** \`docs/support/reverse/<slug>\` — the destination is never a source:
+
+> Can't index \`docs/support/reverse/<slug>/\` — it's the output folder, not a source. Pick a different path.
+
+**Q3 — Subject source (code / artifact repo)**
+
+Ask:
+
+> **Q3**: Where is the subject's source (code, artifacts, whatever we are reverse-engineering)? Examples:
+> - legacy repo: \`C:\\...\\legacy-billing\`
+> - a folder inside this repo: \`services/payments\`
+> - a vendor-api spec folder: \`docs/support/vendor-stripe-api/openapi\`
+> - leave empty to skip source indexing (document-only reverse)
+
+If a path is provided, store/update it under \`.reverse-engineering.local.json → subjects.<slug>.source_path\` and validate it exists.
+
+**Q4 — Reuse or re-index the subject's graph?**
+
+If the subject source graph already exists:
+\`\`\`bash
+test -f "<source_path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
+\`\`\`
+
+If \`EXISTS\`, default = **reuse**:
+> **Q4**: The subject graph is already present at \`<source_path>/graphify-out/\`. Reuse it as-is, or re-index to pick up any changes? Default: **reuse**. Type \`reindex\` to force.
+
+If \`MISSING\`, default = **re-index** (ask confirmation because it can take minutes on large codebases):
+> **Q4**: No existing graph at \`<source_path>/graphify-out/\`. I need to index the subject from scratch — this can take several minutes on large codebases. Proceed? (yes/no)
+
+**Pre-indexing summary**
+
+Print a terse recap — **do not** mention a target version or chapter intent (those surface only after the loop):
+
+> **Indexing plan:**
+> - Subject: \`<slug>\` — status: NEW / UPDATE
+> - Document folders: \`<q2 paths>\`
+> - Subject source: \`<q3 path or skipped>\` — mode: reuse / reindex / initial
+> - Current dossier version (reference): v1.N (or "first version")
+>
+> Proceeding will load context only. I will not write anything under \`docs/support/reverse/<slug>/\` until you explicitly say "save" (or equivalent). Go? (yes/no)
+
+### Step 2 — graphify indexing
+
+**2.0 — Only indexable content — hard rule**
+
+Graphify must see **useful text only**. Before indexing, filter:
+
+- **Raw PDFs**: the convention in NONoise projects is to convert PDFs to markdown upstream (a \`tools/md-extractor\` or equivalent produces a sibling \`.md\` with extracted images). If you find a \`.pdf\`:
+  1. If a sibling \`.md\` exists → exclude the \`.pdf\`, keep the \`.md\` as canonical source.
+  2. If not → **block the skill** and tell the user: *"File \`<name>.pdf\` has no markdown sibling. Convert it (e.g. via \`tools/md-extractor\` if the project ships one) before re-running the reverse. I don't index raw PDFs because graphify processes them worse than a cleanly-extracted markdown."*
+- **PDF-conversion artifact folders** (\`*/page_N_image_M.jpg\`, chart dumps, etc.): exclude any folder whose files are >80% \`page_*_image_*\` or \`page_*_chart_*\` noise.
+- **\`docs/support/reverse/<slug>/\`**: destination, never input (see 2.3).
+- **Residual \`graphify-out/\`** inside a source path: output of a previous run, not input. Remove before re-indexing.
+- **Broken \`.docx\` / \`.xlsx\`**: if graphify's Office extra isn't installed, tell the user to either convert manually to \`.md\` or install \`graphifyy[office]\`.
+
+**Extra textual formats not recognized natively as \`document\` by graphify** — add them manually:
+
+- \`.srt\` / \`.vtt\` — subtitle / meeting-transcript files. The timing markers are noise; the text is valuable. After \`detect()\`:
+  \`\`\`python
+  srt_files = [str(p) for p in Path(src).rglob('*.srt')]
+  if srt_files:
+      result['files'].setdefault('document', []).extend(srt_files)
+  \`\`\`
+- Other textual formats (\`.org\`, \`.adoc\`, \`.asciidoc\`) — same pattern: add them to the \`document\` bucket, recompute \`total_files\` / \`total_words\`, continue.
+
+After filtering, show the user before/after counts and the final file list. If total > 200 (graphify threshold) or > 15 post-filter, ask explicit confirmation.
+
+**PDF note** (print once per run when you detect raw PDFs):
+
+> **PDF note**: NONoise projects typically convert PDFs to markdown via a project-local tool (e.g. \`tools/md-extractor\`) — **not** via graphify's built-in extractor. The sibling \`.md\` is the canonical indexable source. If your project has a different convention, wire it up and re-run.
+
+**2.1 — Document folders** (from Q2)
+
+For each path:
+\`\`\`bash
+test -f "<path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
+\`\`\`
+
+- \`EXISTS\` → \`graphify <path> --update\` (incremental) if the intent suggests new material ("new", "added", "update", "changed"); else **reuse**.
+- \`MISSING\` → \`graphify <path>\` full build.
+
+Quote paths — they can contain spaces. graphify writes to \`./graphify-out/\` relative to CWD; move under \`<path>/graphify-out/\` if needed for consistency and future incremental runs.
+
+**2.2 — Subject source** (from Q3/Q4)
+
+- \`reuse\` → nothing to do.
+- \`reindex\` → \`graphify "<source_path>" --update\` if graph exists, else \`graphify "<source_path>"\`.
+- \`initial\` → \`graphify "<source_path>"\`.
+- skipped → no source graph (some chapters will be source-less; warn the user).
+
+Large codebases can take minutes — show progress if available.
+
+**2.3 — Anti-destination guard**
+
+Before every \`graphify\` call, verify the target path is not, contains, nor is contained in \`docs/support/reverse/<slug>\`. If it resolves there, abort:
+
+> Defensive abort: this skill is about to index \`docs/support/reverse/<slug>/\` which is the output folder. Never do that. Please re-check the paths you gave in Q2/Q3.
+
+Q1/Q2 already filter — this is the safety net.
+
+**2.4 — Persist graph pointer**
+
+After successful indexing, write/refresh \`docs/support/reverse/<slug>/.meta/graphify-index.json\` (creating the folder if needed — the parent \`<slug>\` folder may not exist yet if this is a NEW subject):
+
+\`\`\`json
+{
+  "subject": "<slug>",
+  "document_graphs": [
+    { "path": "<q2-path-1>/graphify-out", "indexed_at": "<iso>" },
+    { "path": "<q2-path-2>/graphify-out", "indexed_at": "<iso>" }
+  ],
+  "source_graph": { "path": "<source_path>/graphify-out", "indexed_at": "<iso>" },
+  "updated_at": "<iso>"
+}
+\`\`\`
+
+This file is the only one the skill may create before a save trigger. It's metadata, not content — no chapter ever lives in \`.meta/\`. Add \`.meta/\` to a project \`.gitignore\` if the user prefers local-only graphs; the decision is the user's.
+
+### Step 3 — Interactive analysis loop (the heart)
+
+Once indexing is done, **do not write anything**. Open the loop.
+
+**3.1 — Post-indexing summary**
+
+Show concisely, in markdown, from \`GRAPH_REPORT.md\` and friends:
+
+- node / edge / community counts per graph
+- top 10 **God Nodes** (highest-degree — most central concepts)
+- 5-6 **Surprising Connections**
+- 4-5 **Suggested Questions** the graph is uniquely positioned to answer
+
+Then open the loop with a question:
+
+> What do you want to analyze? You can ask me to trace a relationship (\`/graphify query\`, \`/graphify path\`, \`/graphify explain\`), compare scenarios, inspect the subject source, read specific passages from the documents, or ask thematic syntheses. When the discussion produces a result you want to freeze into the dossier, say **"save"** (or equivalent) and we'll move to writing. Until then, nothing changes in \`docs/support/reverse/<slug>/\`.
+
+**3.2 — Behavior during the loop**
+
+- **Answer** using: the freshly-built graphs, the subject source (via its graph or direct inspection), the document folders, the current dossier chapters (read-only for context).
+- **Show drafts in chat**, never on disk. If the user says "draft this chapter so I can see", reply with the markdown in chat — do not write the file.
+- **Track mentally** which points the user seems happy to freeze. When the save trigger fires, you'll use that trail to derive the scope.
+- **Do not propose a save on your own.** The user may want to iterate more. At most, occasionally and softly note "this draft is ready whenever you want to save" and leave the decision alone.
+- **Do not announce target versions** (v1.5, v1.6) during the loop — that can mislead the user into thinking you're about to write.
+
+**3.3 — Tools allowed in the loop**
+
+- Direct \`Read\` on source files (chapters, documents, code)
+- \`/graphify query "..."\` on any of the indexed graphs
+- \`/graphify path "A" "B"\` for relationships
+- \`/graphify explain "X"\` for single nodes
+- Sub-agents (\`general-purpose\`) for targeted searches on big folders
+- \`Grep\` / \`Glob\` on source
+- **Transient drafts in chat** (never on file)
+
+**3.4 — Hard guard — no silent writes**
+
+During Step 3, **any \`Write\` or \`Edit\` on a path inside \`docs/support/reverse/<slug>/\` is forbidden** (except \`.meta/graphify-index.json\` from 2.4). If you catch yourself thinking "I'll just write chapter NN because I've understood the problem", stop and wait for the explicit trigger.
+
+If a write slips through without a trigger, abort and explain: *"I've prepared these edits as a draft but won't commit them to disk until you say 'save'."*
+
+### Step 4 — Save trigger + current-version read
+
+Step 4 starts **only** when the user utters a save phrase.
+
+**4.1 — Recognizing the save trigger**
+
+Valid triggers (non-exhaustive — use judgement from context):
+
+- "save" / "save it" / "save them"
+- "ok, looks good, write it"
+- "ok, write v1.5"
+- "go to write mode" / "go ahead and persist this"
+- "commit it to the reverse" / "push it into the dossier"
+- "update the reverse" / "update the dossier"
+- "make v1.5" / "bump the version"
+- "ok, let's persist this result"
+
+Translations in other working languages count too (e.g. Italian "salva", French "enregistre", Spanish "guarda").
+
+If the message is ambiguous (e.g. "interesting, keep going" — not a save), stay in Step 3.
+
+Once recognized, **confirm out loud** before acting:
+
+> Ok, moving to write mode. Before I touch \`docs/support/reverse/<slug>/\` I'll show you the scope I plan to save and wait for your green light. (see 4.3)
+
+**4.2 — Current-version read**
+
+If the dossier exists (UPDATE case), read \`docs/support/reverse/<slug>/00-overview.md\` and look for the frontmatter or header line:
+
+\`\`\`
+**Version**: 1.N
+\`\`\`
+
+Extract \`N\` as integer. Target version = \`1.(N+1)\`. Keep both \`v_current\` and \`v_next\`.
+
+If the line is missing or malformed, stop and ask the user to fix \`00-overview.md\` by hand.
+
+If the dossier does not exist (NEW case), target version = **\`1.0\`**. No previous to read.
+
+**4.3 — Consolidated intent**
+
+Distill, from the Step 3 loop, what was actually discussed and is worth persisting. Show the user for confirmation:
+
+> From the loop I've understood that v<next> should freeze:
+>
+> 1. [topic 1] — impacts chapters [NN, NN]
+> 2. [topic 2] — impacts [NN]
+> 3. [new chapter proposed: \`NN-<name>.md\`]
+>
+> Confirm this scope? Add, remove, or reshape anything?
+
+If the user corrects, iterate (still in Step 4). On confirmation, move to Step 5.
+
+### Step 5 — Regenerate impacted chapters
+
+This is the writing core. Never rewrite chapters that are not in the consolidated intent.
+
+**5.1 — Chapter scope**
+
+Combine three signals:
+
+1. **User intent** (from 4.3). E.g. "add the retry semantics to the payment flow" → candidate chapters are the ones about payment flow, retries, open points.
+2. **Graph delta**. If you re-indexed the document graph with \`--update\`, compare the report before/after (if available) — look at new god nodes, new communities, new source files, \`INFERRED\` similarity edges bridging new material to old chapters.
+3. **Temporal delta**. If the user said "everything new in the last 2 days", use \`git log --since="2 days ago" --name-only -- <q2-path>\` and map each modified file onto the chapters that cite it.
+
+Produce \`ChaptersToUpdate = [NN-file.md, ...]\` and show for confirmation:
+
+> Based on the intent and the delta I'll update these chapters:
+>
+> - \`NN-<name>.md\` — direct intent
+> - \`NN-<name>.md\` — indirect (contains an example of the changed flow)
+> - \`NN-<name>.md\` — adds open point OP-...
+>
+> Confirm? Add or remove?
+
+Accept corrections before proceeding.
+
+**5.2 — Per-chapter regeneration via sub-agent**
+
+For **each** chapter in \`ChaptersToUpdate\`, dispatch a sub-agent (\`general-purpose\`) with a structured prompt:
+
+\`\`\`
+You are a per-chapter regeneration sub-agent for the reverse-engineering
+dossier of subject "<slug>" in this project.
+
+## Context
+
+The document \`docs/support/reverse/<slug>/<NN-file.md>\` is a chapter
+of the dossier, currently at version v<current>, moving to v<next>.
+
+## Current chapter content (preserve what's still valid)
+
+<full content read from the file>
+
+## User intent for the new version
+
+"<the user's verbatim message(s) that form the consolidated intent>"
+
+## Available sources
+
+1. **Project documents** under <list of Q2 paths>:
+   indexed with graphify at <paths>/graphify-out/
+2. **Subject source** at <source_path> (if provided):
+   - graph.json, GRAPH_REPORT.md
+   - raw source code/artifacts under <source_path>
+3. **Other chapters of this dossier** (cross-reference, read-only):
+   \`docs/support/reverse/<slug>/\` (all \`NN-*.md\`)
+
+## Instructions
+
+1. Read the current chapter in full.
+2. Identify what changes based on the user intent.
+3. Query the graph(s) for objective data where relevant.
+4. Read the pertinent source documents / code.
+5. Produce a new version of the chapter that:
+   - preserves everything still valid
+   - updates the parts that changed
+   - keeps the style, format, navigation headers
+   - updates any cross-references to other chapters
+   - adds explicit warning / open-point markers if the intent touches
+     decisions not yet validated
+6. Write the result to \`docs/support/reverse/<slug>/<NN-file.md>\`
+   (overwrite).
+
+## Constraints
+
+- DO NOT rewrite from scratch if not strictly necessary
+- DO NOT modify chapters other than the one assigned
+- Preserve the project's working language and domain terminology
+- Preserve mermaid diagrams, tables, formulas as-is
+- If you find information contradicting the existing chapter, surface it
+  explicitly in the text — never silently
+- Do not change the file number or title — only the content
+
+## Output
+
+Report back:
+- path of the updated file
+- 2-3-sentence summary of what changed
+- any warning / validation request to propagate to the CHANGELOG
+\`\`\`
+
+**Parallelism**: if you have more than ~3 chapters, dispatch sub-agents **in parallel** (multiple tool calls in the same message). Chapters are independent (cross-refs are static titles, not dynamic bodies) — parallel is safe.
+
+**5.3 — New chapters**
+
+If the intent implies a new chapter that doesn't exist yet (e.g. "add a chapter on the auth flow"), propose:
+
+> The intent mentions "auth flow" which has no dedicated chapter. I propose:
+>
+> - filename: \`NN-auth-flow.md\` (NN = next free number)
+> - position: append at the end (no renumbering of existing chapters)
+>
+> Confirm? Or tell me where to slot it.
+
+**Numbering rule**: always append at the first free number. Never renumber existing chapters — renumbering breaks cross-references and git history.
+
+On confirmation, dispatch a sub-agent analogous to 5.2 but tasked to **create** the chapter from scratch, with navigation headers consistent with siblings.
+
+**5.4 — First-version case (dossier doesn't exist)**
+
+If NEW (4.2 case, target v1.0), the scope is different: there's no current content to preserve. The user in 4.3 must specify which chapters to generate (or accept a proposed initial spine). Minimal default spine:
+
+- \`00-overview.md\` — subject summary, scope, versioning convention
+- \`01-context.md\` — why this subject, what problem it solves
+- \`02-entry-points.md\` — how the subject is invoked / accessed
+- \`03-data-model.md\` — key entities, relationships, invariants
+- \`04-main-flows.md\` — critical user/system flows
+- \`99-open-points.md\` — assumptions, gaps, things to validate
+
+Adapt the spine to the subject. Dispatch one sub-agent per chapter in parallel with a "generate from scratch" variant of the 5.2 prompt. Always write \`00-overview.md\` first or last (it references the others).
+
+### Step 6 — Metadata and CHANGELOG
+
+**6.1 — Update \`00-overview.md\`**
+
+In \`docs/support/reverse/<slug>/00-overview.md\`, update:
+
+1. \`**Version**: 1.N\` → \`**Version**: 1.(N+1)\`
+2. \`**Date**: <previous date>\` → today, in the dossier's language (e.g. \`15 April 2026\`, \`15 aprile 2026\`)
+3. If new chapters were added in 5.3, update the chapter list / table of contents if the overview includes one.
+
+**Only** \`00-overview.md\` is touched here. Other chapters' headers are updated by the sub-agents of 5.2/5.3, not by this step.
+
+**6.2 — Update \`CHANGELOG.md\`**
+
+If \`CHANGELOG.md\` does not exist (first save), create it with:
+
+\`\`\`markdown
+# Changelog — reverse dossier \`<slug>\`
+
+Version history of the reverse-engineering dossier at \`docs/support/reverse/<slug>/\`.
+Newest versions on top.
+
+---
+\`\`\`
+
+Then **prepend** (above any existing entries) a new entry using the template at \`references/changelog-entry.md\`. Fields:
+
+- **Version**: \`v<next>\` (e.g. \`v1.5\`)
+- **Date**: today
+- **Type**: \`regeneration M1\` (or \`initial\` for v1.0)
+- **Inputs**: document folders indexed with counts + subject graph mode (reuse / re-indexed / skipped) + node/edge stats
+- **User intent**: verbatim quote of the consolidated intent from 4.3
+- **Changes**: one bullet per impacted chapter, derived from each sub-agent's summary
+- **Impacted chapters**: list of \`NN\` numbers
+- **New chapters**: list of new files, or "none"
+- **Unchanged chapters**: count
+- **Warnings / open points**: propagated from sub-agents, or "none"
+- **Sources consulted**: top-level references the sub-agents used
+
+**6.3 — Update \`.reverse-engineering.local.json\`**
+
+Under \`subjects.<slug>\`, write:
+- \`last_run\`: current ISO timestamp
+- \`last_source_indexed\`: the first Q2 path (for the Q2 default on the next run)
+
+**6.4 — Summary**
+
+Print to the user:
+
+\`\`\`
+✅ Reverse dossier <slug> updated
+
+Version: v1.4 → v1.5
+Date: <today in dossier language>
+
+Chapters changed (N):
+  - NN-<name>.md (<1-line summary>)
+  - NN-<name>.md (<1-line summary>)
+  ...
+
+New chapters: <list or "none">
+Unchanged chapters: K of total T
+
+Output under docs/support/reverse/<slug>/
+Changelog updated at docs/support/reverse/<slug>/CHANGELOG.md
+
+Suggested next steps:
+  - Review the changed chapters
+  - Commit on the current branch
+  - If new open points were raised, schedule the relevant review
+\`\`\`
+
+## Hard rules (invariant — cannot be bypassed)
+
+1. **Never index \`docs/support/reverse/<slug>/\`** — it's the output. If a selected path collides, reject.
+2. **Never invoke \`graphify\` without verifying install** in Step 0.1.
+3. **Never write under \`docs/support/reverse/<slug>/\` without an explicit save trigger** — the cardinal rule. During indexing (Step 2) and the entire loop (Step 3), any \`Write\` / \`Edit\` under that folder is forbidden (except \`.meta/graphify-index.json\` from 2.4, which is metadata). The transition to Steps 4–6 happens **only** when the user utters a save phrase (4.1). If you're about to write without a trigger, stop and ask.
+4. **Never skip the current-version read** from \`00-overview.md\` — it's the ground truth for the bump. Missing → abort run.
+5. **Never index raw PDFs** when a sibling markdown exists — PDFs are converted upstream. An orphan \`.pdf\` blocks the run and requires user conversion.
+6. **Never regenerate chapters outside the consolidated intent** from 4.3 — delta discipline keeps diffs review-able.
+7. **Never renumber existing chapters** — append at the next free number.
+8. **Never commit on the user's behalf** — the final summary suggests a commit; the commit is the user's call.
+9. **Never modify source documents** (\`docs/sprints/\`, \`docs/calls/\`, \`docs/requirements/\`, any Q2 path, any Q3 source). The dossier is a derived read-only artifact.
+10. **Never switch language mid-version** — the whole v1.(N+1) stays in the same working language as v1.N.
+
+## Known edge cases
+
+| Scenario | Behavior |
+|---|---|
+| User says "full sync" in 4.3 | Re-index documents with \`--update\`, diff the graph, map all deltas to chapters, update every impacted chapter. Don't touch undelta-ed chapters. |
+| Multiple document folders in Q2 | Index all, either unify graphs or leave separate — the sub-agents can read both. |
+| Subject source graph missing and user doesn't want to wait | Offer to proceed **without subject context** — some chapters (the ones most dependent on source, e.g. data-model, internals) become read-only for this run. Warn explicitly. |
+| A sub-agent in 5.2 fails or returns something suspicious | Log the error, restore the chapter to the previous version (git or pre-overwrite backup), mark it as "regeneration failed" in the CHANGELOG. Don't block the other chapters. |
+| 4.3 intent is vague ("make it better") | Ask for clarification — don't guess on a task that writes many files. |
+| User interrupts mid-run | No automatic rollback. Already-written chapters stay written. CHANGELOG is not updated until the end — if the interruption happens before Step 6.2, the dossier has an inconsistent state. User can re-run; the delta re-aligns. |
+| Subject slug collision (two subjects want the same slug) | Reject — slugs are unique. Ask the user to pick a more specific one. |
+| First run ever (\`NEW\` in Q1) | Skip the current-version read (4.2), target v1.0, and use the 5.4 initial-spine path. |
+| Project working language switches mid-session (shouldn't happen) | Stay in the dossier's current language. Warn the user that changing language requires a manual migration pass outside this skill. |
+
+## Support files
+
+- [\`references/changelog-entry.md\`](./references/changelog-entry.md) — the CHANGELOG entry template (placeholders for v<next>, date, inputs, intent, changes, warnings, sources)
+- [\`references/config.example.json\`](./references/config.example.json) — example of \`.reverse-engineering.local.json\`
+- [\`references/initial-spine.md\`](./references/initial-spine.md) — suggested v1.0 chapter spine for first-version runs (Step 5.4)
+
+## Related skills
+
+- [\`graphify-setup\`](../graphify-setup/SKILL.md) — installs graphify and wires its rules; run this before the first reverse session on a project
+- [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — consumes the dossier as reference when planning new architectural work
+- [\`sprint-manifest\`](../sprint-manifest/SKILL.md) — may reference the dossier in its "supporting docs" list for promoted PRDs
+
+## Final reminder on approach
+
+This skill is an **incremental orchestrator**, not a one-shot generator. Regenerating from scratch every time destroys previously-reviewed work and produces unreadable diffs. The value of the skill is in:
+
+1. Reading the user's intent
+2. Identifying the minimum set of chapters to touch
+3. Dispatching targeted sub-agents that do surgical edits
+4. Tracking everything in the CHANGELOG
+
+If you hit a case where the intent truly impacts every chapter (e.g. "we've completely reframed the subject because the domain shifted"), stop and propose either a manual pass or a major bump (v1.N → v2.0) that exits this skill's scope. Don't force M1 on a case that isn't M1.
+",
+  ".claude/skills/reverse-engineering/references/changelog-entry.md": "<!--
+Template for CHANGELOG.md entries of a reverse-engineering dossier.
+Used in Step 6.2 of the reverse-engineering skill.
+
+Replace {{...}} placeholders with the real values of the current run.
+Prepend this entry at the top of CHANGELOG.md — newest versions on top.
+
+All fields are required unless marked optional. Use "none" / "n/a" rather
+than omitting a field — the structure should stay identical across entries
+for easy review.
+-->
+
+## v{{NEXT_VERSION}} — {{DATE}}
+
+**Type**: {{TYPE}}
+<!-- One of:
+- "initial"               (first version, v1.0)
+- "regeneration M1"        (minor bump, incremental chapter update — the default)
+- "regeneration M1 with new chapters"  (minor bump that also adds new chapters)
+- "failed regeneration (partial)"  (some chapters failed — list them below)
+-->
+
+**Inputs**:
+- Document folders indexed: {{DOC_FOLDERS_WITH_STATS}}
+  <!-- e.g. "docs/sprints/Sprint-3 (33 files, ~150k tokens) — re-indexed with --update"
+              "docs/calls/2026-04-10-billing-kickoff (1 file) — initial" -->
+- Subject source graph: {{SUBJECT_SOURCE_DESC}}
+  <!-- e.g. "<local_path>/legacy-billing (4210 nodes, 18930 edges) — reused"
+              "services/payments (512 nodes, 2103 edges) — re-indexed"
+              "skipped (document-only reverse)" -->
+
+**User intent**:
+
+> {{USER_INTENT_VERBATIM}}
+<!-- Copy verbatim the consolidated intent confirmed in Step 4.3. Do not reword. -->
+
+**Changes**:
+
+{{BULLET_LIST_OF_CHANGES}}
+<!-- One bullet per impacted chapter, derived from the sub-agent's summary:
+- \`NN-<slug>.md\` — short description of what changed
+-->
+
+**Impacted chapters**: {{LIST_OF_NN}}
+<!-- e.g. "10, 15, 17, 27" or "10, 15, 17, 27, + new 31" -->
+
+**New chapters**: {{NEW_CHAPTERS_OR_NONE}}
+<!-- e.g. "31-auth-flow.md" or "none" -->
+
+**Unchanged chapters**: {{UNCHANGED_COUNT}} of {{TOTAL_COUNT}}
+
+**Warnings / open points raised by sub-agents**:
+
+{{WARNINGS_OR_NONE}}
+<!-- If any sub-agent surfaced warnings (contradictions with existing chapters,
+     open points that need business validation, missing sources), list them here.
+     Otherwise write "none". -->
+
+**Sources consulted**:
+
+{{SOURCES_LIST}}
+<!-- Top-level references the sub-agents used beyond the chapter itself:
+- \`docs/sprints/Sprint-3/<file>.md\`
+- \`docs/calls/2026-04-10-billing-kickoff/<file>.md\`
+- \`<source_path>/<module>/<file>\` (function \`X\`)
+-->
+
+---
+",
+  ".claude/skills/reverse-engineering/references/config.example.json": "{
+  "subjects": {
+    "legacy-billing": {
+      "source_path": "C:\\\\path\\\\to\\\\legacy-billing",
+      "last_run": "2026-04-15T10:00:00Z",
+      "last_source_indexed": "docs/sprints/Sprint-3"
+    },
+    "vendor-stripe-api": {
+      "source_path": "docs/support/vendor-stripe-api/openapi",
+      "last_run": "2026-04-12T09:30:00Z",
+      "last_source_indexed": "docs/requirements/payments"
+    },
+    "microservice-payments": {
+      "source_path": "services/payments",
+      "last_run": "2026-04-14T16:45:00Z",
+      "last_source_indexed": "docs/sprints/Sprint-4"
+    }
+  },
+  "_notes": {
+    "file_purpose": "Per-developer local config for the reverse-engineering skill. Holds absolute/relative paths to each subject's source that the skill indexes with graphify.",
+    "subjects.<slug>.source_path": "Path (absolute or repo-relative) where the subject's code/artifacts live. On Windows use double backslashes as shown. On Linux/macOS use forward slashes. The skill validates the path exists before indexing.",
+    "subjects.<slug>.last_run": "ISO 8601 timestamp of the last successful save. Auto-updated in Step 6.3.",
+    "subjects.<slug>.last_source_indexed": "Path of the first Q2 document folder used in the previous run. Used as the default suggestion for Q2 on the next run for the same subject.",
+    "gitignore": "This file MUST be in .gitignore — paths are developer-specific. The skill adds the entry in Step 0.2 on first run.",
+    "adding_a_subject": "A new entry is created automatically when the user introduces a new slug in Q1. You can also pre-seed entries here to skip Q3 on known subjects."
+  }
+}
+",
+  ".claude/skills/reverse-engineering/references/initial-spine.md": "# Initial chapter spine — reverse dossier v1.0
+
+Use this spine for **first-version** runs (Step 5.4 of the \`reverse-engineering\` skill) when no dossier exists yet for the subject.
+
+The spine is a **suggestion**, not a mandate. Adapt to the subject. What matters is the principle: a v1.0 dossier should cover *why* the subject matters, *how* it is reached, *what* it contains, *what it does*, and *what is unknown*. The numbering pattern (\`00-\`, \`01-\`, ..., \`99-\`) is the NONoise convention — keep it.
+
+## Default spine
+
+\`\`\`
+docs/support/reverse/<slug>/
+├── 00-overview.md         ← subject summary, scope, versioning, how to read
+├── 01-context.md          ← why this subject, what problem it solves, stakeholders
+├── 02-entry-points.md     ← how the subject is invoked / accessed (APIs, UI, CLI, jobs)
+├── 03-data-model.md       ← key entities, relationships, invariants, persistence
+├── 04-main-flows.md       ← critical user/system flows, state transitions, side effects
+├── 99-open-points.md      ← assumptions, gaps, things to validate with the business
+├── CHANGELOG.md
+└── .meta/
+    └── graphify-index.json
+\`\`\`
+
+## Chapter guide
+
+### \`00-overview.md\`
+
+Minimum content:
+
+- Subject name (human-readable) and slug
+- One-paragraph description
+- Scope (what this dossier covers) and non-scope (what it doesn't)
+- **Version**: \`1.0\`
+- **Date**: today
+- How to read the dossier (order of chapters, where to go for what)
+- If a table of contents is included, list all sibling chapters with 1-line descriptions
+
+Write this chapter **last** (or regenerate it last on each save) — it references the others, so it's easier when they exist.
+
+### \`01-context.md\`
+
+- Why does this subject exist / why are we reverse-engineering it?
+- Business purpose, users, volumes
+- Relationship to the rest of the system (what depends on it, what it depends on)
+- History / provenance if known (who built it, when, why)
+
+### \`02-entry-points.md\`
+
+- API endpoints, CLI commands, UI flows, scheduled jobs, events it subscribes to
+- Authentication / authorization model
+- Rate limits, quotas, SLAs if known
+- Example invocations (curl, CLI, code snippet)
+
+### \`03-data-model.md\`
+
+- Key entities and their fields
+- Relationships (1-1, 1-N, N-N) with mermaid ER diagram if helpful
+- Invariants / validation rules
+- Storage (DBs, queues, caches, files)
+- Lifecycle (creation, mutation, deletion, archival)
+
+### \`04-main-flows.md\`
+
+- The 3–7 most important flows of the subject (the ones that must work)
+- Each flow: trigger, preconditions, steps, side effects, postconditions, failure modes
+- Sequence diagrams (mermaid) where helpful
+- Cross-reference to entry points (02) and entities (03)
+
+### \`99-open-points.md\`
+
+- Assumptions that still need business validation — prefix each with an ID (e.g. \`OP-01\`, \`OP-02\`)
+- Gaps in the dossier (what we don't know yet)
+- Suspected inconsistencies between code and documents
+- Suggested next investigations
+
+## Extensions
+
+Depending on the subject, add these after the core spine — always append, never renumber:
+
+- \`05-integrations.md\` — external systems the subject talks to
+- \`06-error-handling.md\` — failure taxonomy, retries, compensations
+- \`07-performance.md\` — hotspots, caching, scaling notes
+- \`08-security.md\` — authn/authz, secrets, threat surface
+- \`09-observability.md\` — logs, metrics, traces, alerts
+- \`10-operations.md\` — deployment, rollback, runbook entries
+- \`11-legacy-quirks.md\` — historical oddities, workarounds in place
+- \`12-migration-notes.md\` — if the subject is being replaced, deltas to the target
+
+## Anti-patterns to avoid
+
+- **Over-ambitious v1.0**. A skinny v1.0 that is correct beats a sprawling v1.0 that is mostly speculation. Move uncertain content into \`99-open-points.md\`.
+- **Code dumps**. The dossier explains; it doesn't reproduce the source. Link / reference sections of the graph instead of copy-pasting.
+- **Mirroring the source tree**. Chapters are organized by *function* (flows, data model, entry points), not by folder (controllers, services, repositories). A reader of the dossier shouldn't need to know the source tree to understand it.
+- **Future tense**. v1.0 documents what exists today. Future plans go in a separate PRD (\`arch-brainstorm\`), not in the reverse.
+
+## After v1.0
+
+Every subsequent save (v1.1, v1.2, ...) is a minor bump that touches only the chapters implied by the user's intent. The spine rarely grows after v1.0 — most updates refine existing chapters.
+",
   ".claude/skills/skill-finder/SKILL.md": "---
 name: skill-finder
 description: Discovers AI skills from a curated registry of external sources (Anthropic official, Claude plugin marketplaces, community repos, awesome-lists) and installs them into the current project. Use when the user asks to "find a skill for X", "do we have something for Y?", "add <technology>/stack support", "install a skill from GitHub", "what skills could help with this codebase?", or when Polly needs to plug a gap by fetching a skill that isn't bundled in the framework. Also use proactively after detecting the project stack (Angular, C#, Python, Go, etc.) to suggest stack-specific skills the framework does not ship by default.
@@ -5414,6 +8239,921 @@ Bumps the limit to 5000/hour. Skill‑finder never requires a token — falls ba
     }
   ]
 }
+",
+  ".claude/skills/spec-to-workitem/SKILL.md": "---
+name: spec-to-workitem
+description: Translates macro functional tasks from a NONoise sprint manifest (\`docs/sprints/Sprint-N/sprint-manifest.md\`) into work items on an external issue tracker via a pluggable **adapter** pattern. Ships with adapters for GitHub Issues (default), Azure DevOps, Jira, and Linear, plus a \`dry-run\` mode that prints what would be created without touching any remote system. Idempotent by design — searches for existing work items matching a task ID before creating new ones. Use this skill when the user mentions "export to tracker", "create issues from sprint manifest", "push work items", "sync sprint to GitHub / Azure DevOps / Jira / Linear", "spec to workitem", "dry-run work items", or wants to translate a manifest into an external backlog. Triggers — \`/spec-to-workitem sprint N\`, \`/spec-to-workitem sprint N adapter=github-issues\`, \`/spec-to-workitem sprint N dry-run\`, "export Sprint N to Jira", "create GitHub issues for the sprint manifest". Authentication is **always per-adapter, via environment variables** — the skill never hardcodes credentials.
+source: Risko reference-project (reworked whitelabel for NONoise)
+variant: nonoise generic; stack-neutral; tracker-agnostic adapter pattern
+---
+
+# spec-to-workitem — Sprint Manifest to External Work Items
+
+This skill is the **export bridge** between a NONoise sprint manifest and any external issue tracker. It reads the aggregated sprint manifest produced by [\`sprint-manifest\`](../sprint-manifest/SKILL.md), asks the user which tracker adapter to use, and creates one work item per macro functional task — with title, description, labels, effort, and dependency links where the adapter supports them.
+
+The skill is **tracker-agnostic**: all tracker-specific logic is isolated in **adapters** (see \`references/adapter-*.md\`). Adding a new tracker means adding a new adapter reference and a minimal code stub — the core flow stays the same.
+
+## Position in the workflow
+
+\`\`\`
+┌─────────────┐   ┌──────────────┐   ┌──────────────────┐   ┌──────────────────┐
+│ arch-       │──▶│ arch-        │──▶│ sprint-manifest  │──▶│ spec-to-workitem │
+│ brainstorm  │   │ decision     │   │                  │   │ (THIS SKILL)     │
+│             │   │              │   │ produces         │   │                  │
+│ produces    │   │ validates    │   │ aggregated       │   │ exports manifest │
+│ PRDs as     │   │ via          │   │ manifest +       │   │ to external      │
+│ draft       │   │ quint-fpf    │   │ macro tasks      │   │ tracker          │
+│             │   │              │   │                  │   │                  │
+└─────────────┘   └──────────────┘   └──────────────────┘   └──────────────────┘
+     STEP 1            STEP 2              STEP 3                  STEP 4
+\`\`\`
+
+## What this skill does
+
+1. **Reads the sprint manifest** at \`docs/sprints/Sprint-N/sprint-manifest.md\` and, optionally, the promoted PRDs under \`docs/sprints/Sprint-N/<area>/\` for richer context.
+2. **Asks the user** which tracker adapter to use and which tasks to export (all / by area / by confidence / specific IDs).
+3. **Generates work items** — one per macro functional task — with a stable title convention including the task ID so the export is idempotent.
+4. **Links dependencies** between work items where the adapter supports it (native parent/child, blocks/blocked-by, or related-link fallback).
+5. **Reports** what was created, skipped (already present), or failed.
+
+## What this skill does NOT do
+
+- **Does not create a sprint manifest** — that is \`sprint-manifest\`'s job.
+- **Does not edit PRDs or the manifest** — read-only on the source of truth.
+- **Does not hardcode credentials** — authentication comes from environment variables or config files declared per adapter.
+- **Does not silently mutate existing work items** — if a match is found, the skill reports it as skipped and asks the user before updating.
+- **Does not push automatically** — the default mode is \`dry-run\`; a live push requires explicit user confirmation.
+
+---
+
+## Arguments
+
+\`$ARGUMENTS\` can be:
+
+- \`sprint N\` — process all macro tasks of Sprint N (adapter defaults to \`dry-run\` unless otherwise specified)
+- \`sprint N adapter=<name>\` — use a specific adapter (\`github-issues\`, \`azure-devops\`, \`jira\`, \`linear\`, \`dry-run\`)
+- \`sprint N adapter=<name> area=<slug>\` — only tasks from a given area
+- \`sprint N adapter=<name> confidence=CL1\` — only tasks at a given confidence level
+- \`sprint N adapter=<name> tasks=T1,T3,T7\` — only specific task IDs
+- \`sprint N dry-run\` — alias for \`adapter=dry-run\`; no external call, just prints what would be done
+
+If arguments are missing, ask the user for sprint number and adapter via \`AskUserQuestion\`.
+
+---
+
+## Adapters — the pluggable core
+
+Every adapter must implement the following four operations. This is the **contract** — the core flow of the skill calls these operations regardless of the underlying tracker.
+
+| Operation | Input | Output | Purpose |
+|---|---|---|---|
+| \`create_item(work_item)\` | \`WorkItem\` object | Tracker ID + URL | Create a new work item on the tracker |
+| \`list_items(filter)\` | Filter (labels, area, sprint) | List of \`WorkItem\` summaries | Enumerate existing items (used for context and reports) |
+| \`update_item(tracker_id, patch)\` | Tracker ID + partial \`WorkItem\` | Updated ID + URL | Apply changes to an existing item (used only on explicit user approval) |
+| \`search_by_external_id(task_id)\` | Task ID string (e.g. \`T1\`) | Matching item or \`null\` | Idempotency check — find existing items created by a previous run |
+
+### Work item canonical shape
+
+Before handing off to an adapter, the skill normalizes every task into this tracker-agnostic shape:
+
+\`\`\`yaml
+external_id: "T1"                     # matches manifest section 4 task ID
+title: "[T1] Operator starts signup with email and receives an OTP"
+description: |                        # markdown body
+  **Functional description**: ...
+  **Acceptance test**: ...
+  **Dependencies**: T2, T5
+  **Manifest ref**: docs/sprints/Sprint-5/sprint-manifest.md §4 T1
+labels: ["sprint-5", "user-signup", "CL2"]
+effort_days: 3.5
+components: ["auth-service", "notifications"]
+depends_on: ["T2", "T5"]              # resolved to tracker IDs by the adapter
+user_story_ref: "US1"                 # manifest section 3 reference
+\`\`\`
+
+The adapter translates this canonical shape into the tracker's native format (see the per-adapter references).
+
+### Available adapters
+
+| Adapter | Status | Default? | Reference |
+|---|---|---|---|
+| \`dry-run\` | Implemented | Yes (when no adapter configured) | \`references/adapter-dryrun.md\` |
+| \`github-issues\` | Implemented | Yes (live default for v1) | \`references/adapter-github.md\` |
+| \`azure-devops\` | Implemented | No | \`references/adapter-azuredevops.md\` |
+| \`jira\` | Stub — schema documented, wiring pending | No | \`references/adapter-jira.md\` |
+| \`linear\` | Stub — schema documented, wiring pending | No | \`references/adapter-linear.md\` |
+
+Stub adapters document the target shape and authentication model. Their \`create_item\` prints the translated payload to the console (so the user can copy-paste it or run a side integration). Promoting a stub to a full adapter is non-breaking — the contract stays the same.
+
+---
+
+## Authentication model
+
+Authentication is **always per-adapter, from environment variables or CLI sessions — never hardcoded**. If the required variables are missing, the skill stops and explains what to set.
+
+| Adapter | Required env vars / auth source | Optional fallback |
+|---|---|---|
+| \`github-issues\` | \`GH_TOKEN\` (Personal Access Token with \`repo\` scope) | \`gh\` CLI if authenticated (\`gh auth status\`) |
+| \`azure-devops\` | \`AZURE_DEVOPS_PAT\` (Personal Access Token, scopes: Work Items R/W) | none |
+| \`jira\` | \`JIRA_API_TOKEN\`, \`JIRA_EMAIL\`, \`JIRA_HOST\` | none |
+| \`linear\` | \`LINEAR_API_KEY\` | none |
+| \`dry-run\` | none | n/a |
+
+The adapter-specific reference files document **exactly** how each variable is used and what scopes / permissions are needed.
+
+---
+
+## Flow — 6 steps
+
+### Step 0 — detect mode and verify prerequisites
+
+1. Locate the sprint manifest at \`docs/sprints/Sprint-N/sprint-manifest.md\`. If missing, stop and redirect to \`sprint-manifest\`.
+2. If the user specified an adapter, check its auth env vars. If missing, stop with a precise message pointing to the adapter reference file.
+3. If the user did not specify an adapter, default to \`dry-run\` and announce it explicitly.
+
+### Step 1 — read the manifest
+
+1. Parse the manifest frontmatter (\`sprint\`, \`areas_covered\`, \`prd_refs\`, \`total_effort_days\`).
+2. Parse section 3 (User stories) — used for the \`user_story_ref\` field.
+3. Parse section 4 (Macro functional tasks) — the primary source for work items.
+4. Parse section 5 (Dependencies, Mermaid) — used for \`depends_on\`.
+5. Optionally read promoted PRDs under \`docs/sprints/Sprint-N/<area>/NN-<study>.md\` to enrich the description if the task references a specific PRD section. Do not duplicate the full PRD in the description — just cite the reference.
+
+### Step 2 — ask the user what to export
+
+Use \`AskUserQuestion\` for:
+
+- **Scope**: all tasks, by area, by confidence (CL1 only, CL2, CL3), or specific IDs.
+- **Adapter confirmation**: reaffirm the adapter and the target project/repo. Example for \`github-issues\`: "Export to repo \`<owner>/<repo>\`? Use milestone \`Sprint 5\`? Use labels \`sprint-5\`, \`<area-slug>\`, \`CL{confidence}\`?"
+- **Dry-run switch**: always offer the chance to run a dry-run first, even when an adapter is configured.
+
+Present a short preview table (task ID, title, area, confidence, effort, existing?) **before** making any remote call.
+
+### Step 3 — idempotency check
+
+For every task to export, call \`search_by_external_id(task_id)\` on the adapter. Classify each task into:
+
+| Class | Meaning | Action |
+|---|---|---|
+| **NEW** | No existing item matches the task ID | Queue for \`create_item\` |
+| **EXISTS** | Existing item found by external ID | Skip by default. Ask the user if they want to \`update_item\`. |
+| **AMBIGUOUS** | Multiple items match the ID | Flag, ask the user which one to update (or skip) |
+
+The canonical idempotency key is the \`[T<N>]\` prefix in the work item title. Adapters that expose custom fields (Azure DevOps, Jira) should also stamp the \`external_id\` in a custom field for robust matching; the fallback is a title search.
+
+Present the full impact table to the user **before** calling \`create_item\` on anything.
+
+### Step 4 — create work items
+
+For each NEW task (and each approved UPDATE):
+
+1. Translate the task into the canonical \`WorkItem\` shape (see above).
+2. Call \`create_item(work_item)\` (or \`update_item\`).
+3. Collect the tracker ID and URL in a local results table.
+4. If the task has \`depends_on\`, once all items are created, call \`update_item\` on each created item to add dependency links — two-pass to avoid forward references.
+
+On each call, handle errors gracefully:
+
+- **Auth error** → stop the whole run, emit a precise remediation message.
+- **Rate limit** → back off (exponential, max 3 retries) and resume.
+- **4xx on a single item** → log as FAILED, continue with the rest.
+- **Network** → retry up to 3 times, then FAILED.
+
+### Step 5 — report
+
+Print a summary to the user:
+
+\`\`\`
+spec-to-workitem — Sprint <N> / adapter: <name>
+
+Created:   <N> items
+Updated:   <N> items
+Skipped:   <N> items (already tracked)
+Ambiguous: <N> items (user review needed)
+Failed:    <N> items
+
+Detail:
+  [T1] Operator starts signup with email and receives an OTP
+       -> <tracker URL>  (status: created)
+  [T2] Operator verifies OTP and receives a session token
+       -> <tracker URL>  (status: skipped — already #142)
+  ...
+
+Dependencies linked: <N>
+Dependencies skipped (missing target): <N>
+\`\`\`
+
+If the mode was \`dry-run\`, the same table is produced but no remote call was made; the "tracker URL" column is replaced with \`(dry-run)\`.
+
+Optionally, write a summary file at \`docs/sprints/Sprint-N/export/spec-to-workitem-<adapter>-<YYYY-MM-DD>.md\` so the user has a local audit trail of what was pushed. This is a read-only artifact; do not mutate it after creation.
+
+---
+
+## Canonical mapping — from manifest task to \`WorkItem\`
+
+This is the mapping applied before calling the adapter:
+
+| Manifest field (section 4) | Canonical \`WorkItem\` field | Notes |
+|---|---|---|
+| Task ID (e.g. \`T1\`) | \`external_id\` | Used for idempotency |
+| Functional name | Part of \`title\` | Title format: \`[{task_id}] {functional name}\` |
+| Area | \`labels[]\` (as \`<area-slug>\`) | Also available separately as \`area\` metadata |
+| User story ref | \`user_story_ref\` | Cited in description as "Linked user story: US1" |
+| Description | \`description\` (top section) | Verbatim |
+| Acceptance test | \`description\` (second section) | Under "Acceptance test" heading |
+| Confidence | \`labels[]\` (as \`CL1\` / \`CL2\` / \`CL3\`) | Also part of description metadata |
+| Estimated effort | \`effort_days\` | Adapter maps to its native field (story points / effort hours / estimate) — see per-adapter reference |
+| Dependencies | \`depends_on[]\` | Resolved to tracker IDs in step 4 |
+| Components touched | \`components[]\` | Adapter maps to tags/areas where supported |
+| Relevant PRD sections | \`description\` (footer) | Cited as "Manifest ref: ... / PRD ref: ..." |
+| Sprint number (frontmatter) | \`labels[]\` (as \`sprint-<N>\`) and / or sprint/milestone field | Adapter-specific |
+
+Sprint field mapping per adapter:
+
+- \`github-issues\` → milestone named \`Sprint <N>\`
+- \`azure-devops\` → \`System.IterationPath\` set to the project's iteration matching \`Sprint <N>\`
+- \`jira\` → custom \`sprint\` field in the active board
+- \`linear\` → cycle named \`Sprint <N>\`
+
+---
+
+## Description template (what the body looks like)
+
+Every created work item uses this structure for its description/body, rendered as Markdown:
+
+\`\`\`markdown
+## Functional description
+
+<verbatim "Description" field from manifest task>
+
+## Acceptance test
+
+<verbatim "Acceptance test" field from manifest task>
+
+## Meta
+
+- **Task**: T<N>
+- **Area**: <area-slug>
+- **User story**: US<M> — <user story name>
+- **Confidence**: CL<k>
+- **Estimated effort**: <X> days
+- **Components touched**: <component list>
+- **Dependencies**: T<A>, T<B> (linked as tracker references when supported)
+
+## References
+
+- Sprint manifest: \`docs/sprints/Sprint-<N>/sprint-manifest.md\` §4 T<N>
+- Promoted PRD: \`docs/sprints/Sprint-<N>/<area>/NN-<study>.md\` (if task cites one)
+- Generated by: spec-to-workitem skill (NONoise) — <YYYY-MM-DD>
+\`\`\`
+
+The description is stable — re-running on an existing item shows no diff unless the underlying manifest task changed.
+
+---
+
+## Operating principles
+
+1. **Dry-run is the safety net** — always available, always explicit. No silent push.
+2. **Idempotency is mandatory** — every creation is preceded by a search by \`external_id\`. No duplicates.
+3. **Auth is externalized** — env vars only. A missing credential stops the run with a precise message.
+4. **Adapters are the only tracker-specific code** — if a tracker behavior leaks into the core flow, it is a bug.
+5. **Read-only on the source of truth** — the skill never edits the sprint manifest or PRDs.
+6. **Impact table before write** — the user sees the plan (NEW / EXISTS / AMBIGUOUS) before any remote call.
+7. **Two-pass for dependencies** — create all items first, then link dependencies, to avoid forward references.
+8. **Fail-soft per item, fail-hard on auth** — one broken item should not abort the whole export; a broken credential always aborts.
+
+---
+
+## Anti-patterns
+
+1. **Hardcoded credentials or organization slugs** — always env vars.
+2. **Creating without idempotency check** — duplicates the work item if the user re-runs.
+3. **Pushing in "live" by default** — surprise pushes break trust. The default must be \`dry-run\`.
+4. **Translating PRDs into work items directly** — PRDs are not tasks. The manifest's section 4 is the only source.
+5. **Opaque failures** — every failure in the report must carry the tracker's error message + the task ID that failed.
+6. **Silent updates** — if a task already exists and the manifest changed, ask the user before updating.
+
+## When NOT to use this skill
+
+- No sprint manifest exists yet → use \`sprint-manifest\` first.
+- The manifest has open CL1 tasks without decision records → proceed with caution. Optionally ask the user if CL1 tasks should be labeled \`needs-decision-record\` and still exported, or held back.
+- The user wants to push raw PRDs to a tracker → out of scope. Promote them via \`sprint-manifest\`, then run this skill.
+
+---
+
+## Reference files
+
+- \`references/adapter-dryrun.md\` — the default no-op adapter (always works)
+- \`references/adapter-github.md\` — GitHub Issues adapter (default live adapter)
+- \`references/adapter-azuredevops.md\` — Azure DevOps adapter (REST API, PAT auth)
+- \`references/adapter-jira.md\` — Jira adapter (schema documented, wiring pending)
+- \`references/adapter-linear.md\` — Linear adapter (schema documented, wiring pending)
+
+## Related skills
+
+- [\`sprint-manifest\`](../sprint-manifest/SKILL.md) — produces the input for this skill
+- [\`atr\`](../atr/SKILL.md) — acceptance testing of tasks after export
+- [\`arch-decision\`](../arch-decision/SKILL.md) / [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — upstream skills that produce validated PRDs
+",
+  ".claude/skills/spec-to-workitem/references/adapter-azuredevops.md": "# Adapter — \`azure-devops\`
+
+> **Status**: implemented. Port of the original Risko reference skill. Kept as a first-class supported adapter, but not the v1 default (GitHub Issues is more universal).
+
+Maps each macro task from the sprint manifest to a single **Azure DevOps Work Item** — typically type \`User Story\` or \`Task\`, configurable per project. Dependencies are modeled as native Work Item Links (\`System.LinkTypes.Dependency-Forward\` / \`-Reverse\`).
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Configuration](#configuration)
+- [Operations](#operations)
+- [Mapping](#mapping-canonical-workitem-to-azure-devops-work-item)
+- [Idempotency](#idempotency)
+- [Dependencies](#dependencies)
+- [Iteration path](#iteration-path)
+- [Rate limits and retries](#rate-limits-and-retries)
+
+---
+
+## Authentication
+
+One supported source:
+
+- **\`AZURE_DEVOPS_PAT\` env var** — Personal Access Token. Required scopes:
+  - \`Work Items (Read, write, & manage)\`
+  - \`Project and Team (Read)\` — to resolve iteration paths
+  - \`Graph (Read)\` — if assigning users by identity
+
+Token expiration is checked at start; if the token is >90 days old the adapter warns the user (Azure DevOps PATs default to 90 days).
+
+If \`AZURE_DEVOPS_PAT\` is missing, the skill stops with:
+
+> ERROR: Azure DevOps adapter requires \`AZURE_DEVOPS_PAT\` set to a PAT with \`Work Items (R/W)\` scope. See \`references/adapter-azuredevops.md\`.
+
+## Configuration
+
+Asked from the user on first run, cacheable under \`docs/sprints/Sprint-N/export/.azuredevops-config.yml\`:
+
+\`\`\`yaml
+organization: "<org>"              # https://dev.azure.com/<org>
+project: "<Project Name>"          # may contain spaces
+work_item_type: "User Story"       # or "Task", "Product Backlog Item", "Issue"
+area_path_root: "<Project Name>"   # most teams use the project name as root
+iteration_path_pattern: "<Project Name>\\\\Sprint <N>"  # how this skill maps sprint number to iteration
+default_tags:
+  - "spec"
+  - "nonoise"
+default_fields:                    # optional static fields added on every item
+  "System.AssignedTo": ""          # leave empty unless you want auto-assign
+\`\`\`
+
+The REST base URL is always \`https://dev.azure.com/<org>/<project>/_apis/wit/\` (and the Graph API on \`https://vssps.dev.azure.com/<org>/_apis/\`).
+
+## Operations
+
+All calls use API version \`7.1-preview.3\` (stable as of 2025).
+
+| Operation | REST call |
+|---|---|
+| \`create_item(work_item)\` | \`POST /_apis/wit/workitems/$<type>?api-version=7.1\` with a JSON-patch body (\`op: add\` for each field) |
+| \`list_items(filter)\` | \`POST /_apis/wit/wiql?api-version=7.1\` with a WIQL query scoped by \`[System.IterationPath]\` and \`[System.Tags] Contains 'sprint-<N>'\` |
+| \`update_item(tracker_id, patch)\` | \`PATCH /_apis/wit/workitems/<id>?api-version=7.1\` with a JSON-patch body |
+| \`search_by_external_id(task_id)\` | WIQL: \`SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.Title] CONTAINS '[T<N>]' AND [System.Tags] CONTAINS 'sprint-<N>'\` |
+
+Authorization header: \`Authorization: Basic <base64(":" + AZURE_DEVOPS_PAT)>\`.
+
+## Mapping — canonical \`WorkItem\` to Azure DevOps Work Item
+
+| Canonical field | ADO field |
+|---|---|
+| \`external_id\` | Embedded in \`System.Title\` as \`[T<N>] ...\` — primary idempotency key. Optionally also written to a custom string field (e.g. \`Custom.ExternalId\`) if the process template exposes one. |
+| \`title\` | \`System.Title\` (verbatim) |
+| \`description\` | \`System.Description\` (rendered as HTML — Markdown is converted to HTML before the call) |
+| \`labels[]\` | \`System.Tags\` (semicolon-separated string on write, array-like on read). Confidence (\`CL1\`/\`CL2\`/\`CL3\`), area slug, sprint tag, and components all flow here. |
+| \`effort_days\` | \`Microsoft.VSTS.Scheduling.OriginalEstimate\` (hours) — multiplied by 8 from days. Also mirrored in \`Microsoft.VSTS.Scheduling.Effort\` (story points) if the process template uses it. |
+| \`components[]\` | Appended to \`System.Tags\`. No native components field. |
+| \`user_story_ref\` | Recorded in description body "Meta > User story". Optionally link-typed \`System.LinkTypes.Hierarchy-Reverse\` to a parent User Story item if one exists (the adapter does not create the parent automatically in v1). |
+| \`depends_on[]\` | Native \`System.LinkTypes.Dependency-Forward\` / \`-Reverse\` links — see "Dependencies". |
+| Sprint | \`System.IterationPath\` — computed from \`iteration_path_pattern\` (see below). |
+| Area | \`System.AreaPath\` — defaults to \`area_path_root\`; if the project has per-area structure, the area slug is mapped to an area path (documented per project). |
+
+## Idempotency
+
+WIQL query:
+
+\`\`\`sql
+SELECT [System.Id], [System.Title], [System.State], [System.Tags]
+FROM WorkItems
+WHERE [System.TeamProject] = @project
+  AND [System.Title] CONTAINS '[T<N>]'
+  AND [System.Tags] CONTAINS 'sprint-<N>'
+\`\`\`
+
+Classification:
+
+- Zero → **NEW**
+- One → **EXISTS** — skip (or update on user approval)
+- Two or more → **AMBIGUOUS** — flag
+
+If the process template exposes a custom \`External ID\` field, the query switches to \`[Custom.ExternalId] = 'T<N>'\` — more robust against title renames.
+
+## Dependencies
+
+Azure DevOps has native work-item links with a semantic \`Dependency\` type:
+
+- \`System.LinkTypes.Dependency-Forward\` — "successor"
+- \`System.LinkTypes.Dependency-Reverse\` — "predecessor"
+
+For every \`depends_on: [TX, TY]\`, the adapter adds a **Reverse** dependency link from the current item to the items for TX and TY. Two-pass: first create all items (collecting ADO IDs), then issue \`PATCH\` calls to add links.
+
+JSON-patch example for linking:
+
+\`\`\`json
+[
+  {
+    "op": "add",
+    "path": "/relations/-",
+    "value": {
+      "rel": "System.LinkTypes.Dependency-Reverse",
+      "url": "https://dev.azure.com/<org>/<project>/_apis/wit/workItems/<id-of-TX>",
+      "attributes": { "comment": "From sprint manifest depends_on: T<X>" }
+    }
+  }
+]
+\`\`\`
+
+## Iteration path
+
+The \`iteration_path_pattern\` is interpolated with the sprint number from the manifest. Example:
+
+- Pattern \`<Project Name>\\\\Sprint <N>\` + manifest sprint \`5\` → iteration path \`<Project Name>\\Sprint 5\`.
+
+Before pushing, the adapter verifies the iteration exists via \`GET /_apis/work/teamsettings/iterations\` and warns if it does not (iterations cannot be created via the Work Items API alone; the user must create them in ADO).
+
+## Rate limits and retries
+
+- Azure DevOps applies TSTU (Transaction Service Task Units). The adapter paces itself at 4 req/s by default.
+- Retries: exponential back-off on 429 with \`Retry-After\` honored. Max 3 retries per item.
+- On \`401\` (auth), the whole run aborts with a precise message pointing here.
+",
+  ".claude/skills/spec-to-workitem/references/adapter-dryrun.md": "# Adapter — \`dry-run\`
+
+> **Status**: implemented. This is the **default adapter** when no tracker is configured. It performs no remote calls.
+
+The dry-run adapter is the safety net of \`spec-to-workitem\`. It runs the full flow — parse manifest, normalize tasks into \`WorkItem\` objects, compute idempotency classification, link dependencies — but replaces every remote call with a formatted print to the console. The output is copy-paste-friendly and mirrors the real export report.
+
+## Table of contents
+
+- [When it is used](#when-it-is-used)
+- [Authentication](#authentication)
+- [Operations](#operations)
+- [Output format](#output-format)
+- [Why it exists](#why-it-exists)
+
+---
+
+## When it is used
+
+- No \`adapter\` argument was provided **and** no adapter env var is set → default.
+- The user explicitly passes \`adapter=dry-run\` or \`dry-run\`.
+- A live adapter is selected but the user wants a preview before committing — can run with \`dry-run\` first.
+
+## Authentication
+
+None. This adapter never touches the network.
+
+## Operations
+
+| Operation | Behavior |
+|---|---|
+| \`create_item(work_item)\` | Prints the rendered work item as a Markdown block. Returns a synthetic ID \`dry-run-<external_id>\` and a \`(dry-run)\` URL. |
+| \`list_items(filter)\` | Returns an empty list (no remote state). |
+| \`update_item(tracker_id, patch)\` | Prints the diff that would be applied. Returns the same synthetic ID. |
+| \`search_by_external_id(task_id)\` | Returns \`null\` (no remote state). Every task is classified as \`NEW\` in dry-run mode. |
+
+## Output format
+
+For each task, the dry-run adapter emits:
+
+\`\`\`
+--- dry-run: would create work item ---
+external_id:   T1
+title:         [T1] Operator starts signup with email and receives an OTP
+labels:        sprint-5, user-signup, CL2
+effort_days:   3.5
+depends_on:    T2, T5
+user_story:    US1
+components:    auth-service, notifications
+
+body:
+  ## Functional description
+  ...
+  ## Acceptance test
+  ...
+  ## Meta
+  ...
+  ## References
+  ...
+--- end dry-run ---
+\`\`\`
+
+At the end of the run, the final summary uses \`(dry-run)\` in place of the tracker URL column:
+
+\`\`\`
+spec-to-workitem — Sprint 5 / adapter: dry-run
+
+Created:   12 items (dry-run, no remote call)
+Skipped:    0 items (no remote state to check)
+Failed:     0 items
+
+Detail:
+  [T1] Operator starts signup with email and receives an OTP  -> (dry-run)
+  [T2] Operator verifies OTP and receives a session token     -> (dry-run)
+  ...
+\`\`\`
+
+## Why it exists
+
+- **Safety**: the user sees exactly what would be pushed before authorizing any remote mutation.
+- **Offline authoring**: lets the user iterate on the manifest without hitting rate limits on a real tracker.
+- **CI/docs**: the dry-run output is a stable artifact and can be committed under \`docs/sprints/Sprint-N/export/\` for traceability.
+- **Fallback**: if a live adapter is misconfigured, the skill degrades to dry-run rather than failing — the user can still see the plan.
+",
+  ".claude/skills/spec-to-workitem/references/adapter-github.md": "# Adapter — \`github-issues\`
+
+> **Status**: implemented. This is the **default live adapter** for NONoise v1 — most universal, easy to authenticate, works on both github.com and GitHub Enterprise Server.
+
+Maps each macro task from the sprint manifest to a single **GitHub Issue** on a target repository. Uses the \`gh\` CLI when available (recommended) or the REST API via \`GH_TOKEN\`. Issue dependencies are declared with GitHub's native \`blocked-by\` links if the repo has Projects v2 with dependency support; otherwise, they are recorded as a markdown list in the issue body plus mutual \`related-to\` cross-references in comments.
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Configuration](#configuration)
+- [Operations](#operations)
+- [Mapping](#mapping-canonical-workitem-to-github-issue)
+- [Idempotency](#idempotency)
+- [Dependencies](#dependencies)
+- [Rate limits and retries](#rate-limits-and-retries)
+
+---
+
+## Authentication
+
+Two supported sources, tried in this order:
+
+1. **\`gh\` CLI session** — if \`gh auth status\` succeeds, use the CLI (no extra env var needed). Recommended for interactive use.
+2. **\`GH_TOKEN\` env var** — Personal Access Token (classic) with scopes:
+   - \`repo\` (full repo access) for private repositories
+   - \`public_repo\` is sufficient for public repos
+   - For fine-grained tokens: \`Contents: read\`, \`Issues: read/write\`, \`Metadata: read\`, and \`Pull requests: read\` (only if milestones are used)
+
+If neither source is configured, the skill stops with:
+
+> ERROR: GitHub adapter requires either \`gh\` CLI authenticated (\`gh auth login\`) or \`GH_TOKEN\` set with \`repo\` scope. See \`references/adapter-github.md\`.
+
+## Configuration
+
+Configuration is asked from the user on first run and can be cached under \`docs/sprints/Sprint-N/export/.github-config.yml\` (user-writable, not committed if it contains secrets — which it should not, since auth is env-based):
+
+\`\`\`yaml
+repo: "<owner>/<repo>"     # target repository
+milestone: "Sprint 5"       # optional, defaults to "Sprint <N>" from manifest frontmatter
+default_labels:            # merged with task-specific labels
+  - "spec"
+  - "nonoise"
+assignees: []              # optional GitHub logins
+project_v2:                # optional, for Projects v2 integration (dependencies)
+  enabled: false
+  project_number: null
+\`\`\`
+
+## Operations
+
+| Operation | Implementation |
+|---|---|
+| \`create_item(work_item)\` | \`gh issue create --repo <owner>/<repo> --title "{title}" --body "{body}" --label "<labels>" --milestone "Sprint <N>"\` — or REST \`POST /repos/{owner}/{repo}/issues\` |
+| \`list_items(filter)\` | \`gh issue list --repo <owner>/<repo> --label "sprint-<N>" --json number,title,labels,state,body\` — or REST \`GET /repos/{owner}/{repo}/issues\` with \`labels=sprint-<N>\` |
+| \`update_item(tracker_id, patch)\` | \`gh issue edit <number> --add-label ...\` / \`gh api\` for body edits — or REST \`PATCH /repos/{owner}/{repo}/issues/{number}\` |
+| \`search_by_external_id(task_id)\` | \`gh issue list --repo <owner>/<repo> --search "[T1] in:title" --json number,title\` — or REST \`GET /search/issues?q=repo:...+in:title+[T1]+label:sprint-<N>\` |
+
+## Mapping — canonical \`WorkItem\` to GitHub Issue
+
+| Canonical field | GitHub Issue field |
+|---|---|
+| \`external_id\` | Embedded in \`title\` as \`[T<N>] ...\` (stable idempotency key) |
+| \`title\` | \`title\` (verbatim) |
+| \`description\` | \`body\` (Markdown) |
+| \`labels[]\` | \`labels[]\` — created on the repo if missing (requires push access; otherwise warns and strips missing labels) |
+| \`effort_days\` | Cited in body under "Meta > Estimated effort". No native story-point field on Issues — if Projects v2 is enabled in config, also written to the custom "Effort (days)" field. |
+| \`components[]\` | Appended to \`labels[]\` as-is; also listed in body |
+| \`user_story_ref\` | Cited in body under "Meta > User story" + linked as \`Related: #<issue of parent user story>\` if a user-story issue exists |
+| \`depends_on[]\` | See "Dependencies" section |
+| Sprint number | \`milestone\` "Sprint <N>" (created if missing) |
+
+### Labels auto-created
+
+On first run, the adapter ensures these labels exist on the repo (creates them with sensible colors):
+
+- \`sprint-<N>\` — \`#0E8A16\` (green)
+- \`CL1\` — \`#D93F0B\` (red — new pattern, decision record needed)
+- \`CL2\` — \`#FBCA04\` (yellow — known pattern)
+- \`CL3\` — \`#0366D6\` (blue — straightforward)
+- \`<area-slug>\` — \`#5319E7\` (purple)
+- \`spec\` — \`#C2E0C6\` (light green)
+- \`nonoise\` — \`#1D76DB\` (dark blue)
+
+If the authenticated principal does not have \`issues: write\` scope to create labels, the adapter warns and drops missing labels (does not fail the whole run).
+
+## Idempotency
+
+Primary search: title prefix \`[T<N>]\` **scoped** to label \`sprint-<N>\` to avoid cross-sprint collisions.
+
+\`\`\`
+gh issue list --repo <owner>/<repo> \\
+  --label "sprint-5" --search "[T1] in:title" \\
+  --json number,title,state,url
+\`\`\`
+
+Classification:
+
+- Zero results → **NEW**, call \`create_item\`
+- Exactly one result → **EXISTS**, skip by default (or \`update_item\` on user approval)
+- Two or more results → **AMBIGUOUS**, flag to user
+
+**Custom field fallback**: if Projects v2 is enabled and the "External ID" custom field is set, matching happens on the field instead of the title — more robust if someone renames the issue title. Without Projects v2, the title prefix is the only key.
+
+## Dependencies
+
+Three levels of support, auto-detected:
+
+1. **Projects v2 with dependency support** (best) — creates native parent/child or blocks/blocked-by links via the GraphQL API.
+2. **Task lists in the issue body** — writes a \`### Blocked by\` section with \`- [ ] #<issue-number>\` lines. GitHub renders these as tracked dependencies on the issue's side panel.
+3. **Plain Markdown fallback** — lists dependencies as \`- Depends on: #<issue-number> [T<N>]\` lines. Not auto-tracked by GitHub but visible and clickable.
+
+Two-pass execution is required: first create all issues (collecting their numbers), then update each issue's body to inject the dependency block.
+
+## Rate limits and retries
+
+- Primary rate limit: 5000 req/h (authenticated REST).
+- Secondary rate limit on issue creation: ~20/min as of April 2026 — the adapter paces itself at 1 create / 2 seconds for runs of >30 items.
+- Retries: exponential back-off on 429 / 403 with \`Retry-After\` honored. Max 3 retries per item.
+
+On exhaustion, the adapter writes partial results to the local summary file and exits with the exact count of items still pending — so a re-run can resume idempotently.
+",
+  ".claude/skills/spec-to-workitem/references/adapter-jira.md": "# Adapter — \`jira\`
+
+> **Status**: stub — schema documented, wiring pending. \`create_item\` / \`update_item\` print the translated payload; a future iteration will wire the REST calls. The contract is stable so promoting this stub to a full adapter is non-breaking.
+
+Maps each macro task from the sprint manifest to a single **Jira Issue** (Cloud or Data Center). Dependencies are modeled as issue links with the \`Blocks\` / \`is blocked by\` link types, which exist by default on every Jira instance.
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Configuration](#configuration)
+- [Target operations](#target-operations)
+- [Mapping](#mapping-canonical-workitem-to-jira-issue)
+- [Idempotency](#idempotency)
+- [Dependencies](#dependencies)
+- [Sprint and effort](#sprint-and-effort)
+- [Current stub behavior](#current-stub-behavior)
+
+---
+
+## Authentication
+
+Three env vars, all required:
+
+- \`JIRA_API_TOKEN\` — API token generated at \`https://id.atlassian.com/manage-profile/security/api-tokens\` (for Cloud) or a PAT on Data Center.
+- \`JIRA_EMAIL\` — Atlassian account email, used as the Basic Auth username on Cloud. On Data Center, set this to your username.
+- \`JIRA_HOST\` — e.g. \`https://your-org.atlassian.net\` (Cloud) or \`https://jira.your-company.com\` (Data Center). No trailing slash.
+
+If any variable is missing, the skill stops with a precise message pointing to this file.
+
+Authorization header: \`Authorization: Basic <base64(JIRA_EMAIL + ":" + JIRA_API_TOKEN)>\`.
+
+## Configuration
+
+Asked from the user on first run, cacheable under \`docs/sprints/Sprint-N/export/.jira-config.yml\`:
+
+\`\`\`yaml
+project_key: "<KEY>"                 # e.g. "ENG"
+issue_type: "Story"                  # or "Task", "Bug", etc. — must exist in the project
+board_id: <numeric-board-id>         # needed to add items to a sprint
+sprint_id_resolution: "by-name"      # "by-name" (match "Sprint <N>") or "explicit" with sprint_id below
+sprint_id: null                      # if explicit, numeric sprint ID in Jira
+custom_field_effort: null            # e.g. "customfield_10016" (Story Points) — varies per instance
+custom_field_external_id: null       # optional — stamps external_id (e.g. T1) for robust matching
+default_labels:
+  - "spec"
+  - "nonoise"
+\`\`\`
+
+Jira custom field IDs vary per instance (\`customfield_10016\`, \`customfield_10020\`, …). The user must discover them via \`GET /rest/api/3/field\` the first time they configure the adapter. The skill prints a helper command if these are left null and Story Points are needed.
+
+## Target operations
+
+All paths on Cloud assume API v3; on Data Center the adapter falls back to v2.
+
+| Operation | REST call |
+|---|---|
+| \`create_item(work_item)\` | \`POST {JIRA_HOST}/rest/api/3/issue\` — body is an ADF description + fields |
+| \`list_items(filter)\` | \`POST {JIRA_HOST}/rest/api/3/search\` with a JQL query scoped by \`project = <KEY> AND labels = "sprint-<N>"\` |
+| \`update_item(tracker_id, patch)\` | \`PUT {JIRA_HOST}/rest/api/3/issue/<key>\` with a partial \`fields\` object |
+| \`search_by_external_id(task_id)\` | JQL: \`project = <KEY> AND summary ~ "[T<N>]" AND labels = "sprint-<N>"\` — or \`"External ID" = "T<N>"\` if the custom field is configured |
+
+## Mapping — canonical \`WorkItem\` to Jira Issue
+
+| Canonical field | Jira field |
+|---|---|
+| \`external_id\` | Embedded in \`summary\` as \`[T<N>] ...\`. Optionally also written to \`customfield_external_id\` if configured. |
+| \`title\` | \`summary\` (Jira max 255 chars — adapter truncates with \`…\` if exceeded and warns). |
+| \`description\` | \`description\` (Atlassian Document Format — ADF — on Cloud v3; plain wiki markup on Data Center v2). The adapter converts Markdown → ADF via a minimal translator for headings, lists, inline code, links. |
+| \`labels[]\` | \`labels[]\` (Jira labels, no spaces allowed — area slugs are already slugified; \`CL1/CL2/CL3\` and \`sprint-<N>\` work as-is). |
+| \`effort_days\` | If \`custom_field_effort\` is configured → Story Points (days mapped 1:1, or 1 day = 1 point depending on team convention — the mapping is documented, not computed). Otherwise recorded only in description. |
+| \`components[]\` | Jira \`components\` field if the project has matching components registered; unmatched component slugs fall back to labels. |
+| \`user_story_ref\` | Recorded in description under "Meta > User story". Optionally, the user story can itself be a Jira Epic and the adapter adds a \`Epic Link\` (\`customfield_10014\` on default Cloud setups) — not automatic in v1. |
+| \`depends_on[]\` | Jira issue links — see "Dependencies". |
+| Sprint | Sprint field (\`customfield_10020\` on default Cloud setups) via \`POST /rest/agile/1.0/sprint/<id>/issue\`. Resolution of \`<id>\` from the sprint name is done via \`GET /rest/agile/1.0/board/<boardId>/sprint\`. |
+
+## Idempotency
+
+Primary: JQL search on \`summary ~ "[T<N>]" AND labels = "sprint-<N>"\`.
+
+Classification:
+
+- Zero → NEW
+- One → EXISTS
+- Two or more → AMBIGUOUS
+
+If \`custom_field_external_id\` is set, the query switches to \`"External ID" = "T<N>"\` for robust matching across title changes.
+
+## Dependencies
+
+Jira has first-class issue links with the default \`Blocks\` link type. For every \`depends_on: [TX, TY]\`:
+
+\`\`\`
+POST /rest/api/3/issueLink
+{
+  "type":         { "name": "Blocks" },
+  "inwardIssue":  { "key": "<KEY of TX>" },   // is blocked by
+  "outwardIssue": { "key": "<KEY of current task>" }
+}
+\`\`\`
+
+Two-pass: create all issues, resolve task IDs to Jira keys, then create links.
+
+## Sprint and effort
+
+- Sprint field on Jira is an agile-board field. The adapter needs the \`board_id\` and resolves the sprint via \`GET /rest/agile/1.0/board/<boardId>/sprint?state=active,future\` matching by name \`Sprint <N>\`. If no sprint with that name exists, the adapter warns and falls back to adding only a \`sprint-<N>\` label.
+- Story Points custom field is instance-dependent. The adapter does not guess; if not configured, effort is only recorded in the description.
+
+## Current stub behavior
+
+Until wired live, \`create_item\` and \`update_item\` print the following to the console instead of calling Jira:
+
+\`\`\`
+--- jira stub: would create issue ---
+project_key:   ENG
+issue_type:    Story
+summary:       [T1] Operator starts signup with email and receives an OTP
+labels:        sprint-5, user-signup, CL2
+components:    auth-service, notifications
+body (ADF):
+  { ... rendered ADF preview ... }
+sprint_id:     <resolved or "not resolved (board_id missing)">
+--- end stub ---
+\`\`\`
+
+\`search_by_external_id\` returns \`null\` in stub mode — so every task is treated as NEW. This matches the semantics of \`dry-run\` and produces a usable local plan even without a live Jira connection.
+",
+  ".claude/skills/spec-to-workitem/references/adapter-linear.md": "# Adapter — \`linear\`
+
+> **Status**: stub — schema documented, wiring pending. \`create_item\` / \`update_item\` print the translated payload; a future iteration will wire the GraphQL calls. The contract is stable so promoting this stub to a full adapter is non-breaking.
+
+Maps each macro task from the sprint manifest to a single **Linear Issue**. Linear is a GraphQL-only API — this adapter uses the official \`linear-api\` HTTP endpoint. Dependencies are modeled as the native **Issue Relations** (\`blocks\` / \`blocked-by\`).
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Configuration](#configuration)
+- [Target operations](#target-operations)
+- [Mapping](#mapping-canonical-workitem-to-linear-issue)
+- [Idempotency](#idempotency)
+- [Dependencies](#dependencies)
+- [Cycle and estimate](#cycle-and-estimate)
+- [Current stub behavior](#current-stub-behavior)
+
+---
+
+## Authentication
+
+One env var:
+
+- \`LINEAR_API_KEY\` — Personal API Key from \`https://linear.app/settings/api\` (format: \`lin_api_XXXXXXXXXX\`).
+
+If missing, the skill stops with:
+
+> ERROR: Linear adapter requires \`LINEAR_API_KEY\` set to a Linear Personal API Key. See \`references/adapter-linear.md\`.
+
+Authorization header: \`Authorization: <LINEAR_API_KEY>\` (no \`Bearer\` prefix — Linear's convention).
+
+All calls go to \`https://api.linear.app/graphql\` with \`Content-Type: application/json\`.
+
+## Configuration
+
+Asked from the user on first run, cacheable under \`docs/sprints/Sprint-N/export/.linear-config.yml\`:
+
+\`\`\`yaml
+team_key: "<KEY>"             # e.g. "ENG" — appears in issue IDs like ENG-123
+cycle_resolution: "by-name"   # "by-name" (match "Sprint <N>") or "explicit" with cycle_id below
+cycle_id: null                # if explicit, the UUID of the Linear cycle
+default_labels:
+  - "spec"
+  - "nonoise"
+state_on_create: "Backlog"    # Linear workflow state for new items
+priority_mapping:
+  CL1: 2                       # 1=urgent, 2=high, 3=medium, 4=low, 0=none — here CL1 gets "high"
+  CL2: 3
+  CL3: 4
+\`\`\`
+
+The \`team_key\` is the short prefix Linear uses for issue identifiers (\`ENG-123\`). It is resolved to a team UUID at runtime via GraphQL.
+
+## Target operations
+
+| Operation | GraphQL |
+|---|---|
+| \`create_item(work_item)\` | \`mutation IssueCreate($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url } } }\` |
+| \`list_items(filter)\` | \`query Issues { issues(filter: { team: { key: { eq: "<KEY>" } }, labels: { name: { eq: "sprint-<N>" } } }) { nodes { id identifier title labels { nodes { name } } state { name } } } }\` |
+| \`update_item(tracker_id, patch)\` | \`mutation IssueUpdate($id: String!, $input: IssueUpdateInput!) { issueUpdate(id: $id, input: $input) { success issue { id identifier url } } }\` |
+| \`search_by_external_id(task_id)\` | \`query { issues(filter: { team: { key: { eq: "<KEY>" } }, title: { containsIgnoreCase: "[T<N>]" }, labels: { name: { eq: "sprint-<N>" } } }) { nodes { id identifier title } } }\` |
+
+## Mapping — canonical \`WorkItem\` to Linear Issue
+
+| Canonical field | Linear field |
+|---|---|
+| \`external_id\` | Embedded in \`title\` as \`[T<N>] ...\`. Linear has no custom fields on the free tier; matching is title-based. |
+| \`title\` | \`title\` (verbatim) |
+| \`description\` | \`description\` (Markdown, natively supported) |
+| \`labels[]\` | \`labelIds[]\` — resolved from label names via \`teamLabels\` query. Missing labels are created if the API key has \`Admin\` scope, otherwise warned and dropped. Confidence (\`CL1/CL2/CL3\`), area slug, and \`sprint-<N>\` all flow here. |
+| \`effort_days\` | \`estimate\` field — Linear uses 0/1/2/3/5/8 (Fibonacci) by default. The adapter rounds \`effort_days\` to the nearest Fibonacci number in the scale (3 days → 3 pts, 3.5 → 3, 4 → 5, 7 → 8). |
+| \`components[]\` | Appended to \`labelIds[]\` as labels |
+| \`user_story_ref\` | Recorded in description under "Meta > User story". If the parent user story exists as a Linear Project, the adapter optionally links via \`projectId\` (not automatic in v1). |
+| \`depends_on[]\` | Native Linear Issue Relations — see "Dependencies". |
+| Sprint | Linear \`cycle\` — resolved via \`cycle_resolution\` (see below). |
+| Priority | Optional \`priority\` integer set from \`priority_mapping[CL<k>]\` in config. |
+
+## Idempotency
+
+GraphQL filter on \`title: containsIgnoreCase: "[T<N>]"\` scoped to the team and the \`sprint-<N>\` label.
+
+Classification:
+
+- Zero results → NEW
+- One result → EXISTS
+- Two or more → AMBIGUOUS
+
+Linear does not offer custom fields on the standard plan, so the title prefix is the canonical key. If the user renames the title, idempotency breaks — document this limitation in the user-facing help the first time the adapter is selected.
+
+## Dependencies
+
+Linear has first-class **Issue Relations** with semantic types (\`blocks\`, \`blocked-by\`, \`related\`, \`duplicate\`). For every \`depends_on: [TX, TY]\`:
+
+\`\`\`graphql
+mutation {
+  issueRelationCreate(input: {
+    type: blocks,
+    issueId:      "<id of TX>",
+    relatedIssueId: "<id of current task>"
+  }) { success }
+}
+\`\`\`
+
+The adapter issues one call per dependency pair. Two-pass: create all issues, then create relations.
+
+## Cycle and estimate
+
+- **Cycle**: Linear's iteration unit. Resolved from the cycle name \`Sprint <N>\` via \`query { team(id: "<uuid>") { cycles { nodes { id name number } } } }\`. If no cycle matches, the adapter warns and skips setting the cycle (label-only fallback).
+- **Estimate**: Linear's Fibonacci scale (0, 1, 2, 3, 5, 8). The adapter maps \`effort_days\` to the closest value; if a team uses a custom estimate scale, the mapping table must be documented in config (not supported in v1).
+
+## Current stub behavior
+
+Until wired live, \`create_item\` and \`update_item\` print the following to the console instead of calling Linear:
+
+\`\`\`
+--- linear stub: would create issue ---
+team_key:      ENG
+title:         [T1] Operator starts signup with email and receives an OTP
+labels:        sprint-5, user-signup, CL2
+estimate:      3 (from effort_days 3.5)
+priority:      3 (from CL2 via priority_mapping)
+cycle:         Sprint 5 (resolved: <pending>)
+description (markdown): |
+  ## Functional description
+  ...
+--- end stub ---
+\`\`\`
+
+\`search_by_external_id\` returns \`null\` in stub mode — every task is treated as NEW.
 ",
   ".claude/skills/sprint-manifest/SKILL.md": "---
 name: sprint-manifest
@@ -6562,11 +10302,19 @@ One folder per sprint. At its root lives a single \`sprint-manifest.md\` that ag
 sprints/
 └── Sprint-XX/
     ├── sprint-manifest.md              ← ONE aggregated manifest per sprint
-    └── <area-slug>/
-        ├── NN-<study-slug>.md          ← PRDs moved from docs/prd/<area>/
-        ├── NN-<study-slug>-diagrams.md
-        └── audit/
-            └── NN-<study-slug>-fpf.md  ← FPF audits carried over from docs/prd/<area>/audit/
+    ├── <area-slug>/
+    │   ├── NN-<study-slug>.md          ← PRDs moved from docs/prd/<area>/
+    │   ├── NN-<study-slug>-diagrams.md
+    │   └── audit/
+    │       └── NN-<study-slug>-fpf.md  ← FPF audits carried over from docs/prd/<area>/audit/
+    ├── acceptance/                     ← ATR workspace (output of the \`atr\` skill)
+    │   ├── testbook.yml                ← generated test definitions
+    │   ├── testbook-plan.md            ← stakeholder-friendly plan (optional)
+    │   ├── report-<area>.md            ← PASS/FAIL report, one per area
+    │   ├── backlog.md                  ← failure list for tracker push
+    │   └── screenshots/*.png           ← visual evidence, committed to git
+    └── export/                         ← spec-to-workitem audit trail
+        └── spec-to-workitem-<adapter>-<YYYY-MM-DD>.md
 \`\`\`
 
 Rationale for "one manifest per sprint" instead of "one per PRD": sprint planning needs a single view of all user stories, task dependencies across areas, and CL1 risk flags. A single file beats N scattered ones when the architect is driving a sprint kickoff or reporting to stakeholders.
@@ -6624,7 +10372,7 @@ sprint-manifest area user-signup sprint 5 regenerate
 
 ## How other skills use this folder
 
-- \`atr\` (acceptance test runner) reads the sprint manifest to generate testbooks from task acceptance criteria
+- \`atr\` (acceptance test runner) reads the sprint manifest to generate testbooks under \`acceptance/\`, then runs them via \`playwright-cli\` producing reports + screenshots in the same folder
 - Future \`spec-to-workitem\` / \`devops-push\` skills translate tasks into external issue-tracker items (GitHub Issues, Azure DevOps, Jira, Linear, …)
 
 ## Lifecycle of a promoted PRD
@@ -6705,7 +10453,11 @@ support/
     "quint-fpf",
     "arch-brainstorm",
     "arch-decision",
-    "sprint-manifest"
+    "sprint-manifest",
+    "atr",
+    "reverse-engineering",
+    "requirements-ingest",
+    "spec-to-workitem"
   ]
 }
 ",
@@ -6724,6 +10476,9 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/arch-brainstorm/references/folder-conventions.md",
   ".claude/skills/arch-brainstorm/references/prd-template.md",
   ".claude/skills/arch-decision/SKILL.md",
+  ".claude/skills/atr/SKILL.md",
+  ".claude/skills/atr/references/templates.md",
+  ".claude/skills/atr/references/vibekanban.md",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md",
   ".claude/skills/bmad-advanced-elicitation/methods.csv",
   ".claude/skills/bmad-agent-analyst/SKILL.md",
@@ -6755,10 +10510,23 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/quint-fpf/commands/q3-validate.md",
   ".claude/skills/quint-fpf/commands/q4-audit.md",
   ".claude/skills/quint-fpf/commands/q5-decide.md",
+  ".claude/skills/requirements-ingest/SKILL.md",
+  ".claude/skills/requirements-ingest/references/ingestion-heuristics.md",
+  ".claude/skills/requirements-ingest/references/requirement-file-template.md",
+  ".claude/skills/reverse-engineering/SKILL.md",
+  ".claude/skills/reverse-engineering/references/changelog-entry.md",
+  ".claude/skills/reverse-engineering/references/config.example.json",
+  ".claude/skills/reverse-engineering/references/initial-spine.md",
   ".claude/skills/skill-finder/SKILL.md",
   ".claude/skills/skill-finder/registry.json",
   ".claude/skills/skill-finder/scripts/fetch-registry.mjs",
   ".claude/skills/skill-finder/scripts/install-skill.mjs",
+  ".claude/skills/spec-to-workitem/SKILL.md",
+  ".claude/skills/spec-to-workitem/references/adapter-azuredevops.md",
+  ".claude/skills/spec-to-workitem/references/adapter-dryrun.md",
+  ".claude/skills/spec-to-workitem/references/adapter-github.md",
+  ".claude/skills/spec-to-workitem/references/adapter-jira.md",
+  ".claude/skills/spec-to-workitem/references/adapter-linear.md",
   ".claude/skills/sprint-manifest/SKILL.md",
   ".claude/skills/vscode-config-generator/SKILL.md",
   ".claude/skills/vscode-config-generator/assets/launch.dotnet.json.hbs",
