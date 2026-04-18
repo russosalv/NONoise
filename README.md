@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="logos/nonoise-logo-black.png#gh-light-mode-only" alt="NONoise" height="120" />
-  <img src="logos/nonoise-logo-white.png#gh-dark-mode-only" alt="NONoise" height="120" />
+  <img src="logos/nonoise-cat.png#gh-light-mode-only" alt="NONoise" height="120" />
+  <img src="logos/nonoise-cat.png#gh-dark-mode-only" alt="NONoise" height="120" />
 </p>
 
 <h1 align="center">NONoise</h1>
@@ -25,7 +25,7 @@ cd my-project
 # Open in Claude Code, or tell Copilot: "start polly"
 ```
 
-The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot, Cursor, Gemini CLI, Codex — any combination), then scaffolds:
+The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then scaffolds:
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
