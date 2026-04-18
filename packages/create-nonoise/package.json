@@ -17,6 +17,7 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.json && node scripts/bundle-assets.mjs",
+    "prepack": "pnpm run build",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest"
