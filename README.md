@@ -42,26 +42,14 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 **A skill library is useless if nobody knows what to use when.** Polly is the conductor that removes that problem entirely. It auto-triggers the moment scaffolding is complete, asks one question — *greenfield or brownfield?* — and then walks your team through the full **SDLC** in sequence, surfacing the right skill at every phase.
 
-```mermaid
-flowchart LR
-    START(["🚀 npx create-nonoise"])
-    POLLY(["🎼 Polly auto-triggers"])
-    Q{"Greenfield or Brownfield?"}
-    REQ["📋 Requirements"]
-    DISC["🔍 Discovery"]
-    ARCH["🏛️ Architecture"]
-    SPRINT["📅 Sprint Planning"]
-    IMPL["⚙️ Implementation"]
-    UNIT["🧪 Unit & Integration Tests"]
-    E2E["🤖 Test Automation / E2E"]
-    ACC["✅ Acceptance"]
-
-    START --> POLLY --> Q
-    Q -->|New project| REQ
-    Q -->|Existing codebase| DISC
-    REQ --> DISC
-    DISC --> ARCH --> SPRINT --> IMPL --> UNIT --> E2E --> ACC
-    ACC -->|"Next sprint 🔁"| SPRINT
+```
+Greenfield → 📋 Requirements ─┐
+                                ├─► 🔍 Discovery ──► 🏛️ Architecture ──► 📅 Sprint Planning
+Brownfield ──────────────────--┘                                                │
+                                                                                ▼
+                              ✅ Acceptance ◄── 🤖 Test Automation ◄── 🧪 Unit & Integration ◄── ⚙️ Implementation
+                                    │
+                                    └──── 🔁 Next sprint ────────────────────────────────────────────────────────┘
 ```
 
 You never pick the wrong skill. You always know the next step.
