@@ -32,13 +32,13 @@ describe('CLI via bin shim', () => {
   });
 
   it('--yes --ai claude-code produces a project with CLAUDE.md', async () => {
-    await exec('node', [BIN, 'demo', '--yes', '--ai', 'claude-code', '--no-git', '--no-bmad'], { cwd: parent });
+    await exec('node', [BIN, 'demo', '--yes', '--ai', 'claude-code', '--no-git'], { cwd: parent });
     const claude = await readFile(join(parent, 'demo', 'CLAUDE.md'), 'utf8');
     expect(claude).toContain('demo');
   }, 60_000);
 
   it('--ai copilot skips CLAUDE.md and produces copilot-instructions.md', async () => {
-    await exec('node', [BIN, 'demo', '--yes', '--ai', 'copilot', '--no-git', '--no-bmad'], { cwd: parent });
+    await exec('node', [BIN, 'demo', '--yes', '--ai', 'copilot', '--no-git'], { cwd: parent });
     await expect(stat(join(parent, 'demo', 'CLAUDE.md'))).rejects.toThrow();
     const cop = await readFile(join(parent, 'demo', '.github', 'copilot-instructions.md'), 'utf8');
     expect(cop).toContain('demo');

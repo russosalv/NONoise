@@ -39,7 +39,6 @@ describe('scaffold() integration', () => {
       },
       gitInit: false,
       frameworkVersion: '0.1.0',
-      installBmad: false,
       ...overrides,
     };
   }
@@ -65,7 +64,7 @@ describe('scaffold() integration', () => {
     await expect(stat(join(projectPath, 'CLAUDE.md'))).rejects.toThrow();
   });
 
-  it('installs the 5 MVP skills when claudeCode is true', async () => {
+  it('installs the MVP skill bundle when claudeCode is true', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
@@ -75,6 +74,13 @@ describe('scaffold() integration', () => {
       'docs-md-generator',
       'playwright-cli',
       'frontend-design',
+      'skill-finder',
+      'design-md-generator',
+      'bmad-advanced-elicitation',
+      'bmad-agent-analyst',
+      'bmad-agent-architect',
+      'bmad-agent-tech-writer',
+      'bmad-agent-ux-designer',
     ];
     for (const name of expected) {
       const content = await readFile(
@@ -105,19 +111,15 @@ describe('scaffold() integration', () => {
     ).rejects.toThrow();
   });
 
-  it('records installBmad=false when BMAD was not requested', async () => {
-    await scaffold(buildCtx({ installBmad: false }), {
+  it('records the full skill bundle in nonoise.config.json', async () => {
+    await scaffold(buildCtx(), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
     const raw = await readFile(join(projectPath, 'nonoise.config.json'), 'utf8');
-    const cfg = JSON.parse(raw) as {
-      installBmad: boolean;
-      bmadInstalled: boolean;
-      bmadInstallError: string | null;
-    };
-    expect(cfg.installBmad).toBe(false);
-    expect(cfg.bmadInstalled).toBe(false);
-    expect(cfg.bmadInstallError).toBeNull();
+    const cfg = JSON.parse(raw) as { skills: string[] };
+    expect(cfg.skills).toContain('bmad-agent-analyst');
+    expect(cfg.skills).toContain('skill-finder');
+    expect(cfg.skills).toContain('design-md-generator');
   });
 
   it('produces valid nonoise.config.json with accurate aiTools booleans', async () => {

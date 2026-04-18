@@ -39,7 +39,6 @@ describe('canonical scaffold snapshot', () => {
         },
         gitInit: false,
         frameworkVersion: '0.0.0-snapshot',
-        installBmad: false,
       },
       { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
     );

@@ -16,7 +16,6 @@ export type ProjectContext = {
   aiTools: AiTools;
   gitInit: boolean;
   frameworkVersion: string;
-  installBmad: boolean;
 };
 
 export type HandlebarsRenderContext = ProjectContext & {
@@ -24,8 +23,6 @@ export type HandlebarsRenderContext = ProjectContext & {
   projectNameSnake: string;
   year: string;
   createdAt: string;
-  bmadInstalled: boolean;
-  bmadInstallError: string | null;
 };
 
 export const AI_TOOL_TO_FLAG: Record<AiToolKey, string> = {

@@ -7,8 +7,6 @@ import type { ProjectContext, HandlebarsRenderContext } from './types.js';
 import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
-import { runBmadInstall } from './bmad-runner.js';
-import { filterBmadSkills } from './bmad-filter.js';
 
 function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
   return (
@@ -26,6 +24,13 @@ const MVP_SKILL_BUNDLE = [
   'docs-md-generator',
   'playwright-cli',
   'frontend-design',
+  'skill-finder',
+  'design-md-generator',
+  'bmad-advanced-elicitation',
+  'bmad-agent-analyst',
+  'bmad-agent-architect',
+  'bmad-agent-tech-writer',
+  'bmad-agent-ux-designer',
 ] as const;
 
 export type ScaffoldPaths = {
@@ -45,8 +50,6 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     projectNameSnake: toSnakeCase(ctx.projectName),
     year: now.getFullYear().toString(),
     createdAt: now.toISOString(),
-    bmadInstalled: false,
-    bmadInstallError: null,
   };
 
   for (const file of resolved) {
@@ -71,23 +74,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     });
   }
 
-  let bmadInstalled = false;
-  let bmadInstallError: string | null = null;
-  if (ctx.installBmad) {
-    const result = await runBmadInstall(ctx.projectPath);
-    if (result.ok) {
-      await filterBmadSkills(ctx.projectPath);
-      bmadInstalled = true;
-    } else {
-      bmadInstallError = result.error;
-    }
-  }
-
-  await rewriteNonoiseConfig(ctx, paths, {
-    ...renderCtx,
-    bmadInstalled,
-    bmadInstallError,
-  });
+  await rewriteNonoiseConfig(ctx, paths, renderCtx);
 
   if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
     runGraphifyInstall();
