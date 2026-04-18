@@ -21,7 +21,7 @@ function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
 }
 
 const MVP_SKILL_BUNDLE = [
-  'graphify-gitignore',
+  'graphify-setup',
   'vscode-config-generator',
   'docs-md-generator',
   'playwright-cli',
@@ -31,6 +31,7 @@ const MVP_SKILL_BUNDLE = [
 export type ScaffoldPaths = {
   templatesRoot: string;
   skillsRoot: string;
+  runGraphifyInstall?: boolean;
 };
 
 export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promise<void> {
@@ -88,6 +89,10 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     bmadInstallError,
   });
 
+  if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
+    runGraphifyInstall();
+  }
+
   if (ctx.gitInit) {
     runGitInit(ctx.projectPath);
   }
@@ -115,6 +120,51 @@ function nativePath(p: string): string {
   return p.split(posix.sep).join(sep);
 }
 
+function runGraphifyInstall(): void {
+  const pythonCmd = detectPython();
+  if (!pythonCmd) {
+    console.log(
+      '\n[graphify] Python >= 3.10 not found — skipping install. Run manually:\n  pip install graphifyy && graphify install\n',
+    );
+    return;
+  }
+
+  const pipInstall = `${pythonCmd} -m pip install --upgrade graphifyy`;
+  try {
+    execSync(pipInstall, { stdio: 'ignore' });
+  } catch {
+    console.log(
+      `\n[graphify] "${pipInstall}" failed — skipping. Run manually when ready.\n`,
+    );
+    return;
+  }
+
+  try {
+    execSync('graphify install', { stdio: 'ignore' });
+  } catch {
+    console.log(
+      '\n[graphify] "graphify install" failed — skipping. Run manually when ready.\n',
+    );
+  }
+}
+
+function detectPython(): string | null {
+  for (const cmd of ['python3', 'python']) {
+    try {
+      const out = execSync(`${cmd} --version`, { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString()
+        .trim();
+      const m = out.match(/Python\s+(\d+)\.(\d+)/);
+      if (m && (Number(m[1]) > 3 || (Number(m[1]) === 3 && Number(m[2]) >= 10))) {
+        return cmd;
+      }
+    } catch {
+      // try next
+    }
+  }
+  return null;
+}
+
 function runGitInit(cwd: string): void {
   try {
     execSync('git init -b main', { cwd, stdio: 'ignore' });
@@ -133,5 +183,6 @@ export function defaultScaffoldPaths(): ScaffoldPaths {
   return {
     templatesRoot: join(here, '..', 'templates'),
     skillsRoot: join(here, '..', 'skills'),
+    runGraphifyInstall: true,
   };
 }

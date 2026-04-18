@@ -15,7 +15,7 @@ The CLI asks which AI tools you use, then generates a ready-to-code project with
 - `CLAUDE.md` + `.claude/skills/` (if Claude Code selected)
 - `.github/copilot-instructions.md` (if Copilot selected)
 - `.cursor/rules.md`, `GEMINI.md`, etc. per your selection
-- 3 bundled skills: `graphify-gitignore`, `vscode-config-generator`, `docs-md-generator` (stub)
+- 3 bundled skills: `graphify-setup`, `vscode-config-generator`, `docs-md-generator` (stub)
 
 ## Repo structure
 
