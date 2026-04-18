@@ -40,7 +40,31 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 **Most AI tooling assumes a one-man-band developer with a chat window.** Real companies have analysts, architects, multiple developers, shadow testers. Different phases need different models — discovery and architecture are `[pair]` work on a large model; implementation is `[solo]` on a smaller one. NONoise's orchestrator **announces the mode for every step** so nobody wastes the wrong model on the wrong problem.
 
-**A skill library is useless if nobody knows what to use when.** Polly is the conductor. It auto-triggers post-scaffold, asks greenfield-vs-brownfield, then walks the SDLC in order — requirements → discovery → architecture → sprint → implementation → acceptance. You never pick the wrong skill; you always know the next step.
+**A skill library is useless if nobody knows what to use when.** Polly is the conductor that removes that problem entirely. It auto-triggers the moment scaffolding is complete, asks one question — *greenfield or brownfield?* — and then walks your team through the full **SDLC** in sequence, surfacing the right skill at every phase.
+
+```mermaid
+flowchart LR
+    START(["🚀 npx create-nonoise"])
+    POLLY(["🎼 Polly auto-triggers"])
+    Q{"Greenfield or Brownfield?"}
+    REQ["📋 Requirements"]
+    DISC["🔍 Discovery"]
+    ARCH["🏛️ Architecture"]
+    SPRINT["📅 Sprint Planning"]
+    IMPL["⚙️ Implementation"]
+    UNIT["🧪 Unit & Integration Tests"]
+    E2E["🤖 Test Automation / E2E"]
+    ACC["✅ Acceptance"]
+
+    START --> POLLY --> Q
+    Q -->|New project| REQ
+    Q -->|Existing codebase| DISC
+    REQ --> DISC
+    DISC --> ARCH --> SPRINT --> IMPL --> UNIT --> E2E --> ACC
+    ACC -->|"Next sprint 🔁"| SPRINT
+```
+
+You never pick the wrong skill. You always know the next step.
 
 **Canonical architectures beat exotic ones** because they're already in the parametric memory of every frontier LLM. NONoise's architectural skills push toward DDD, Clean Architecture, CQRS, standard REST — and only allow deviations that survive a formal Quint FPF validation. Every token you spend re-teaching the LLM your bespoke abstraction is a token it isn't spending on your actual problem.
 

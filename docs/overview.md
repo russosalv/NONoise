@@ -6,11 +6,11 @@ It is not a framework for *building* AI applications. It is a framework for *run
 
 ## The 60-second pitch
 
-Take any empty folder. Run `npx create-nonoise`, pick which AI assistants your team uses, answer three scaffold questions, and you get:
+Take any empty folder. Run `npx create-nonoise`, pick which AI assistants your team uses (**v1: Claude Code and GitHub Copilot** — Cursor / Gemini CLI / Codex are on the roadmap as best-effort Markdown consumers), answer three scaffold questions, and you get:
 
 - A **`docs/`** hierarchy with six purpose-built folders — the canonical source of truth for requirements, architecture decisions, PRDs, sprint manifests, reverse-engineering dossiers, and meeting transcripts. Every NONoise skill reads from and writes to this tree.
 - A **`.claude/skills/`** library of 40+ AI skills covering the full SDLC: requirements elicitation, architectural brainstorming and formal validation, sprint breakdown, test-driven implementation, acceptance running, observability triage, brownfield reverse engineering, UI / UX design, technical writing.
-- **Tool-specific context files** for every AI tool your team uses — `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for Copilot, `AGENTS.md` for Codex, `.cursor/rules.md` for Cursor, `GEMINI.md` for Gemini CLI — all generated from one source of truth so they don't drift.
+- **Tool-specific context files** for every AI tool your team uses — `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for Copilot (v1 first-class), plus `AGENTS.md` / `.cursor/rules.md` / `GEMINI.md` for Codex, Cursor, Gemini CLI (best-effort in v1) — all generated from one source of truth so they don't drift.
 - **Polly**, an orchestrator skill that auto-triggers on the first session, asks whether you're on a greenfield or brownfield project, and walks the SDLC step-by-step — announcing `[pair]` vs `[solo]` mode for every step and invoking the right specialist skill in the right order.
 - Two **Node CLIs** (`tools/md-extractor/` and `tools/devops-push/`) for the two operations that are painful to do by hand: ingesting raw PDFs / DOCX into structured Markdown, and pushing sprint task breakdowns to Azure DevOps as work items.
 - A **`nonoise.config.json`** that records which tools and skill packs were installed, so a future `nonoise update` can diff against a registry without clobbering local customisation.
