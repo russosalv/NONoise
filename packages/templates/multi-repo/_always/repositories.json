@@ -1,0 +1,22 @@
+{
+  "$schema": "https://nonoise.dev/schemas/repositories.v1.json",
+  "description": "Sub-repository configuration for this NONoise multi-repo workspace. Add entries below, then run ./scripts/clone-all.(sh|ps1)",
+  "version": "1.0.0",
+  "repositories": [
+    {
+      "name": "example-service",
+      "url": "https://github.com/YOUR_ORG/example-service.git",
+      "path": "backend/example-service",
+      "branch": "main",
+      "description": "Example placeholder — remove or replace",
+      "category": "backend",
+      "language": "any",
+      "status": "inactive"
+    }
+  ],
+  "notes": [
+    "'path' is relative to repos/ — scripts prepend repos/ automatically",
+    "'status' can be: active, inactive, deprecated, archived — scripts process active only",
+    "Set status to 'active' once you've filled in the real url"
+  ]
+}
