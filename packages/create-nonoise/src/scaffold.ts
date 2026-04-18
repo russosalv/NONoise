@@ -7,6 +7,8 @@ import type { ProjectContext, HandlebarsRenderContext } from './types.js';
 import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
+import { runBmadInstall } from './bmad-runner.js';
+import { filterBmadSkills } from './bmad-filter.js';
 
 function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
   return (
@@ -42,6 +44,8 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     projectNameSnake: toSnakeCase(ctx.projectName),
     year: now.getFullYear().toString(),
     createdAt: now.toISOString(),
+    bmadInstalled: false,
+    bmadInstallError: null,
   };
 
   for (const file of resolved) {
@@ -66,9 +70,45 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     });
   }
 
+  let bmadInstalled = false;
+  let bmadInstallError: string | null = null;
+  if (ctx.installBmad) {
+    const result = await runBmadInstall(ctx.projectPath);
+    if (result.ok) {
+      await filterBmadSkills(ctx.projectPath);
+      bmadInstalled = true;
+    } else {
+      bmadInstallError = result.error;
+    }
+  }
+
+  await rewriteNonoiseConfig(ctx, paths, {
+    ...renderCtx,
+    bmadInstalled,
+    bmadInstallError,
+  });
+
   if (ctx.gitInit) {
     runGitInit(ctx.projectPath);
   }
+}
+
+async function rewriteNonoiseConfig(
+  ctx: ProjectContext,
+  paths: ScaffoldPaths,
+  renderCtx: HandlebarsRenderContext,
+): Promise<void> {
+  const templatePath = join(
+    paths.templatesRoot,
+    ctx.template,
+    '_always',
+    'nonoise.config.json.hbs',
+  );
+  const src = await readFile(templatePath, 'utf8');
+  const tpl = Handlebars.compile(src, { noEscape: true });
+  const rendered = tpl(renderCtx);
+  const destPath = join(ctx.projectPath, 'nonoise.config.json');
+  await writeFile(destPath, rendered, 'utf8');
 }
 
 function nativePath(p: string): string {

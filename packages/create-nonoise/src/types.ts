@@ -24,6 +24,8 @@ export type HandlebarsRenderContext = ProjectContext & {
   projectNameSnake: string;
   year: string;
   createdAt: string;
+  bmadInstalled: boolean;
+  bmadInstallError: string | null;
 };
 
 export const AI_TOOL_TO_FLAG: Record<AiToolKey, string> = {
