@@ -91,6 +91,7 @@ describe('scaffold() integration', () => {
       'spec-to-workitem',
       'ops-skill-builder',
       'observability-debug',
+      'polly',
     ];
     for (const name of expected) {
       const content = await readFile(

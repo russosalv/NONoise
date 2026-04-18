@@ -1,20 +1,21 @@
-# Access patterns — CLI / API / Web
+# Access patterns — per-tool concrete probes
 
-This reference is the **depth-dive** for Phase 1 of `ops-skill-builder`. It documents concrete auth setups, verification probes, and failure modes across the three access tiers and across the most common cloud / tool ecosystems.
+Per-tool auth setups, verification probes, and failure modes for the clouds and services most often hit by `ops-skill-builder`. This is the **specialized** companion to the shared access-first reference.
 
-## Principle: three tiers, tried in order
+> **See also**: [`../../_shared/access-model.md`](../../_shared/access-model.md) — the **generic** access philosophy (tier definitions, probe pattern, fallback protocol, never-silent-login rule, OIDC federation for CI, browser-MCP pins per AI tool, anti-patterns). Read that first if you're new to the access-first model; this file specializes the generic pattern to concrete tooling.
 
-| Tier | Preference | When to use |
-|---|---|---|
-| **CLI** | 1st choice | A CLI exists for the target and the user is willing to run it with their credentials. Auditable (shell history), fast, minimal setup. |
-| **API** | 2nd choice | No CLI available, or the CLI is locked behind SSO / corporate proxy. The user supplies a token via env var. |
-| **Web** | 3rd choice | Neither CLI nor API is practical. Requires a browser MCP server (e.g. Playwright MCP), or pair-driven manual navigation. Documented as "more complex". |
+Scope of this file:
 
-Never silently downgrade. If tier N is unavailable, explicitly ask the user to approve moving to tier N+1.
+- **CLI auth + probe** per tool (section 1)
+- **API auth + probe** per tool (section 2)
+- **Common failure modes and remediations** (section 3)
+- **Auth-model summary for crystallized skills** (section 4)
+
+Everything tier-generic (CLI > API > Web, fallback protocol, OIDC flows, browser-MCP choice) has moved to `_shared/access-model.md`.
 
 ---
 
-## Tier 1 — CLI access
+## 1. Tier 1 — CLI access (per tool)
 
 ### Azure — `az`
 
@@ -25,7 +26,7 @@ az login
 # Auth (headless — service principal)
 az login --service-principal -u "$AZ_CLIENT_ID" -p "$AZ_CLIENT_SECRET" --tenant "$AZ_TENANT_ID"
 
-# Auth (headless — workload identity / OIDC, recommended in CI)
+# Auth (headless — workload identity / OIDC in CI — see _shared/access-model.md § 6.1 for the full setup)
 az login --service-principal -u "$AZ_CLIENT_ID" --federated-token "$ID_TOKEN" --tenant "$AZ_TENANT_ID"
 
 # Verify
@@ -57,7 +58,7 @@ kubectl config set-context --current --namespace=<ns>
 aws configure sso
 aws sso login --profile <profile>
 
-# Auth (static keys — discouraged, acceptable for CI)
+# Auth (static keys — discouraged, acceptable only in legacy CI — prefer OIDC per _shared § 6.2)
 aws configure    # prompts for Access Key ID / Secret Access Key / region
 
 # Verify
@@ -82,7 +83,7 @@ kubectl get nodes
 gcloud auth login
 gcloud auth application-default login   # for ADC — most SDKs use this
 
-# Auth (service account key)
+# Auth (service account key — prefer Workload Identity Federation in CI per _shared § 6.3)
 gcloud auth activate-service-account --key-file="$GCP_SA_KEY_PATH"
 
 # Verify
@@ -173,7 +174,7 @@ helm upgrade --install <release> <chart> -f values.yaml --dry-run --debug
 
 ---
 
-## Tier 2 — API access
+## 2. Tier 2 — API access (per tool)
 
 ### Azure — Azure REST API
 
@@ -291,50 +292,15 @@ curl -s http://localhost:8001/api/v1/namespaces
 
 ---
 
-## Tier 3 — Web access
+## 3. Tier 3 — Web access
 
-### Via a browser MCP server (Playwright MCP, puppeteer MCP, etc.)
+See [`../../_shared/access-model.md`](../../_shared/access-model.md) § 7 for the browser-MCP pin per AI tool (Claude Code: `@playwright/mcp`; GitHub Copilot CLI: same package via `.vscode/mcp.json`) and the pair-driven fallback. Nothing here is ops-skill-builder-specific.
 
-Check that a browser MCP is configured:
-
-- In Claude Code / Copilot: list MCP servers (`/mcp`, or check `.mcp.json`)
-- Probe for tool names like `mcp__playwright__navigate`, `mcp__puppeteer__click`
-
-If present, the skill can drive the browser. Typical flow:
-
-1. `navigate` to the vendor's login URL
-2. User completes any MFA step manually
-3. Skill navigates to the target page
-4. Skill reads back the DOM or screenshots it
-5. Skill proposes actions (click X, fill Y) and executes with user confirmation
-
-### Without a browser MCP — pair-driven
-
-If no MCP is available, the skill dictates steps and the user drives the browser:
-
-1. Skill: "Open https://portal.azure.com/#resource/subscriptions/..."
-2. User: confirms they're on the page
-3. Skill: "Click 'Overview' → 'Running pods'. Report what you see."
-4. User: types back or pastes a screenshot
-5. Skill: "Now click 'Restart' on pod `payments-api-abc123`. Confirm before clicking."
-6. User: clicks, reports outcome
-
-This mode is **slow and lossy**. Document it as "interactive pair mode" and only use it when no better option exists.
-
-### Web is "more complex" — what that means
-
-Compared to CLI / API, web access:
-
-- Cannot be safely automated without a browser MCP (DOMs change, selectors break)
-- Has no standard audit trail (no shell history)
-- Usually requires human-in-the-loop for MFA
-- Is the first to break on vendor UI updates
-
-Crystallized skills that depend on web access should **embed a warning in their description**: "Fragile: depends on the vendor's web UI, may break on UI changes. Preferred path is CLI or API; see `references/access-patterns.md`."
+Crystallized skills that depend on web access should **embed a warning in their description**: *"Fragile: depends on the vendor's web UI, may break on UI changes. Preferred path is CLI or API; see `_shared/access-model.md`."*
 
 ---
 
-## Common failure modes and remediations
+## 4. Common failure modes and remediations
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -348,10 +314,12 @@ Crystallized skills that depend on web access should **embed a warning in their 
 | `aws sts` returns `ExpiredToken` | SSO session expired | `aws sso login --profile <profile>` |
 | Jira API returns 401 | API token valid but email mismatched | Verify `JIRA_EMAIL` matches the token's owner |
 | Linear API returns 400 | GraphQL query malformed | Validate with `linear.app/graphql` playground first |
+| GitHub Actions OIDC: `AADSTS70021: No matching federated identity record` | Federated credential `subject` doesn't match the workflow trigger | Per `_shared/access-model.md` § 6.5: create one credential per trigger shape (branch ref vs environment vs pull_request) |
+| GitHub Actions OIDC: `could not fetch identity token` | `permissions: id-token: write` missing on the job | Add it at job or workflow level; see `_shared/access-model.md` § 6 |
 
 ---
 
-## Auth model summary for crystallized skills
+## 5. Auth model summary for crystallized skills
 
 Every generated skill (Phase 5 output) must declare its auth model in the frontmatter and in a **Pre-check auth** section. Standard shape:
 
@@ -367,9 +335,9 @@ This skill requires <tier> access to <target>. Verify before running:
 Expected output: <non-empty string / specific context name / etc.>
 
 If it fails:
-- Run <auth command> (interactive), OR
-- Set env var <NAME> (document scope/permissions required), OR
+- Run <auth command> (interactive — **never run silently**, per `_shared/access-model.md` § 4), OR
+- Set env var <NAME> (document scope/permissions required in the project README), OR
 - Ask your platform team for <specific permission>
 ```
 
-No secrets in the generated skill. Never. Secrets live in the user's shell or in `.env` (gitignored).
+No secrets in the generated skill. Never. Secrets live in the user's shell or in `.env` (gitignored). Env-var naming follows the convention in `_shared/access-model.md` § 5.

@@ -226,11 +226,13 @@ Summarize in one sentence: *"I'm investigating `<symptom>` for `<ID or scope>` i
 
 ### Phase 2 — access check
 
+This skill follows the shared **access-first** methodology documented in [`../_shared/access-model.md`](../_shared/access-model.md) (CLI > API > Web preference, cheap read-only probes, never-silent-login, explicit fallback protocol, OIDC for CI). Each adapter specializes the generic probe into its own `authenticate()` implementation and documents the required env vars / CLI prerequisites in its `adapter-<backend>.md` reference file.
+
 Call `authenticate()` on the chosen adapter. Three outcomes:
 
 - **Ok** — print one line (*"`<adapter>` authenticated"*) and advance to phase 3.
-- **Fails with a remediation known to the adapter** — print the exact commands the user must run (e.g. `az login`, `export DD_API_KEY=…`, `aws sso login`), then wait for the user to run them (do **not** run auth commands yourself; they typically need an interactive prompt). Re-probe after user confirmation.
-- **Fails unrecoverably** — offer to degrade to the configured `fallback` adapter (default `generic-log-file`). Confirm before switching.
+- **Fails with a remediation known to the adapter** — print the exact commands the user must run (e.g. `! az login`, `export DD_API_KEY=…`, `! aws sso login`), then wait for the user to run them. Per the never-silent-login rule in `_shared/access-model.md` § 4, **do not run auth commands yourself** — they typically need an interactive browser/MFA prompt. Re-probe after user confirmation.
+- **Fails unrecoverably** — offer to degrade to the configured `fallback` adapter (default `generic-log-file`). Confirm before switching (never silently downgrade; see `_shared/access-model.md` § 3).
 
 The adapter reference files document every required env var, CLI prerequisite, and OIDC flow. Do **not** hardcode these in SKILL.md — they live per-adapter.
 
@@ -352,15 +354,15 @@ If yes, hand off to [`skill-creator`](../skill-creator/SKILL.md) with a draft fr
 
 ## Anti-patterns
 
+Observability-specific anti-patterns only. Access-first / auth anti-patterns (skipping the probe, silent downgrade, running `az login` / `aws sso login` silently, hardcoding tokens, caching credentials, etc.) are documented once in [`../_shared/access-model.md`](../_shared/access-model.md) § 8 — they apply here too.
+
 1. **Hardcoding KQL** (or LogQL, or Logs Insights, or any adapter-specific query language) in SKILL.md — these belong in adapter reference files.
 2. **Assuming App Insights** — the first-class adapter is App Insights, but the skill must work even when the user has never heard of Azure.
-3. **Skipping the access probe** — running a query before `authenticate()` just produces opaque errors.
-4. **Proposing a fix without reproducing or correlating** — an untested patch based on a single log line is worse than no patch.
-5. **Ignoring correlation ID propagation** — if the traces are not correlated, tell the user why and what to fix **in their project**, rather than trying to patch around it.
-6. **Fabricating a correlation ID** — never invent one. If the user says they have none, degrade to phase 3 sub-flow B.
-7. **Running auth commands silently** — `az login`, `aws sso login`, etc. need an interactive terminal. Print the command, let the user run it, then re-probe.
-8. **Leaving the timeline implicit** — the compact event timeline (phase 3) must be visible to the user; it is the shared artifact that grounds the rest of the analysis.
-9. **Blowing past "empty result"** — an empty query result is informative: either the ID is wrong, the time range is off, or the backend is not capturing the data. Diagnose before retrying.
+3. **Proposing a fix without reproducing or correlating** — an untested patch based on a single log line is worse than no patch.
+4. **Ignoring correlation ID propagation** — if the traces are not correlated, tell the user why and what to fix **in their project**, rather than trying to patch around it.
+5. **Fabricating a correlation ID** — never invent one. If the user says they have none, degrade to phase 3 sub-flow B.
+6. **Leaving the timeline implicit** — the compact event timeline (phase 3) must be visible to the user; it is the shared artifact that grounds the rest of the analysis.
+7. **Blowing past "empty result"** — an empty query result is informative: either the ID is wrong, the time range is off, or the backend is not capturing the data. Diagnose before retrying.
 
 ---
 
@@ -378,6 +380,7 @@ If yes, hand off to [`skill-creator`](../skill-creator/SKILL.md) with a draft fr
 
 Read on demand — do not preload upfront.
 
+- [`../_shared/access-model.md`](../_shared/access-model.md) — **shared access-first reference** (CLI > API > Web tiers, probe pattern, fallback protocol, never-silent-login rule, env-var convention, OIDC federation for CI, browser-MCP pins per AI tool, anti-patterns). Consumed by this skill (Phase 2) and by `ops-skill-builder`.
 - [`references/adapter-app-insights.md`](./references/adapter-app-insights.md) — **first-class v1 adapter**. Full KQL examples, `az` CLI auth, `APPINSIGHTS_API_KEY` fallback, quirks.
 - [`references/adapter-datadog.md`](./references/adapter-datadog.md) — `DD_API_KEY` + `DD_APP_KEY` auth; Logs Search API and APM trace API.
 - [`references/adapter-grafana-loki.md`](./references/adapter-grafana-loki.md) — `LOKI_URL` + optional bearer; LogQL examples; Tempo bridge for traces.

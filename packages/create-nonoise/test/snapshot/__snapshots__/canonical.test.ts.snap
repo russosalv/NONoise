@@ -3668,11 +3668,13 @@ Summarize in one sentence: *"I'm investigating \`<symptom>\` for \`<ID or scope>
 
 ### Phase 2 — access check
 
+This skill follows the shared **access-first** methodology documented in [\`../_shared/access-model.md\`](../_shared/access-model.md) (CLI > API > Web preference, cheap read-only probes, never-silent-login, explicit fallback protocol, OIDC for CI). Each adapter specializes the generic probe into its own \`authenticate()\` implementation and documents the required env vars / CLI prerequisites in its \`adapter-<backend>.md\` reference file.
+
 Call \`authenticate()\` on the chosen adapter. Three outcomes:
 
 - **Ok** — print one line (*"\`<adapter>\` authenticated"*) and advance to phase 3.
-- **Fails with a remediation known to the adapter** — print the exact commands the user must run (e.g. \`az login\`, \`export DD_API_KEY=…\`, \`aws sso login\`), then wait for the user to run them (do **not** run auth commands yourself; they typically need an interactive prompt). Re-probe after user confirmation.
-- **Fails unrecoverably** — offer to degrade to the configured \`fallback\` adapter (default \`generic-log-file\`). Confirm before switching.
+- **Fails with a remediation known to the adapter** — print the exact commands the user must run (e.g. \`! az login\`, \`export DD_API_KEY=…\`, \`! aws sso login\`), then wait for the user to run them. Per the never-silent-login rule in \`_shared/access-model.md\` § 4, **do not run auth commands yourself** — they typically need an interactive browser/MFA prompt. Re-probe after user confirmation.
+- **Fails unrecoverably** — offer to degrade to the configured \`fallback\` adapter (default \`generic-log-file\`). Confirm before switching (never silently downgrade; see \`_shared/access-model.md\` § 3).
 
 The adapter reference files document every required env var, CLI prerequisite, and OIDC flow. Do **not** hardcode these in SKILL.md — they live per-adapter.
 
@@ -3794,15 +3796,15 @@ If yes, hand off to [\`skill-creator\`](../skill-creator/SKILL.md) with a draft 
 
 ## Anti-patterns
 
+Observability-specific anti-patterns only. Access-first / auth anti-patterns (skipping the probe, silent downgrade, running \`az login\` / \`aws sso login\` silently, hardcoding tokens, caching credentials, etc.) are documented once in [\`../_shared/access-model.md\`](../_shared/access-model.md) § 8 — they apply here too.
+
 1. **Hardcoding KQL** (or LogQL, or Logs Insights, or any adapter-specific query language) in SKILL.md — these belong in adapter reference files.
 2. **Assuming App Insights** — the first-class adapter is App Insights, but the skill must work even when the user has never heard of Azure.
-3. **Skipping the access probe** — running a query before \`authenticate()\` just produces opaque errors.
-4. **Proposing a fix without reproducing or correlating** — an untested patch based on a single log line is worse than no patch.
-5. **Ignoring correlation ID propagation** — if the traces are not correlated, tell the user why and what to fix **in their project**, rather than trying to patch around it.
-6. **Fabricating a correlation ID** — never invent one. If the user says they have none, degrade to phase 3 sub-flow B.
-7. **Running auth commands silently** — \`az login\`, \`aws sso login\`, etc. need an interactive terminal. Print the command, let the user run it, then re-probe.
-8. **Leaving the timeline implicit** — the compact event timeline (phase 3) must be visible to the user; it is the shared artifact that grounds the rest of the analysis.
-9. **Blowing past "empty result"** — an empty query result is informative: either the ID is wrong, the time range is off, or the backend is not capturing the data. Diagnose before retrying.
+3. **Proposing a fix without reproducing or correlating** — an untested patch based on a single log line is worse than no patch.
+4. **Ignoring correlation ID propagation** — if the traces are not correlated, tell the user why and what to fix **in their project**, rather than trying to patch around it.
+5. **Fabricating a correlation ID** — never invent one. If the user says they have none, degrade to phase 3 sub-flow B.
+6. **Leaving the timeline implicit** — the compact event timeline (phase 3) must be visible to the user; it is the shared artifact that grounds the rest of the analysis.
+7. **Blowing past "empty result"** — an empty query result is informative: either the ID is wrong, the time range is off, or the backend is not capturing the data. Diagnose before retrying.
 
 ---
 
@@ -3820,6 +3822,7 @@ If yes, hand off to [\`skill-creator\`](../skill-creator/SKILL.md) with a draft 
 
 Read on demand — do not preload upfront.
 
+- [\`../_shared/access-model.md\`](../_shared/access-model.md) — **shared access-first reference** (CLI > API > Web tiers, probe pattern, fallback protocol, never-silent-login rule, env-var convention, OIDC federation for CI, browser-MCP pins per AI tool, anti-patterns). Consumed by this skill (Phase 2) and by \`ops-skill-builder\`.
 - [\`references/adapter-app-insights.md\`](./references/adapter-app-insights.md) — **first-class v1 adapter**. Full KQL examples, \`az\` CLI auth, \`APPINSIGHTS_API_KEY\` fallback, quirks.
 - [\`references/adapter-datadog.md\`](./references/adapter-datadog.md) — \`DD_API_KEY\` + \`DD_APP_KEY\` auth; Logs Search API and APM trace API.
 - [\`references/adapter-grafana-loki.md\`](./references/adapter-grafana-loki.md) — \`LOKI_URL\` + optional bearer; LogQL examples; Tempo bridge for traces.
@@ -4206,106 +4209,114 @@ aws xray get-trace-summaries \\
 ",
   ".claude/skills/observability-debug/references/adapter-datadog.md": "# Adapter — \`datadog\`
 
-> **Status**: usable stub. Auth model fully documented and testable; response parsing wired for logs and traces (APM). The only thing preventing "implemented" status is end-to-end exercise against a real Datadog tenant in the NONoise test suite.
+> **Status**: implemented (first-class v1 adapter). All five contract methods are specified with concrete endpoints, JSON payloads, pagination handling, and a response parser that emits the canonical event shape. End-to-end exercise against a live tenant is still pending in the NONoise test suite.
 
-Datadog exposes telemetry through four products that matter here: **Logs** (the log search API), **APM** (traces and spans), **Metrics**, and **Events**. This adapter uses Logs + APM. Query language is **Datadog Log Search syntax** (logs) and the APM trace search DSL (traces).
+Datadog exposes telemetry through **Logs**, **APM** (traces/spans), **Metrics**, and **Events**. This adapter uses Logs + APM + Events. Query language is **Datadog Log Search syntax** for logs and the APM trace-search DSL for spans — not KQL, not LogQL. Docs: [Logs search v2](https://docs.datadoghq.com/api/latest/logs/#search-logs), [APM spans search](https://docs.datadoghq.com/api/latest/spans/#search-spans), [Validate key](https://docs.datadoghq.com/api/latest/authentication/#validate-api-key), [Rate limits](https://docs.datadoghq.com/api/latest/rate-limits/).
 
 ## Table of contents
 
 - [Authentication](#authentication)
 - [Availability probe](#availability-probe)
 - [Query examples — the five contract methods](#query-examples--the-five-contract-methods)
+- [Parsing results](#parsing-results)
 - [Pagination and rate limits](#pagination-and-rate-limits)
+- [Empty results — diagnostic table](#empty-results--diagnostic-table)
 - [Known quirks](#known-quirks)
 
 ---
 
 ## Authentication
 
-Datadog requires **two** keys — both required for most endpoints:
+Datadog requires **two** keys — both needed for every endpoint this adapter uses except \`/api/v1/validate\`:
 
 | Env var | Purpose | Where to create |
 |---|---|---|
 | \`DD_API_KEY\` | Account-level API key | Organization Settings → API Keys |
 | \`DD_APP_KEY\` | User-level application key (scoped) | Personal Settings → Application Keys |
-| \`DD_SITE\` | Regional endpoint (default \`datadoghq.com\`) | One of: \`datadoghq.com\`, \`datadoghq.eu\`, \`us3.datadoghq.com\`, \`us5.datadoghq.com\`, \`ap1.datadoghq.com\` |
+| \`DD_SITE\` | Regional endpoint (default \`datadoghq.com\`) | One of \`datadoghq.com\`, \`datadoghq.eu\`, \`us3.datadoghq.com\`, \`us5.datadoghq.com\`, \`ap1.datadoghq.com\` |
 
-All requests go to \`https://api.<DD_SITE>/api/...\`. Example base URLs:
-
-- US1 (default): \`https://api.datadoghq.com\`
-- EU: \`https://api.datadoghq.eu\`
-
-Both headers are required on every call:
-
-\`\`\`
-DD-API-KEY: <DD_API_KEY>
-DD-APPLICATION-KEY: <DD_APP_KEY>
-\`\`\`
-
-Scopes required on the App Key: \`logs_read\`, \`apm_read\`, \`apm_service_catalog_read\`.
+Base URL: \`https://api.<DD_SITE>/api/...\` (e.g. US1 \`api.datadoghq.com\`, EU \`api.datadoghq.eu\`). Required headers on every call except validate: \`DD-API-KEY: <DD_API_KEY>\` and \`DD-APPLICATION-KEY: <DD_APP_KEY>\`. App Key scopes required: \`logs_read\`, \`apm_read\`, \`apm_service_catalog_read\`, \`events_read\`.
 
 ---
 
 ## Availability probe
 
+Validate checks only \`DD_API_KEY\`. Follow it with a cheap logs search to confirm the App Key and site match:
+
 \`\`\`bash
-curl -s -X GET "https://api.\${DD_SITE:-datadoghq.com}/api/v1/validate" \\
-  -H "DD-API-KEY: $DD_API_KEY" \\
-  -H "DD-APPLICATION-KEY: $DD_APP_KEY"
+DD_SITE=\${DD_SITE:-datadoghq.com}
+
+# 1. Validate DD_API_KEY (returns {"valid": true} on success)
+curl -s -X GET "https://api.\${DD_SITE}/api/v1/validate" \\
+  -H "DD-API-KEY: $DD_API_KEY" > "$TEMP/dd-validate.json"
+
+# 2. Confirm DD_APP_KEY + site via a zero-cost logs search
+curl -s -X POST "https://api.\${DD_SITE}/api/v2/logs/events/search" \\
+  -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"filter":{"query":"*","from":"now-1m","to":"now"},"page":{"limit":1}}' \\
+  -o "$TEMP/dd-probe.json" -w "%{http_code}"
 \`\`\`
 
-Success returns \`{"valid": true}\`. Any other response → print remediation and stop.
+\`{"valid": true}\` + \`200\` on the probe → OK. \`403\` on the probe but \`valid:true\` → App Key missing, revoked, or scoped to a different org. \`403\` on both → \`DD_SITE\` mismatch (US1 key against \`api.datadoghq.eu\`, etc.); the error is a generic 403 with no body — check the suffix of your Datadog web UI URL.
 
 ---
 
 ## Query examples — the five contract methods
 
-Datadog's **Logs Search v2** API: \`POST /api/v2/logs/events/search\`. The **APM Spans Search** API: \`POST /api/v2/spans/events/search\`.
+Two APIs drive this adapter: **Logs Search v2** (\`POST /api/v2/logs/events/search\`) and **APM Spans Search** (\`POST /api/v2/spans/events/search\`). Both accept the same time-range vocabulary: \`now\`, \`now-<N>{m,h,d}\`, ISO-8601 (\`2026-04-18T09:32:14Z\`), or Unix timestamps in **milliseconds** as strings. Seconds-precision Unix is rejected silently — multiply by 1000.
 
-### \`query_by_correlation_id(id, time_range)\`
+### 1. \`authenticate()\`
 
-Two calls — logs and spans — merged into the canonical shape.
+See [Availability probe](#availability-probe).
 
-**Logs** (correlation ID is indexed as \`@trace_id\` by the Datadog tracer, or a custom attribute like \`@correlation_id\` depending on your instrumentation):
+### 2. \`query_by_correlation_id(id, time_range)\`
+
+Run logs + spans in parallel and merge into the canonical shape.
+
+**Resolve-first pattern** — the caller may hand over a Datadog \`dd.trace_id\`, a raw \`X-Correlation-Id\` header value, or an internal business ID. If the ID is not clearly a hex trace ID (16 or 32 hex chars), **resolve first** by searching logs for the raw string in any attribute:
 
 \`\`\`bash
-curl -X POST "https://api.\${DD_SITE}/api/v2/logs/events/search" \\
+curl -s -X POST "https://api.\${DD_SITE}/api/v2/logs/events/search" \\
+  -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"filter":{"query":"<ID>","from":"now-6h","to":"now"},"sort":"timestamp","page":{"limit":5}}'
+\`\`\`
+
+Pull \`attributes.attributes.dd.trace_id\` from the first hit, then run the two queries below with the resolved trace ID.
+
+**Logs** — attributes use \`@\` prefix in the query DSL (\`@dd.trace_id\`); tags are bare:
+
+\`\`\`bash
+curl -s -X POST "https://api.\${DD_SITE}/api/v2/logs/events/search" \\
   -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "filter": {
-      "query": "@trace_id:<ID>",
-      "from": "now-6h",
-      "to":   "now"
-    },
+    "filter": { "query": "@dd.trace_id:<TRACE_ID>", "from": "now-6h", "to": "now" },
     "sort": "timestamp",
     "page": { "limit": 200 }
   }'
 \`\`\`
 
-**Spans** (APM):
+**Spans** (APM) — no \`@\` prefix on span attributes:
 
 \`\`\`bash
-curl -X POST "https://api.\${DD_SITE}/api/v2/spans/events/search" \\
+curl -s -X POST "https://api.\${DD_SITE}/api/v2/spans/events/search" \\
   -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "filter": {
-      "query": "trace_id:<ID>",
-      "from": "now-6h",
-      "to":   "now"
-    },
+    "filter": { "query": "trace_id:<TRACE_ID>", "from": "now-6h", "to": "now" },
     "sort": "timestamp",
     "page": { "limit": 200 }
   }'
 \`\`\`
 
-### \`query_by_time_range(start, end, filter)\`
+### 3. \`query_by_time_range(start, end, filter)\`
 
 \`\`\`json
 {
   "filter": {
-    "query": "service:<service-name> status:error",
+    "query": "service:<service> status:error",
     "from": "<ISO-8601 or now-6h>",
     "to":   "<ISO-8601 or now>"
   },
@@ -4314,55 +4325,147 @@ curl -X POST "https://api.\${DD_SITE}/api/v2/spans/events/search" \\
 }
 \`\`\`
 
-Common filter keys: \`service:\`, \`env:\`, \`host:\`, \`@http.status_code:\`, \`@usr.id:\`, \`status:\` (error/warn/info), \`resource_name:\`.
+Common filter keys: \`service:\`, \`env:\`, \`host:\`, \`@http.status_code:\`, \`@usr.id:\`, \`status:\` (error/warn/info), \`resource_name:\`. Combine with boolean operators: \`service:orders-api AND env:prod AND status:error\`.
 
-### \`get_exception_details(exception_id)\`
+### 4. \`get_exception_details(exception_id)\`
 
-Datadog does not expose a standalone exception resource. Retrieve the log event by ID:
+Datadog has no standalone exception resource. The caller passes a **log event ID** returned by a prior search; retrieve it with:
 
 \`\`\`bash
-curl -X GET "https://api.\${DD_SITE}/api/v2/logs/events/<LOG_EVENT_ID>" \\
+curl -s -X GET "https://api.\${DD_SITE}/api/v2/logs/events/<LOG_EVENT_ID>" \\
   -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY"
 \`\`\`
 
-The \`error.stack\`, \`error.kind\`, and \`error.message\` attributes carry the exception.
+\`attributes.attributes.error.{kind,message,stack}\` carry the exception payload. For APM-originated exceptions, pass a span ID and route to \`GET /api/v2/spans/events/<SPAN_EVENT_ID>\` — the span's \`meta.error.stack\` is the equivalent.
 
-### \`list_sampled_errors(time_range, severity)\`
+### 5. \`list_sampled_errors(time_range, severity)\`
 
-Aggregation endpoint — groups errors by service + resource:
+Aggregation endpoint — groups errors by service + resource and returns a sample trace ID per bucket for drill-down:
 
 \`\`\`bash
-curl -X POST "https://api.\${DD_SITE}/api/v2/logs/analytics/aggregate" \\
+curl -s -X POST "https://api.\${DD_SITE}/api/v2/logs/analytics/aggregate" \\
   -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "compute": [{ "aggregation": "count", "type": "total" }],
+    "compute": [
+      { "aggregation": "count",    "type": "total" },
+      { "aggregation": "earliest", "metric": "@dd.trace_id", "type": "total" }
+    ],
     "filter":  { "query": "status:error", "from": "now-6h", "to": "now" },
     "group_by": [
-      { "facet": "service", "limit": 10, "sort": { "order": "desc", "aggregation": "count" } },
+      { "facet": "service",        "limit": 10, "sort": { "order": "desc", "aggregation": "count" } },
       { "facet": "@resource_name", "limit": 5 }
     ]
   }'
+\`\`\`
+
+The \`earliest(@dd.trace_id)\` bucket yields a trace ID the caller can feed back into \`query_by_correlation_id\`. If the plan does not support \`earliest\` on a faceted attribute, fall back to two passes: aggregate top buckets, then one narrow \`logs/events/search\` per bucket with \`page.limit: 1\`.
+
+---
+
+## Parsing results
+
+Both search endpoints return the same envelope. Relevant fields: \`data[].id\`, \`data[].attributes.{timestamp, service, status, message}\`, \`data[].attributes.attributes.{dd, http, error, resource_name, duration, peer_service, db_instance}\`, \`meta.page.after\` (pagination cursor), \`meta.warnings[]\` (silent query issues on 200).
+
+Windows-friendly Node parser — no \`jq\` dependency, use \`node -e\` or the script below:
+
+\`\`\`js
+// scripts/parse-dd.js — normalize Datadog search response → canonical event shape
+const fs = require('fs');
+
+function parseDatadogSearch(path) {
+  const raw = JSON.parse(fs.readFileSync(path, 'utf8'));
+  const events = (raw.data || []).map(d => {
+    const a = d.attributes || {};
+    const inner = a.attributes || {};                // Datadog nests attributes.attributes
+    const dd = inner.dd || {};
+    const http = inner.http || {};
+    const err = inner.error || {};
+    return {
+      timestamp: a.timestamp,
+      kind: err.kind ? 'exception' : (d.type === 'span' ? 'dependency' : 'log'),
+      correlation_id: dd.trace_id || inner.trace_id || null,
+      service: a.service || null,
+      operation: inner.resource_name
+        || (http.method && http.url && \`\${http.method} \${http.url}\`)
+        || a.message,
+      status: a.status === 'error' ? 'failure' : (a.status === 'ok' ? 'success' : 'unknown'),
+      status_code: http.status_code ?? null,
+      duration_ms: inner.duration != null ? Math.round(inner.duration / 1e6) : null, // ns → ms
+      target: inner.peer_service || inner.db_instance || null,
+      exception: err.kind ? { type: err.kind, message: err.message, stack: err.stack } : null,
+      raw: d,
+    };
+  });
+  return { events, nextCursor: raw.meta?.page?.after || null, warnings: raw.meta?.warnings || [] };
+}
+
+module.exports = { parseDatadogSearch };
+\`\`\`
+
+A tiny POST helper that centralizes headers, site substitution, and 429 backoff:
+
+\`\`\`js
+// scripts/dd-post.js
+async function ddPost(endpoint, body, attempt = 0) {
+  const site = process.env.DD_SITE || 'datadoghq.com';
+  const res = await fetch(\`https://api.\${site}\${endpoint}\`, {
+    method: 'POST',
+    headers: {
+      'DD-API-KEY': process.env.DD_API_KEY,
+      'DD-APPLICATION-KEY': process.env.DD_APP_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 429 && attempt < 4) {
+    const cap = 30, base = 1;                        // seconds
+    const sleep = Math.random() * Math.min(cap, base * 2 ** attempt);
+    await new Promise(r => setTimeout(r, sleep * 1000));
+    return ddPost(endpoint, body, attempt + 1);
+  }
+  if (!res.ok) throw new Error(\`Datadog \${res.status}: \${await res.text()}\`);
+  return res.json();
+}
+module.exports = { ddPost };
 \`\`\`
 
 ---
 
 ## Pagination and rate limits
 
-- **Logs Search v2**: default \`page.limit\` is 10, max 1000. For correlation-ID queries 200 is plenty. Use \`page.cursor\` from the response for continuation.
-- **Rate limits**: vary per plan. On the \`Pro\` plan, \`logs_query\` is typically 300 req/hour per org. The \`X-RateLimit-Remaining\` header is always present — the adapter should back off at < 10% remaining.
-- **Retention**: indexed logs default to 15 days; live tail is ~15 min. If the user's time window exceeds retention, a 200 OK with an empty array comes back — mention this in empty-result diagnostics.
+- **Logs & spans search**: default \`page.limit\` 10, max 1000. Pagination uses \`meta.page.after\` as the cursor; pass it back in the next request's \`page.cursor\`. Loop until \`after\` is \`null\` or the caller's row budget is exhausted.
+- **Rate limits**: plan-dependent. Typical \`Pro\` plan: \`logs_query\` ≈ 300 req/hour per org, \`spans_query\` ≈ 300 req/hour per org, \`events_list\` ≈ 1000/hour (verify against the user's plan — see [rate-limits docs](https://docs.datadoghq.com/api/latest/rate-limits/)). All responses carry \`X-RateLimit-{Limit,Remaining,Reset,Period}\`. Back off when \`Remaining < 10% * Limit\`.
+- **429 handling**: exponential backoff with full jitter — base 1s, cap 30s, \`sleep = random(0, min(cap, base * 2^attempt))\`. The \`ddPost\` helper above implements this up to 4 retries.
+- **Retention**: indexed logs default to 15 days, up to 30d on higher plans; live tail ~15 min; spans ~15 days.
+- **Archive rehydration** (data \`>30d\`): async via \`POST /api/v2/logs/config/archives/{archive_id}/rehydrations\`. Poll \`GET .../rehydrations/{job_id}\` until \`status:done\`, then re-run the normal search against the rehydrated index. This adapter does **not** initiate rehydration automatically — it prints the command and lets the user confirm.
+
+---
+
+## Empty results — diagnostic table
+
+| Empty result | Likely reason | What to do |
+|---|---|---|
+| Logs empty, spans populated | Logs not shipping to Datadog, or index filter drops them | Check Datadog Agent log forwarder + log-index filters |
+| Spans empty, logs have \`dd.trace_id\` | APM sampling dropped the trace (default 1%) | Coverage partial; logs still have \`@dd.trace_id\` for sampled traces |
+| Both empty within 15d | Wrong trace ID, wrong site, wrong env, service not reporting | Verify site via \`/api/v1/validate\`; check \`env:<env>\` tag |
+| Both empty beyond 15–30d | Past retention | Offer archive rehydration; warn it is async |
+| 200 OK, \`data:[]\`, \`meta.warnings\` non-empty | Query syntactically valid but semantically wrong (e.g. missing \`@\` on a facet) | Log warnings verbatim; suggest fix |
 
 ---
 
 ## Known quirks
 
-1. **\`trace_id\` vs \`@trace_id\`** — in log queries, attributes are prefixed with \`@\`; in span queries they are not. Same value, two syntaxes.
-2. **Custom correlation attribute** — if the project sets its own \`@correlation_id\` attribute (common when you need cross-language correlation older than OpenTelemetry), switch both queries to use it. Update \`observability.correlationIdHeader\` in \`nonoise.config.json\` to match.
-3. **Env-scoped tags** — always combine correlation ID with \`env:<env>\` (e.g. \`env:prod\`) when the same trace ID might appear across environments.
-4. **APM trace sampling** — at default sampling rates (1%), not every request has a trace. Logs will still have \`@trace_id\` for the sampled traces; for unsampled ones you're flying blind on APM.
-5. **Custom attributes must be faceted** — to query by \`@custom_attr\`, the attribute must be **faceted** in the Datadog UI. Advise the user to facet the correlation attribute at setup time.
-6. **Site-specific URLs** — always respect \`DD_SITE\`. A US1 key will not authenticate against the EU endpoint.
+1. **\`trace_id\` vs \`@trace_id\`** — in the **logs** DSL, attributes are \`@\`-prefixed (\`@dd.trace_id\`); in the **spans** DSL they are not (\`trace_id\`). Same value, two syntaxes.
+2. **Custom correlation attribute** — if the project uses its own \`@correlation_id\` (common for cross-language correlation predating OpenTelemetry), switch both queries and set \`observability.correlationIdHeader\` in \`nonoise.config.json\`.
+3. **Env-scoped tags** — always combine correlation ID with \`env:<env>\` when the same trace ID might reappear across environments (test fixtures, shadow traffic).
+4. **APM sampling** — at default 1%, most requests have no span. Logs still have \`@dd.trace_id\` for sampled traces; unsampled ones are invisible to APM.
+5. **Custom attributes must be faceted** — to query \`@custom_attr\`, the attribute must be faceted in Logs → Configuration → Facets. Advise the user to facet the correlation attribute at setup time.
+6. **Unix timestamp precision** — API wants **milliseconds**. \`1713437534\` silently matches nothing; \`1713437534000\` works.
+7. **Duration units** — span \`duration\` is **nanoseconds**; the parser divides by 1e6 for canonical \`duration_ms\`.
+8. **Site-specific URLs** — always respect \`DD_SITE\`. A US1 key will not authenticate against \`api.datadoghq.eu\`; error is a generic 403 with no body.
+9. **PII scrubbing** — some orgs scrub \`@usr.email\` from indexed logs. If a user filter returns nothing but the time range is right, try \`@usr.id\` instead.
+10. **\`meta.warnings\` is silent** — Datadog returns HTTP 200 on a semantically wrong query (e.g. faceting on a non-faceted attribute). Always inspect \`meta.warnings\` and surface entries to the caller.
 ",
   ".claude/skills/observability-debug/references/adapter-generic-log-file.md": "# Adapter — \`generic-log-file\`
 
@@ -4953,6 +5056,8 @@ If arguments are missing, the skill asks interactively — one question at a tim
 
 **Goal**: agree on HOW the AI will reach the target environment.
 
+The *philosophy* (CLI > API > Web, never-silent-login, fallback protocol, OIDC for CI, browser-MCP pins) lives in the shared reference [\`../_shared/access-model.md\`](../_shared/access-model.md). The *operational prompt* the skill shows the user stays here.
+
 #### Present the tiered menu
 
 Use this exact framing (adapt to the user's language from \`nonoise.config.json\` if it's not English):
@@ -4967,23 +5072,22 @@ Use this exact framing (adapt to the user's language from \`nonoise.config.json\
 
 #### Match the choice to an auth flow
 
-Bundle reference [\`references/access-patterns.md\`](./references/access-patterns.md) covers concrete examples. Use it to guide the conversation:
+- [\`../_shared/access-model.md\`](../_shared/access-model.md) — tier definitions, probe pattern, fallback protocol, OIDC federation for CI, browser-MCP pins per AI tool. **Read this for the generic philosophy.**
+- [\`references/access-patterns.md\`](./references/access-patterns.md) — concrete per-tool probes for Azure / AWS / GCP / GitHub / Azure DevOps / Kubernetes / Terraform / Pulumi / Helm / Jira / Linear, plus Windows-bash quirks. **Read this for the exact commands.**
+
+At a glance:
 
 | Access tier | Typical commands to check it's live |
 |---|---|
 | CLI | \`az account show\`, \`gcloud auth list\`, \`aws sts get-caller-identity\`, \`gh auth status\`, \`kubectl config current-context\`, \`terraform version\`, \`pulumi whoami\` |
 | API | probe the provider's "whoami" endpoint with the user-supplied token — e.g. Azure DevOps \`GET /_apis/connectionData\`, GitHub \`GET /user\`, Jira \`GET /rest/api/3/myself\` |
-| Web | probe that a browser MCP server is configured (\`mcp__playwright__navigate\` or equivalent). If not, explain this will be pair-driven |
+| Web | probe that a browser MCP server is configured (\`mcp__playwright__navigate\` or equivalent; see \`_shared/access-model.md\` § 7 for the pinned package per AI tool). If not, explain this will be pair-driven. |
 
 #### Fallback chains
 
-If the preferred tier is unavailable (no CLI installed, no token, no browser MCP), propose the next tier **with the user's consent**. Never silently downgrade.
+Follow the fallback protocol documented in \`../_shared/access-model.md\` § 3: when the preferred tier fails, **explain → propose → ask → record**. Never silently downgrade.
 
-If **none** of the three tiers is feasible, stop and ask the user what to do. Options:
-
-- Install the missing CLI (print the install command for the user to run manually — per global rule, LSP/runtime installs are advisor-only)
-- Generate the missing token (link to the provider's token-generation doc)
-- Defer the operation until access is set up
+If **none** of the three tiers is feasible, stop and ask the user whether to install the missing CLI, generate the missing token, configure the missing browser MCP, or defer. Per global rule, LSP/runtime installs are advisor-only — print the install command, do not run it.
 
 #### Phase 1 checkpoint
 
@@ -5303,7 +5407,8 @@ If Phase 4 failed and left the environment in a broken state:
 
 ## Reference files
 
-- [\`references/access-patterns.md\`](./references/access-patterns.md) — the access menu in depth: CLI / API / Web examples across Azure / AWS / GCP / GitHub / Azure DevOps / Jira / Kubernetes / Terraform / Pulumi. Covers auth setup, verification probes, common failure modes.
+- [\`../_shared/access-model.md\`](../_shared/access-model.md) — **shared access-first reference** (CLI > API > Web tiers, probe pattern, fallback protocol, never-silent-login rule, env-var convention, OIDC federation for GitHub Actions → Azure / AWS / GCP, browser-MCP pins per AI tool, anti-patterns). Consumed by this skill and by \`observability-debug\`.
+- [\`references/access-patterns.md\`](./references/access-patterns.md) — per-tool concrete probes: CLI / API / Web examples across Azure / AWS / GCP / GitHub / Azure DevOps / Jira / Linear / Kubernetes / Terraform / Pulumi / Helm. Covers auth setup, verification commands, and failure modes specific to each tool.
 - [\`references/ops-skill-template.md\`](./references/ops-skill-template.md) — the canonical structure for a generated ops skill: frontmatter template, pre-check auth section, read-state section, validate-args section, execute section, verify section, report section, rollback section. This is the template \`skill-creator\` receives in Phase 5.
 - [\`references/examples.md\`](./references/examples.md) — three end-to-end worked examples in different clouds (Azure AKS deploy, AWS EKS rollout, GCP Cloud Run deploy), each showing the full five-phase flow.
 
@@ -5315,23 +5420,24 @@ If Phase 4 failed and left the environment in a broken state:
 - [\`../spec-to-workitem/SKILL.md\`](../spec-to-workitem/SKILL.md) — sibling adapter-pattern skill (auth via env vars, dry-run default, tracker-agnostic).
 - [\`../arch-brainstorm/SKILL.md\`](../arch-brainstorm/SKILL.md) — the architectural-axis counterpart (one question at a time, multiple-choice, dialog-driven).
 ",
-  ".claude/skills/ops-skill-builder/references/access-patterns.md": "# Access patterns — CLI / API / Web
+  ".claude/skills/ops-skill-builder/references/access-patterns.md": "# Access patterns — per-tool concrete probes
 
-This reference is the **depth-dive** for Phase 1 of \`ops-skill-builder\`. It documents concrete auth setups, verification probes, and failure modes across the three access tiers and across the most common cloud / tool ecosystems.
+Per-tool auth setups, verification probes, and failure modes for the clouds and services most often hit by \`ops-skill-builder\`. This is the **specialized** companion to the shared access-first reference.
 
-## Principle: three tiers, tried in order
+> **See also**: [\`../../_shared/access-model.md\`](../../_shared/access-model.md) — the **generic** access philosophy (tier definitions, probe pattern, fallback protocol, never-silent-login rule, OIDC federation for CI, browser-MCP pins per AI tool, anti-patterns). Read that first if you're new to the access-first model; this file specializes the generic pattern to concrete tooling.
 
-| Tier | Preference | When to use |
-|---|---|---|
-| **CLI** | 1st choice | A CLI exists for the target and the user is willing to run it with their credentials. Auditable (shell history), fast, minimal setup. |
-| **API** | 2nd choice | No CLI available, or the CLI is locked behind SSO / corporate proxy. The user supplies a token via env var. |
-| **Web** | 3rd choice | Neither CLI nor API is practical. Requires a browser MCP server (e.g. Playwright MCP), or pair-driven manual navigation. Documented as "more complex". |
+Scope of this file:
 
-Never silently downgrade. If tier N is unavailable, explicitly ask the user to approve moving to tier N+1.
+- **CLI auth + probe** per tool (section 1)
+- **API auth + probe** per tool (section 2)
+- **Common failure modes and remediations** (section 3)
+- **Auth-model summary for crystallized skills** (section 4)
+
+Everything tier-generic (CLI > API > Web, fallback protocol, OIDC flows, browser-MCP choice) has moved to \`_shared/access-model.md\`.
 
 ---
 
-## Tier 1 — CLI access
+## 1. Tier 1 — CLI access (per tool)
 
 ### Azure — \`az\`
 
@@ -5342,7 +5448,7 @@ az login
 # Auth (headless — service principal)
 az login --service-principal -u "$AZ_CLIENT_ID" -p "$AZ_CLIENT_SECRET" --tenant "$AZ_TENANT_ID"
 
-# Auth (headless — workload identity / OIDC, recommended in CI)
+# Auth (headless — workload identity / OIDC in CI — see _shared/access-model.md § 6.1 for the full setup)
 az login --service-principal -u "$AZ_CLIENT_ID" --federated-token "$ID_TOKEN" --tenant "$AZ_TENANT_ID"
 
 # Verify
@@ -5374,7 +5480,7 @@ kubectl config set-context --current --namespace=<ns>
 aws configure sso
 aws sso login --profile <profile>
 
-# Auth (static keys — discouraged, acceptable for CI)
+# Auth (static keys — discouraged, acceptable only in legacy CI — prefer OIDC per _shared § 6.2)
 aws configure    # prompts for Access Key ID / Secret Access Key / region
 
 # Verify
@@ -5399,7 +5505,7 @@ kubectl get nodes
 gcloud auth login
 gcloud auth application-default login   # for ADC — most SDKs use this
 
-# Auth (service account key)
+# Auth (service account key — prefer Workload Identity Federation in CI per _shared § 6.3)
 gcloud auth activate-service-account --key-file="$GCP_SA_KEY_PATH"
 
 # Verify
@@ -5490,7 +5596,7 @@ helm upgrade --install <release> <chart> -f values.yaml --dry-run --debug
 
 ---
 
-## Tier 2 — API access
+## 2. Tier 2 — API access (per tool)
 
 ### Azure — Azure REST API
 
@@ -5608,50 +5714,15 @@ curl -s http://localhost:8001/api/v1/namespaces
 
 ---
 
-## Tier 3 — Web access
+## 3. Tier 3 — Web access
 
-### Via a browser MCP server (Playwright MCP, puppeteer MCP, etc.)
+See [\`../../_shared/access-model.md\`](../../_shared/access-model.md) § 7 for the browser-MCP pin per AI tool (Claude Code: \`@playwright/mcp\`; GitHub Copilot CLI: same package via \`.vscode/mcp.json\`) and the pair-driven fallback. Nothing here is ops-skill-builder-specific.
 
-Check that a browser MCP is configured:
-
-- In Claude Code / Copilot: list MCP servers (\`/mcp\`, or check \`.mcp.json\`)
-- Probe for tool names like \`mcp__playwright__navigate\`, \`mcp__puppeteer__click\`
-
-If present, the skill can drive the browser. Typical flow:
-
-1. \`navigate\` to the vendor's login URL
-2. User completes any MFA step manually
-3. Skill navigates to the target page
-4. Skill reads back the DOM or screenshots it
-5. Skill proposes actions (click X, fill Y) and executes with user confirmation
-
-### Without a browser MCP — pair-driven
-
-If no MCP is available, the skill dictates steps and the user drives the browser:
-
-1. Skill: "Open https://portal.azure.com/#resource/subscriptions/..."
-2. User: confirms they're on the page
-3. Skill: "Click 'Overview' → 'Running pods'. Report what you see."
-4. User: types back or pastes a screenshot
-5. Skill: "Now click 'Restart' on pod \`payments-api-abc123\`. Confirm before clicking."
-6. User: clicks, reports outcome
-
-This mode is **slow and lossy**. Document it as "interactive pair mode" and only use it when no better option exists.
-
-### Web is "more complex" — what that means
-
-Compared to CLI / API, web access:
-
-- Cannot be safely automated without a browser MCP (DOMs change, selectors break)
-- Has no standard audit trail (no shell history)
-- Usually requires human-in-the-loop for MFA
-- Is the first to break on vendor UI updates
-
-Crystallized skills that depend on web access should **embed a warning in their description**: "Fragile: depends on the vendor's web UI, may break on UI changes. Preferred path is CLI or API; see \`references/access-patterns.md\`."
+Crystallized skills that depend on web access should **embed a warning in their description**: *"Fragile: depends on the vendor's web UI, may break on UI changes. Preferred path is CLI or API; see \`_shared/access-model.md\`."*
 
 ---
 
-## Common failure modes and remediations
+## 4. Common failure modes and remediations
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -5665,10 +5736,12 @@ Crystallized skills that depend on web access should **embed a warning in their 
 | \`aws sts\` returns \`ExpiredToken\` | SSO session expired | \`aws sso login --profile <profile>\` |
 | Jira API returns 401 | API token valid but email mismatched | Verify \`JIRA_EMAIL\` matches the token's owner |
 | Linear API returns 400 | GraphQL query malformed | Validate with \`linear.app/graphql\` playground first |
+| GitHub Actions OIDC: \`AADSTS70021: No matching federated identity record\` | Federated credential \`subject\` doesn't match the workflow trigger | Per \`_shared/access-model.md\` § 6.5: create one credential per trigger shape (branch ref vs environment vs pull_request) |
+| GitHub Actions OIDC: \`could not fetch identity token\` | \`permissions: id-token: write\` missing on the job | Add it at job or workflow level; see \`_shared/access-model.md\` § 6 |
 
 ---
 
-## Auth model summary for crystallized skills
+## 5. Auth model summary for crystallized skills
 
 Every generated skill (Phase 5 output) must declare its auth model in the frontmatter and in a **Pre-check auth** section. Standard shape:
 
@@ -5684,12 +5757,12 @@ This skill requires <tier> access to <target>. Verify before running:
 Expected output: <non-empty string / specific context name / etc.>
 
 If it fails:
-- Run <auth command> (interactive), OR
-- Set env var <NAME> (document scope/permissions required), OR
+- Run <auth command> (interactive — **never run silently**, per \`_shared/access-model.md\` § 4), OR
+- Set env var <NAME> (document scope/permissions required in the project README), OR
 - Ask your platform team for <specific permission>
 \`\`\`
 
-No secrets in the generated skill. Never. Secrets live in the user's shell or in \`.env\` (gitignored).
+No secrets in the generated skill. Never. Secrets live in the user's shell or in \`.env\` (gitignored). Env-var naming follows the convention in \`_shared/access-model.md\` § 5.
 ",
   ".claude/skills/ops-skill-builder/references/examples.md": "# Examples — three end-to-end flows
 
@@ -7472,6 +7545,640 @@ playwright-cli video-stop recordings/checkout-test-run-42.webm
 
 - Recording adds slight overhead to automation
 - Large recordings can consume significant disk space
+",
+  ".claude/skills/polly/SKILL.md": "---
+name: polly
+description: Polly is the NONoise orchestrator skill — the conductor who guides a developer through the full SDLC of a project scaffolded by create-nonoise. Invoke Polly whenever the user types \`/polly\`, says "start polly" / "avvia polly" / "run polly" / "orchestrate this project", asks "what skill should I use next?", wonders how to kick off a new feature, is staring at a freshly scaffolded NONoise repo and doesn't know where to begin, or right after create-nonoise finishes (triggered by \`.nonoise/POLLY_START.md\`). Polly does NOT write code: it asks the right questions, decides greenfield vs brownfield, and engages the right NONoise skill in the right order — requirements-ingest → bmad-agent-analyst → arch-brainstorm → arch-decision → sprint-manifest → atr for greenfield; graphify + reverse-engineering + the same pipeline for brownfield. Use Polly aggressively whenever the user seems lost in a NONoise-scaffolded project, even when they do not name it explicitly — most users won't know Polly exists until Polly introduces itself.
+---
+
+# Polly — NONoise Orchestrator
+
+Polly is the conductor. It guides a developer through the SDLC of a project
+scaffolded by \`create-nonoise\`: asks the right questions, picks the next step,
+and engages the right bundled skill. Polly **does not write production code of
+its own initiative** — it delegates to the specialist skills installed in the
+project and makes sure nothing gets skipped.
+
+## When Polly runs
+
+Three triggers, all equivalent:
+
+1. **Manual slash**: user types \`/polly\` (Claude Code) or says "start polly" /
+   "avvia polly" / "run polly" / "orchestrate this project" (Copilot and any
+   other chat interface).
+2. **Confusion**: user writes something like "where do I start?", "which skill
+   for X?", "I don't know what to do next" — engage Polly proactively.
+3. **Auto-trigger post-scaffold**: \`.nonoise/POLLY_START.md\` exists in the
+   project root. The scaffold writes this file; the context block in
+   \`CLAUDE.md\` / \`.github/copilot-instructions.md\` tells the tool to invoke
+   Polly first-thing in the next session.
+
+## Scope (v1)
+
+Polly v1 targets **Claude Code** and **GitHub Copilot** explicitly — the
+decision tree is validated on those two. Other tools (Cursor, Gemini CLI,
+Codex) will run Polly as plain markdown; most of the flow works, but slash
+commands and tool-specific auto-triggers may not. If you are Polly running
+in an unsupported tool, just follow the decision tree conversationally.
+
+## Step 0 — Voice input hint (first screen only)
+
+Before asking the user anything, say this (once per session, and only once):
+
+> Polly works best as a conversation. If you find yourself typing a lot, a
+> voice-to-text tool helps:
+> - **Wispr Flow** — cross-platform, commercial — https://wisprflow.ai
+> - **Handy** — open-source, Win/Mac/Linux — https://github.com/cjpais/Handy
+> - **Superwhisper** — macOS — https://superwhisper.com
+>
+> Nothing to install right now — just know the option is there.
+
+If Polly is re-entered in the same session (user comes back after a detour),
+skip Step 0.
+
+See \`references/voice-tools.md\` for the full phrasing and rationale if you
+want to adapt it to the user's language.
+
+## Step 1 — Greenfield or brownfield?
+
+Ask exactly this:
+
+> Is this a **greenfield** project (something new, starting from scratch) or
+> **brownfield** (an existing codebase we need to analyze or extend)?
+
+Don't guess from the scaffold — both greenfield and brownfield start with an
+empty \`docs/\` tree. Wait for the answer.
+
+## Step 2 — Greenfield path
+
+\`\`\`
+1. Stack question
+2. Existing source material?  → requirements-ingest
+3. Requirements elicitation  → bmad-agent-analyst (or bmad-advanced-elicitation)
+4. PRD drafting              → superpowers:brainstorming (fallback: manual)
+5. Architecture options      → arch-brainstorm
+6. Architecture decision     → arch-decision
+7. Sprint breakdown          → sprint-manifest
+8. Implementation loop       → atr (per task)
+\`\`\`
+
+Each numbered step is one clarification plus one skill invocation. Don't
+dump the whole plan on the user — walk step by step. See
+\`references/decision-tree.md\` for the exact phrasing per step.
+
+## Step 3 — Brownfield path
+
+\`\`\`
+1. Path of the existing code?
+2. Indexing                  → graphify-setup + \`graphify .\`
+3. Understand what's there   → reverse-engineering
+4. Existing source material? → requirements-ingest
+5. From here, continue greenfield Step 2 #5 onwards
+\`\`\`
+
+The brownfield prefix is shorter than it looks — steps 1-3 can run in a
+single conversation if the user has the code ready. The rest of the pipeline
+is identical to greenfield.
+
+## Orthogonal entry points
+
+Sometimes the user's need does not fit the main SDLC loop. Recognize and route:
+
+| User signal | Route to |
+|---|---|
+| "prod is broken, where do I look?" | \`observability-debug\` |
+| "I keep doing this ops task by hand" | \`ops-skill-builder\` |
+| "push these tasks to Jira / Azure DevOps / GitHub Issues" | \`spec-to-workitem\` (or \`tools/devops-push\` for Azure DevOps with rich JSON) |
+| "write a Playwright test for this flow" | \`playwright-cli\` |
+| "design this UI" | \`frontend-design\` |
+| "generate VSCode configs" | \`vscode-config-generator\` |
+| "I need a docs / design / prd markdown file" | \`docs-md-generator\` / \`design-md-generator\` |
+| "I don't know which skill I want" | \`skill-finder\` |
+
+## Fallback for missing skills
+
+Not every skill listed in the decision tree is guaranteed to be installed in
+every project. Vendor skills (\`superpowers:*\`) may not have shipped yet. If
+you try to engage a skill and it is not present:
+
+1. Tell the user the skill is not installed, and offer three choices:
+   - **(a) Skip** — move to the next step
+   - **(b) Manual** — Polly walks through the methodology conversationally,
+     using whatever public reference exists for the missing skill
+   - **(c) Install** — point to \`skill-finder\` or the framework's vendor docs
+2. Never block the flow on a missing skill. A partial SDLC walkthrough is
+   more valuable than a full stop.
+
+See \`references/fallback-messages.md\` for ready-made templates per skill.
+
+## Self-destruct (auto-trigger mode)
+
+If Polly was invoked because \`.nonoise/POLLY_START.md\` existed:
+
+- Run the decision tree normally. Take as long as the user needs.
+- **At the end of the session — whether the SDLC loop completed or the user
+  abandoned halfway — delete \`.nonoise/POLLY_START.md\`.**
+- If the file is absent when you finish, that's fine — someone else (or a
+  previous invocation) already deleted it.
+- If the user wants Polly again in a future session, they type \`/polly\`
+  manually. The auto-trigger is one-shot by design.
+
+## Claude Code vs Copilot
+
+The decision tree is identical. The differences are mechanical:
+
+### Claude Code
+- Slash command \`/polly\` is wired via \`.claude/commands/polly.md\`
+- Each skill is invokable through the \`Skill\` tool by name (e.g.
+  \`arch-brainstorm\`, \`bmad-agent-analyst\`)
+- If superpowers is vendored, skills are addressed as
+  \`superpowers:<name>\` — same tool, namespaced name
+
+### GitHub Copilot
+- No custom slash — user triggers Polly with a phrase ("start polly", "avvia
+  polly", "run polly")
+- Skills are plain markdown files under \`.claude/skills/<name>/SKILL.md\` —
+  Polly reads the file and follows the instructions inline
+- Some Claude-specific artifacts (hooks, \`.mcp.json\`) are no-ops for Copilot
+  — skip silently, don't warn the user
+
+In both tools, Polly's user-facing language is the same. The tool-specific
+mechanics happen underneath.
+
+## Principles
+
+1. **Ask, don't assume.** The scaffold layout does not tell you whether this
+   is a greenfield or brownfield. Ask.
+2. **One question at a time.** Long multi-question prompts overwhelm.
+3. **Warm, not condescending.** The audience is learning the workflow.
+   Explain *why* each step exists, not just *what* to do.
+4. **Never block on a missing skill.** Fallback path is always available.
+5. **Hand off cleanly.** When engaging a skill, state which skill and why,
+   then delegate fully — don't second-guess the specialist skill mid-flow.
+6. **Come back after handoff.** When the engaged skill finishes, resume
+   Polly's loop and pick the next step. Polly is the conductor across
+   handoffs.
+
+## References
+
+- \`references/decision-tree.md\` — per-step prompts and transitions in full
+- \`references/fallback-messages.md\` — ready templates when a skill is missing
+- \`references/voice-tools.md\` — the Step 0 voice hint, adaptable to the user's language
+- \`references/skill-invocation-matrix.md\` — every skill Polly knows about, its current state, and the phrase to use when engaging it
+",
+  ".claude/skills/polly/references/decision-tree.md": "# Polly — decision tree in full
+
+This file expands the decision tree sketched in \`SKILL.md\` into concrete
+prompts. Read when Polly needs the exact phrasing for a step, or when a step
+needs adaptation.
+
+## Step 0 — Voice input hint
+
+See \`voice-tools.md\`. Fire once per session, before any other prompt.
+
+## Step 1 — Greenfield or brownfield
+
+Exact prompt (EN):
+> Is this a **greenfield** project (something new, starting from scratch) or
+> **brownfield** (an existing codebase we need to analyze or extend)?
+
+Adaptation (IT):
+> Questo è un progetto **greenfield** (nuovo, da zero) o **brownfield**
+> (codice esistente da analizzare o estendere)?
+
+Wait for an explicit answer. Do not infer from directory contents — an empty
+\`docs/\` tree is produced by both paths.
+
+## Greenfield — Step 2.1 — Stack
+
+Prompt:
+> What's the stack you're building? Short form is fine — "Node + React",
+> "Python FastAPI", "Flutter app", "data pipeline in dbt", "CLI in Rust".
+> If you're not sure yet, say "not decided" and we'll figure it out together
+> during arch-brainstorm.
+
+Record the answer in your working memory — later steps (\`arch-brainstorm\`,
+\`sprint-manifest\`, \`atr\`) will use it. Don't write it to disk yet.
+
+## Greenfield — Step 2.2 — Existing source material
+
+Prompt:
+> Do you already have any material about this project — meeting notes,
+> email threads, briefs, regulatory documents, sketches, a PRD draft? Even
+> rough stuff counts.
+
+If **yes**:
+1. Ask where the files are.
+2. Engage \`requirements-ingest\` to organize them under
+   \`docs/requirements/<domain>/sources/\`. \`requirements-ingest\` will ask its
+   own questions about domain and ownership.
+3. When it returns, note the domains created and carry them into Step 2.3.
+
+If **no**: skip, move to Step 2.3.
+
+## Greenfield — Step 2.3 — Requirements elicitation
+
+Prompt:
+> Let's capture what we know about the project. I'll engage
+> \`bmad-agent-analyst\` — it runs a structured elicitation, asks questions
+> like "who are the users?", "what's the core problem?", "what counts as
+> success?". Takes 10-20 minutes. OK to start?
+
+If the user wants a lighter touch, substitute \`bmad-advanced-elicitation\`
+(single-round, no agent persona).
+
+Output lives in \`docs/requirements/<domain>/\`.
+
+## Greenfield — Step 2.4 — PRD drafting
+
+Prompt:
+> Now the PRD. I'll engage \`superpowers:brainstorming\` — it drafts a first
+> PRD version, we iterate together. Then it'll land in \`docs/prd/\`.
+
+**Fallback** if \`superpowers:brainstorming\` is not installed: see
+\`fallback-messages.md\` § brainstorming. In short: draft the PRD
+conversationally following \`docs/prd/README.md\` conventions.
+
+## Greenfield — Step 2.5 — Architecture options
+
+Prompt:
+> With the PRD in place, let's explore architecture options. I'll engage
+> \`arch-brainstorm\` — it reads the PRD, the requirements, and
+> \`docs/architecture/01-constraints.md\`, then produces a decision document
+> with 2-3 alternative designs scored against constraints.
+
+Output lands in \`docs/prd/<feature-slug>/arch-brainstorm.md\` (per the skill's
+own convention).
+
+## Greenfield — Step 2.6 — Architecture decision
+
+Prompt:
+> Time to pick one architecture and commit to it. I'll engage
+> \`arch-decision\` — it takes the brainstorm doc, runs Quint FPF validation
+> (\`quint-fpf\` as a sub-skill), and produces an ADR in
+> \`docs/architecture/adr/NNNN-<slug>.md\`.
+
+Output is a signed ADR plus a "Impact on docs/architecture/" checklist the
+architect applies manually.
+
+## Greenfield — Step 2.7 — Sprint breakdown
+
+Prompt:
+> The architecture is set. Time to break it into a sprint. I'll engage
+> \`sprint-manifest\` — it produces **one** aggregated manifest at
+> \`docs/sprints/Sprint-N/sprint-manifest.md\` listing all the vertical slices
+> we'll ship in this sprint.
+
+Ask for the sprint number if the user hasn't specified.
+
+## Greenfield — Step 2.8 — Implementation loop
+
+Prompt:
+> For each item in the sprint manifest, I'll engage \`atr\` — it writes the
+> acceptance artifact, guides you through the TDD cycle, and lands test +
+> implementation in the right places. Ready to start with the first item?
+
+Stay in the loop: after each \`atr\` pass, return to Polly and ask "next
+item?". Polly is the conductor across items.
+
+## Brownfield — Step 3.1 — Code path
+
+Prompt:
+> Where's the code? Absolute path or relative to the scaffold root.
+
+If the code is inside the scaffold (same repo), check that \`.git\` exists so
+\`graphify\` can scan. If it's in a sibling repo, note the path.
+
+## Brownfield — Step 3.2 — Graphify setup
+
+Prompt:
+> I'll engage \`graphify-setup\` first — it verifies Python is installed and
+> \`graphify\` is on PATH. Then we'll run \`graphify .\` in your code path to
+> index the repo. That's the raw material for the reverse-engineering pass.
+
+If \`graphify-setup\` reports Python missing, show the install instructions
+and offer the user the chance to install manually, then retry.
+
+## Brownfield — Step 3.3 — Reverse engineering
+
+Prompt:
+> Now I'll engage \`reverse-engineering\` — it reads the graphify index and
+> produces a subject-driven understanding document under
+> \`docs/support/reverse/<subject-slug>/\`. The skill is interactive: it will
+> pause and ask before writing, and will explore with you before committing
+> anything to disk.
+
+\`reverse-engineering\` has a strong "don't write without permission" rule —
+trust it, don't override.
+
+## Brownfield — Step 3.4 — Existing source material
+
+Identical to greenfield Step 2.2. If there are emails / calls / briefs about
+the legacy system, route them through \`requirements-ingest\` before moving
+to arch-brainstorm.
+
+## Brownfield — Step 3.5 onward
+
+From arch-brainstorm onward, brownfield == greenfield. The same skills, the
+same prompts. The difference is that \`arch-brainstorm\` in brownfield mode
+also reads \`docs/support/reverse/\` — the skill figures this out on its own.
+
+## Orthogonal entry points
+
+See \`SKILL.md\` § "Orthogonal entry points" for the routing table. Each entry
+is a one-shot handoff — engage the specialist, then return to the user with
+the result.
+",
+  ".claude/skills/polly/references/fallback-messages.md": "# Polly — fallback messages for missing skills
+
+When Polly tries to engage a skill and it is not installed in the project,
+use one of the templates below. All templates:
+
+1. Tell the user plainly the skill is not installed.
+2. Offer **skip / manual / install** as the three choices.
+3. If the user picks **manual**, Polly walks through the methodology
+   conversationally, sourcing from whatever public reference exists.
+
+Never block the SDLC on a missing skill. A partial walkthrough beats a
+hard stop.
+
+## Generic template
+
+> The \`<skill-name>\` skill is not installed in this project. We can:
+>
+> **(a) Skip** — move to the next step and come back later
+> **(b) Manual** — I walk you through the methodology in chat; output goes
+>     to \`<destination>\` by hand
+> **(c) Install** — I point you to \`skill-finder\` / the framework docs so
+>     you can add it, then we restart this step
+>
+> Which one?
+
+Fill in \`<destination>\` with the folder the skill would normally write to.
+
+## Per-skill templates
+
+### superpowers:brainstorming
+
+Destination: \`docs/prd/<feature-slug>/PRD.md\`.
+
+Manual fallback summary: read \`docs/prd/README.md\` for the expected
+structure, then do the following in conversation:
+
+1. State the problem in one sentence.
+2. Capture the top 3 user jobs-to-be-done.
+3. Enumerate 3-5 acceptance scenarios.
+4. List known constraints (technical, regulatory, timeline).
+5. Mark open questions separately at the bottom.
+
+Write the result to \`docs/prd/<slug>/PRD.md\` in the same structure
+\`superpowers:brainstorming\` would produce — sections in that order.
+
+### superpowers:writing-plans
+
+Destination: \`docs/prd/<slug>/plan.md\` or inline in the chat.
+
+Manual fallback summary: convert the PRD into a numbered plan where each
+step is small enough that a junior dev can complete it in a day. Mark
+dependencies explicitly. Don't invent scope not in the PRD.
+
+### superpowers:executing-plans
+
+No single destination — this skill runs the plan. Manual fallback: work
+the plan item by item in conversation, and after each item ask the user to
+confirm before moving on.
+
+### bmad-agent-analyst (if ever absent)
+
+Destination: \`docs/requirements/<domain>/\`.
+
+Manual fallback: run a five-question elicitation:
+
+1. Who is the primary user of this feature / system?
+2. What problem is it solving for them?
+3. What's the current workaround?
+4. What would "done" look like — one concrete scenario?
+5. What could go wrong?
+
+Write the answers to \`docs/requirements/<domain>/elicitation.md\`.
+
+### arch-brainstorm (if ever absent)
+
+Destination: \`docs/prd/<slug>/arch-brainstorm.md\`.
+
+Manual fallback: propose 2-3 architectural alternatives, score them
+against the constraints in \`docs/architecture/01-constraints.md\`, and
+recommend one with a one-paragraph rationale. Don't forget to list
+trade-offs explicitly.
+
+### arch-decision (if ever absent)
+
+Destination: \`docs/architecture/adr/NNNN-<slug>.md\`.
+
+Manual fallback: use the ADR template (Context, Decision, Consequences) and
+apply the quint-fpf validation loop manually if \`quint-fpf\` is present.
+The skill also produces an "Impact on docs/architecture/" checklist — when
+doing it manually, list what changes in \`docs/architecture/\` folder files
+so the architect can apply the diff.
+
+### sprint-manifest (if ever absent)
+
+Destination: \`docs/sprints/Sprint-N/sprint-manifest.md\`.
+
+Manual fallback: pick the N user stories in scope, for each produce a
+3-5-line macro description (what ships, what value, what's out of scope),
+and append them into the single aggregated manifest. Don't break into
+per-story files.
+
+### atr (if ever absent)
+
+Destination: \`docs/sprints/Sprint-N/acceptance/<slug>.md\` plus test + code.
+
+Manual fallback: for each sprint item:
+
+1. Write the acceptance document (what proves it works).
+2. Write a failing test that asserts the acceptance.
+3. Make the test pass with production code.
+4. Refactor.
+
+Record the acceptance artifact in \`docs/sprints/Sprint-N/acceptance/\`.
+
+### reverse-engineering (if ever absent)
+
+Destination: \`docs/support/reverse/<subject-slug>/\`.
+
+Manual fallback: ask the user what subject they want to understand (a
+subsystem, a flow, a file cluster), iterate in chat drafting chapters, and
+only write to disk when the user says "save". See \`reverse-engineering\`
+for the "don't write without permission" rule — respect it in manual mode
+too.
+
+### graphify-setup (if ever absent)
+
+This should not happen — \`graphify-setup\` is a scaffold-level prerequisite
+and ships with the MVP bundle. If it really is missing: tell the user to
+run \`pip install graphifyy\` and then \`graphify install\`, and retry.
+",
+  ".claude/skills/polly/references/skill-invocation-matrix.md": "# Polly — skill invocation matrix
+
+This matrix lists every skill Polly engages, its current install state in
+the framework, and the phrase Polly uses to hand off.
+
+## Legend
+
+- **Installed** — ships in the MVP bundle today, always available
+- **Vendor-pending** — planned to vendor from an upstream source; use
+  fallback in the meantime (see \`fallback-messages.md\`)
+- **External** — not part of the bundle; engage only if the user confirms
+  it is installed locally (via \`skill-finder\` or manual install)
+
+## Core SDLC skills
+
+| Skill | State | Phrase to use |
+|---|---|---|
+| \`requirements-ingest\` | Installed | "I'll engage requirements-ingest to sort your sources into \`docs/requirements/\`." |
+| \`bmad-agent-analyst\` | Installed | "I'll engage bmad-agent-analyst — it runs the structured elicitation." |
+| \`bmad-advanced-elicitation\` | Installed | "I'll engage bmad-advanced-elicitation for a lighter one-round pass." |
+| \`bmad-agent-architect\` | Installed | "Architect persona engaged — let's lay out the architectural frame." |
+| \`bmad-agent-ux-designer\` | Installed | "UX-designer persona engaged — let's map the flows." |
+| \`bmad-agent-tech-writer\` | Installed | "Tech-writer persona engaged — let's get the docs drafted." |
+| \`superpowers:brainstorming\` | Vendor-pending | "I'll engage superpowers:brainstorming for the PRD." (fallback: manual, see \`fallback-messages.md\`) |
+| \`arch-brainstorm\` | Installed | "I'll engage arch-brainstorm — it proposes architectures against the constraints." |
+| \`quint-fpf\` | Installed | Engaged automatically by \`arch-decision\`. Polly does not invoke it directly. |
+| \`arch-decision\` | Installed | "I'll engage arch-decision — it picks one architecture and writes the ADR." |
+| \`sprint-manifest\` | Installed | "I'll engage sprint-manifest — it produces the aggregated manifest for the sprint." |
+| \`atr\` | Installed | "I'll engage atr for this item — acceptance, test, implementation." |
+
+## Brownfield-specific
+
+| Skill | State | Phrase to use |
+|---|---|---|
+| \`graphify-setup\` | Installed | "I'll engage graphify-setup to verify the graph tooling." |
+| \`reverse-engineering\` | Installed | "I'll engage reverse-engineering — we'll explore the legacy code together before writing anything." |
+
+## Orthogonal / on-demand
+
+| Skill | State | Trigger |
+|---|---|---|
+| \`observability-debug\` | Installed | "prod is broken", "why is this slow?", "I need logs" |
+| \`ops-skill-builder\` | Installed | "I keep doing this ops task by hand" |
+| \`spec-to-workitem\` | Installed | "push to Jira / Azure DevOps / GitHub / Linear" |
+| \`frontend-design\` | Installed | "design this UI", "component design", "frontend patterns" |
+| \`playwright-cli\` | Installed | "write a Playwright test" |
+| \`vscode-config-generator\` | Installed | "generate VSCode configs", ".vscode settings" |
+| \`docs-md-generator\` | Installed | "I need a docs markdown", "README template" |
+| \`design-md-generator\` | Installed | "I need a design.md", "design doc template" |
+| \`skill-finder\` | Installed | "I don't know which skill I want" |
+
+## Superpowers (vendor-pending — full list)
+
+When the \`superpowers\` vendor lands in the framework (SP-9 step 2), the
+following skills become available to Polly. Until then, treat them as
+vendor-pending and use manual fallback:
+
+- \`superpowers:brainstorming\`
+- \`superpowers:writing-plans\`
+- \`superpowers:executing-plans\`
+- \`superpowers:tdd\`
+- \`superpowers:verification-before-completion\`
+- \`superpowers:systematic-debugging\`
+
+## External / user-managed
+
+These are not managed by Polly; if the user mentions them, acknowledge and
+stay out of the way:
+
+- \`graphify\` (the core Python package, not the \`graphify-setup\` skill)
+- IDE / LSP plugins installed via Claude Code marketplace or Copilot
+  \`setup lsp\` (Polly never auto-installs — see \`feedback_lsp_advisor_only\`
+  in the framework's design memory)
+
+## How Polly engages a skill
+
+### Claude Code
+
+Use the \`Skill\` tool with the skill's \`name\` frontmatter value:
+
+\`\`\`
+Skill(skill: "arch-brainstorm")
+Skill(skill: "superpowers:brainstorming")   # once vendored
+\`\`\`
+
+### GitHub Copilot
+
+Read the skill's \`SKILL.md\` directly from \`.claude/skills/<name>/SKILL.md\`
+and follow the instructions inline. Copilot has no \`Skill\` tool
+equivalent, so the skill's markdown IS the instruction set.
+
+### When a skill is not present
+
+1. Check \`.claude/skills/<name>/SKILL.md\` exists before invoking.
+2. If it doesn't, use the fallback templates in \`fallback-messages.md\`.
+",
+  ".claude/skills/polly/references/voice-tools.md": "# Polly — voice input hint
+
+Fire this in Step 0, **once per session** only. Adapt the language to the
+user's locale — keep the three tool names, URLs, and categories intact.
+
+## English version (default)
+
+> Polly works best as a conversation. If you find yourself typing a lot, a
+> voice-to-text tool helps:
+>
+> - **Wispr Flow** — cross-platform, commercial, AI-enhanced dictation
+>   https://wisprflow.ai
+> - **Handy** — open-source, Win/Mac/Linux
+>   https://github.com/cjpais/Handy
+> - **Superwhisper** — macOS, strong price/quality ratio
+>   https://superwhisper.com
+>
+> Nothing to install right now — just know the option is there.
+
+## Italian version
+
+> Polly funziona meglio come conversazione. Se ti trovi a digitare tanto,
+> uno di questi tool di voice-to-text può aiutare:
+>
+> - **Wispr Flow** — multipiattaforma, commerciale, dictation AI-enhanced
+>   https://wisprflow.ai
+> - **Handy** — open-source, Win/Mac/Linux
+>   https://github.com/cjpais/Handy
+> - **Superwhisper** — macOS, ottimo rapporto qualità/prezzo
+>   https://superwhisper.com
+>
+> Non serve installare niente adesso — è solo un'opzione da tenere a mente.
+
+## Why this hint exists
+
+Polly's decision tree asks a lot of small questions. Typing every answer
+gets tiring fast, and users who get tired abandon the flow. Voice-to-text
+removes that friction for the users who want it.
+
+## Why the three tools, not one
+
+Each has a clear niche:
+
+- **Wispr Flow** — paid, cross-platform, best polish and AI rewrite
+- **Handy** — free, open-source, for users who don't trust closed tools
+  or aren't allowed to use them at work
+- **Superwhisper** — native macOS, fair price, stays out of the way
+
+One tool would favour one OS / one wallet — three covers reasonable cases.
+
+## Skip conditions
+
+Skip Step 0 if:
+
+- Polly is being re-entered in the same session (user did a detour and
+  came back)
+- The user has already mentioned voice input in this conversation
+- The user is clearly on a mobile interface where voice is already
+  available natively — no hint needed
+- The user is running Polly non-interactively (rare — only happens in
+  scripted tests)
+
+Do **not** skip Step 0 just because the user seems experienced — even
+experienced users appreciate the reminder once per session.
 ",
   ".claude/skills/quint-fpf/SKILL.md": "---
 name: quint-fpf
@@ -13209,12 +13916,962 @@ support/
     "requirements-ingest",
     "spec-to-workitem",
     "ops-skill-builder",
-    "observability-debug"
+    "observability-debug",
+    "polly"
   ]
 }
 ",
   "src/.gitkeep": "",
   "tools/.gitkeep": "",
+  "tools/devops-push/.gitignore": "node_modules/
+.env
+.temp/
+",
+  "tools/devops-push/README.md": "# \`@nonoise/devops-push\`
+
+Interactive CLI that pushes sprint task breakdowns — \`Feature > User Story > Task\` — to **Azure DevOps** as work items, using the REST API with a Personal Access Token.
+
+The tool is **Azure DevOps-first**: the REST calls, the JSON Patch documents, and the field names (\`Microsoft.VSTS.Scheduling.*\`, \`System.IterationPath\`, etc.) are all Azure-DevOps-specific. See [Extending to other trackers](#extending-to-other-trackers) below.
+
+## What this tool does
+
+For every task breakdown file in \`docs/sprints/Sprint-<N>/tasks/<id>-tasks.json\`, the tool:
+
+1. **Validates** the JSON against the expected structure (\`feature + userStories[] + tasks[]\`), checks local ID references, and validates assigned developers against \`config/developers.json\`.
+2. **Creates** a Feature work item under a parent Epic the user provides at push time.
+3. **Creates** a User Story work item per entry in \`userStories[]\`, linked to the Feature.
+4. **Creates** a Task work item per entry in each user story's \`tasks[]\`, linked to the User Story.
+5. **Links predecessors** (\`dependsOn\` arrays) as \`System.LinkTypes.Dependency-Reverse\` relations in a second pass.
+6. **Persists work item IDs** back into the JSON (\`devops.featureId\` and \`devops.mapping\`) so subsequent runs are idempotent: existing items are updated, not duplicated.
+
+The CLI supports three modes: \`push all\`, \`push one\`, and \`push step-by-step\` (prompts before each work item, with skip/stop options). All three support **dry-run** (default: on).
+
+## Setup
+
+\`\`\`bash
+cd tools/devops-push
+npm install
+cp .env.example .env
+# Fill .env with your org, project, PAT, iteration path, area path
+\`\`\`
+
+Then run:
+
+\`\`\`bash
+npm start
+# or
+node src/cli.js
+\`\`\`
+
+The CLI auto-detects sprints under \`docs/sprints/Sprint-*/tasks/\`.
+
+## Configuration
+
+### \`.env\`
+
+| Variable | Description |
+|----------|-------------|
+| \`AZURE_DEVOPS_ORG\` | Organization URL, e.g. \`https://dev.azure.com/my-org\` |
+| \`AZURE_DEVOPS_PROJECT\` | Project name (URL-encode spaces: \`My%20Project\`) |
+| \`AZURE_DEVOPS_PAT\` | Personal Access Token — scopes: **Work Items (Read & Write)** |
+| \`AZURE_DEVOPS_ITERATION_PATH\` | Iteration path, e.g. \`My Project\\Sprint 5\` |
+| \`AZURE_DEVOPS_AREA_PATH\` | Area path, e.g. \`My Project\` |
+| \`SPRINT_WORKSPACE\` (optional) | Override the default \`<repo>/docs/sprints\` root |
+| \`EXPORT_DIR\` (optional) | Override the default \`<sprint>/export\` directory |
+| \`TEMP_DIR\` (optional) | Override the default \`tools/devops-push/.temp\` directory |
+
+**Never commit \`.env\`** — it is excluded by \`.gitignore\`.
+
+### \`config/developers.json\`
+
+Team roster used to **validate** the \`assignedTo\` field of each task. The file ships with neutral example entries — replace with your own:
+
+\`\`\`json
+{
+  "developers": [
+    {
+      "name": "Alice Example",
+      "email": "alice.example@example.com",
+      "team": "Example Team",
+      "skills": ["BE", "BFF", "DB", "Infra"]
+    }
+  ]
+}
+\`\`\`
+
+If a task's \`assignedTo\` email is not found in this file, validation fails.
+
+## Input JSON — task breakdown schema
+
+Each sprint holds one or more \`<taskSetId>-tasks.json\` files under \`docs/sprints/Sprint-<N>/tasks/\`. The formal schema is \`config/tasks-schema.json\`. Key fields:
+
+- \`taskSetId\`, \`sprint\`, \`generatedDate\`, \`globalConfidence\`, \`dependencies\`
+- \`feature\` — \`title\`, \`description\` (HTML), \`storyPoints\`, \`tags\`
+- \`userStories[]\` — \`id\`, \`title\`, \`description\` (HTML), \`acceptanceCriteria\` (HTML), \`storyPoints\`, \`dependsOn[]\`
+  - \`tasks[]\` — \`id\`, \`title\`, \`description\` (HTML), \`category\`, \`originalEstimate\` (hours), \`assignedTo\` (email), \`confidence\`, \`dependsOn[]\`
+- \`devops\` — \`epicId\`, \`featureId\`, \`mapping\` (local id → Azure DevOps work item id, populated after push)
+
+## Output / state locations
+
+The tool writes to three well-defined locations:
+
+| Location | Purpose | Git-tracked? |
+|----------|---------|---------------|
+| \`docs/sprints/Sprint-<N>/tasks/<id>-tasks.json\` | **Back-written** with created Azure DevOps IDs (\`devops.featureId\`, \`devops.mapping\`). Required for idempotency. | Yes |
+| \`docs/sprints/Sprint-<N>/export/devops-push-<YYYY-MM-DD>[-dryrun].md\` | Human-readable audit trail of what was created / updated / linked, one file per day per mode. | Yes |
+| \`tools/devops-push/.temp/devops-api.log\` | Transient HTTP log (every REST request / response, truncated). | No (git-ignored) |
+
+No global home directories are used. No state outside the repo.
+
+## Relation to the \`spec-to-workitem\` skill
+
+The [\`spec-to-workitem\`](../../docs/.) skill (shipped under \`.claude/skills/\` / \`.github/copilot/\`) is the **high-level, tracker-agnostic** bridge between the NONoise sprint manifest and any external tracker (GitHub Issues, Azure DevOps, Jira, Linear). It works with a canonical \`WorkItem\` shape and pluggable adapters.
+
+This CLI (\`devops-push\`) is **narrower and lower-level**: it is the Azure-DevOps-specific executable for users who want (a) a rich JSON breakdown (Feature → User Story → Task with hours, assignments, dependencies) that exceeds the manifest's vertical-slice macro tasks, and (b) a local interactive, step-by-step control over what is created. The skill produces macro tasks; this tool can be fed a more granular decomposition authored or generated separately.
+
+In practice:
+
+- **Use \`spec-to-workitem\`** if you want to push the sprint manifest's macro tasks to any tracker with the default dry-run safety.
+- **Use \`devops-push\`** if you're on Azure DevOps, want a hierarchical Feature/US/Task push with hour-level estimates, developer assignments, and predecessor links, and have a JSON breakdown already prepared.
+
+Both tools are idempotent by design and both support dry-run.
+
+## Extending to other trackers
+
+This tool is **not** designed as a multi-tracker abstraction — the mapper and API wrapper are intentionally Azure-DevOps-specific. The recommended extension path:
+
+- For **GitHub Issues / Jira / Linear**, use the \`spec-to-workitem\` skill and implement a new adapter under \`packages/skills/spec-to-workitem/references/adapter-<tracker>.md\`. The skill already defines the canonical \`WorkItem\` shape and the four-operation contract (\`create_item\`, \`list_items\`, \`update_item\`, \`search_by_external_id\`).
+- For a thicker, Azure-DevOps-like hierarchical push to a different tracker, fork this tool or wrap it behind the same adapter pattern. The core files to generalize would be \`src/mapper.js\` (field translation) and \`src/devops-api.js\` (HTTP client). \`src/sync.js\` and \`src/cli.js\` are already tracker-neutral in structure.
+
+## Commands summary
+
+\`\`\`
+1. Validate all task breakdowns in a sprint
+2. Validate a single task breakdown
+3. Push all task breakdowns to Azure DevOps
+4. Push a single task breakdown
+5. Push step-by-step (one work item at a time)
+6. Sprint summary
+7. Exit
+\`\`\`
+
+All push commands:
+- Pre-validate the target task breakdowns.
+- Ask for the parent **Epic ID** on Azure DevOps.
+- Default to **dry-run** (explicit confirmation required to push live).
+- Write a report under \`docs/sprints/Sprint-<N>/export/\`.
+",
+  "tools/devops-push/config/developers.json": "{
+  "_comment": "Neutral example — replace with your team. Each entry is checked when validating task assignments in the work-item JSON files. Email must match \`assignedTo\` in tasks. The \`skills\` / \`team\` fields are informative and consumed by an external AI planner (e.g. spec-to-workitem skill) to propose assignments.",
+  "developers": [
+    {
+      "name": "Alice Example",
+      "email": "alice.example@example.com",
+      "team": "Example Team",
+      "skills": ["BE", "BFF", "DB", "Infra"]
+    },
+    {
+      "name": "Bob Example",
+      "email": "bob.example@example.com",
+      "team": "Example Team",
+      "skills": ["FE", "Test"]
+    }
+  ]
+}
+",
+  "tools/devops-push/config/tasks-schema.json": "{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tasks-schema.json",
+  "title": "Sprint Task Breakdown JSON",
+  "description": "Schema for the <taskSetId>-tasks.json files consumed by devops-push to create work items on Azure DevOps. One file per task set (e.g. one per area or one per PRD). A task set maps to a Feature, each user story to a User Story work item, and each task to a Task work item.",
+  "type": "object",
+  "required": ["taskSetId", "sprint", "generatedDate", "globalConfidence", "dependencies", "feature", "userStories", "devops"],
+  "additionalProperties": false,
+  "properties": {
+    "taskSetId": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9-]*$",
+      "description": "Identifier of the task set, stable across runs (used for idempotency). Examples: 'USER-SIGNUP', 'PAYMENTS-CORE', 'T-001'."
+    },
+    "sprint": {
+      "type": "string",
+      "description": "Sprint name (e.g. 'Sprint 5')"
+    },
+    "generatedDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Generation date YYYY-MM-DD"
+    },
+    "globalConfidence": {
+      "type": "string",
+      "enum": ["CL1", "CL2", "CL3"],
+      "description": "Global confidence level (CL1 = low, CL2 = medium, CL3 = high)"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Cross-taskSet dependencies (e.g. ['PAYMENTS-CORE'])"
+    },
+    "sourceDocument": {
+      "type": "string",
+      "description": "Relative path to the source markdown that generated this breakdown (e.g. the sprint manifest or a PRD)"
+    },
+    "feature": { "$ref": "#/$defs/feature" },
+    "userStories": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/userStory" }
+    },
+    "devops": { "$ref": "#/$defs/devops" }
+  },
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "required": ["title", "description", "storyPoints", "tags"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Feature title — convention: '[<taskSetId>] <Title>'"
+        },
+        "description": {
+          "type": "string",
+          "description": "HTML description (minimal)"
+        },
+        "storyPoints": { "type": "number", "minimum": 0 },
+        "tags": {
+          "type": "string",
+          "description": "Tags separated by ';' (e.g. 'Sprint 5;USER-SIGNUP;auth-service')"
+        }
+      }
+    },
+    "userStory": {
+      "type": "object",
+      "required": ["id", "title", "description", "acceptanceCriteria", "storyPoints", "dependsOn", "tasks"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^US-",
+          "description": "Local ID unique within the task set (e.g. 'US-001')"
+        },
+        "title": { "type": "string" },
+        "description": {
+          "type": "string",
+          "description": "HTML description — convention: 'As <role>, I want <action>, so that <value>'"
+        },
+        "acceptanceCriteria": {
+          "type": "string",
+          "description": "Acceptance criteria in HTML"
+        },
+        "storyPoints": { "type": "number", "minimum": 0 },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Local IDs of predecessor US/Tasks inside this task set (e.g. ['US-001']). Empty array if none."
+        },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/task" }
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "required": ["id", "title", "description", "category", "originalEstimate", "confidence", "dependsOn"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Local ID unique within the task set (e.g. 'T1.1' or 'T-1.1')"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title — convention: '[<Category>] <short description> (<taskSetId>)'"
+        },
+        "description": {
+          "type": "string",
+          "description": "Extended HTML description with implementation details. Should end with a reference to the source breakdown."
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Backend", "BFF", "Frontend", "DB", "Test", "Infra", "Docs"],
+          "description": "Task category"
+        },
+        "originalEstimate": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Estimated hours"
+        },
+        "assignedTo": {
+          "type": ["string", "null"],
+          "format": "email",
+          "description": "Developer email (must exist in developers.json)"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["CL1", "CL2", "CL3"],
+          "description": "Task confidence level"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Local IDs of predecessor US/Tasks inside this task set. Empty array if none. The tool creates Predecessor links on Azure DevOps."
+        }
+      }
+    },
+    "devops": {
+      "type": "object",
+      "required": ["epicId", "featureId", "mapping"],
+      "additionalProperties": false,
+      "properties": {
+        "epicId": {
+          "type": ["integer", "null"],
+          "description": "Parent Epic work item ID on Azure DevOps (provided by the user at push time)"
+        },
+        "featureId": {
+          "type": ["integer", "null"],
+          "description": "Feature work item ID (populated after first successful push)"
+        },
+        "mapping": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" },
+          "description": "Local ID -> Azure DevOps work item ID (populated after push)"
+        }
+      }
+    }
+  }
+}
+",
+  "tools/devops-push/package-lock.json": "{
+  "name": "@nonoise/devops-push",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "@nonoise/devops-push",
+      "version": "1.0.0",
+      "license": "ISC",
+      "dependencies": {
+        "@inquirer/prompts": "^8.3.0",
+        "dotenv": "^17.2.3"
+      }
+    },
+    "node_modules/@inquirer/ansi": {
+      "version": "2.0.3",
+      "resolved": "https://registry.npmjs.org/@inquirer/ansi/-/ansi-2.0.3.tgz",
+      "integrity": "sha512-g44zhR3NIKVs0zUesa4iMzExmZpLUdTLRMCStqX3GE5NT6VkPcxQGJ+uC8tDgBUC/vB1rUhUd55cOf++4NZcmw==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      }
+    },
+    "node_modules/@inquirer/checkbox": {
+      "version": "5.1.0",
+      "resolved": "https://registry.npmjs.org/@inquirer/checkbox/-/checkbox-5.1.0.tgz",
+      "integrity": "sha512-/HjF1LN0a1h4/OFsbGKHNDtWICFU/dqXCdym719HFTyJo9IG7Otr+ziGWc9S0iQuohRZllh+WprSgd5UW5Fw0g==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/ansi": "^2.0.3",
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/figures": "^2.0.3",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/confirm": {
+      "version": "6.0.8",
+      "resolved": "https://registry.npmjs.org/@inquirer/confirm/-/confirm-6.0.8.tgz",
+      "integrity": "sha512-Di6dgmiZ9xCSUxWUReWTqDtbhXCuG2MQm2xmgSAIruzQzBqNf49b8E07/vbCYY506kDe8BiwJbegXweG8M1klw==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/core": {
+      "version": "11.1.5",
+      "resolved": "https://registry.npmjs.org/@inquirer/core/-/core-11.1.5.tgz",
+      "integrity": "sha512-QQPAX+lka8GyLcZ7u7Nb1h6q72iZ/oy0blilC3IB2nSt1Qqxp7akt94Jqhi/DzARuN3Eo9QwJRvtl4tmVe4T5A==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/ansi": "^2.0.3",
+        "@inquirer/figures": "^2.0.3",
+        "@inquirer/type": "^4.0.3",
+        "cli-width": "^4.1.0",
+        "fast-wrap-ansi": "^0.2.0",
+        "mute-stream": "^3.0.0",
+        "signal-exit": "^4.1.0"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/editor": {
+      "version": "5.0.8",
+      "resolved": "https://registry.npmjs.org/@inquirer/editor/-/editor-5.0.8.tgz",
+      "integrity": "sha512-sLcpbb9B3XqUEGrj1N66KwhDhEckzZ4nI/W6SvLXyBX8Wic3LDLENlWRvkOGpCPoserabe+MxQkpiMoI8irvyA==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/external-editor": "^2.0.3",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/expand": {
+      "version": "5.0.8",
+      "resolved": "https://registry.npmjs.org/@inquirer/expand/-/expand-5.0.8.tgz",
+      "integrity": "sha512-QieW3F1prNw3j+hxO7/NKkG1pk3oz7pOB6+5Upwu3OIwADfPX0oZVppsqlL+Vl/uBHHDSOBY0BirLctLnXwGGg==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/external-editor": {
+      "version": "2.0.3",
+      "resolved": "https://registry.npmjs.org/@inquirer/external-editor/-/external-editor-2.0.3.tgz",
+      "integrity": "sha512-LgyI7Agbda74/cL5MvA88iDpvdXI2KuMBCGRkbCl2Dg1vzHeOgs+s0SDcXV7b+WZJrv2+ERpWSM65Fpi9VfY3w==",
+      "license": "MIT",
+      "dependencies": {
+        "chardet": "^2.1.1",
+        "iconv-lite": "^0.7.2"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/figures": {
+      "version": "2.0.3",
+      "resolved": "https://registry.npmjs.org/@inquirer/figures/-/figures-2.0.3.tgz",
+      "integrity": "sha512-y09iGt3JKoOCBQ3w4YrSJdokcD8ciSlMIWsD+auPu+OZpfxLuyz+gICAQ6GCBOmJJt4KEQGHuZSVff2jiNOy7g==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      }
+    },
+    "node_modules/@inquirer/input": {
+      "version": "5.0.8",
+      "resolved": "https://registry.npmjs.org/@inquirer/input/-/input-5.0.8.tgz",
+      "integrity": "sha512-p0IJslw0AmedLEkOU+yrEX3Aj2RTpQq7ZOf8nc1DIhjzaxRWrrgeuE5Kyh39fVRgtcACaMXx/9WNo8+GjgBOfw==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/number": {
+      "version": "4.0.8",
+      "resolved": "https://registry.npmjs.org/@inquirer/number/-/number-4.0.8.tgz",
+      "integrity": "sha512-uGLiQah9A0F9UIvJBX52m0CnqtLaym0WpT9V4YZrjZ+YRDKZdwwoEPz06N6w8ChE2lrnsdyhY9sL+Y690Kh9gQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/password": {
+      "version": "5.0.8",
+      "resolved": "https://registry.npmjs.org/@inquirer/password/-/password-5.0.8.tgz",
+      "integrity": "sha512-zt1sF4lYLdvPqvmvHdmjOzuUUjuCQ897pdUCO8RbXMUDKXJTTyOQgtn23le+jwcb+MpHl3VAFvzIdxRAf6aPlA==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/ansi": "^2.0.3",
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/prompts": {
+      "version": "8.3.0",
+      "resolved": "https://registry.npmjs.org/@inquirer/prompts/-/prompts-8.3.0.tgz",
+      "integrity": "sha512-JAj66kjdH/F1+B7LCigjARbwstt3SNUOSzMdjpsvwJmzunK88gJeXmcm95L9nw1KynvFVuY4SzXh/3Y0lvtgSg==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/checkbox": "^5.1.0",
+        "@inquirer/confirm": "^6.0.8",
+        "@inquirer/editor": "^5.0.8",
+        "@inquirer/expand": "^5.0.8",
+        "@inquirer/input": "^5.0.8",
+        "@inquirer/number": "^4.0.8",
+        "@inquirer/password": "^5.0.8",
+        "@inquirer/rawlist": "^5.2.4",
+        "@inquirer/search": "^4.1.4",
+        "@inquirer/select": "^5.1.0"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/rawlist": {
+      "version": "5.2.4",
+      "resolved": "https://registry.npmjs.org/@inquirer/rawlist/-/rawlist-5.2.4.tgz",
+      "integrity": "sha512-fTuJ5Cq9W286isLxwj6GGyfTjx1Zdk4qppVEPexFuA6yioCCXS4V1zfKroQqw7QdbDPN73xs2DiIAlo55+kBqg==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/search": {
+      "version": "4.1.4",
+      "resolved": "https://registry.npmjs.org/@inquirer/search/-/search-4.1.4.tgz",
+      "integrity": "sha512-9yPTxq7LPmYjrGn3DRuaPuPbmC6u3fiWcsE9ggfLcdgO/ICHYgxq7mEy1yJ39brVvgXhtOtvDVjDh9slJxE4LQ==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/figures": "^2.0.3",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/select": {
+      "version": "5.1.0",
+      "resolved": "https://registry.npmjs.org/@inquirer/select/-/select-5.1.0.tgz",
+      "integrity": "sha512-OyYbKnchS1u+zRe14LpYrN8S0wH1vD0p2yKISvSsJdH2TpI87fh4eZdWnpdbrGauCRWDph3NwxRmM4Pcm/hx1Q==",
+      "license": "MIT",
+      "dependencies": {
+        "@inquirer/ansi": "^2.0.3",
+        "@inquirer/core": "^11.1.5",
+        "@inquirer/figures": "^2.0.3",
+        "@inquirer/type": "^4.0.3"
+      },
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/@inquirer/type": {
+      "version": "4.0.3",
+      "resolved": "https://registry.npmjs.org/@inquirer/type/-/type-4.0.3.tgz",
+      "integrity": "sha512-cKZN7qcXOpj1h+1eTTcGDVLaBIHNMT1Rz9JqJP5MnEJ0JhgVWllx7H/tahUp5YEK1qaByH2Itb8wLG/iScD5kw==",
+      "license": "MIT",
+      "engines": {
+        "node": ">=23.5.0 || ^22.13.0 || ^21.7.0 || ^20.12.0"
+      },
+      "peerDependencies": {
+        "@types/node": ">=18"
+      },
+      "peerDependenciesMeta": {
+        "@types/node": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/chardet": {
+      "version": "2.1.1",
+      "resolved": "https://registry.npmjs.org/chardet/-/chardet-2.1.1.tgz",
+      "integrity": "sha512-PsezH1rqdV9VvyNhxxOW32/d75r01NY7TQCmOqomRo15ZSOKbpTFVsfjghxo6JloQUCGnH4k1LGu0R4yCLlWQQ==",
+      "license": "MIT"
+    },
+    "node_modules/cli-width": {
+      "version": "4.1.0",
+      "resolved": "https://registry.npmjs.org/cli-width/-/cli-width-4.1.0.tgz",
+      "integrity": "sha512-ouuZd4/dm2Sw5Gmqy6bGyNNNe1qt9RpmxveLSO7KcgsTnU7RXfsw+/bukWGo1abgBiMAic068rclZsO4IWmmxQ==",
+      "license": "ISC",
+      "engines": {
+        "node": ">= 12"
+      }
+    },
+    "node_modules/dotenv": {
+      "version": "17.3.1",
+      "resolved": "https://registry.npmjs.org/dotenv/-/dotenv-17.3.1.tgz",
+      "integrity": "sha512-IO8C/dzEb6O3F9/twg6ZLXz164a2fhTnEWb95H23Dm4OuN+92NmEAlTrupP9VW6Jm3sO26tQlqyvyi4CsnY9GA==",
+      "license": "BSD-2-Clause",
+      "engines": {
+        "node": ">=12"
+      },
+      "funding": {
+        "url": "https://dotenvx.com"
+      }
+    },
+    "node_modules/fast-string-truncated-width": {
+      "version": "3.0.3",
+      "resolved": "https://registry.npmjs.org/fast-string-truncated-width/-/fast-string-truncated-width-3.0.3.tgz",
+      "integrity": "sha512-0jjjIEL6+0jag3l2XWWizO64/aZVtpiGE3t0Zgqxv0DPuxiMjvB3M24fCyhZUO4KomJQPj3LTSUnDP3GpdwC0g==",
+      "license": "MIT"
+    },
+    "node_modules/fast-string-width": {
+      "version": "3.0.2",
+      "resolved": "https://registry.npmjs.org/fast-string-width/-/fast-string-width-3.0.2.tgz",
+      "integrity": "sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==",
+      "license": "MIT",
+      "dependencies": {
+        "fast-string-truncated-width": "^3.0.2"
+      }
+    },
+    "node_modules/fast-wrap-ansi": {
+      "version": "0.2.0",
+      "resolved": "https://registry.npmjs.org/fast-wrap-ansi/-/fast-wrap-ansi-0.2.0.tgz",
+      "integrity": "sha512-rLV8JHxTyhVmFYhBJuMujcrHqOT2cnO5Zxj37qROj23CP39GXubJRBUFF0z8KFK77Uc0SukZUf7JZhsVEQ6n8w==",
+      "license": "MIT",
+      "dependencies": {
+        "fast-string-width": "^3.0.2"
+      }
+    },
+    "node_modules/iconv-lite": {
+      "version": "0.7.2",
+      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.7.2.tgz",
+      "integrity": "sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw==",
+      "license": "MIT",
+      "dependencies": {
+        "safer-buffer": ">= 2.1.2 < 3.0.0"
+      },
+      "engines": {
+        "node": ">=0.10.0"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/express"
+      }
+    },
+    "node_modules/mute-stream": {
+      "version": "3.0.0",
+      "resolved": "https://registry.npmjs.org/mute-stream/-/mute-stream-3.0.0.tgz",
+      "integrity": "sha512-dkEJPVvun4FryqBmZ5KhDo0K9iDXAwn08tMLDinNdRBNPcYEDiWYysLcc6k3mjTMlbP9KyylvRpd4wFtwrT9rw==",
+      "license": "ISC",
+      "engines": {
+        "node": "^20.17.0 || >=22.9.0"
+      }
+    },
+    "node_modules/safer-buffer": {
+      "version": "2.1.2",
+      "resolved": "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz",
+      "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==",
+      "license": "MIT"
+    },
+    "node_modules/signal-exit": {
+      "version": "4.1.0",
+      "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-4.1.0.tgz",
+      "integrity": "sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==",
+      "license": "ISC",
+      "engines": {
+        "node": ">=14"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/isaacs"
+      }
+    }
+  }
+}
+",
+  "tools/devops-push/package.json": "{
+  "name": "@nonoise/devops-push",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/cli.js",
+  "bin": {
+    "devops-push": "src/cli.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js"
+  },
+  "keywords": [
+    "nonoise",
+    "azure-devops",
+    "work-items",
+    "sprint",
+    "cli"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "CLI that pushes sprint work-item breakdowns (Feature > User Story > Task) to Azure DevOps. Reads JSON breakdowns from the sprint workspace and creates / updates work items via the Azure DevOps REST API.",
+  "engines": {
+    "node": ">=20.12.0"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.3.0",
+    "dotenv": "^17.2.3"
+  }
+}
+",
+  "tools/md-extractor/.gitignore": "node_modules/
+",
+  "tools/md-extractor/README.md": "# md-extractor
+
+Node.js CLI that converts documents (PDF, DOCX, JPG, JPEG, PNG) into structured Markdown via the **LlamaCloud** parsing service (tier \`agentic\`). In addition to text, it downloads every image embedded in the document, saves them into a sibling \`<basename>-assets/\` folder, and rewrites the Markdown image references to point at the local assets folder (\`./<basename>-assets/<name>\`).
+
+This tool is meant to turn official source documents (PDFs, DOCX specs, images of diagrams) into a Markdown version that can be indexed by \`graphify\`, consumed by the \`reverse-engineering\` and \`requirements-ingest\` skills, or simply grep'd by humans and AI assistants. **The extracted markdown — not the raw PDF — is the canonical source of truth that graphify indexes.**
+
+## What it does, in short
+
+1. Reads \`LLAMA_CLOUD_API_KEY\` from the environment, or prompts for it.
+2. Takes the source file path as the first CLI argument (or prompts for it).
+3. Uploads the file to LlamaCloud (\`files.create\` with \`purpose: "parse"\`).
+4. Runs the \`agentic\` parser to extract \`markdown_full\` + image metadata.
+5. Writes the extracted \`<basename>.md\` **next to the source file** (same directory, same basename).
+6. Saves every image into \`<basename>-assets/\` **next to the \`.md\`** and rewrites links \`![...](...)\` to \`./<basename>-assets/<name>\`.
+
+Supported extensions: \`.pdf\`, \`.docx\`, \`.jpg\`, \`.jpeg\`, \`.png\`. Anything else is rejected.
+
+## Output contract (important)
+
+**By default the output lives next to the input.** This is the contract the \`reverse-engineering\` / \`requirements-ingest\` skills rely on: they look for a sibling \`.md\` next to every \`.pdf\` and, if it exists, treat it as the canonical source instead of the raw PDF.
+
+| Input | Default output |
+|-------|----------------|
+| \`docs/requirements/<domain>/sources/Spec.pdf\` | \`docs/requirements/<domain>/sources/Spec.md\` + \`docs/requirements/<domain>/sources/Spec-assets/\` |
+| \`docs/support/reverse/<subject>/.meta/raw/Doc.pdf\` | \`docs/support/reverse/<subject>/.meta/raw/Doc.md\` + \`Doc-assets/\` |
+| \`any/path/file.pdf\` | \`any/path/file.md\` + \`any/path/file-assets/\` |
+
+The tool does **not** impose where the source PDF must live — it only guarantees that the extracted \`.md\` is a sibling of the PDF. You decide where to put the source; downstream skills find the \`.md\` automatically.
+
+Use \`--out <dir>\` (or \`-o <dir>\`) if you want the output somewhere else. A legacy positional second argument also still works.
+
+## Dependencies
+
+- Node.js (ESM, requires \`type: "module"\` — already set in \`package.json\`).
+- npm package: \`@llamaindex/llama-cloud\` (public, MIT).
+- A LlamaCloud account with an API key.
+
+Install:
+
+\`\`\`bash
+cd tools/md-extractor
+npm install
+\`\`\`
+
+## Configuration
+
+The API key can be provided in two ways:
+
+- **Env var**: \`LLAMA_CLOUD_API_KEY=...\` — the tool reads it silently and does not prompt.
+- **Interactive prompt**: if the env var is missing, the tool prompts for it on stdin (masked input).
+
+\`\`\`bash
+# bash / zsh
+export LLAMA_CLOUD_API_KEY="llx-..."
+
+# PowerShell (current session)
+$env:LLAMA_CLOUD_API_KEY = "llx-..."
+\`\`\`
+
+## Usage
+
+Two equivalent ways (npm script or direct invocation).
+
+\`\`\`bash
+# from the workspace root
+node tools/md-extractor/extract.js "<path-to-file>" [--out "<output-dir>"]
+
+# or enter the folder and run via npm
+cd tools/md-extractor
+npm start -- "<path-to-file>"
+\`\`\`
+
+With no arguments, the tool prompts for the path interactively.
+
+### Arguments
+
+| Flag / position | Description | Default |
+|-----------------|-------------|---------|
+| \`<input>\` (1st positional) | Path to the source file | prompted at runtime |
+| \`--out <dir>\` / \`-o <dir>\` | Output directory | directory of the input file (sibling) |
+| \`<outDir>\` (2nd positional, legacy) | Output directory | same as \`--out\` |
+
+## Example
+
+\`\`\`bash
+node tools/md-extractor/extract.js "docs/requirements/billing/sources/BillingSpec.pdf"
+\`\`\`
+
+Produces:
+
+\`\`\`
+docs/requirements/billing/sources/
+├── BillingSpec.pdf              # source (unchanged)
+├── BillingSpec.md               # extracted Markdown
+└── BillingSpec-assets/          # extracted images
+    ├── page_1_image_1_v2.jpg
+    ├── page_1_image_2_v2.jpg
+    └── ...
+\`\`\`
+
+### What the extracted Markdown is good for
+
+- Feeding \`graphify\` (it indexes the \`.md\`, not the \`.pdf\`).
+- Feeding the \`reverse-engineering\` skill (looks for sibling \`.md\` next to every \`.pdf\`).
+- Feeding the \`requirements-ingest\` skill (source of truth for requirements lives in \`docs/requirements/<domain>/sources/*.md\`).
+- Being directly readable and grep-able by Claude Code / Copilot / any assistant — no need to open the PDF.
+
+## Operational notes
+
+- The \`agentic\` tier consumes LlamaCloud credits — mind the cost for large files.
+- The uploaded PDF stays on LlamaCloud until the service-side retention policy expires.
+- If the Markdown already contains absolute URLs (\`http(s)://\`) or \`data:\` inline images, they are left untouched — only local/relative references are rewritten to \`./<basename>-assets/\`.
+- The \`<basename>-assets/\` folder is only created when the document actually has images.
+- If the output \`.md\` or any asset already exists it is overwritten without asking.
+",
+  "tools/md-extractor/package-lock.json": "{
+  "name": "@nonoise/md-extractor",
+  "version": "0.1.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "@nonoise/md-extractor",
+      "version": "0.1.0",
+      "dependencies": {
+        "@llamaindex/llama-cloud": "^2.3.0"
+      },
+      "bin": {
+        "md-extract": "extract.js"
+      }
+    },
+    "node_modules/@llamaindex/llama-cloud": {
+      "version": "2.3.0",
+      "resolved": "https://registry.npmjs.org/@llamaindex/llama-cloud/-/llama-cloud-2.3.0.tgz",
+      "integrity": "sha512-Y+KWFdtl0jhnf/1HJHH1fzFc6XARN1+1BPgty46B3X3TNhMapKDq5vNB2tw/SmWC7Gvgfj8lCqKG6jyFVH/cBA==",
+      "license": "MIT"
+    }
+  }
+}
+",
+  "tools/md-extractor/package.json": "{
+  "name": "@nonoise/md-extractor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "md-extract": "./extract.js"
+  },
+  "scripts": {
+    "start": "node extract.js"
+  },
+  "dependencies": {
+    "@llamaindex/llama-cloud": "^2.3.0"
+  }
+}
+",
 }
 `;
 
@@ -13260,6 +14917,11 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/playwright-cli/references/test-generation.md",
   ".claude/skills/playwright-cli/references/tracing.md",
   ".claude/skills/playwright-cli/references/video-recording.md",
+  ".claude/skills/polly/SKILL.md",
+  ".claude/skills/polly/references/decision-tree.md",
+  ".claude/skills/polly/references/fallback-messages.md",
+  ".claude/skills/polly/references/skill-invocation-matrix.md",
+  ".claude/skills/polly/references/voice-tools.md",
   ".claude/skills/quint-fpf/SKILL.md",
   ".claude/skills/quint-fpf/commands/q-actualize.md",
   ".claude/skills/quint-fpf/commands/q-decay.md",
@@ -13321,5 +14983,22 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   "nonoise.config.json",
   "src/.gitkeep",
   "tools/.gitkeep",
+  "tools/devops-push/.env.example",
+  "tools/devops-push/.gitignore",
+  "tools/devops-push/README.md",
+  "tools/devops-push/config/developers.json",
+  "tools/devops-push/config/tasks-schema.json",
+  "tools/devops-push/package-lock.json",
+  "tools/devops-push/package.json",
+  "tools/devops-push/src/cli.js",
+  "tools/devops-push/src/devops-api.js",
+  "tools/devops-push/src/mapper.js",
+  "tools/devops-push/src/paths.js",
+  "tools/devops-push/src/sync.js",
+  "tools/md-extractor/.gitignore",
+  "tools/md-extractor/README.md",
+  "tools/md-extractor/extract.js",
+  "tools/md-extractor/package-lock.json",
+  "tools/md-extractor/package.json",
 ]
 `;

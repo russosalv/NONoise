@@ -135,6 +135,8 @@ If arguments are missing, the skill asks interactively — one question at a tim
 
 **Goal**: agree on HOW the AI will reach the target environment.
 
+The *philosophy* (CLI > API > Web, never-silent-login, fallback protocol, OIDC for CI, browser-MCP pins) lives in the shared reference [`../_shared/access-model.md`](../_shared/access-model.md). The *operational prompt* the skill shows the user stays here.
+
 #### Present the tiered menu
 
 Use this exact framing (adapt to the user's language from `nonoise.config.json` if it's not English):
@@ -149,23 +151,22 @@ Use this exact framing (adapt to the user's language from `nonoise.config.json` 
 
 #### Match the choice to an auth flow
 
-Bundle reference [`references/access-patterns.md`](./references/access-patterns.md) covers concrete examples. Use it to guide the conversation:
+- [`../_shared/access-model.md`](../_shared/access-model.md) — tier definitions, probe pattern, fallback protocol, OIDC federation for CI, browser-MCP pins per AI tool. **Read this for the generic philosophy.**
+- [`references/access-patterns.md`](./references/access-patterns.md) — concrete per-tool probes for Azure / AWS / GCP / GitHub / Azure DevOps / Kubernetes / Terraform / Pulumi / Helm / Jira / Linear, plus Windows-bash quirks. **Read this for the exact commands.**
+
+At a glance:
 
 | Access tier | Typical commands to check it's live |
 |---|---|
 | CLI | `az account show`, `gcloud auth list`, `aws sts get-caller-identity`, `gh auth status`, `kubectl config current-context`, `terraform version`, `pulumi whoami` |
 | API | probe the provider's "whoami" endpoint with the user-supplied token — e.g. Azure DevOps `GET /_apis/connectionData`, GitHub `GET /user`, Jira `GET /rest/api/3/myself` |
-| Web | probe that a browser MCP server is configured (`mcp__playwright__navigate` or equivalent). If not, explain this will be pair-driven |
+| Web | probe that a browser MCP server is configured (`mcp__playwright__navigate` or equivalent; see `_shared/access-model.md` § 7 for the pinned package per AI tool). If not, explain this will be pair-driven. |
 
 #### Fallback chains
 
-If the preferred tier is unavailable (no CLI installed, no token, no browser MCP), propose the next tier **with the user's consent**. Never silently downgrade.
+Follow the fallback protocol documented in `../_shared/access-model.md` § 3: when the preferred tier fails, **explain → propose → ask → record**. Never silently downgrade.
 
-If **none** of the three tiers is feasible, stop and ask the user what to do. Options:
-
-- Install the missing CLI (print the install command for the user to run manually — per global rule, LSP/runtime installs are advisor-only)
-- Generate the missing token (link to the provider's token-generation doc)
-- Defer the operation until access is set up
+If **none** of the three tiers is feasible, stop and ask the user whether to install the missing CLI, generate the missing token, configure the missing browser MCP, or defer. Per global rule, LSP/runtime installs are advisor-only — print the install command, do not run it.
 
 #### Phase 1 checkpoint
 
@@ -485,7 +486,8 @@ If Phase 4 failed and left the environment in a broken state:
 
 ## Reference files
 
-- [`references/access-patterns.md`](./references/access-patterns.md) — the access menu in depth: CLI / API / Web examples across Azure / AWS / GCP / GitHub / Azure DevOps / Jira / Kubernetes / Terraform / Pulumi. Covers auth setup, verification probes, common failure modes.
+- [`../_shared/access-model.md`](../_shared/access-model.md) — **shared access-first reference** (CLI > API > Web tiers, probe pattern, fallback protocol, never-silent-login rule, env-var convention, OIDC federation for GitHub Actions → Azure / AWS / GCP, browser-MCP pins per AI tool, anti-patterns). Consumed by this skill and by `observability-debug`.
+- [`references/access-patterns.md`](./references/access-patterns.md) — per-tool concrete probes: CLI / API / Web examples across Azure / AWS / GCP / GitHub / Azure DevOps / Jira / Linear / Kubernetes / Terraform / Pulumi / Helm. Covers auth setup, verification commands, and failure modes specific to each tool.
 - [`references/ops-skill-template.md`](./references/ops-skill-template.md) — the canonical structure for a generated ops skill: frontmatter template, pre-check auth section, read-state section, validate-args section, execute section, verify section, report section, rollback section. This is the template `skill-creator` receives in Phase 5.
 - [`references/examples.md`](./references/examples.md) — three end-to-end worked examples in different clouds (Azure AKS deploy, AWS EKS rollout, GCP Cloud Run deploy), each showing the full five-phase flow.
 

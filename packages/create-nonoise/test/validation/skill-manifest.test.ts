@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const SKILLS_ROOT = resolve(__dirname, '..', '..', '..', '..', 'packages', 'skills');
 
-const GROUPING_DIRS = new Set(['vendor']);
+const GROUPING_DIRS = new Set(['vendor', '_shared']);
 
 describe('skill manifest validation', () => {
   it('every skill has a SKILL.md with valid frontmatter', async () => {
