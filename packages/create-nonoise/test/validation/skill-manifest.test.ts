@@ -7,10 +7,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const SKILLS_ROOT = resolve(__dirname, '..', '..', '..', '..', 'packages', 'skills');
 
+const GROUPING_DIRS = new Set(['vendor']);
+
 describe('skill manifest validation', () => {
   it('every skill has a SKILL.md with valid frontmatter', async () => {
     const entries = await readdir(SKILLS_ROOT, { withFileTypes: true });
-    const skillDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    const skillDirs = entries
+      .filter((e) => e.isDirectory() && !GROUPING_DIRS.has(e.name))
+      .map((e) => e.name);
     expect(skillDirs.length).toBeGreaterThan(0);
 
     for (const name of skillDirs) {
