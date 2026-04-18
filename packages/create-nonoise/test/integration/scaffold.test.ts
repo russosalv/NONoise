@@ -81,6 +81,8 @@ describe('scaffold() integration', () => {
       'bmad-agent-architect',
       'bmad-agent-tech-writer',
       'bmad-agent-ux-designer',
+      'quint-fpf',
+      'arch-brainstorm',
     ];
     for (const name of expected) {
       const content = await readFile(

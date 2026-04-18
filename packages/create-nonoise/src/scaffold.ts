@@ -31,6 +31,8 @@ const MVP_SKILL_BUNDLE = [
   'bmad-agent-architect',
   'bmad-agent-tech-writer',
   'bmad-agent-ux-designer',
+  'quint-fpf',
+  'arch-brainstorm',
 ] as const;
 
 export type ScaffoldPaths = {

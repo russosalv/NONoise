@@ -9,6 +9,1041 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
 }
 ",
   ".claude/skills/.gitkeep": "",
+  ".claude/skills/arch-brainstorm/SKILL.md": "---
+name: arch-brainstorm
+description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading project guidelines from \`arch-docs\` (if present), and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under \`docs/prd/<area>/\`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Quint FPF validation via \`quint-fpf\`) → arch-docs (source-of-truth sync) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
+source: Risko reference-project (reworked whitelabel for NONoise)
+variant: nonoise generic; stack-neutral
+---
+
+# arch-brainstorm — Architectural dialog and narrative PRD
+
+This skill is **step 1** of the NONoise architectural workflow. It turns an idea or an area name into a narrative PRD that is complete, self-contained, and ready for formal validation via \`arch-decision\` (which delegates to \`quint-fpf\`).
+
+## Position in the workflow
+
+\`\`\`
+┌─────────────┐   ┌──────────────┐   ┌────────────────┐   ┌──────────────────┐
+│ arch-       │──▶│ arch-        │──▶│ arch-docs      │──▶│ sprint-manifest  │
+│ brainstorm  │   │ decision     │   │ (auto sync)    │   │                  │
+│             │   │              │   │                │   │                  │
+│ explore +   │   │ validate via │   │ update source  │   │ promote to       │
+│ dialog +    │   │ quint-fpf    │   │ of truth docs/ │   │ sprint manifest  │
+│ write PRD   │   │              │   │ architecture   │   │                  │
+└─────────────┘   └──────────────┘   └────────────────┘   └──────────────────┘
+     STEP 1            STEP 2              STEP 3                STEP 4
+\`\`\`
+
+## What this skill does
+
+1. **Explores** the codebase relevant to the area (components involved, existing patterns, stubs/gaps).
+2. **Reads** guidelines from the project source of truth (\`docs/architecture/\`, or the \`arch-docs\` skill if installed) — absolute constraints, patterns, component registry.
+3. **Reads** prior studies in the area (if \`docs/prd/<area>/\` already exists).
+4. **Dialogs** with the architect via Q&A — one question at a time, multiple-choice preferred — in the style of \`superpowers:brainstorming\` but tuned to project-specific context.
+5. **Writes** a PRD with a mandatory narrative structure (see [\`references/prd-template.md\`](./references/prd-template.md)), saved as \`docs/prd/<area>/NN-<study>.md\`.
+6. **Writes** a standalone diagrams file \`NN-<study>-diagrams.md\` (same Mermaid diagrams that are also embedded inline in the PRD).
+7. **Updates or creates** \`00-area-brief.md\` (area index).
+8. **Suggests** the next step — invoke \`arch-decision\` to validate the PRD.
+
+## What this skill does NOT do
+
+- **Does not validate** decisions — that is \`arch-decision\`'s job (via \`quint-fpf\`).
+- **Does not update** \`docs/architecture/\` or the component registry — that is \`arch-docs\`' job.
+- **Does not promote** to a sprint — that is \`sprint-manifest\`'s job.
+- **Does not generate code** — it only produces design documents.
+- **Does not create formal ADR-DRAFT files** with tabulated pros/cons — the narrative decision story in the PRD replaces that format with readable prose.
+
+## Possible inputs
+
+The skill can be triggered in several ways:
+
+| User input | Skill action |
+|---|---|
+| \`arch-brainstorm area user-signup\` | Use \`user-signup\` as the area slug |
+| "I want to study the PDF export flow" | Propose slug \`pdf-export\` (or similar), ask for confirmation |
+| "New study in area \`payments\`" | Open a new study \`NN+1-<slug>\` in an existing area |
+| "How should we handle event replay?" | Propose area \`event-replay\`, ask for confirmation, start exploration |
+
+**Before starting real work**, the skill must always:
+1. **Confirm the area slug** with the architect
+2. **Check whether the folder exists** at \`docs/prd/<area>/\`
+3. **Decide whether this is a new study or an iteration** of an existing one
+
+---
+
+## Flow — 4 phases
+
+### Phase 1: DISCOVER — explore the context
+
+**Goal**: understand the state of the world before asking the architect anything.
+
+#### Actions
+
+1. **Confirm area slug** — parse user input. If ambiguous, ask: "What area are you studying? Slug in kebab-case (e.g. \`user-signup\`)".
+
+2. **Check folder existence** — \`docs/prd/<area>/\`:
+   - **Exists with studies inside** → read \`00-area-brief.md\` and the existing studies to understand what has already been decided. Determine whether the user is opening a **new study** (\`NN+1\`) or iterating on an existing one.
+   - **Exists but empty or brief-only** → new study, prefix \`01-\`.
+   - **Does not exist** → new area; create it with \`00-area-brief.md\` as the first file.
+   - **Exists with marker \`README-status.md\` declaring \`status: external\`** → external argumentative folder; **do not touch it**. Propose a different slug (e.g. \`-v2\` suffix).
+
+3. **Read the project source of truth** — always. In particular:
+   - \`docs/architecture/\` (if present) — constraints, patterns, registry
+   - \`.claude/skills/arch-docs/SKILL.md\` (if installed) — same but actionable
+   - Any \`CLAUDE.md\`, \`AGENTS.md\`, \`nonoise.config.json\` at repo root — additional project context
+
+4. **Explore the codebase** — identify:
+   - Components potentially involved in the area (match by name, by domain, by keyword)
+   - Similar patterns that already exist
+   - Gaps / stubs / TBDs
+   - Existing entities, APIs, events, contracts
+   - Cross-component dependencies
+
+   **Tools**: use the \`Explore\` agent for this reconnaissance, especially when the area spans multiple components. The prompt should be explicit: "Given that I'm studying area X, I want to know what exists today in Y, Z, W; what gaps exist relative to the goal; which patterns are reusable".
+
+5. **Summarize to the architect** in ~150 words what you found, before starting questions. Example:
+
+   > I read the \`user-signup\` folder (2 files: brief + study 01 validated on OTP). I read the project constraints in \`docs/architecture/\`. Exploring the code: \`auth-service\` already has email/password signup, \`notifications\` is a stub with only the interface, the pipeline uses a queue-based pattern via \`events/signup.ts\`. I notice there is no passwordless login yet. Can you confirm the new study is about: **[summary of the goal]**?
+
+#### Phase 1 checkpoint
+
+- [ ] Area slug confirmed
+- [ ] Folder state verified
+- [ ] Project source of truth read (constraints/guidelines in memory)
+- [ ] Codebase explored for the area
+- [ ] Summary presented to the architect
+
+**Ask for confirmation** before moving to phase 2.
+
+---
+
+### Phase 2: DIALOGUE — Q&A with the architect
+
+**Goal**: gather scope, constraints, preferences, and decisions through structured dialog. Do not write anything to files until you have enough information to produce a coherent PRD.
+
+#### Dialog principles
+
+1. **One question at a time**. Never multi-question. If a topic is complex, break it up.
+2. **Multiple-choice when possible** — easier to answer than an open question. Offer 2–4 options with explicit trade-offs.
+3. **Explore alternatives** — for each important decision, propose 2–3 approaches with pros/cons before asking for a choice.
+4. **Recommend with reservation** — after presenting alternatives, say "my recommendation is X because Y", but leave the final word to the architect.
+5. **Respect corrections** — if the architect corrects an assumption, acknowledge it explicitly and update downstream reasoning. Never proceed as if nothing happened.
+6. **Prefer explicit confirmations** — never assume silently. "Confirmed X" beats "Assumed X".
+7. **Keep the thread** — periodically summarize what has been decided ("so far we've decided: A, B, C — proceeding with D?").
+
+#### Typical question dimensions (non-exhaustive)
+
+| Dimension | Example questions |
+|---|---|
+| Scope | "Does the study cover only X or also Y?" |
+| Volume / scale | "How many items per operation? Tens, hundreds, thousands?" |
+| Sync vs async | "Does the user wait for a response or get notified later?" |
+| Tracking | "State per item, per job, or both? Progress counter or just end-of-job?" |
+| Messaging | "Pub/sub, sync invoke, outbox?" |
+| Event granularity | "One event per batch or one per item?" |
+| Ownership | "Where does the entity live? Which component owns the data?" |
+| State machine | "Final states? Where do they come from (spec, already decided, TBD)?" |
+| Error handling | "Retry policy? Dead-letter? Idempotency?" |
+| Security | "Short-lived tokens, long-lived in DB, other? Who can access?" |
+| Trigger | "Event-driven from upstream, sync API, scheduler?" |
+| Notification | "Push, email, polling? When?" |
+
+Adapt to the stack and domain — these are templates, not a script.
+
+#### Visual companion (optional)
+
+If the dialog covers visual questions (UI layout, mockups, diagrams to compare), offer the **visual companion** of \`superpowers:brainstorming\` once as an isolated message. After acceptance, decide per-question whether to use a browser or the terminal (see \`superpowers:brainstorming\` for rules).
+
+For textual questions (choices between conceptual alternatives, trade-offs, requirements), stay in the terminal.
+
+#### Dialog length
+
+Number of questions depends on area complexity — typically 5–15 exchanges. Never fire a list of 20 questions at once. Prefer quick iterations.
+
+#### Phase 2 checkpoint
+
+- [ ] Scope clear (what's in / what's out)
+- [ ] Key decisions made with alternatives discussed
+- [ ] Constraints and integrations identified
+- [ ] States / placeholders agreed
+- [ ] Error handling and retry agreed
+- [ ] Architect has green-lit moving to writing
+
+**Ask for explicit confirmation** before starting to write the PRD.
+
+---
+
+### Phase 3: WRITE — produce the narrative PRD
+
+**Goal**: turn the dialog into a written PRD — self-contained, readable, with mandatory structure.
+
+#### Mandatory PRD template
+
+Use the structure documented in [\`references/prd-template.md\`](./references/prd-template.md). Non-negotiable elements:
+
+1. **YAML frontmatter** with \`status: draft\`, \`area\`, \`study\`, \`created_at\`, \`authors\`, plus all lifecycle fields (see [\`references/folder-conventions.md\`](./references/folder-conventions.md)).
+2. **Executive summary** (§1) — table of key choices, 1–2 paragraphs of intro.
+3. **Decision story** (§2) — mandatory section in **prose**, not bullet lists. Must contain:
+   - §2.1 The starting problem (state of the world, motivation)
+   - §2.2 The N key decisions — for each: *question → alternatives considered → choice → why*
+   - §2.3 End-to-end flow narrated in prose (T0 → TN), readable by a non-developer
+   - §2.4 Inline diagrams (component + sequence, Mermaid)
+   - §2.5 What we will NOT do (anti-scope with explicit motivations)
+4. **Context and motivation** (§3) — now secondary, captures existing state and constraints/requirements
+5. **Contract with upstream/downstream** (§4, optional, if applicable)
+6. **Target architecture** (§5) — refers back to inline diagrams in §2.4 for self-containment, but summarizes components involved and roles
+7. **Data model** (§6, if relevant)
+8. **Event contracts** (§7, if relevant)
+9. **API contracts** (§8, if relevant)
+10. **Orchestration / handler pseudocode** (§9, if relevant)
+11. **Error handling, retry, idempotency** (§10)
+12. **Domain-specific sections** (§11+, variable: security, auth, scheduling, …)
+13. **Code changes checklist** — three subsections: new / modified / unchanged
+14. **Testing strategy** — unit / integration / acceptance
+15. **Open points** — explicit TBDs from spec or future analysis
+16. **Appendices** — references to existing code (file:line), closed decisions from brainstorming, names and conventions
+
+**Golden rule**: a new team member must be able to open the PRD and understand everything with no other file open. No "see other doc". Exception: references to code (file:line) and links to supplementary sub-documents.
+
+#### Files to produce
+
+In addition to the main PRD, the skill must produce:
+
+1. **Standalone diagrams**: \`NN-<study>-diagrams.md\` in the same folder, with the same Mermaid diagrams in minimal form (useful for reuse in presentations or external reviews).
+2. **Area brief**: \`00-area-brief.md\` — if it doesn't exist, create it with index and area context. If it does, add the new study to the index.
+
+#### Mermaid diagrams
+
+Diagrams are **mandatory**. Minimum two:
+- **Component diagram** (\`graph TB\` or \`graph LR\`): shows components involved with color classification (new / modified / unchanged / store / topic).
+- **Sequence diagram** (\`sequenceDiagram\` with \`autonumber\`): happy path end-to-end with rect notes for logical sections.
+
+Use these inline CSS classes (neutral palette, override per project if desired):
+
+\`\`\`
+classDef new fill:#fff0f4,stroke:#e50046,stroke-width:2px,stroke-dasharray:4 3;
+classDef modified fill:#fff,stroke:#4d59fd,stroke-width:2px;
+classDef external fill:#f4f6fa,stroke:#555f6e,stroke-width:1.5px;
+classDef store fill:#eaf7ef,stroke:#00714a,stroke-width:1.5px;
+classDef topic fill:#fff8e1,stroke:#ec7200,stroke-width:2.5px;
+classDef outofscope fill:#fafafa,stroke:#999,stroke-width:1.5px,stroke-dasharray:2 2;
+\`\`\`
+
+#### Self-review before saving
+
+Before writing the file, mentally re-read it and verify:
+- **Placeholder scan**: is every TBD explicitly marked as an "open point"?
+- **Internal consistency**: do decisions in §2.2 match §5–§10?
+- **Scope check**: is the document focused (not too broad)?
+- **Ambiguity**: is every requirement interpretable unambiguously?
+- **Narrative fronts**: is the §2 story readable as prose, not a bullet list?
+
+Fix inline before saving.
+
+#### Phase 3 checkpoint
+
+- [ ] PRD written per mandatory template
+- [ ] Standalone diagrams file produced
+- [ ] \`00-area-brief.md\` created or updated
+- [ ] Frontmatter correct (\`status: draft\`, all fields)
+- [ ] Self-review passed
+
+---
+
+### Phase 4: HANDOFF — close the loop
+
+**Goal**: cleanly close your work and pass the baton to the next skill.
+
+#### Actions
+
+1. **Summarize to the architect** what you produced (file paths, key sections, 1–2-sentence recap).
+2. **Request review** explicitly: "Review the PRD before proceeding. If you want changes, tell me; otherwise the next step is invoking \`arch-decision\` to validate with Quint FPF".
+3. **User gate**: do not declare the skill "complete" until the architect gives the green light or requests changes.
+4. **If the architect requests changes**: return to phase 2 or 3 depending on the kind of change (new decisions → phase 2; only formatting → straight to phase 3 with edits).
+5. **If the architect approves**: explicitly suggest the next skill:
+
+   > The PRD is ready. To proceed to the next step of the architectural workflow, invoke:
+   >
+   > **\`arch-decision <path-to-prd>\`**
+   >
+   > arch-decision will apply the Quint FPF methodology (via \`quint-fpf\`) to validate the decisions embedded in the narrative. On PASS, the frontmatter becomes \`status: validated\` and \`arch-docs\` sync will be triggered automatically.
+
+#### Phase 4 checkpoint
+
+- [ ] Architect received the summary
+- [ ] Architect approved (or requested changes have been applied)
+- [ ] Next step explicitly suggested
+
+---
+
+## Naming and frontmatter
+
+See [\`references/folder-conventions.md\`](./references/folder-conventions.md) for full details. Summary:
+
+- **Area folder**: \`docs/prd/<area-slug>/\`
+- **Study files**: \`NN-<study-slug>.md\` + \`NN-<study-slug>-diagrams.md\`
+- **Area brief**: \`00-area-brief.md\` (always present)
+- **Audit reports**: \`audit/NN-<study-slug>-fpf.md\` (created by \`arch-decision\`, not here)
+
+Mandatory PRD frontmatter:
+
+\`\`\`yaml
+---
+title: "Readable title of the study"
+area: <area-slug>
+study: <study-slug>
+status: draft
+sprint: null
+validated_at: null
+validated_by: null
+superseded_by: null
+superseded_reason: null
+created_at: YYYY-MM-DD
+authors: [name1]
+---
+\`\`\`
+
+Lifecycle: \`draft\` → \`in-validation\` → \`validated\` → {\`promoted\` | \`superseded\` | \`rejected\`}. See \`folder-conventions.md\`.
+
+---
+
+## Resuming mid-flow
+
+If the user has already started a previous session with this skill (existing area, draft study):
+
+1. Read \`00-area-brief.md\` to understand area state
+2. Read the latest draft study to see where the dialog stopped
+3. Summarize to the user: "Last time we decided X, Y, Z. The PRD was draft with sections A, B, C. Do you want to **continue from where we left off** or **start over**?"
+4. Proceed accordingly
+
+---
+
+## Anti-patterns
+
+1. **Writing the PRD before the dialog** — never generate a "trial" PRD without having asked questions. The decision story must reflect a real dialog, not a filled-in template.
+2. **Skipping the discover phase** — do not start questions without having read the codebase and the source of truth. You risk asking questions that are answerable by looking at the code.
+3. **Bullet lists instead of prose in the story** — §2 must be discursive text, not a list. Bullet lists are fine in other sections.
+4. **Diagrams as "see other file"** — diagrams must be inline. The separate diagrams file is a complement, not a replacement.
+5. **Leaving TBDs unmarked** — every TBD must be explicitly marked as an open point (§N-1 of the PRD). Declared placeholders beat implicit gaps.
+6. **Going solo** — every important decision must be discussed, never taken unilaterally. Even when the answer seems obvious from the code, ask for confirmation.
+7. **Skipping the handoff phase** — until the architect approves or modifies, the skill is not complete.
+
+---
+
+## When NOT to use this skill
+
+- **Bug fix** → use \`superpowers:systematic-debugging\`
+- **Decision already in absolute constraints** of the project source of truth → nothing to brainstorm
+- **Local choices** that do not affect architecture (variable naming, formatting) → do not open a PRD for this
+- **Direct implementation** when the design is already validated in a sprint → use \`superpowers:writing-plans\` or implement directly
+- **Review of existing code** → use \`superpowers:requesting-code-review\`
+- **Formalizing decisions taken verbally in a meeting without code analysis** — you may start with this skill, but clearly declare the assumptions to verify
+
+---
+
+## References
+
+- [\`references/prd-template.md\`](./references/prd-template.md) — Mandatory narrative template
+- [\`references/folder-conventions.md\`](./references/folder-conventions.md) — Naming, frontmatter, lifecycle states
+- Sibling skill \`quint-fpf\` — the formal validation methodology invoked by \`arch-decision\`
+- Sibling skill \`arch-decision\` — step 2 of the workflow (auto-triggered after this skill's handoff)
+- Sibling skill \`arch-docs\` — step 3 (source-of-truth sync after \`arch-decision\` PASS)
+- Sibling skill \`sprint-manifest\` — step 4 (promotion to sprint)
+",
+  ".claude/skills/arch-brainstorm/references/folder-conventions.md": "# Folder conventions — naming, frontmatter, lifecycle states
+
+Mandatory conventions for the folder structure and files produced by \`arch-brainstorm\` (and processed by \`arch-decision\`, \`arch-docs\`, \`sprint-manifest\`).
+
+## Directory structure
+
+### During drafting (\`docs/prd/\`)
+
+\`\`\`
+docs/prd/
+├── <area-slug>/                         ← area folder (kebab-case)
+│   ├── 00-area-brief.md                 ← area index (mandatory)
+│   ├── 01-<study-slug>.md               ← first study PRD
+│   ├── 01-<study-slug>-diagrams.md      ← standalone diagrams for study 01
+│   ├── 02-<study-slug>.md               ← second study
+│   ├── 02-<study-slug>-diagrams.md
+│   └── audit/                           ← Quint FPF reports (created by arch-decision)
+│       ├── 01-<study-slug>-fpf.md
+│       └── 02-<study-slug>-fpf.md
+\`\`\`
+
+### After promotion to a sprint
+
+\`\`\`
+docs/sprints/Sprint-XX/
+└── <area-slug>/                         ← same area, same slug
+    ├── prd/
+    │   ├── 01-<study-slug>.md           ← PRDs moved from draft
+    │   └── 02-<study-slug>.md
+    └── manifest/
+        ├── 01-<study-slug>.md           ← sprint manifests (from sprint-manifest skill)
+        └── 02-<study-slug>.md
+\`\`\`
+
+(Exact sprint folder layout is determined by the \`sprint-manifest\` skill of your project. This is a reasonable default.)
+
+## Naming convention
+
+### Area slug
+
+- **Kebab-case**, lowercase, no accents
+- **Describes the domain**, not the specific feature
+- **Stable** over time (does not change as the area evolves)
+
+Good examples:
+- \`user-signup\` — sign-up / onboarding domain
+- \`pdf-export\` — PDF generation domain
+- \`notifications-push\` — push notification domain
+- \`payment-reconciliation\` — payment reconciliation domain
+
+Bad examples:
+- \`user-signup-email-otp\` — too specific (the OTP flow is a study inside the \`user-signup\` area)
+- \`fix-bug-123\` — not an architectural area, it is a bug fix
+- \`refactor-backend\` — too broad, "refactor" is not a domain
+
+**Discriminator rule**: an area must reasonably be able to host multiple studies. If you are unsure whether something is "an area" or "a study", ask: *"Could there be another study inside this folder in the future?"* If yes, it is an area. If no, the study lives inside a larger area.
+
+### Study slug
+
+- **Kebab-case**, lowercase
+- **Describes the specific aspect** studied
+- **Distinct** from the other studies in the area
+- Can contain qualifiers like version, alternative, sub-domain
+
+Examples in the \`user-signup\` area:
+- \`email-otp\` — study on the email OTP flow
+- \`passwordless-magic-link\` — study on the magic-link flow
+- \`social-federation\` — study on OIDC social providers
+
+### File naming
+
+Pattern:
+
+\`\`\`
+NN-<study-slug>.md           → the main PRD
+NN-<study-slug>-diagrams.md  → standalone Mermaid diagrams
+audit/NN-<study-slug>-fpf.md → FPF report (generated by arch-decision)
+\`\`\`
+
+Rules:
+- \`NN\` = 2-digit numeric prefix, incremental in creation order (\`01\`, \`02\`, \`03\`, …)
+- Zero-padding is mandatory (\`01\`, not \`1\`) for alphanumeric ordering
+- The main study and its diagrams share the same \`NN-<study-slug>\`
+
+### Special cases
+
+- **Area brief**: always \`00-area-brief.md\` (never renamed)
+- **External markers**: argumentative folders external to the workflow have a \`README-status.md\` with \`status: external\` in the frontmatter
+
+## YAML frontmatter
+
+### PRD (file \`NN-<study>.md\`)
+
+\`\`\`yaml
+---
+title: "Readable PRD title"
+area: <area-slug>
+study: <study-slug>
+status: draft | in-validation | validated | superseded | rejected | promoted
+sprint: null | <number>
+validated_at: null | YYYY-MM-DD
+validated_by: null | "arch-decision (Quint FPF run <id>)"
+superseded_by: null | "NN-<other-study>.md"
+superseded_reason: null | "short reason text"
+created_at: YYYY-MM-DD
+authors: [name1, name2]
+---
+\`\`\`
+
+**All fields are mandatory**. \`null\` values mean "not applicable at the moment".
+
+### Standalone diagrams (file \`NN-<study>-diagrams.md\`)
+
+\`\`\`yaml
+---
+title: "Diagrams — <study title>"
+area: <area-slug>
+study: <study-slug>
+kind: diagrams
+related_prd: ./NN-<study>.md
+created_at: YYYY-MM-DD
+---
+\`\`\`
+
+### Area brief (file \`00-area-brief.md\`)
+
+\`\`\`yaml
+---
+title: "Area <area-slug> — study index"
+area: <area-slug>
+kind: area-brief
+created_at: YYYY-MM-DD
+---
+\`\`\`
+
+### Audit report (file \`audit/NN-<study>-fpf.md\`)
+
+\`\`\`yaml
+---
+title: "FPF audit — <study title>"
+area: <area-slug>
+study: <study-slug>
+kind: audit
+related_prd: ../NN-<study>.md
+quint_fpf_run: <id>
+verdict: PASS | FAIL | REFINE
+r_eff: 0.00
+audited_at: YYYY-MM-DD
+---
+\`\`\`
+
+## PRD lifecycle states
+
+### State table
+
+| State | Meaning | Who sets it | Possible next states |
+|---|---|---|---|
+| \`draft\` | Being written/reviewed, not yet validated | \`arch-brainstorm\` on creation | \`in-validation\`, \`rejected\` (manual) |
+| \`in-validation\` | Quint FPF validation in progress | \`arch-decision\` at run start | \`validated\`, \`rejected\` |
+| \`validated\` | Passed Quint FPF, ready for promotion | \`arch-decision\` at end of PASS run | \`superseded\`, \`promoted\`, \`rejected\` (manual, rare) |
+| \`superseded\` | Was valid, but another study was chosen instead | Architect manually before \`sprint-manifest\` | terminal — no further transitions |
+| \`rejected\` | Did not pass validation (FPF FAIL or manual choice) | \`arch-decision\` (FAIL) or architect | terminal |
+| \`promoted\` | Moved into a sprint by \`sprint-manifest\` | \`sprint-manifest\` | terminal (lives now in sprint folder) |
+
+### State diagram
+
+\`\`\`
+         ┌──────────┐
+         │  draft   │◀─────────────────┐
+         └─────┬────┘                  │
+               │                       │
+               │ arch-decision start   │ iterate
+               ▼                       │
+       ┌───────────────┐               │
+       │in-validation  │───FAIL────────┤
+       └───────┬───────┘               │
+               │                       │
+               │ PASS                  │
+               ▼                       │
+         ┌───────────┐                 │
+    ┌────│ validated │─────────────────┘ (rare, post-validation edits)
+    │    └─────┬─────┘
+    │          │
+    │          │ sprint-manifest
+    │          ▼
+    │    ┌──────────┐
+    │    │ promoted │  terminal
+    │    └──────────┘
+    │
+    │ architect picks another study
+    ▼
+┌────────────┐
+│ superseded │  terminal
+└────────────┘
+
+         (from anywhere)
+               │
+               ▼
+         ┌──────────┐
+         │ rejected │  terminal
+         └──────────┘
+\`\`\`
+
+### Difference between \`rejected\` and \`superseded\`
+
+This distinction matters to preserve audit trail:
+
+| Aspect | \`rejected\` | \`superseded\` |
+|---|---|---|
+| Passed Quint FPF? | No (FAIL) or manual discard | Yes (PASS) |
+| Why was it discarded? | Technically invalid | Was valid, but another was preferred |
+| \`superseded_by\` field | \`null\` | mandatory (points to the winner) |
+| \`superseded_reason\` field | \`null\` | mandatory (short text) |
+| Historical usefulness | Low (failed attempt) | High (considered alternative) |
+
+**Superseded example** — area \`api-gateway\` with two studies:
+
+\`\`\`yaml
+# 01-option-a.md
+status: superseded
+superseded_by: 02-option-b.md
+superseded_reason: "Option B chosen for native integration with <platform>"
+\`\`\`
+
+\`\`\`yaml
+# 02-option-b.md
+status: validated
+\`\`\`
+
+Both files stay in the folder. \`sprint-manifest\` ignores \`01-option-a.md\` but the file remains as a record of "we also considered option A and it passed Quint FPF, but option B was better because…".
+
+## Area brief (\`00-area-brief.md\`)
+
+Mandatory structure:
+
+\`\`\`markdown
+---
+title: "Area <area-slug> — study index"
+area: <area-slug>
+kind: area-brief
+created_at: YYYY-MM-DD
+---
+
+# Area: \`<area-slug>\`
+
+<1–2 paragraphs describing the functional domain of the area and the general problem
+the studies in the area try to address.>
+
+## General problem
+
+<description of domain, context, stakeholders, motivation for the area>
+
+## Study index
+
+| # | Study | Status | Notes |
+|---|---|---|---|
+| 01 | [<study-slug>](./01-<study-slug>.md) | \`status\` | <1-sentence description> |
+| 02 | <study-slug> | *TBD* | <when/why it will be done> |
+
+## Related diagrams
+
+- [01-<study-slug>-diagrams.md](./01-<study-slug>-diagrams.md) — study 01 diagrams
+
+## State legend
+
+<short states table, copied from this file as a reminder for readers>
+
+## Next steps
+
+1. ✅ / 🔜 / ⏸️ <list of steps to move the area forward>
+
+## How to contribute
+
+<short guide: which skills to use for what in the area>
+
+- New study → \`arch-brainstorm area <area-slug>\`
+- Validation → \`arch-decision <path-to-prd>\`
+- Promotion → \`sprint-manifest area <area-slug> sprint <N>\`
+\`\`\`
+
+The area brief must be **updated every time a new study is added** or a relevant state changes.
+
+## Interaction with other skills
+
+### \`arch-brainstorm\` (this skill) produces:
+- Creates \`<area>/\` if it does not exist
+- Creates \`00-area-brief.md\`
+- Creates \`NN-<study>.md\` with \`status: draft\`
+- Creates \`NN-<study>-diagrams.md\`
+- Updates \`00-area-brief.md\` with the new study
+- **Does not create** \`audit/\` (that is \`arch-decision\`'s job)
+
+### \`arch-decision\` (next step):
+- **Reads** \`<area>/NN-<study>.md\`
+- Delegates the methodology to \`quint-fpf\`
+- Updates frontmatter (\`status: in-validation\` → \`validated\` or \`rejected\`)
+- Creates \`audit/NN-<study>-fpf.md\`
+- **Automatically triggers** \`arch-docs\` in sync mode (if PASS)
+- **Does not move** files (everything stays in \`docs/prd/\`)
+
+### \`arch-docs\` (automatic after arch-decision):
+- **Reads** the validated \`<area>/NN-<study>.md\`
+- **Does not touch** files in \`docs/prd/\`
+- Updates \`docs/architecture/*\`
+
+### \`sprint-manifest\` (when ready for sprint):
+- **Scans** \`<area>/\` for all PRDs
+- Requires all to be in \`validated\` state (or \`superseded\` — those are ignored)
+- Asks for target sprint
+- **Moves** validated PRDs to \`docs/sprints/Sprint-X/<area>/prd/\`
+- Generates sprint manifests in \`docs/sprints/Sprint-X/<area>/manifest/\`
+- Updates PRD frontmatter → \`status: promoted, sprint: X\`
+- Updates \`00-area-brief.md\` with note "promoted to Sprint X"
+
+## Special folders to ignore
+
+### External argumentative folders
+
+Folders that hold argumentative/reference documents **outside** the official workflow are marked with a \`README-status.md\` file:
+
+\`\`\`yaml
+---
+kind: area-status
+status: external
+---
+\`\`\`
+
+Rules:
+- \`arch-brainstorm\` **does not** touch these folders
+- \`arch-decision\` **does not** validate documents inside them
+- \`arch-docs\` **does not** sync from them
+- \`sprint-manifest\` **does not** promote them
+
+If an architect wants to convert an external folder into a normal study area, they must:
+1. Create a new folder with a different slug (\`<new-slug>/\`)
+2. Use \`arch-brainstorm\` normally on the new folder
+3. Optionally: cite the external document as "historical context" in the decision story
+",
+  ".claude/skills/arch-brainstorm/references/prd-template.md": "# Narrative PRD template
+
+Reference for the mandatory structure of PRDs produced by \`arch-brainstorm\`. The PRD must be **self-contained, narrative, readable**. The "Decision story" section is **mandatory** and cannot be replaced by technical bullet lists.
+
+## Template philosophy
+
+A PRD is not only a technical reference document — it is also a **memory of why we decided this way**. Six months from now, when a new team member (or you yourself) opens the document, they must be able to understand:
+
+1. **What** is being built (summary + architecture)
+2. **Why** these choices (narrative story, rejected alternatives, motivations)
+3. **How** to implement it (data model, contracts, handlers, checklist)
+4. **What we are not doing** (explicit anti-scope)
+
+If even one of these four dimensions is missing, the PRD is incomplete.
+
+## Mandatory structure
+
+### YAML frontmatter (mandatory)
+
+\`\`\`yaml
+---
+title: "Readable title of the study"
+area: <area-slug>
+study: <study-slug>
+status: draft
+sprint: null
+validated_at: null
+validated_by: null
+superseded_by: null
+superseded_reason: null
+created_at: YYYY-MM-DD
+authors: [name1]
+---
+\`\`\`
+
+All fields are mandatory. Use \`null\` for those not applicable at writing time.
+
+### Header
+
+\`\`\`markdown
+# PRD — <descriptive study title>
+
+> **Status**: \`draft\` — produced by architectural brainstorming on YYYY-MM-DD
+> **Area**: \`<area-slug>\` (this is study \`NN-<study-slug>\`)
+> **Scope**: <1 sentence describing what is in scope and what is out>
+> **Standalone diagrams**: [NN-<study>-diagrams.md](./NN-<study>-diagrams.md)
+> **Area brief**: [00-area-brief.md](./00-area-brief.md)
+\`\`\`
+
+---
+
+## § 1 — Executive summary
+
+Quick opener: 1–2 paragraphs of prose + a table of key choices.
+
+### Structure
+
+\`\`\`markdown
+## 1. Executive summary
+
+<1–2 paragraphs: what this PRD does, which problem it solves, what the scope is.
+Make what is in and what is out explicit. If there is a contract with upstream/downstream
+flows, mention it.>
+
+**Key architectural choices:**
+
+| Decision | Choice | Motivation |
+|---|---|---|
+| <dimension 1> | <choice 1> | <short motivation> |
+| <dimension 2> | <choice 2> | <short motivation> |
+| ... | ... | ... |
+\`\`\`
+
+The table must include all important decisions (typically 6–12 rows). It is the "cheat sheet" for someone opening the document who wants to understand the design in 30 seconds.
+
+---
+
+## § 2 — Decision story (MANDATORY)
+
+Most important section of the PRD. Must be written as **discursive prose**, not bullet lists. Explain to an intelligent but external reader how we arrived at this design.
+
+### Mandatory subsections
+
+#### § 2.1 — The starting problem
+
+2–4 paragraphs of prose describing:
+- The state of the world before this study (what exists in code, what is missing)
+- The trigger for the study (why now, what prompted the need)
+- The actors involved (users, upstream/downstream systems)
+
+Do not list components in a table: narrate them. "\`auth-service\` exists and is functional, it handles sign-up and password flows. \`notifications\` is a stub that needs to be completed. \`billing\` does not yet have an \`Invoice\` aggregate…" — this is the expected form.
+
+#### § 2.2 — The N key decisions
+
+For **each** important decision taken during brainstorming, one micro-section with this schema:
+
+\`\`\`markdown
+#### Decision K — <short title>
+
+**Question**: <the question asked to the architect>
+
+**Alternatives considered** (if relevant):
+- **A.** <description of option A>
+- **B.** <description of option B>
+- **C.** <description of option C>
+
+**Choice**: <the final choice>
+
+**Why**: <1 paragraph of motivation. Must include the pros of the choice AND the cons of
+the rejected alternatives. The "why" is often the most useful content over time — write
+it well, not hurriedly.>
+\`\`\`
+
+Not every decision has explicit alternatives — some are "forced" choices from project constraints. In those cases skip the alternatives and go straight to choice + why (e.g. "We use the project's ORM" needs no alternatives — it is a constraint).
+
+**Order**: follow the chronological order of the brainstorming, not a "reconstructed" logical order. It is more honest and more readable.
+
+**Typical number**: 5–15 decisions. If you have 30 decisions, you are probably including details that belong in the technical sections (§6–§10), not in the story.
+
+#### § 2.3 — How a request flows end-to-end
+
+Narrative prose describing the flow from the point of view of a single request (or a single event). Use logical timestamps (T0, T1, T2…) and describe what happens at each point.
+
+**Goal**: a reader must be able to follow the flow without looking at the diagrams. Diagrams are a visual complement, not the main vehicle.
+
+**Example style**:
+
+> **T0 — The event arrives from phase 1.**
+> Phase 1 has just finished the calculation: it persisted a \`Job\` in state \`InProgress\`, created N \`Item\` rows in state \`Computed\`, and for each one published an \`ItemComputed\` event on the message bus.
+>
+> **T1 — Self-subscription.**
+> Pod replicas consume events from the topic in parallel. Each replica receives a subset of events. For each event, the handler invokes \`ProcessItem\`.
+>
+> **T2 — Idempotency check.** […]
+
+#### § 2.4 — Flow diagrams (inline)
+
+Exactly two Mermaid diagrams embedded inline:
+
+1. **Component diagram** (\`graph TB\` or \`graph LR\`) — shows the components involved and their relationships
+2. **Sequence diagram** (\`sequenceDiagram\` with \`autonumber\`) — happy path end-to-end
+
+Use the standard chromatic \`classDef\` set (see parent SKILL.md). Write a short legend after each diagram.
+
+The same diagrams go into the standalone file \`NN-<study>-diagrams.md\` with a minimal header — useful for reuse in presentations, external reviews, sprint documentation.
+
+#### § 2.5 — What we will NOT do (anti-scope)
+
+Explicit list of things excluded from the PRD, **each with motivation**. Example:
+
+> - **External orchestrator** — explicitly excluded from this flow. The team has no expertise with it; the self-sub pattern already in production covers the same needs. […]
+> - **Job progress bar** — no incremental counters. […]
+> - **Long-lived tokens in DB** — no persisted tokens. […]
+
+Anti-scope is often more informative than scope. If a reader wonders "why did we not do Y?", they must find the answer here. Never leave implicit exclusions.
+
+---
+
+## § 3 — Context and motivation
+
+Now a secondary section (the bulk is in the story). Contains:
+
+### § 3.1 — What exists today
+
+Tabular or bullet list of: relevant existing components, consolidated patterns, stubs, gaps. Code references with file:line where useful.
+
+### § 3.2 — What is missing
+
+Concise list of what needs to be built.
+
+### § 3.3 — Constraints and requirements
+
+- Stack and infrastructure
+- Patterns to reuse
+- Entity states (TBD from spec → documented placeholders)
+- Absolute constraints from the project source of truth that apply
+
+---
+
+## § 4 — Contract with adjacent phases (optional)
+
+If the PRD covers only part of a larger flow, document here the contract with upstream/downstream phases. Useful to enable parallel development of multiple studies in the same area.
+
+Example: "Phase 1 (out of scope for this PRD) must honor this contract for phase 2 to work without changes: […]".
+
+---
+
+## § 5 — Target architecture
+
+Keep it short — refer back to the inline diagrams in §2.4 for self-containment. Add:
+
+- Table of components involved with role and status (new / modified / unchanged)
+
+Do not duplicate the diagrams here. The diagram lives in §2.4.
+
+---
+
+## § 6 — Data model
+
+If applicable. Tables for each entity/aggregate with columns, types, notes, constraints. Suggested unique constraints.
+
+---
+
+## § 7 — Event contracts
+
+If applicable. For each event:
+- Name
+- Producer / consumer
+- Example JSON payload
+- Notes (ordering, retry, idempotency)
+
+---
+
+## § 8 — API contracts
+
+If applicable. For each endpoint:
+- Method + path
+- Request body (example JSON)
+- Response 200/4xx/5xx
+- Common errors
+
+---
+
+## § 9 — Orchestration / handler pseudocode
+
+If applicable. Language-neutral pseudocode showing how the main handler works, idempotency handling, service calls, error handling.
+
+---
+
+## § 10 — Error handling, retry, idempotency
+
+- Retry strategy (platform-native, custom, etc.)
+- Idempotency (natural key, state check)
+- Error classification (recoverable / non-recoverable / fatal)
+- Manual recovery if applicable
+
+---
+
+## § 11+ — Domain-specific sections
+
+Variable depending on the study. Examples:
+- Token/SAS strategy (for areas touching files / blobs)
+- Security and authorization (for areas touching sensitive data)
+- Scheduling (for areas with timers / cron)
+- UX / UI flow (for areas affecting the frontend)
+
+Number in sequence after §10.
+
+---
+
+## § N-3 — Code changes checklist
+
+Three mandatory subsections:
+
+### § N-3.1 — New
+
+List everything to be built from scratch, organized by component. Example:
+
+\`\`\`markdown
+#### auth-service
+- [ ] Domain: \`PasswordlessSession\` entity
+- [ ] Infrastructure: ORM mapping + migration
+- [ ] API: \`POST /auth/passwordless/start\`
+- [ ] Application: \`StartPasswordlessHandler\`
+- [ ] ...
+\`\`\`
+
+### § N-3.2 — Modified
+
+List existing components to be extended/modified, by component.
+
+### § N-3.3 — Unchanged
+
+List existing components that must NOT be modified — useful to explicitly exclude unneeded changes.
+
+---
+
+## § N-2 — Testing strategy
+
+### § N-2.1 — Unit
+
+Which components to test, with expected mocks.
+
+### § N-2.2 — Integration
+
+End-to-end scenarios with testcontainers / mock HTTP / seeded data.
+
+### § N-2.3 — Acceptance
+
+User-facing scenarios with a complete environment.
+
+---
+
+## § N-1 — Open points / future analysis
+
+List of deferred decisions, with a note on who/what is needed to close them. Examples:
+- Exact enum states (awaiting spec)
+- Exact domain fields (awaiting functional specification)
+- Matching policy (awaiting business requirement)
+- SLA / retention policy
+
+Each point is a check item \`- [ ] <description>\`.
+
+---
+
+## § N — Appendices
+
+### § N.1 — References to existing code
+
+Table with file:line of components cited in the PRD. Useful for navigation.
+
+### § N.2 — Decisions closed during brainstorming
+
+Summary ✅ list of decisions closed during the brainstorming session, with 1 line each. Serves as a "changelog" of the brainstorming.
+
+### § N.3 — Names and conventions
+
+Table of chosen names: topics, containers, handlers, controllers, clients, events. Quick reference for implementation.
+
+---
+
+## Style rules
+
+1. **Prose for the story, details in tables**. §2 is prose (except the key-choices table in §1). §5–§N are tables, bullets, pseudocode.
+2. **Prefer domain vocabulary**. Do not over-translate domain terms. If a business term is customary in one language, keep it consistent.
+3. **Never use "we" or "I"**. Prose in impersonal form or second-person functional voice ("when the handler receives the event…"), not first person ("we decide…").
+4. **Present tense**. "The handler loads the entity", not "the handler will load the entity". The present describes the target system state.
+5. **Internal links** between sections with Markdown anchors: \`[section X](#NN-section-title)\`.
+6. **External links** with relative paths: \`[name](./file.md)\` in the same area, \`[name](../other-area/file.md)\` cross-area.
+7. **Inline code** with backticks: \`Order.status\`, \`CustomerId\`, \`POST /api/v1/...\`.
+8. **Fenced code blocks** with language specified: \` \`\`\`ts\`, \` \`\`\`json\`, \` \`\`\`mermaid\`, \` \`\`\`yaml\`.
+
+---
+
+## Self-review checklist before saving
+
+Re-read the just-written PRD and verify:
+
+- [ ] Frontmatter complete and correct
+- [ ] §1 summary with key-choices table
+- [ ] §2 story in **prose**, not bullet list
+- [ ] §2.2 at least 5 decisions with question → alternatives → choice → why
+- [ ] §2.3 end-to-end flow in prose (T0 → TN)
+- [ ] §2.4 Mermaid diagrams embedded (component + sequence)
+- [ ] §2.5 anti-scope with motivations
+- [ ] No implicit TBDs (all in §N-1 Open points)
+- [ ] Code changes checklist per component
+- [ ] Testing strategy (unit + integration + acceptance)
+- [ ] Internal consistency (§2 decisions = §6–§10 details)
+- [ ] Language in present tense, impersonal
+- [ ] Working internal and external links
+- [ ] File \`NN-<study>-diagrams.md\` generated alongside
+- [ ] \`00-area-brief.md\` created or updated
+
+If even one of these checks fails, **do not save**. Fix first.
+",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md": "---
 name: bmad-advanced-elicitation
 description: Push the LLM to reconsider, refine, and improve its recent output via structured elicitation methods (Socratic, first principles, pre-mortem, red team, SCAMPER, and 25+ others). Use when user asks for deeper critique, wants to stress-test a draft, or explicitly mentions one of the supported methods. Invoked by the bmad-agent-* personas (Isa, Alex, Daniel, Giulia) to enhance their outputs.
@@ -2165,6 +3200,1337 @@ playwright-cli video-stop recordings/checkout-test-run-42.webm
 - Recording adds slight overhead to automation
 - Large recordings can consume significant disk space
 ",
+  ".claude/skills/quint-fpf/SKILL.md": "---
+name: quint-fpf
+description: Quint First Principles Framework — structured reasoning methodology with 6 phases (Initialize → Abduct → Deduce → Induce → Audit → Decide), R_eff via WLNK, and Congruence Level tracking. Use when you need to formally validate an architectural decision, a PRD, or any non-trivial claim. Invokable standalone or delegated from other skills (e.g. \`arch-decision\`). Has two modes — tooled (quint MCP server for state persistence + audit tree) and conversational (markdown-only fallback when MCP is absent).
+source: Quint FPF (First Principles Framework) — methodology developed in NONoise reference-project
+variant: nonoise-bmad 2 adjacent; standalone reusable skill
+customization: extracted from arch-decision; bundled with q-* slash commands; dual-mode execution
+---
+
+# quint-fpf
+
+A formal reasoning methodology that turns opaque decisions into auditable chains of reasoning. Extract claims, verify logic, validate empirically, audit evidence, decide. Each phase has clear pre/post conditions and produces a recorded artifact.
+
+## When to use
+
+- **Architectural decisions** — invoked by \`arch-decision\` after a PRD is drafted
+- **Formal validation** — any time the user says "let's stress-test this", "is this actually correct?", "what could go wrong"
+- **Evidence-based claims** — when writing an ADR, a compliance assessment, a post-mortem
+- **Stand-alone** — via slash commands \`/q0-init\` through \`/q5-decide\` when the user wants a full FPF cycle
+
+## Two modes of execution
+
+### 🟢 Tooled mode (preferred)
+If the **quint MCP server** is installed and exposes \`quint_*\` tools (\`quint_init\`, \`quint_propose\`, \`quint_verify\`, \`quint_validate\`, \`quint_audit\`, \`quint_decide\`, \`quint_record_context\`, \`quint_query\`, …), delegate to the 12 bundled slash commands in \`.claude/commands/\`:
+
+| Phase | Command | MCP tool | Output |
+|---|---|---|---|
+| 0. Initialize | \`/q0-init\` | \`quint_init\`, \`quint_record_context\` | \`.quint/context.md\` with Bounded Context |
+| 1. Abduct (hypothesize) | \`/q1-hypothesize\` | \`quint_propose\` | L0 holons in \`.quint/knowledge/L0/\` |
+| 1. Add single | \`/q1-add\` | \`quint_propose\` | append a single L0 holon |
+| 2. Deduce (verify) | \`/q2-verify\` | \`quint_verify\` | L0 → L1 (PASS) or invalid (FAIL) / REFINE |
+| 3. Induce (validate) | \`/q3-validate\` | \`quint_validate\` | L1 → L2 with empirical evidence |
+| 4. Audit | \`/q4-audit\` | \`quint_audit\` | R_eff computed via WLNK over the dependency tree |
+| 5. Decide | \`/q5-decide\` | \`quint_decide\` | Final decision holon with rationale |
+| Support: query | \`/q-query\` | \`quint_query\` | search \`.quint/\` knowledge base |
+| Support: status | \`/q-status\` | — | show current FPF cycle state |
+| Support: decay | \`/q-decay\` | \`quint_decay\` | evidence freshness management |
+| Support: actualize | \`/q-actualize\` | \`quint_actualize\` | reconcile FPF state with repo changes |
+| Support: reset | \`/q-reset\` | \`quint_reset\` | clear cycle state |
+
+In tooled mode, the methodology is **enforced by the tools**: hypotheses that are only discussed in prose are not promotable, verdicts must be exactly \`PASS|FAIL|REFINE\`, dependencies are traced in the audit tree.
+
+### 🟡 Conversational mode (fallback)
+When the quint MCP server is **not** installed, apply the methodology conversationally and produce a markdown artifact in \`docs/fpf/<slug>.md\` with the same 6 phases. You lose:
+- Persistent state (must re-derive on each session)
+- Automatic R_eff computation (you must reason about reliability manually)
+- Audit tree across dependencies (must note dependencies in prose)
+
+But you keep:
+- Same discipline: abduction → deduction → induction → audit → decide
+- Same output structure (can be upgraded to tooled mode later by running \`quint_init\` + replaying the markdown)
+
+Detect mode with a quick probe: if \`/q-status\` works or a \`.quint/\` directory exists, you're in tooled mode.
+
+## Core concepts (both modes)
+
+### Bounded Context (Phase 0)
+Scope of the reasoning session: vocabulary, invariants, constraints. *Example: "User = registered customer. Invariant: latency < 100ms. Stack: Postgres."*
+
+### Holon (unit of reasoning)
+A holon is a single claim (hypothesis, fact, decision). Each has:
+- \`title\` — short name
+- \`content\` — the Method (how it works)
+- \`scope\` — claim scope (where it applies)
+- \`kind\` — \`system\` (code/architecture) or \`episteme\` (process/doc)
+- \`rationale\` — structured JSON: \`{anomaly, approach, alternatives_rejected}\`
+- \`level\` — \`L0\` (abduction / candidate) → \`L1\` (substantiated) → \`L2\` (validated)
+- \`depends_on\` — array of holon IDs this one requires
+- \`decision_context\` — parent decision holon, groups alternatives
+
+### Relations
+- **ComponentOf** (for \`system\`) — "X is a component of Y; X failure degrades Y"
+- **ConstituentOf** (for \`episteme\`) — "X is a constituent of Y; X error invalidates Y"
+- **MemberOf** — groups alternatives under a \`decision_context\`
+
+### Congruence Level (CL, 1–3)
+When declaring a dependency, specify how similar the contexts are:
+- **CL3** — same context (0% penalty on propagated R_eff)
+- **CL2** — similar context (10% penalty)
+- **CL1** — different context (30% penalty)
+
+### R_eff (effective reliability)
+Computed at Phase 4 via **WLNK** (Weighted Log-Normalized Knowledge). Properties:
+- Parent R_eff ≤ min(dependency R_eff) after CL discount
+- A single weak dependency caps the whole decision
+- Revealed as a numeric score; thresholds are project-dependent (commonly R_eff ≥ 0.7 for validated)
+
+## Phase-by-phase contract
+
+### Phase 0 — Initialize
+- **Pre**: none
+- **Post**: \`.quint/\` exists AND context recorded
+- **Invariant**: initialization is idempotent
+- **Goal**: establish the Bounded Context
+
+### Phase 1 — Abduct (Hypothesize)
+- **Pre**: Phase 0 complete
+- **Post**: ≥1 L0 hypothesis exists
+- **Invariant**: hypotheses have \`kind ∈ {system, episteme}\`
+- **Goal**: generate 3–5 plausible competing hypotheses (NQD — Diversity: at least one Conservative + one Radical)
+
+### Phase 2 — Deduce (Verify)
+- **Pre**: ≥1 L0 hypothesis
+- **Post**: each L0 processed → L1 (PASS) OR invalid (FAIL) OR L0 with feedback (REFINE)
+- **Invariant**: verdict ∈ {PASS, FAIL, REFINE}
+- **Goal**: logical verification — type check, constraint check, consistency. No empirical evidence yet, pure reasoning.
+
+### Phase 3 — Induce (Validate)
+- **Pre**: ≥1 L1 hypothesis
+- **Post**: each L1 processed → L2 with evidence OR stays L1 pending OR invalid
+- **Goal**: empirical validation — look for evidence in the codebase, external research, benchmarks, prior art. Attach \`evidence_json\` to each validation.
+
+### Phase 4 — Audit
+- **Pre**: ≥1 L2 hypothesis
+- **Post**: R_eff computed for every holon; audit tree produced
+- **Goal**: propagate WLNK through the dependency graph. Identify weak links that cap the decision.
+
+### Phase 5 — Decide
+- **Pre**: audit tree complete
+- **Post**: decision holon written with rationale referencing audited evidence
+- **Goal**: choose among the validated candidates; record rejected alternatives with reason.
+
+## How other skills invoke quint-fpf
+
+An invoking skill (e.g. \`arch-decision\`) passes:
+
+- **Input PRD path** — the document to validate (produced by \`arch-brainstorm\` or equivalent)
+- **Scope** — subset of the PRD to validate (optional; default: whole PRD)
+- **Mode** — \`tooled\` | \`conversational\` | \`auto\` (default: \`auto\`)
+
+quint-fpf then:
+1. Runs Phase 0 seeded from PRD intro + any \`_bmad/_config\` / \`nonoise.config.json\`
+2. Extracts claims from the PRD as Phase 1 L0 hypotheses
+3. Runs Phase 2–4
+4. Returns a decision artifact (path to \`.quint/decisions/<slug>.md\` or \`docs/fpf/<slug>.md\`)
+
+Invoking skill is responsible for reading the returned decision and acting on it (e.g. \`arch-decision\` sets the PRD frontmatter to \`validated\` or \`rejected\` based on the decision).
+
+## Slash commands (bundled)
+
+The 12 command files in \`commands/\` are copied to the project's \`.claude/commands/\` during scaffold. They exist to make FPF usable directly via \`/qN-phase\` by a human user, not only as a sub-skill invocation.
+
+## Rules
+
+- **Tool calls are mandatory in tooled mode**. Mental notes or prose do NOT change holon state. Claiming "I verified the hypothesis" without calling \`quint_verify\` is a **protocol violation**.
+- **Verdicts are exact strings** — \`PASS\`, \`FAIL\`, \`REFINE\`. No paraphrasing.
+- **Levels don't skip** — you cannot promote a holon from L0 to L2 directly. Always go through L1.
+- **WLNK respects CL** — if you link dependencies, specify CL honestly; inflating CL masks real risk.
+- **Conversational mode must still produce the artifact** — a markdown file with the 6 phase sections and an explicit note "mode: conversational (no quint MCP available)".
+
+## MCP server installation note
+
+The quint MCP server is not part of NONoise v1. Users who want tooled mode install it separately following the upstream Quint project documentation. Reference: the q-* command files in \`commands/\` document the exact tool signatures expected.
+
+In v1 of NONoise, \`arch-decision\` and \`quint-fpf\` operate in conversational mode by default and upgrade automatically if the MCP is detected.
+
+## Out of scope (v1)
+
+- Packaging the quint MCP server itself (separate project).
+- Migrating conversational-mode markdown artifacts into tooled state when MCP gets installed later (manual replay).
+- Custom WLNK weighting per project (uses upstream defaults).
+",
+  ".claude/skills/quint-fpf/commands/q-actualize.md": "---
+description: "Reconcile the project's FPF state with recent repository changes."
+---
+
+# Actualize Knowledge Base
+
+This command is a core part of maintaining a living assurance case. It helps you keep your FPF knowledge base (\`.quint/\`) in sync with the evolving reality of your project's codebase.
+
+The command performs a three-part audit against recent git changes to surface potential context drift, stale evidence, and outdated decisions. This aligns with the **Observe** phase of the FPF Canonical Evolution Loop (B.4) and helps manage **Epistemic Debt** (B.3.4).
+
+The LLM persona for this command is the **Actualizer**.
+
+## Instruction
+
+1.  **Execute Actualization:**
+    -   The Actualizer **MUST** first execute the \`quint_actualize\` tool.
+    -   This tool will automatically:
+        -   Identify the baseline commit from the FPF state.
+        -   Perform any necessary legacy migrations.
+        -   Generate a report of all file changes since the last actualization.
+        -   Update the FPF state baseline to the current \`HEAD\`.
+
+2.  **Analyze Report for Context Drift:**
+    -   Review the \`quint_actualize\` report for changes to core project configuration files (e.g., \`package.json\`, \`go.mod\`, \`Dockerfile\`, \`pom.xml\`).
+    -   If these files have changed, re-run the context analysis logic from \`/q0-init\` to generate a "current context" summary.
+    -   Present a diff between the detected current context and the contents of \`.quint/context.md\`.
+    -   Ask the user if they want to update the \`context.md\` file.
+
+3.  **Analyze Report for Evidence Staleness (Epistemic Debt):**
+    -   Cross-reference the list of changed files from the report against the \`carrier_ref\` of all evidence files in \`.quint/evidence/\`.
+    -   If a referenced file is in the changed list, flag the evidence as **stale**.
+    -   Compile all stale evidence into a "Stale Evidence Report," noting which hypotheses or decisions are affected.
+
+4.  **Analyze Report for Decision Relevance:**
+    -   Trace the justification of all decision records (\`DRR*\` in \`.quint/decisions/\`) back to their source evidence and carrier files.
+    -   If any foundational source files appear in the change report, flag the decision record as **"Potentially Outdated"**.
+    -   Compile these into a "Decisions to Review" report.
+
+5.  **Present Findings:**
+    -   Summarize the analysis in a clear, actionable report:
+        -   **Context Drift:** (if any) Diff and prompt for update.
+        -   **Stale Evidence:** List of evidence needing re-validation via \`/q3-validate\`.
+        -   **Decisions to Review:** List of decisions needing re-evaluation via \`/q1-hypothesize\`.
+",
+  ".claude/skills/quint-fpf/commands/q-decay.md": "# q-decay: Evidence Freshness Management
+
+## Intent
+
+Manages **evidence freshness** by identifying stale decisions and providing governance actions. Implements FPF B.3.4 (Evidence Decay).
+
+**Key principle:** Evidence is perishable. Decisions built on expired evidence carry hidden risk.
+
+---
+
+## Quick Concepts
+
+### What is "stale" evidence?
+
+Every piece of evidence has a \`valid_until\` date. A benchmark from 6 months ago may no longer reflect current system performance. A security audit from before a major dependency update doesn't account for new vulnerabilities.
+
+When evidence expires, the decision it supports becomes **questionable** — not necessarily wrong, just unverified.
+
+### What is "waiving"?
+
+**Waiving = "I know this evidence is stale, I accept the risk temporarily."**
+
+Use it when:
+- You're about to launch and don't have time to re-run all tests
+- The evidence is only slightly expired and probably still valid
+- You have a scheduled date to refresh it properly
+
+A waiver is NOT ignoring the problem — it's **explicitly documenting** that you know about the risk and accept it until a specific date.
+
+### The Three Actions
+
+| Situation | Action | What it does |
+|-----------|--------|--------------|
+| Evidence is old but decision is still good | **Refresh** | Re-run the test, get fresh evidence |
+| Decision is obsolete, needs rethinking | **Deprecate** | Downgrade hypothesis, restart evaluation |
+| Accept risk temporarily | **Waive** | Record the risk acceptance with deadline |
+
+---
+
+## Natural Language Usage
+
+**You don't need to memorize evidence IDs or tool parameters.** Just describe what you want.
+
+### Example Workflow
+
+\`\`\`
+User: /q-decay
+
+Agent shows report:
+## Evidence Freshness Report
+
+### STALE (1 holon requires action)
+
+#### Use Redis for Caching (L2)
+| ID | Type | Status | Details |
+|----|------|--------|---------|
+| ev-benchmark-2024-06-15 | validation | EXPIRED | 180 days overdue |
+| ev-load-test-2024-06-20 | validation | EXPIRED | 175 days overdue |
+
+Actions:
+  → Refresh: /q3-validate hypothesis-redis-caching
+  → Deprecate: Tell me to deprecate this decision
+  → Waive: Tell me which evidence to waive and until when
+\`\`\`
+
+Now the user can respond naturally:
+
+\`\`\`
+User: Waive the benchmark until February, we'll re-run it after the migration.
+\`\`\`
+
+The agent reads the context, finds the matching evidence ID, and calls:
+\`\`\`
+quint_check_decay(
+    waive_id: "ev-benchmark-2024-06-15",
+    waive_until: "2025-02-01",
+    waive_rationale: "Will re-run after the migration"
+)
+\`\`\`
+
+**You don't need to copy IDs. Just reference what you mean.**
+
+### More Natural Examples
+
+\`\`\`
+User: /q-decay
+
+[sees report with stale evidence]
+
+User: We're launching next week. Waive everything until January 15th,
+      we have a full test cycle scheduled for January 20th.
+
+Agent: I'll waive both pieces of expired evidence until 2025-01-15
+       with rationale "Launch deadline, full test cycle scheduled Jan 20"
+
+       [calls quint_check_decay for each]
+
+---
+
+User: The vendor API is being discontinued. Deprecate that decision.
+
+Agent: Deprecating hypothesis-vendor-api from L2 to L1.
+       You'll need to run /q1-hypothesize to explore alternatives.
+
+---
+
+User: The load test is only 2 weeks overdue, I think it's still valid.
+      Can we just refresh it?
+
+Agent: Running /q3-validate to refresh the evidence for hypothesis-redis-caching.
+       [calls quint_test]
+\`\`\`
+
+---
+
+## How Evidence IDs Work
+
+Evidence IDs are generated automatically when tests run:
+- Format: \`ev-{type}-{date}\` (e.g., \`ev-benchmark-2024-06-15\`)
+- Shown in the freshness report
+- **You don't need to remember them** — describe what you want, the agent finds the right ID
+
+If you want to be explicit, you can use the full syntax:
+\`\`\`
+User: /q-decay --waive ev-benchmark-2024-06-15 --until 2025-02-01 --rationale "Migration pending"
+\`\`\`
+
+But natural language works fine:
+\`\`\`
+User: Waive the benchmark until February, migration is pending.
+\`\`\`
+
+---
+
+## Detailed Actions
+
+### Refresh (via /q3-validate)
+
+**When:** Evidence is stale, but the decision is still correct. You just need fresh proof.
+
+**What happens:**
+1. Agent calls \`quint_test\` on the hypothesis
+2. New evidence is recorded with a fresh \`valid_until\` date
+3. Holon status changes from STALE to FRESH
+
+**Example:**
+\`\`\`
+User: The Redis benchmark is 6 months old but Redis is still the right choice.
+      Can we refresh the evidence?
+
+Agent: Running validation for hypothesis-redis-caching...
+       [executes benchmark]
+       Evidence refreshed. Hypothesis remains at L2 with fresh evidence valid until 2025-06-21.
+\`\`\`
+
+### Deprecate
+
+**When:** The decision itself is questionable. The world has changed, you need to reconsider.
+
+**What happens:**
+1. Hypothesis moves down one level (L2→L1 or L1→L0)
+2. Audit log records who deprecated it and why
+3. You're prompted to run \`/q1-hypothesize\` to explore alternatives
+
+**Example:**
+\`\`\`
+User: AWS announced they're deprecating this service. Deprecate our decision to use it.
+
+Agent: Deprecated: hypothesis-aws-service L2 → L1
+
+       This decision now requires re-evaluation.
+       Next step: Run /q1-hypothesize to explore alternatives.
+\`\`\`
+
+### Waive
+
+**When:** You know the evidence is stale, you accept the risk temporarily.
+
+**What happens:**
+1. Waiver is recorded with: who, until when, why
+2. Evidence no longer shows as STALE (shows as WAIVED)
+3. When waiver expires, evidence returns to STALE status
+4. Full audit trail preserved
+
+**Example:**
+\`\`\`
+User: We're launching Tuesday. Waive the security audit until the 15th,
+      we have a re-audit scheduled for the 20th.
+
+Agent: Waiver recorded:
+       - Evidence: ev-security-audit-2024-03
+       - Waived until: 2025-01-15
+       - Rationale: Launch deadline. Re-audit scheduled for the 20th.
+
+       ⚠️ This evidence returns to EXPIRED status after 2025-01-15.
+\`\`\`
+
+---
+
+## Tool Reference (for understanding, not memorization)
+
+### \`quint_check_decay\`
+
+The agent translates your natural language into these parameters:
+
+| Parameter | What it means |
+|-----------|--------------|
+| (none) | Show the freshness report |
+| \`deprecate\` | Which hypothesis to downgrade |
+| \`waive_id\` | Which evidence to waive |
+| \`waive_until\` | When the waiver expires (YYYY-MM-DD) |
+| \`waive_rationale\` | Why you're accepting this risk |
+
+---
+
+## WLNK Principle
+
+A holon is **STALE** if *any* of its evidence is expired (and not waived).
+
+This is the Weakest Link (WLNK) principle: reliability = min(all evidence). One stale piece makes the whole decision questionable.
+
+---
+
+## Audit Trail
+
+All actions are logged for accountability:
+
+| Action | What's Recorded |
+|--------|-----------------|
+| Deprecate | from_layer, to_layer, who, when |
+| Waive | evidence_id, until_date, rationale, who, when |
+
+Waivers are stored in a dedicated table — you can query "who waived what and why" at any time.
+
+---
+
+## Common Workflows
+
+### Weekly Maintenance
+\`\`\`
+/q-decay                    # See what's stale
+# For each stale item, tell the agent: refresh, deprecate, or waive
+\`\`\`
+
+### Pre-Release
+\`\`\`
+/q-decay                    # Check for stale decisions
+# Either refresh evidence or explicitly waive with documented rationale
+# Waiver rationales become part of release documentation
+\`\`\`
+
+### After Major Change
+\`\`\`
+# Dependency update, API change, security advisory...
+/q-decay                    # See what's affected
+# Deprecate obsolete decisions
+# Start new hypothesis cycle for replacements
+\`\`\`
+",
+  ".claude/skills/quint-fpf/commands/q-query.md": "---
+description: "Search knowledge base"
+required_tools: ["quint_calculate_r", "quint_audit_tree"]
+---
+
+# Query Knowledge
+
+Search the FPF knowledge base and display holon details with assurance information.
+
+## Action (Run-Time)
+
+1. **Search** \`.quint/knowledge\` and \`.quint/decisions\` by user query.
+2. **For each found holon**, display:
+   - Basic info: title, layer (L0/L1/L2), kind, scope
+   - If layer >= L1: call \`quint_calculate_r\` → show R_eff
+   - If has dependencies: call \`quint_audit_tree\` → show dependency graph
+   - Evidence summary if exists
+3. **Present results** in table format.
+
+## Output Format
+
+\`\`\`
+## Search Results for "<query>"
+
+| Holon | Layer | Kind | R_eff |
+|-------|-------|------|-------|
+| redis-caching | L2 | system | 0.85 |
+| cdn-edge | L2 | system | 0.72 |
+
+### redis-caching
+[redis-caching R:0.85] Use Redis for Caching
+  --(CL:3)-->
+    [perf-test R:0.90] Performance Test Evidence
+
+R_eff Breakdown:
+- Self Score: 1.00
+- Weakest Link: perf-test (0.90)
+- Final: 0.85
+\`\`\`
+
+## Tool Guide
+
+### \`quint_calculate_r\`
+Computes R_eff with detailed breakdown.
+- **holon_id**: The holon to calculate.
+- *Returns:* R_eff score, self score, weakest link, decay penalties.
+
+### \`quint_audit_tree\`
+Visualizes the assurance tree.
+- **holon_id**: The root holon to audit.
+- *Returns:* ASCII tree with R-scores, CL levels, and penalty warnings.
+
+## Examples
+
+**Search by keyword:**
+\`\`\`
+/q-query caching
+→ Finds all holons matching "caching"
+→ Shows R_eff for each L1+ holon
+\`\`\`
+
+**Query specific holon:**
+\`\`\`
+/q-query redis-caching
+→ Shows full details for redis-caching
+→ Displays dependency tree
+→ Shows R_eff breakdown
+\`\`\`
+
+**Query decisions:**
+\`\`\`
+/q-query DRR
+→ Lists all Design Rationale Records
+→ Shows what each DRR selected/rejected
+\`\`\`
+",
+  ".claude/skills/quint-fpf/commands/q-reset.md": "---
+description: "Reset the FPF cycle"
+---
+
+# Reset Cycle
+
+## Instruction
+1.  **Action:**
+    -   Use \`quint_decide\` with a "No Decision / Reset" payload to cleanly archive the current session and return to IDLE.
+    -   State is managed in SQLite (\`quint.db\`) and cannot be manually modified.
+",
+  ".claude/skills/quint-fpf/commands/q-status.md": "---
+description: "Show FPF status"
+---
+
+# Status Check
+
+## Action (Run-Time)
+1.  Call \`quint_status\` to get the current phase.
+2.  Count hypotheses in each layer by listing \`.quint/knowledge/L0/\`, \`L1/\`, \`L2/\`.
+3.  **Proactive check:** Call \`quint_check_decay\` to surface any expired evidence.
+4.  Report to user:
+    -   Current Phase
+    -   Active Role (if any)
+    -   Hypothesis counts (L0/L1/L2)
+    -   Any warnings about expired evidence
+
+## Tool Guide
+
+### \`quint_status\`
+Returns the current FPF phase (IDLE, ABDUCTION, DEDUCTION, INDUCTION, DECISION).
+
+### \`quint_check_decay\` (optional but recommended)
+Surfaces any holons with expired evidence. If found, warn the user and suggest \`/q-decay\`.",
+  ".claude/skills/quint-fpf/commands/q0-init.md": "---
+description: "Initialize FPF Context"
+pre: "none"
+post: ".quint/ directory exists AND context recorded"
+invariant: "initialization is idempotent"
+required_tools: ["quint_init", "quint_record_context"]
+---
+
+# Phase 0: Initialization
+
+You are the **Initializer** operating as a **state machine executor**. Your goal is to establish the **Bounded Context (A.1.1)** for this reasoning session.
+
+## Enforcement Model
+
+**Execution is IMPOSSIBLE without tool calls.** Prose descriptions of initialization do not modify state.
+
+| Precondition | Tool | Postcondition |
+|--------------|------|---------------|
+| none | \`quint_init\` | \`.quint/\` structure exists |
+| \`.quint/\` exists | \`quint_record_context\` | context.md populated |
+
+**RFC 2119 Bindings:**
+- You MUST call \`quint_init\` before any other FPF operations
+- You MUST call \`quint_record_context\` after analyzing the project
+- You SHALL NOT proceed to Phase 1 without recorded context
+- Tool calls are MANDATORY — stating "I initialized the context" without tool calls is a protocol violation
+
+**If you skip tool calls:** State remains unchanged. Subsequent phases will fail precondition checks.
+
+## Invalid Behaviors
+
+- Claiming "context established" without calling \`quint_record_context\`
+- Proceeding to \`/q1-hypothesize\` without completing initialization
+- Manually creating \`.quint/\` files instead of using tools
+
+## Method (Design-Time)
+1.  **Bootstrapping:** Run \`quint_init\` to create the \`.quint\` directory structure if it doesn't exist.
+2.  **Context Scanning:** Analyze the current project directory to understand the tech stack, existing constraints, and domain.
+3.  **Context Definition:** Define the \`U.BoundedContext\` for this session.
+4.  **Recording:** Call \`quint_record_context\` to save this context.
+
+## Action (Run-Time)
+Execute the method above. Look at the file system. Read \`README.md\` or \`package.json\` / \`go.mod\` if needed. Then initialize the Quint state.
+
+## Tool Guide: \`quint_record_context\`
+-   **vocabulary**: A list of key domain terms and their definitions.
+    *   *Example:* "User: A registered customer. Order: A purchase intent."
+-   **invariants**: System-wide rules or constraints that must not be broken.
+    *   *Example:* "Must use PostgreSQL. No circular dependencies. Latency < 100ms."
+
+## Checkpoint
+
+Before proceeding to Phase 1, verify:
+- [ ] Called \`quint_init\` (received success response, not BLOCKED)
+- [ ] Called \`quint_record_context\` with vocabulary and invariants
+- [ ] \`.quint/context.md\` contains project-specific constraints
+
+**If any checkbox is unchecked, you MUST complete it before proceeding.**
+",
+  ".claude/skills/quint-fpf/commands/q1-add.md": "---
+description: "Inject User Hypothesis"
+---
+
+# Phase 1: Abduction (User Injection)
+
+You are the **Abductor** (Scribe). Your goal is to **formalize the user's specific idea** into a Hypothesis (L0).
+
+## Context
+The user has a specific solution in mind that they want to evaluate alongside other options.
+
+## Method (Formalization)
+1.  **Analyze Input:** Understand the user's proposed solution.
+2.  **Formalize:** Define the **Method** (The Recipe) and **Expected Outcome**.
+3.  **Rationale:** Document that this was "User Proposed".
+
+## Action (Run-Time)
+1.  Call \`quint_propose\` with the user's idea.
+2.  Inform the user that the hypothesis has been added.
+3.  **Remind:** "Phase reset to **ABDUCTION**. Run \`/q2-verify\` to check this new option."
+
+## Tool Guide: \`quint_propose\`
+-   **title**: User's idea title.
+-   **content**: Detailed description of the user's method.
+-   **scope**: Where the user intends this to apply (e.g., "Global", "Backend-only").
+-   **kind**: "system" or "episteme".
+-   **rationale**: JSON string.
+    *   *Format:* \`{"source": "User input", "anomaly": "<user_problem>", "note": "Manually injected"}\`",
+  ".claude/skills/quint-fpf/commands/q1-hypothesize.md": "---
+description: "Generate Hypotheses (Abduction)"
+pre: "context recorded (Phase 0 complete)"
+post: ">=1 L0 hypothesis exists in database"
+invariant: "hypotheses must have kind ∈ {system, episteme}"
+required_tools: ["quint_propose"]
+---
+
+# Phase 1: Abduction
+
+You are the **Abductor** operating as a **state machine executor**. Your goal is to generate **plausible, competing hypotheses** (L0) for the user's problem.
+
+## Enforcement Model
+
+**Hypotheses exist ONLY when created via \`quint_propose\`.** Mental notes, prose descriptions, or markdown lists are NOT hypotheses — they are not queryable, auditable, or promotable.
+
+| Precondition | Tool | Postcondition |
+|--------------|------|---------------|
+| Phase 0 complete | \`quint_propose\` | L0 holon created in DB |
+
+**RFC 2119 Bindings:**
+- You MUST call \`quint_propose\` for EACH hypothesis you want to track
+- You MUST NOT proceed to Phase 2 without at least one L0 hypothesis
+- You SHALL include both \`kind\` (system/episteme) and \`scope\` for every proposal
+- Mentioning a hypothesis without calling \`quint_propose\` does NOT create it
+
+**If you skip tool calls:** No L0 holons exist. Phase 2 (\`/q2-verify\`) will find nothing to verify and return empty results.
+
+## Invalid Behaviors
+
+- Listing hypotheses in prose without calling \`quint_propose\` for each
+- Claiming "I generated 3 hypotheses" when tool was called 0 times
+- Proceeding to \`/q2-verify\` with zero L0 holons
+- Using \`kind\` values other than "system" or "episteme"
+
+## Context
+The user has presented an anomaly or a design problem.
+
+## Method (B.5.2 Abductive Loop)
+1.  **Frame the Anomaly:** Clearly state what is unknown or broken.
+2.  **Generate Candidates:** Brainstorm 3-5 distinct approaches.
+    -   *Constraint:* Ensure **Diversity** (NQD). Include at least one "Conservative" (safe) and one "Radical" (novel) option.
+3.  **Plausibility Filter:** Briefly assess each against constraints. Discard obviously unworkable ones.
+4.  **Formalize:** For each survivor, call \`quint_propose\`.
+
+## Before Calling quint_propose: Linking Checklist
+
+**For EACH hypothesis, explicitly answer these questions:**
+
+| Question | If YES | If NO |
+|----------|--------|-------|
+| Are there multiple alternatives for the same problem? | Create parent decision first, then use \`decision_context\` for all alternatives | Skip \`decision_context\` |
+| Does this hypothesis REQUIRE another holon to work? | Add to \`depends_on\` (affects R_eff via WLNK!) | Leave \`depends_on\` empty |
+| Would failure of another holon invalidate this one? | Add that holon to \`depends_on\` | Leave empty |
+
+**Examples of when to use \`depends_on\`:**
+- "Health Check Endpoint" depends on "Background Task Fix" (can't check what doesn't work)
+- "API Gateway" depends on "Auth Module" (gateway needs auth to function)
+- "Performance Optimization" depends on "Baseline Metrics" (can't optimize without baseline)
+
+**Examples of when to use \`decision_context\`:**
+- "Redis Caching" and "CDN Edge Cache" are alternatives → group under "Caching Decision"
+- "JWT Auth" and "Session Auth" are alternatives → group under "Auth Strategy Decision"
+
+**CRITICAL:** If you skip linking, the audit tree will show isolated nodes and R_eff won't reflect true dependencies!
+
+## Action (Run-Time)
+1.  Ask the user for the problem statement if not provided.
+2.  Think through the options.
+3.  **If proposing multiple alternatives:** Create parent decision holon FIRST.
+4.  Call \`quint_propose\` for EACH hypothesis, setting \`decision_context\` and \`depends_on\` as needed.
+    -   *Note:* The tool will store these in **\`.quint/knowledge/L0/\`**.
+5.  Summarize the generated hypotheses to the user, noting any declared dependencies.
+
+## Tool Guide: \`quint_propose\`
+
+### Required Parameters
+-   **title**: Short, descriptive name (e.g., "Use Redis for Caching").
+-   **content**: The Method (Recipe). Detail *how* it works.
+-   **scope**: The Claim Scope (G). Where does this apply?
+    *   *Example:* "High-load systems, Linux only, requires 1GB RAM."
+-   **kind**: "system" (for code/architecture) or "episteme" (for process/docs).
+-   **rationale**: A JSON string explaining the "Why".
+    *   *Format:* \`{"anomaly": "Database overload", "approach": "Cache read-heavy data", "alternatives_rejected": ["Read replicas (too expensive)"]}\`
+
+### Optional Parameters (Dependency Modeling)
+-   **decision_context**: ID of parent decision/problem holon.
+    -   Creates \`MemberOf\` relation (groups alternatives together)
+    -   Example: \`"caching-strategy-decision"\`
+
+-   **depends_on**: Array of holon IDs this hypothesis depends on.
+    -   Creates \`ComponentOf\` (if kind=system) or \`ConstituentOf\` (if kind=episteme)
+    -   Enables WLNK: parent R_eff ≤ dependency R_eff
+    -   Example: \`["auth-module", "crypto-library"]\`
+
+-   **dependency_cl**: Congruence level for dependencies (1-3, default: 3)
+    -   CL3: Same context (0% penalty)
+    -   CL2: Similar context (10% penalty)
+    -   CL1: Different context (30% penalty)
+
+## Example: Competing Alternatives
+
+\`\`\`
+# First, create the decision context
+[quint_propose(title="Caching Strategy Decision", kind="episteme", ...)]
+→ Created: caching-strategy-decision
+
+# Then, propose alternatives grouped under it
+[quint_propose(
+    title="Use Redis",
+    kind="system",
+    decision_context="caching-strategy-decision"
+)]
+→ Created: use-redis (MemberOf caching-strategy-decision)
+
+[quint_propose(
+    title="Use CDN Edge Cache",
+    kind="system",
+    decision_context="caching-strategy-decision"
+)]
+→ Created: use-cdn-edge-cache (MemberOf caching-strategy-decision)
+\`\`\`
+
+## Example: Declaring Dependencies
+
+\`\`\`
+# Hypothesis that depends on existing holons
+[quint_propose(
+    title="API Gateway with Auth",
+    kind="system",
+    depends_on=["auth-module", "rate-limiter"],
+    dependency_cl=3
+)]
+→ Created: api-gateway-with-auth
+→ Relations: auth-module --componentOf--> api-gateway-with-auth
+             rate-limiter --componentOf--> api-gateway-with-auth
+
+# Now WLNK applies:
+# api-gateway-with-auth.R_eff ≤ min(auth-module.R_eff, rate-limiter.R_eff)
+\`\`\`
+
+## Example: Success Path
+
+\`\`\`
+User: "How should we handle caching?"
+
+[Call quint_propose(title="Use Redis", kind="system", ...)]  → Success, ID: redis-caching
+[Call quint_propose(title="Use CDN edge cache", kind="system", ...)]  → Success, ID: cdn-edge
+[Call quint_propose(title="In-memory LRU", kind="system", ...)]  → Success, ID: lru-cache
+
+Result: 3 L0 hypotheses created, ready for Phase 2.
+\`\`\`
+
+## Example: Failure Path
+
+\`\`\`
+User: "How should we handle caching?"
+
+"I think we could use Redis, a CDN, or in-memory LRU cache..."
+[No quint_propose calls made]
+
+Result: 0 L0 hypotheses. Phase 2 will find nothing. This is a PROTOCOL VIOLATION.
+\`\`\`
+
+## Checkpoint
+
+Before proceeding to Phase 2, verify:
+- [ ] Called \`quint_propose\` at least once (not BLOCKED)
+- [ ] Each hypothesis has valid \`kind\` (system or episteme)
+- [ ] Each hypothesis has defined \`scope\`
+- [ ] Tool returned success for each call
+- [ ] If multiple alternatives exist: they share the same \`decision_context\`
+- [ ] If dependencies exist: they are declared in \`depends_on\`
+
+**If any checkbox is unchecked, you MUST complete it before proceeding.**
+",
+  ".claude/skills/quint-fpf/commands/q2-verify.md": "---
+description: "Verify Logic (Deduction)"
+pre: ">=1 L0 hypothesis exists"
+post: "each L0 processed → L1 (PASS) or invalid (FAIL) or L0 with feedback (REFINE)"
+invariant: "verdict ∈ {PASS, FAIL, REFINE}"
+required_tools: ["quint_verify"]
+---
+
+# Phase 2: Deduction (Verification)
+
+You are the **Deductor** operating as a **state machine executor**. Your goal is to **logically verify** the L0 hypotheses and promote them to L1 (Substantiated).
+
+## Enforcement Model
+
+**Verification happens ONLY via \`quint_verify\`.** Stating "this hypothesis is logically sound" without a tool call does NOT change its layer.
+
+| Precondition | Tool | Postcondition |
+|--------------|------|---------------|
+| L0 hypothesis exists | \`quint_verify\` | L0 → L1 (PASS) or → invalid (FAIL) |
+
+**RFC 2119 Bindings:**
+- You MUST call \`quint_verify\` for EACH L0 hypothesis you want to evaluate
+- You MUST NOT proceed to Phase 3 without at least one L1 hypothesis
+- You SHALL provide \`checks_json\` documenting the logical checks performed
+- Verdict MUST be exactly "PASS", "FAIL", or "REFINE" — no other values accepted
+- Claiming verification without tool call is a PROTOCOL VIOLATION
+
+**If you skip tool calls:** L0 hypotheses remain at L0. Phase 3 precondition check will BLOCK because no L1 holons exist.
+
+## Invalid Behaviors
+
+- Stating "hypothesis verified" without calling \`quint_verify\`
+- Proceeding to \`/q3-validate\` with zero L1 hypotheses
+- Using verdict values other than PASS/FAIL/REFINE
+- Skipping hypotheses without explicit FAIL verdict
+
+## Context
+We have a set of L0 hypotheses stored in the database. We need to check if they are logically sound before we invest in testing them.
+
+## Method (Verification Assurance - VA)
+For each L0 hypothesis:
+1.  **Type Check (C.3 Kind-CAL):**
+    -   Does the hypothesis respect the project's Types?
+    -   Are inputs/outputs compatible?
+2.  **Constraint Check:**
+    -   Does it violate any invariants defined in the \`U.BoundedContext\`?
+3.  **Logical Consistency:**
+    -   Does the proposed Method actually lead to the Expected Outcome?
+4.  **Record via \`quint_verify\`** with appropriate verdict.
+
+## Action (Run-Time)
+1.  **Discovery:** Query L0 hypotheses from database.
+2.  **Verification:** For each, perform the logical checks above.
+3.  **Record:** Call \`quint_verify\` for EACH hypothesis.
+    -   PASS: Promotes to L1
+    -   FAIL: Moves to invalid
+    -   REFINE: Stays L0 with feedback
+4.  Output summary of which hypotheses survived.
+
+## Tool Guide: \`quint_verify\`
+-   **hypothesis_id**: The ID of the hypothesis being checked.
+-   **checks_json**: A JSON string detailing the logic checks performed.
+    *   *Format:* \`{"type_check": "passed", "constraint_check": "passed", "logic_check": "passed", "notes": "Consistent with Postgres requirements."}\`
+-   **verdict**: "PASS", "FAIL", or "REFINE".
+
+## Example: Success Path
+
+\`\`\`
+L0 hypotheses: [redis-caching, cdn-edge, lru-cache]
+
+[Call quint_verify(hypothesis_id="redis-caching", verdict="PASS", ...)]  → L0 → L1
+[Call quint_verify(hypothesis_id="cdn-edge", verdict="PASS", ...)]  → L0 → L1
+[Call quint_verify(hypothesis_id="lru-cache", verdict="FAIL", ...)]  → L0 → invalid
+
+Result: 2 L1 hypotheses, ready for Phase 3.
+\`\`\`
+
+## Example: Failure Path
+
+\`\`\`
+L0 hypotheses: [redis-caching, cdn-edge, lru-cache]
+
+"After reviewing, redis-caching and cdn-edge look logically sound..."
+[No quint_verify calls made]
+
+Result: All hypotheses remain L0. Phase 3 will be BLOCKED. PROTOCOL VIOLATION.
+\`\`\`
+
+## Checkpoint
+
+Before proceeding to Phase 3, verify:
+- [ ] Called \`quint_verify\` for EACH L0 hypothesis
+- [ ] Each call returned success (not BLOCKED)
+- [ ] At least one verdict was PASS (creating L1 holons)
+- [ ] Used valid verdict values only
+
+**If any checkbox is unchecked, you MUST complete it before proceeding.**
+",
+  ".claude/skills/quint-fpf/commands/q3-validate.md": "---
+description: "Validate (Induction)"
+pre: ">=1 L1 or L2 hypothesis exists"
+post: "L1 processed → L2 (PASS) or invalid (FAIL) or L1 with feedback (REFINE); L2 processed → refreshed evidence"
+invariant: "test_type ∈ {internal, external}; verdict ∈ {PASS, FAIL, REFINE}"
+required_tools: ["quint_test"]
+---
+
+# Phase 3: Induction (Validation)
+
+You are the **Inductor** operating as a **state machine executor**. Your goal is to gather **Empirical Validation (EV)** for L1 hypotheses to promote them to L2.
+
+**Also serves as the REFRESH action** in the Evidence Freshness governance loop (see \`/q-decay\`).
+
+## Enforcement Model
+
+**Validation happens ONLY via \`quint_test\`.** Research findings, test outputs, or empirical observations are NOT recorded unless you call the tool.
+
+| Precondition | Tool | Postcondition |
+|--------------|------|---------------|
+| L1 hypothesis exists | \`quint_test\` | L1 → L2 (PASS) or → invalid (FAIL) |
+| L2 hypothesis exists (refresh) | \`quint_test\` | L2 → L2 with fresh evidence |
+
+**RFC 2119 Bindings:**
+- You MUST have at least one L1 or L2 hypothesis before calling \`quint_test\`
+- You MUST call \`quint_test\` for EACH hypothesis you want to validate or refresh
+- You MUST NOT call \`quint_test\` on L0 hypotheses — they must pass Phase 2 first
+- You SHALL specify \`test_type\` as "internal" (code test) or "external" (research/docs)
+- Verdict MUST be exactly "PASS", "FAIL", or "REFINE"
+
+**If precondition fails:** Tool returns BLOCKED with message "hypothesis not found in L1 or L2". This is NOT a bug — it means you skipped Phase 2.
+
+**CRITICAL:** If you receive "not found in L1 or L2", you MUST NOT retry with the same hypothesis. Go back to Phase 2 first.
+
+## Invalid Behaviors
+
+- Calling \`quint_test\` on L0 hypothesis (WILL BE BLOCKED)
+- Calling \`quint_test\` on hypothesis that doesn't exist
+- Stating "validated via testing" without tool call
+- Proceeding to \`/q4-audit\` with zero L2 hypotheses
+
+**Note:** Calling \`quint_test\` on L2 hypotheses is now VALID — it refreshes their evidence for the freshness governance loop.
+
+## Context
+We have substantiated hypotheses (L1) that passed logical verification. We need evidence that they work in reality.
+
+## Method (Agentic Validation Strategy)
+For each L1 hypothesis, choose the best validation strategy:
+
+1.  **Strategy A: Internal Test (Preferred - Highest R)**
+    *   *Action:* Write and run a reproduction script, benchmark, or prototype.
+    *   *Why:* Direct evidence in the target context has Congruence Level (CL) = 3 (Max).
+    *   *Use when:* Code is executable, environment is available.
+
+2.  **Strategy B: External Research (Fallback)**
+    *   *Action:* Use available MCP tools (search, docs, knowledge bases).
+    *   *Why:* Evidence from other contexts has lower CL (1 or 2). Applies penalty to R.
+    *   *Use when:* Running code is impossible or too costly.
+
+## Action (Run-Time)
+1.  **Discovery:** Query L1 hypotheses from database.
+2.  **Decide:** Pick Strategy A or B for each.
+3.  **Execute:** Run tests or gather research.
+4.  **Record:** Call \`quint_test\` for EACH with results.
+
+## Tool Guide: \`quint_test\`
+-   **hypothesis_id**: The ID of the L1 hypothesis.
+-   **test_type**: "internal" (code/test) or "external" (docs/search).
+-   **result**: Summary of evidence (e.g., "Script passed, latency 5ms").
+-   **verdict**: "PASS" (promote to L2), "FAIL" (demote), "REFINE".
+
+## Example: Success Path
+
+\`\`\`
+L1 hypotheses: [redis-caching, cdn-edge]
+
+[Run benchmark script for redis-caching]
+[Call quint_test(hypothesis_id="redis-caching", test_type="internal", verdict="PASS", ...)]  → L1 → L2
+
+[Search docs for CDN configuration]
+[Call quint_test(hypothesis_id="cdn-edge", test_type="external", verdict="PASS", ...)]  → L1 → L2
+
+Result: 2 L2 hypotheses, ready for Phase 4.
+\`\`\`
+
+## Example: Failure Path (What caught me earlier)
+
+\`\`\`
+User asks to validate a hypothesis about "prompt engineering"
+
+[Call quint_test(hypothesis_id="command-prompts-as-contracts", ...)]
+→ BLOCKED: "hypothesis not found in L1"
+
+Why: Hypothesis was already L2, or never existed as L1.
+Fix: Check hypothesis layer first. If L0, run Phase 2. If L2, skip to Phase 4.
+\`\`\`
+
+## Example: Protocol Violation
+
+\`\`\`
+L1 hypotheses: [redis-caching]
+
+"I researched Redis best practices and it looks good..."
+[No quint_test call made]
+
+Result: Hypothesis remains L1. Phase 4 will find no L2 to audit. PROTOCOL VIOLATION.
+\`\`\`
+
+## Checkpoint
+
+Before proceeding to Phase 4, verify:
+- [ ] Queried L1 hypotheses (not L0)
+- [ ] Called \`quint_test\` for EACH L1 hypothesis
+- [ ] Each call returned success (not BLOCKED)
+- [ ] At least one verdict was PASS (creating L2 holons)
+- [ ] Used valid test_type values (internal/external)
+
+**If any checkbox is unchecked, you MUST complete it before proceeding.**
+
+---
+
+## Evidence Refresh (L2 → L2)
+
+When called with an L2 hypothesis, \`quint_test\` adds fresh evidence without changing the layer.
+
+**Use case:** \`/q-decay\` shows stale evidence on an L2 holon. Run \`/q3-validate <hypothesis_id>\` to refresh.
+
+| Current Layer | Verdict | Outcome |
+|---------------|---------|---------|
+| L1 | PASS | Promotes to L2 |
+| L1 | FAIL | Stays L1 |
+| L2 | PASS | Stays L2, fresh evidence added |
+| L2 | FAIL | Stays L2, failure recorded, consider \`/q-decay --deprecate\` |
+",
+  ".claude/skills/quint-fpf/commands/q4-audit.md": "---
+description: "Audit Evidence (Trust Calculus)"
+pre: ">=1 L2 hypothesis exists"
+post: "R_eff computed and risks recorded for each L2"
+invariant: "R_eff = min(evidence_scores) via WLNK principle"
+required_tools: ["quint_calculate_r", "quint_audit_tree", "quint_audit"]
+---
+
+# Phase 4: Audit
+
+You are the **Auditor** operating as a **state machine executor**. Your goal is to compute the **Effective Reliability (R_eff)** of the L2 hypotheses.
+
+## Enforcement Model
+
+**Trust scores exist ONLY when computed via tools.** Claiming "this has high confidence" without \`quint_calculate_r\` is meaningless — R_eff must be computed, not asserted.
+
+| Precondition | Tool | Postcondition |
+|--------------|------|---------------|
+| L2 hypothesis exists | \`quint_calculate_r\` | R_eff computed with breakdown |
+| R_eff computed | \`quint_audit_tree\` | Dependency visualization generated |
+| Audit complete | \`quint_audit\` | Risk analysis persisted |
+
+**RFC 2119 Bindings:**
+- You MUST have at least one L2 hypothesis before auditing
+- You MUST call \`quint_calculate_r\` for EACH L2 hypothesis
+- You SHOULD call \`quint_audit_tree\` to visualize dependencies
+- You MUST call \`quint_audit\` to persist the risk analysis
+- You SHALL NOT proceed to Phase 5 without recorded audit results
+- R_eff is COMPUTED, not estimated — "I think it's about 0.8" is invalid
+
+**If precondition fails:** Tools will return errors because holon doesn't exist at L2.
+
+## Invalid Behaviors
+
+- Estimating R_eff without calling \`quint_calculate_r\`
+- Proceeding to \`/q5-decide\` without audit results
+- Ignoring weakest link in risk assessment
+- Claiming "high confidence" without computed R_eff
+- Auditing hypotheses that aren't at L2
+
+## Context
+We have L2 hypotheses backed by evidence. We must ensure we aren't overconfident.
+
+## Method (B.3 Trust Calculus)
+For each L2 hypothesis:
+1.  **Calculate R_eff:** Use \`quint_calculate_r\` to get the computed reliability score.
+2.  **Visualize Dependencies:** Use \`quint_audit_tree\` to see the dependency graph.
+3.  **Identify Weakest Link (WLNK):** R_eff = min(evidence_scores), never average.
+4.  **Bias Check (D.5):**
+    -   Are we favoring a "Pet Idea"?
+    -   Did we ignore "Not Invented Here" solutions?
+5.  **Record:** Call \`quint_audit\` to persist findings.
+
+## Action (Run-Time)
+1.  **For each L2 hypothesis:**
+    a.  Call \`quint_calculate_r\` with \`holon_id\`.
+    b.  Call \`quint_audit_tree\` with \`holon_id\`.
+2.  **Record findings:** Call \`quint_audit\` for each.
+3.  Present **Comparison Table** to user with R_eff scores.
+
+## Tool Guide
+
+### \`quint_calculate_r\`
+Computes R_eff with detailed breakdown.
+-   **holon_id**: The ID of the hypothesis to calculate.
+-   *Returns:* Markdown report with R_eff, self score, weakest link, factors.
+
+### \`quint_audit_tree\`
+Visualizes the assurance tree.
+-   **holon_id**: The root holon to audit.
+-   *Returns:* ASCII tree with \`[R:0.XX]\` scores and \`(CL:N)\` penalties.
+
+### \`quint_audit\`
+Records the audit findings persistently.
+-   **hypothesis_id**: The ID of the hypothesis.
+-   **risks**: Text summary of WLNK analysis and bias check.
+    *   *Example:* "Weakest Link: External docs (CL1). Penalty applied. R_eff: 0.72. Bias: Low."
+
+## Example: Success Path
+
+\`\`\`
+L2 hypotheses: [redis-caching, cdn-edge]
+
+[Call quint_calculate_r(holon_id="redis-caching")]
+→ R_eff: 0.85, Weakest: internal test (0.85)
+
+[Call quint_audit_tree(holon_id="redis-caching")]
+→ Tree visualization
+
+[Call quint_audit(hypothesis_id="redis-caching", risks="WLNK: 0.85, Bias: None")]
+→ Audit recorded
+
+[Repeat for cdn-edge]
+
+| Hypothesis | R_eff | Weakest Link |
+|------------|-------|--------------|
+| redis-caching | 0.85 | internal test |
+| cdn-edge | 0.72 | external docs (CL1 penalty) |
+
+Ready for Phase 5.
+\`\`\`
+
+## Example: Failure Path
+
+\`\`\`
+L2 hypotheses: [redis-caching, cdn-edge]
+
+"Redis looks more reliable based on the testing..."
+[No quint_calculate_r calls made]
+
+Result: No R_eff computed. Decision in Phase 5 will be based on vibes, not evidence.
+PROTOCOL VIOLATION.
+\`\`\`
+
+## Checkpoint
+
+Before proceeding to Phase 5, verify:
+- [ ] Called \`quint_calculate_r\` for EACH L2 hypothesis
+- [ ] Called \`quint_audit\` to record risk analysis
+- [ ] Identified weakest link for each hypothesis
+- [ ] Presented comparison table to user
+
+**If any checkbox is unchecked, you MUST complete it before proceeding.**
+",
+  ".claude/skills/quint-fpf/commands/q5-decide.md": "---
+description: "Finalize Decision"
+pre: ">=1 L2 hypothesis exists with audit results"
+post: "DRR created and persisted"
+invariant: "human selects winner; agent documents rationale"
+required_tools: ["quint_calculate_r", "quint_decide"]
+---
+
+# Phase 5: Decision
+
+You are the **Decider** operating as a **state machine executor**. Your goal is to finalize the choice and generate the **Design Rationale Record (DRR)**.
+
+## Enforcement Model
+
+**Decisions are recorded ONLY via \`quint_decide\`.** Stating "we decided to use X" without a tool call does NOT create a DRR — the decision is not documented, not auditable, not queryable.
+
+| Precondition | Tool | Postcondition |
+|--------------|------|---------------|
+| L2 hypothesis exists | \`quint_calculate_r\` | Final R_eff for comparison |
+| Winner selected by human | \`quint_decide\` | DRR created in \`.quint/decisions/\` |
+
+**RFC 2119 Bindings:**
+- You MUST have at least one audited L2 hypothesis before deciding
+- You MUST call \`quint_calculate_r\` for each candidate to present comparison
+- You MUST present comparison to user and GET USER APPROVAL before finalizing
+- You MUST call \`quint_decide\` to create the DRR
+- You SHALL NOT select the winner autonomously — this is the **Transformer Mandate**
+- The human decides; you document
+
+**If precondition fails:** \`quint_decide\` will be BLOCKED if no L2 hypotheses exist.
+
+**CRITICAL: Transformer Mandate**
+A system cannot transform itself. You (Claude) generate options with evidence. The human decides. Making architectural choices autonomously is a PROTOCOL VIOLATION.
+
+## Invalid Behaviors
+
+- Selecting winner without user approval
+- Calling \`quint_decide\` without presenting comparison first
+- Stating "we decided X" without tool call
+- Making the decision for the user ("I recommend X, so I'll proceed with X")
+- Proceeding with implementation before DRR is created
+
+## Context
+The reasoning cycle is complete. We have audited hypotheses in L2.
+
+## Method (E.9 DRR)
+1.  **Calculate R_eff:** For each L2 candidate, call \`quint_calculate_r\`.
+2.  **Compare:** Present scores to user in comparison table.
+3.  **Select:** ASK user to pick the winning hypothesis.
+4.  **Draft DRR:** After user confirms, construct the Design Rationale Record:
+    -   **Context:** The initial problem.
+    -   **Decision:** The chosen hypothesis.
+    -   **Rationale:** Why it won (citing R_eff and evidence).
+    -   **Consequences:** Trade-offs and next steps.
+    -   **Validity:** When should this be revisited?
+
+## Action (Run-Time)
+1.  **For each L2 hypothesis:** Call \`quint_calculate_r\` to get R_eff.
+2.  Present comparison table to user.
+3.  **WAIT for user to select winner.**
+4.  Call \`quint_decide\` with the chosen ID and DRR content.
+5.  Output the path to the created DRR.
+
+## Tool Guide
+
+### \`quint_calculate_r\`
+Computes R_eff for comparison.
+-   **holon_id**: The hypothesis to calculate.
+-   *Returns:* R_eff score with breakdown.
+
+### \`quint_decide\`
+Finalizes the decision and creates the DRR.
+-   **title**: Title of the decision (e.g., "Use Redis for Caching").
+-   **winner_id**: The ID of the chosen hypothesis.
+-   **rejected_ids**: Array of IDs of rejected L2 alternatives (creates \`rejects\` relations).
+-   **context**: The problem statement.
+-   **decision**: "We decided to use [Winner] because..."
+-   **rationale**: "It had the highest R_eff and best fit for constraints..."
+-   **consequences**: "We need to provision Redis. Latency will drop."
+-   **characteristics**: Optional C.16 scores.
+
+## Example: Success Path
+
+\`\`\`
+L2 hypotheses: [redis-caching, cdn-edge]
+
+[Call quint_calculate_r for each]
+
+Presenting comparison:
+| Hypothesis | R_eff | Weakest Link |
+|------------|-------|--------------|
+| redis-caching | 0.85 | internal test |
+| cdn-edge | 0.72 | external docs |
+
+"Which hypothesis should we proceed with?"
+
+[User responds: "redis-caching"]
+
+[Call quint_decide(
+    title="Use Redis for Caching",
+    winner_id="redis-caching",
+    rejected_ids=["cdn-edge"],
+    context="...",
+    decision="...",
+    rationale="...",
+    consequences="..."
+)]
+→ DRR created at .quint/decisions/DRR-XXXX-use-redis-for-caching.md
+→ Relations created:
+  - DRR --selects--> redis-caching
+  - DRR --rejects--> cdn-edge
+
+Result: Decision recorded with full audit trail. Ready for implementation.
+\`\`\`
+
+## Example: Failure Path (Transformer Mandate Violation)
+
+\`\`\`
+L2 hypotheses: [redis-caching, cdn-edge]
+
+"Redis has higher R_eff, so I'll go ahead and implement that..."
+[No quint_decide call, no user confirmation]
+
+Result: PROTOCOL VIOLATION. Agent made autonomous architectural decision.
+The human must select. You document.
+\`\`\`
+
+## Checkpoint
+
+Before proceeding to implementation, verify:
+- [ ] Called \`quint_calculate_r\` for each L2 hypothesis
+- [ ] Presented comparison table to user
+- [ ] User explicitly selected the winner
+- [ ] Called \`quint_decide\` with user's choice
+- [ ] DRR file created successfully
+
+**If any checkbox is unchecked, you MUST complete it before proceeding.**
+",
   ".claude/skills/skill-finder/SKILL.md": "---
 name: skill-finder
 description: Discovers AI skills from a curated registry of external sources (Anthropic official, Claude plugin marketplaces, community repos, awesome-lists) and installs them into the current project. Use when the user asks to "find a skill for X", "do we have something for Y?", "add <technology>/stack support", "install a skill from GitHub", "what skills could help with this codebase?", or when Polly needs to plug a gap by fetching a skill that isn't bundled in the framework. Also use proactively after detecting the project stack (Angular, C#, Python, Go, etc.) to suggest stack-specific skills the framework does not ship by default.
@@ -2858,7 +5224,9 @@ TBD
     "bmad-agent-analyst",
     "bmad-agent-architect",
     "bmad-agent-tech-writer",
-    "bmad-agent-ux-designer"
+    "bmad-agent-ux-designer",
+    "quint-fpf",
+    "arch-brainstorm"
   ]
 }
 ",
@@ -2873,6 +5241,9 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/commands/.gitkeep",
   ".claude/settings.json",
   ".claude/skills/.gitkeep",
+  ".claude/skills/arch-brainstorm/SKILL.md",
+  ".claude/skills/arch-brainstorm/references/folder-conventions.md",
+  ".claude/skills/arch-brainstorm/references/prd-template.md",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md",
   ".claude/skills/bmad-advanced-elicitation/methods.csv",
   ".claude/skills/bmad-agent-analyst/SKILL.md",
@@ -2891,6 +5262,19 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/playwright-cli/references/test-generation.md",
   ".claude/skills/playwright-cli/references/tracing.md",
   ".claude/skills/playwright-cli/references/video-recording.md",
+  ".claude/skills/quint-fpf/SKILL.md",
+  ".claude/skills/quint-fpf/commands/q-actualize.md",
+  ".claude/skills/quint-fpf/commands/q-decay.md",
+  ".claude/skills/quint-fpf/commands/q-query.md",
+  ".claude/skills/quint-fpf/commands/q-reset.md",
+  ".claude/skills/quint-fpf/commands/q-status.md",
+  ".claude/skills/quint-fpf/commands/q0-init.md",
+  ".claude/skills/quint-fpf/commands/q1-add.md",
+  ".claude/skills/quint-fpf/commands/q1-hypothesize.md",
+  ".claude/skills/quint-fpf/commands/q2-verify.md",
+  ".claude/skills/quint-fpf/commands/q3-validate.md",
+  ".claude/skills/quint-fpf/commands/q4-audit.md",
+  ".claude/skills/quint-fpf/commands/q5-decide.md",
   ".claude/skills/skill-finder/SKILL.md",
   ".claude/skills/skill-finder/registry.json",
   ".claude/skills/skill-finder/scripts/fetch-registry.mjs",
