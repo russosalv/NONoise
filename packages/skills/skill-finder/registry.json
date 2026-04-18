@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-18",
+  "sources": [
+    {
+      "id": "anthropics-skills",
+      "url": "https://github.com/anthropics/skills",
+      "indexType": "github-repo-tree",
+      "branch": "main",
+      "skillsPath": "skills",
+      "tags": ["official", "anthropic", "general"],
+      "notes": "Official Anthropic skills repo (skill-creator, pptx, etc.)"
+    },
+    {
+      "id": "claude-plugins-official",
+      "url": "https://github.com/anthropics/claude-plugins-official",
+      "indexType": "marketplace-json",
+      "branch": "main",
+      "marketplacePath": ".claude-plugin/marketplace.json",
+      "installSyntax": "/plugin install {name}@claude-plugins-official",
+      "tags": ["official", "anthropic", "lsp", "plugins", "marketplace"],
+      "notes": "Official Claude Code plugin marketplace. Includes LSP plugins and many integrations."
+    },
+    {
+      "id": "piebald-lsps",
+      "url": "https://github.com/Piebald-AI/claude-code-lsps",
+      "indexType": "marketplace-json",
+      "branch": "main",
+      "marketplacePath": ".claude-plugin/marketplace.json",
+      "installSyntax": "/plugin install {name}@claude-code-lsps",
+      "tags": ["community", "lsp", "marketplace"],
+      "notes": "Community LSP marketplace (fallback to official). Broader language coverage."
+    },
+    {
+      "id": "obra-superpowers",
+      "url": "https://github.com/obra/superpowers",
+      "indexType": "github-repo-tree",
+      "branch": "main",
+      "skillsPath": "skills",
+      "tags": ["already-vendored", "methodology", "tdd", "planning"],
+      "notes": "Already vendored in this framework. Useful for delta checks or re-install."
+    },
+    {
+      "id": "impeccable",
+      "url": "https://github.com/pbakaus/impeccable",
+      "indexType": "github-repo-tree",
+      "branch": "main",
+      "skillsPath": "source/skills",
+      "tags": ["already-vendored", "design", "ui"],
+      "notes": "Already vendored in this framework. Useful for delta checks."
+    },
+    {
+      "id": "ui-ux-pro-max",
+      "url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "indexType": "github-repo-tree",
+      "branch": "main",
+      "skillsPath": ".",
+      "tags": ["community", "design", "ui"],
+      "notes": "UI/UX design intelligence. Large bundled skill."
+    },
+    {
+      "id": "awesome-claude-code",
+      "url": "https://github.com/hesreallyhim/awesome-claude-code",
+      "indexType": "awesome-list",
+      "branch": "main",
+      "readmePath": "README.md",
+      "tags": ["community", "index", "awesome-list"],
+      "notes": "Curated awesome-list of Claude Code skills, plugins, prompts."
+    },
+    {
+      "id": "skills-sh",
+      "url": "https://skills.sh/",
+      "indexType": "web-scrape",
+      "tags": ["community", "index", "web"],
+      "notes": "Community skill directory. web-scrape indexer not yet implemented — registered but skipped in v1."
+    },
+    {
+      "id": "skillui",
+      "url": "https://skillui.vercel.app/",
+      "indexType": "web-scrape",
+      "tags": ["community", "ui", "web"],
+      "notes": "UI-focused skill index. web-scrape indexer not yet implemented — registered but skipped in v1."
+    }
+  ]
+}
