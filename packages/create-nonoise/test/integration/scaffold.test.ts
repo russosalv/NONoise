@@ -89,6 +89,8 @@ describe('scaffold() integration', () => {
       'reverse-engineering',
       'requirements-ingest',
       'spec-to-workitem',
+      'ops-skill-builder',
+      'observability-debug',
     ];
     for (const name of expected) {
       const content = await readFile(

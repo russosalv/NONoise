@@ -1,6 +1,8 @@
 # `docs/support/` — supporting documents
 
-This folder is the **catch-all for contextual material** that does not fit the other top-level folders but is still valuable context for the team and for NONoise skills.
+This folder is the **catch-all for cross-domain contextual material** that does not fit the other top-level folders but is still valuable context for the team and for NONoise skills.
+
+**Per-domain material** (emails / notes / briefs that fed a specific requirement) lives inside the domain it supports: `docs/requirements/<domain>/sources/<filename>`. Use this top-level folder only for material that is genuinely **shared across domains** (vendor specs used by 2+ domains, regulatory standards like GDPR / PCI-DSS, legacy analyses informing multiple teams).
 
 ## What goes here
 

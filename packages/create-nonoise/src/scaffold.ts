@@ -39,6 +39,8 @@ const MVP_SKILL_BUNDLE = [
   'reverse-engineering',
   'requirements-ingest',
   'spec-to-workitem',
+  'ops-skill-builder',
+  'observability-debug',
 ] as const;
 
 export type ScaffoldPaths = {

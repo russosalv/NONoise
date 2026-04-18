@@ -206,35 +206,46 @@ During merging and structuring, conflicts will appear. The skill never resolves 
 
 ## Source-document kinds and parking rules
 
+**Default destination for every kind**: `docs/requirements/<domain>/sources/<filename>`. Filename conventions below describe only the naming pattern — not separate destinations.
+
 ### Call transcripts / meeting notes
 
-- Park to `docs/calls/<YYYY-MM-DD>-<short-slug>.<ext>`
+- Filename: `<YYYY-MM-DD>-<short-slug>.<ext>`
 - Date = date of the meeting (from document or user)
-- Slug = domain or feature focus, kebab-case
+- Slug = feature or focus, kebab-case
 - Examples:
-  - `2026-04-10-billing-kickoff.md`
-  - `2026-04-15-signup-ux-review.md`
+  - `docs/requirements/billing/sources/2026-04-10-billing-kickoff.md`
+  - `docs/requirements/user-signup/sources/2026-04-15-ux-review.md`
+- **Exception**: if the meeting spans ≥ 2 domains (company kick-off, quarterly planning, multi-team review), park at top-level `docs/calls/<YYYY-MM-DD>-<short-slug>.<ext>` and reference from each affected feature file.
 
 ### Stakeholder briefs (PDF, DOCX)
 
-- Park to `docs/support/<slug>.<ext>`
-- Slug = short descriptor; no date prefix (briefs are less temporal than calls)
-- If the brief has a natural versioning (v1, v2), include it: `finance-brief-q2-v2.pdf`
+- Filename: `<slug>.<ext>`; no date prefix (briefs are less temporal than calls)
+- If the brief has natural versioning (v1, v2), include it: `finance-brief-q2-v2.pdf`
+- Example: `docs/requirements/billing/sources/finance-team-brief-q2.pdf`
+- **Exception**: if the brief is reused across multiple domains (vendor spec, regulatory standard), park under the shared `docs/support/<legacy|research|vendor|regulatory>/` as declared by `docs/support/README.md`.
 
 ### Emails / chat excerpts
 
-- Park to `docs/support/emails/<YYYY-MM-DD>-<slug>.md`
+- Filename: `<YYYY-MM-DD>-<slug>.md`
 - Convert the excerpt to markdown when possible; preserve sender / recipient / date in the file header
+- Example: `docs/requirements/billing/sources/2026-04-16-email-tax-rules.md`
 
 ### Markdown notes (user-authored)
 
-- Let the user decide: leave in place (if already under `docs/`) or park under `docs/support/notes/<slug>.md`
+- Filename: `<slug>.md`
+- Let the user decide: leave in place (if already under `docs/` and the user prefers not to move) or park under the target domain's `sources/`
 - Never silently move
 
 ### Mockups / wireframes / screenshots
 
-- Park to `docs/support/mockups/<domain>/<feature>-<NN>.<ext>` where `NN` is an incremental index
+- Filename: `<feature>-<NN>.<ext>` where `NN` is an incremental index (`signup-01.png`, `signup-02.png`)
+- Example: `docs/requirements/user-signup/sources/signup-flow-01.png`
 - Reference from the requirement file's `source_documents` with `kind: mockup`
+
+### Sub-organization inside `sources/` (optional)
+
+If a domain accumulates many files, the user can freely sub-organize — e.g. `sources/calls/`, `sources/emails/`, `sources/mockups/`. The skill does not impose the sub-structure; only the top-level `sources/` is mandatory.
 
 ### Copy vs move
 

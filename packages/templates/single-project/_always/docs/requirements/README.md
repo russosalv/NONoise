@@ -19,16 +19,25 @@ This folder holds the **requirements** that drive the project: user-facing featu
 
 ## Suggested layout
 
-Organize by domain, feature, or epic — whichever matches how your team reasons about the product:
+Organize by domain / epic. **All raw source material that fed a domain's requirements lives inside that domain's `sources/` subfolder** — there is no scattering across `calls/`, `support/notes/`, etc. for per-domain material. Cross-domain material (multi-domain meetings, shared vendor specs, regulatory standards) uses the top-level `docs/calls/` and `docs/support/` buckets.
 
 ```
 requirements/
 ├── <domain-or-epic>/
-│   ├── <feature>.md
-│   └── <feature>.md
+│   ├── <feature>.md            ← structured requirement (output)
+│   ├── README.md               ← domain index
+│   └── sources/                ← ALL raw inputs that fed this domain
+│       ├── 2026-04-10-kickoff-call.md
+│       ├── vendor-brief.pdf
+│       ├── email-thread.md
+│       └── mockup-flow-01.png
 └── <another-domain>/
-    └── <feature>.md
+    ├── <feature>.md
+    └── sources/
+        └── ...
 ```
+
+Sub-organization inside `sources/` is **optional and user-driven** — free-form. If a domain accumulates many items, organize as you prefer (`sources/calls/`, `sources/emails/`, etc.); the skill does not impose the sub-structure.
 
 Each requirement file should include:
 

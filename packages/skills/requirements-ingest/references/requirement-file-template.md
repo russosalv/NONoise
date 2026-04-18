@@ -84,9 +84,9 @@ TBDs, disagreements between source documents, missing information. Every open po
 
 Verbatim quotes from the source documents that ground this requirement. This is the audit trail that lets the team check later whether ingestion preserved the stakeholder's intent.
 
-> "<quote 1>" — source: `docs/calls/2026-04-18-<slug>.md` §3.2
+> "<quote 1>" — source: `sources/2026-04-18-<slug>.md` §3.2
 >
-> "<quote 2>" — source: `docs/support/<brief>.pdf` p. 13
+> "<quote 2>" — source: `sources/<brief>.pdf` p. 13
 
 ## Ingestion history
 
@@ -185,10 +185,10 @@ domain: billing
 feature: invoice-generation
 status: draft
 source_documents:
-  - path: docs/calls/2026-04-10-billing-kickoff.md
+  - path: docs/requirements/billing/sources/2026-04-10-billing-kickoff.md
     kind: call-transcript
     sections: ["§2 Monthly cycle", "§4 Edge cases"]
-  - path: docs/support/finance-team-brief-q2.pdf
+  - path: docs/requirements/billing/sources/finance-team-brief-q2.pdf
     kind: brief
     sections: ["pp. 4-7"]
 created_at: 2026-04-18
@@ -242,15 +242,15 @@ The monthly close currently takes ~3 operator-days of manual spreadsheet work. T
 
 ## Source quotes
 
-> "We need one invoice per contract, same logic as the manual spreadsheet, but automated and finished by lunch on day 1." — source: `docs/calls/2026-04-10-billing-kickoff.md` §2
+> "We need one invoice per contract, same logic as the manual spreadsheet, but automated and finished by lunch on day 1." — source: `sources/2026-04-10-billing-kickoff.md` §2
 >
-> "Contracts in a disputed state should not produce invoices — finance handles those manually until the dispute is resolved." — source: `docs/calls/2026-04-10-billing-kickoff.md` §4
+> "Contracts in a disputed state should not produce invoices — finance handles those manually until the dispute is resolved." — source: `sources/2026-04-10-billing-kickoff.md` §4
 >
-> "For contracts without a tax profile, a draft invoice should still be generated with a warning, so finance sees the backlog at-a-glance." — source: `docs/support/finance-team-brief-q2.pdf` p. 5
+> "For contracts without a tax profile, a draft invoice should still be generated with a warning, so finance sees the backlog at-a-glance." — source: `sources/finance-team-brief-q2.pdf` p. 5
 
 ## Ingestion history
 
-- 2026-04-18 — initial ingestion from `docs/calls/2026-04-10-billing-kickoff.md` and `docs/support/finance-team-brief-q2.pdf` (candidates CR-001 through CR-007)
+- 2026-04-18 — initial ingestion from `sources/2026-04-10-billing-kickoff.md` and `sources/finance-team-brief-q2.pdf` (candidates CR-001 through CR-007)
 ```
 
 ---

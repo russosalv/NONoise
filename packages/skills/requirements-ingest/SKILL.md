@@ -244,21 +244,28 @@ Ask the user to confirm the breakdown before writing anything.
 
 ### Phase 4: WRITE — produce requirement files and park sources
 
-**Goal**: for each `(domain, feature)` in the confirmed breakdown, write or update the requirement file; for each source document, park it under `docs/calls/` or `docs/support/` and cross-reference it.
+**Goal**: for each `(domain, feature)` in the confirmed breakdown, write or update the requirement file; for each source document, park it under the target domain's `sources/` subfolder and cross-reference it.
 
-#### Source document parking
+#### Source document parking — one bucket per domain
 
-First, park the source documents:
+**Default destination for every source**: `docs/requirements/<domain>/sources/<filename>` (free-form inside, no sub-categorization). The rationale: everything that fed a given feature file lives right next to it — no hunting across multiple top-level folders.
 
-- **Call transcripts / meeting notes** → `docs/calls/<YYYY-MM-DD>-<short-slug>.<ext>`
-  - Date: the date of the call (from the document if stated, else ask the user)
-  - Example: `docs/calls/2026-04-18-business-user-signup.md`
-  - If the original format is not markdown (e.g. DOCX), also drop a markdown companion with the meeting summary when feasible, keeping the binary alongside.
-- **Stakeholder briefs / PDFs / DOCX** → `docs/support/<slug>.<ext>`
-  - Example: `docs/support/vendor-payment-api-spec.pdf`
-  - If the user already parked the document elsewhere, keep the existing path and only reference it.
-- **Emails / chat excerpts** → `docs/support/emails/<YYYY-MM-DD>-<short-slug>.md`
-- **Markdown notes the user wrote** → user's choice: park under `docs/support/notes/` or leave in place if already inside `docs/`
+Date-prefix the filename when the document has a chronology (calls, emails, versioned briefs): `<YYYY-MM-DD>-<short-slug>.<ext>`. Example filenames inside `docs/requirements/billing/sources/`:
+
+- `2026-04-18-business-kickoff.md` — call transcript
+- `vendor-payment-api-spec.pdf` — stakeholder brief (no date needed; version is in the filename if relevant)
+- `2026-04-10-email-thread-invoice-rules.md` — email thread
+- `finance-team-notes.md` — note the user wrote
+- `mockup-invoice-list-v2.png` — UI mockup
+
+Sub-categorization inside `sources/` is **not required**. If a domain accumulates many files of a kind, the user can organize freely (`sources/calls/`, `sources/emails/`, `sources/mockups/`) — the skill does not impose the structure.
+
+**Exceptions — when to use top-level `docs/calls/` or `docs/support/` instead**:
+
+- **Multi-domain meeting** — a call that genuinely spans 2+ domains (company-wide kick-off, quarterly planning, cross-team review). Park at `docs/calls/<YYYY-MM-DD>-<slug>.<ext>`, and every affected feature file adds an entry to `source_documents` referencing that path.
+- **Cross-domain shared material** — a vendor spec used across many features, a regulatory standard (GDPR, PCI-DSS, etc.), a legacy analysis that informs multiple domains. Park under the existing `docs/support/<legacy|research|vendor|regulatory>/<slug>.<ext>` buckets (these are declared in `docs/support/README.md`).
+
+**Decision rule**: if in doubt, prefer per-domain (`sources/`). Promote to top-level only when a second domain actually cites the same file.
 
 Before moving files, **ask the user** whether to copy or move. Default: copy (preserve the original path the user referenced). Never silently delete originals.
 
@@ -273,10 +280,10 @@ domain: <domain-slug>
 feature: <feature-slug>
 status: draft
 source_documents:
-  - path: docs/calls/2026-04-18-business-user-signup.md
+  - path: docs/requirements/user-signup/sources/2026-04-18-business-user-signup.md
     kind: call-transcript
     sections: ["3.2 OTP flow"]
-  - path: docs/support/vendor-payment-api-spec.pdf
+  - path: docs/requirements/user-signup/sources/vendor-payment-api-spec.pdf
     kind: brief
     sections: ["pp. 12-14"]
 created_at: YYYY-MM-DD
@@ -332,9 +339,9 @@ TBDs, disagreements between sources, missing information. Every open point must 
 
 Verbatim quotes from the source documents that ground this requirement. Useful when the team later wants to check whether the ingestion preserved intent.
 
-> "<quote 1>" — source: `docs/calls/2026-04-18-business-user-signup.md` §3.2
+> "<quote 1>" — source: `sources/2026-04-18-business-user-signup.md` §3.2
 >
-> "<quote 2>" — source: `docs/support/vendor-payment-api-spec.pdf` p. 13
+> "<quote 2>" — source: `sources/vendor-payment-api-spec.pdf` p. 13
 ```
 
 #### Updating an existing requirement file
@@ -350,8 +357,8 @@ If the feature file already exists (incremental ingestion):
    ```markdown
    ## Ingestion history
 
-   - 2026-04-18 — added CR-005, CR-006 from `docs/calls/2026-04-18-business-user-signup.md`
-   - 2026-03-02 — initial ingestion from `docs/support/vendor-payment-api-spec.pdf`
+   - 2026-04-18 — added CR-005, CR-006 from `sources/2026-04-18-business-user-signup.md`
+   - 2026-03-02 — initial ingestion from `sources/vendor-payment-api-spec.pdf`
    ```
 
 #### Cross-references
@@ -372,8 +379,13 @@ After all files are written, update (or create) `docs/requirements/<domain>/READ
 
 ## Source documents referenced
 
-- [docs/calls/2026-04-18-business-user-signup.md](../../calls/2026-04-18-business-user-signup.md)
-- [docs/support/vendor-payment-api-spec.pdf](../../support/vendor-payment-api-spec.pdf)
+Per-domain (in `./sources/`):
+- [sources/2026-04-18-business-kickoff.md](./sources/2026-04-18-business-kickoff.md)
+- [sources/vendor-payment-api-spec.pdf](./sources/vendor-payment-api-spec.pdf)
+
+Cross-domain (top-level, only when shared with other domains):
+- [docs/calls/2026-04-10-quarterly-planning.md](../../calls/2026-04-10-quarterly-planning.md)
+- [docs/support/regulatory/gdpr-art-7.md](../../support/regulatory/gdpr-art-7.md)
 ```
 
 #### Self-review before saving
@@ -493,8 +505,8 @@ The skill is stateless between invocations — state lives entirely in the files
 - **PRD validation** → `arch-decision`
 - **Sprint promotion** → `sprint-manifest`
 - **Bug reports / incidents** → do not file as requirements; use the project's issue tracker
-- **Pure legacy analysis** (no forward-looking requirements) → park directly under `docs/support/` without going through ingestion
-- **Meeting notes you just want to archive** — if there is nothing actionable, park under `docs/calls/` directly without creating requirement files
+- **Pure legacy analysis** (no forward-looking requirements) → park directly under `docs/support/legacy/` without going through ingestion
+- **Meeting notes you just want to archive** — if there is nothing actionable, park under `docs/calls/` (cross-domain) or the relevant `docs/requirements/<domain>/sources/` directly without creating requirement files
 
 ---
 

@@ -1,6 +1,8 @@
 # `docs/calls/` — meeting notes and call transcripts
 
-This folder holds **raw meeting material**: notes, transcripts, recordings-to-text from business calls, technical calls, stakeholder interviews.
+This folder holds **cross-domain meeting material**: notes, transcripts, recordings-to-text from business calls, technical calls, stakeholder interviews that span **multiple requirement domains** (company-wide kick-offs, quarterly planning, multi-team reviews).
+
+**Domain-specific calls** live inside the domain they feed: `docs/requirements/<domain>/sources/<YYYY-MM-DD>-<slug>.md`. Use this top-level folder only when the same meeting informs 2+ domains.
 
 ## Why this folder exists
 

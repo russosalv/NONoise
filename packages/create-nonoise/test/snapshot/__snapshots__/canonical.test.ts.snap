@@ -3440,6 +3440,2720 @@ After each run, report to the user:
 - \`pip install graphifyy\` fails → print the error and the manual command, continue.
 - Everything else (writing \`.gitignore\`, context files) is local file I/O and must succeed.
 ",
+  ".claude/skills/observability-debug/SKILL.md": "---
+name: observability-debug
+description: |
+  Observability-driven debugging, triage, and performance analysis.
+  Ingests traces, logs, and exceptions from any configured observability
+  backend (App Insights, Datadog, Grafana+Loki, CloudWatch, OpenTelemetry
+  collector, or a generic log file), correlates them by request/trace ID,
+  walks the call chain, identifies the root cause in source code, and
+  proposes a fix with file:line precision. Backend-agnostic by design via
+  an adapter pattern — the methodology is the same across backends; only
+  the data source changes.
+
+  USE this skill whenever the user mentions errors, latency, production
+  incidents, or triage — even without naming a specific tool. Triggers:
+  pasted correlation IDs, trace IDs, operation IDs, request IDs; browser
+  console errors; HTTP status codes (500, 401, 403, 504, timeout);
+  performance complaints ("is slow", "is lagging"); phrases like
+  "what's broken", "why isn't this working", "check the logs", "triage
+  this", "read the logs and tell me why X happened", "find the exception
+  for request Y", "what changed in prod in the last hour".
+  Also triggers on monitoring requests ("watch for new errors", "check
+  cluster health") and user-specific investigation ("what did user X hit
+  today").
+
+source: Risko reference-project (reworked whitelabel for NONoise)
+variant: nonoise generic; stack-neutral; adapter pattern
+---
+
+# observability-debug — From symptom to fix via traces
+
+This skill is a **coach + executor**. It walks you from a raw symptom (an error, a slow page, a user report) to a concrete fix with \`file:line\` precision, using whatever observability backend you already have. The **methodology** is universal; the **adapter** encapsulates backend-specific authentication, query language, and response shape.
+
+Like its sibling [\`ops-skill-builder\`](../ops-skill-builder/SKILL.md), this skill follows an **access-first philosophy**: it never fabricates a trace. If you do not have a working access path to your observability backend, the first thing the skill does is walk you through setting one up — or degrading to the generic log file adapter.
+
+## Position in the debugging workflow
+
+\`\`\`
+┌───────────┐   ┌──────────────┐   ┌──────────────┐   ┌───────────────┐   ┌─────────────────┐
+│ symptom   │──▶│ adapter      │──▶│ query &      │──▶│ correlate     │──▶│ root-cause +    │
+│ elicit    │   │ select +     │   │ ingest       │   │ with source   │   │ fix proposal    │
+│ (phase 0) │   │ access check │   │ traces/logs  │   │ (codebase)    │   │ (file:line)     │
+│           │   │ (phase 1-2)  │   │ (phase 3)    │   │ (phase 4)     │   │ (phase 5)       │
+└───────────┘   └──────────────┘   └──────────────┘   └───────────────┘   └─────────────────┘
+                                                                                   │
+                                                                                   ▼
+                                                                         ┌──────────────────┐
+                                                                         │ crystallize      │
+                                                                         │ (optional)       │
+                                                                         │ → skill-creator  │
+                                                                         │ (phase 6)        │
+                                                                         └──────────────────┘
+\`\`\`
+
+Phases 0 → 5 are always executed. Phase 6 is opt-in.
+
+## What this skill does
+
+1. **Elicits the symptom** — error message, timing, correlation ID, affected user/endpoint/tenant.
+2. **Selects the adapter** — reads \`nonoise.config.json.observability.backend\` when set, otherwise asks. Falls back to the \`generic-log-file\` adapter.
+3. **Probes access** — verifies the selected adapter is reachable. If not, coaches the user through authentication (env vars, CLI login, OIDC).
+4. **Fetches traces/logs** — calls the adapter's contract methods to pull all telemetry for the correlation ID, or a time-range window.
+5. **Correlates with code** — matches stack frames, file paths, function names in the traces to actual files in the repo via \`Grep\` / \`Read\` / (optionally) \`graphify-setup\`.
+6. **Explains and proposes a fix** — narrates the chain of events in plain language; proposes a concrete patch with file:line, a minimal diff, and a regression test.
+7. **Optionally crystallizes** — if the debugging flow is worth reusing, offers to save it as a project-local skill via [\`skill-creator\`](../skill-creator/SKILL.md).
+
+## What this skill does NOT do
+
+- **Does not apply fixes automatically** — it proposes; the user (or a downstream skill) applies.
+- **Does not edit the observability backend** — read-only on telemetry.
+- **Does not hardcode query language** — KQL, LogQL, CloudWatch Logs Insights, PromQL, etc. are **adapter-specific**. The core flow calls the adapter's contract methods.
+- **Does not assume Azure / AWS / any cloud** — each adapter is optional and declares its own auth model.
+- **Does not silently pick an adapter** — if the choice is ambiguous, the skill asks.
+
+---
+
+## The adapter contract
+
+Every observability adapter must implement these five operations. This is the **contract** — the core flow of the skill calls these methods regardless of the underlying backend.
+
+| Operation | Input | Output | Purpose |
+|---|---|---|---|
+| \`authenticate()\` | (reads env vars / CLI session) | \`ok\` or a precise "how to set me up" message | Proves identity to the backend; runs once per skill session |
+| \`query_by_correlation_id(id, time_range)\` | correlation/trace/request ID + optional offset (e.g. \`6h\`) | Structured list of spans/logs/exceptions ordered by timestamp | Primary drill-down — one ID, everything about it |
+| \`query_by_time_range(start, end, filter)\` | time window + filter (service, endpoint, severity, user) | Structured list of matching records | For broader sweeps when no ID is known |
+| \`get_exception_details(exception_id)\` | backend-native exception/event reference | Full stack trace, inner messages, custom dimensions | Targeted deep dive once a candidate exception is found |
+| \`list_sampled_errors(time_range, severity)\` | time window + severity floor | Grouped, counted errors (by endpoint, service, status code) | "What's breaking lately?" — triage entry point |
+
+An adapter **may** implement more — but the skill's core flow only relies on these five. Any additional capability must be documented in the adapter's reference file.
+
+### Canonical event shape
+
+Every adapter must normalize its results into a tracker-agnostic shape before returning. Stable field names across adapters = no backend-specific code leaks into the core flow:
+
+\`\`\`yaml
+timestamp: "<ISO_TIMESTAMP>"
+kind: "request" | "dependency" | "exception" | "log"
+correlation_id: "abc-123-…"          # unified across adapters
+service: "orders-api"                  # backend: cloud_RoleName / service.name / host
+operation: "POST /orders"              # backend: name / endpoint
+status: "failure" | "success" | "unknown"
+status_code: 500                       # http/grpc/custom
+duration_ms: 342                       # null if not applicable
+target: "sql-server"                   # for dependency kind; backend-specific
+exception:                             # populated only on kind=exception
+  type: "NullReferenceException"
+  message: "Object reference not set…"
+  stack: |
+    at Foo.Bar(Baz.cs:line 42)
+    …
+raw: { … }                             # adapter-specific passthrough for advanced use
+\`\`\`
+
+The skill consumes this shape throughout phases 3–5. Adapters that cannot populate a field set it to \`null\`.
+
+---
+
+## Available adapters
+
+| Adapter | Status | Ships with v1? | Reference |
+|---|---|---|---|
+| \`app-insights\` | Implemented (first-class v1 adapter) | Yes | [\`references/adapter-app-insights.md\`](./references/adapter-app-insights.md) |
+| \`datadog\` | Usable stub (documented API + env var auth) | Yes | [\`references/adapter-datadog.md\`](./references/adapter-datadog.md) |
+| \`grafana-loki\` | Usable stub (documented LogQL API) | Yes | [\`references/adapter-grafana-loki.md\`](./references/adapter-grafana-loki.md) |
+| \`cloudwatch\` | Usable stub (AWS CLI wired, Logs Insights) | Yes | [\`references/adapter-cloudwatch.md\`](./references/adapter-cloudwatch.md) |
+| \`otel-collector\` | Document-only stub (OTLP + Jaeger + Prometheus) | Yes | [\`references/adapter-otel-collector.md\`](./references/adapter-otel-collector.md) |
+| \`generic-log-file\` | Implemented fallback — works offline on a flat log | Yes | [\`references/adapter-generic-log-file.md\`](./references/adapter-generic-log-file.md) |
+
+"Usable stub" = auth + query shape documented; the user can copy the commands and use them manually, and wiring them into a full adapter is mostly about response parsing. "Document-only" = the backend requires too much project-specific config to ship a default wiring.
+
+Promoting a stub to a full adapter is **non-breaking** — the contract stays the same.
+
+---
+
+## Configuration — \`nonoise.config.json.observability\`
+
+**Proposed schema** (the skill uses it when present; it works without it by asking the user):
+
+\`\`\`json
+{
+  "observability": {
+    "backend": "app-insights",
+    "settings": {
+      "applicationId": "<app-insights-application-id>"
+    },
+    "correlationIdHeader": "X-Correlation-Id",
+    "fallback": "generic-log-file",
+    "fallbackSettings": {
+      "path": "./logs/app.log",
+      "format": "json-lines"
+    }
+  }
+}
+\`\`\`
+
+Supported \`backend\` values: \`app-insights\`, \`datadog\`, \`grafana-loki\`, \`cloudwatch\`, \`otel-collector\`, \`generic-log-file\`, or \`ask\` (always prompt the user).
+
+If the key is missing, the skill asks the user. If the chosen backend's auth fails, the skill offers to degrade to the configured \`fallback\`.
+
+> **Note**: this skill only **reads** the config; it never writes to \`nonoise.config.json\`. Adding the \`observability\` section is the user's responsibility. The schema above is a proposal — future NONoise versions may bless it formally.
+
+---
+
+## Correlation ID propagation
+
+The skill's effectiveness depends on **one** thing: being handed a correlation ID that links client, server, and downstream calls. This is a **project discipline** concern — the skill documents best practices, but it cannot retrofit missing propagation.
+
+### Inbound — client to server
+
+- Use **W3C Trace Context** headers: \`traceparent\` + \`tracestate\`. OpenTelemetry instrumentation handles this automatically.
+- Or a simpler custom header, typically \`X-Correlation-Id\` / \`X-Request-Id\` — pick one and be consistent.
+- The front-end generates the ID at the earliest safe point (e.g. when the user clicks "Submit") and attaches it to **every** outbound request tied to that logical action.
+
+### Downstream — server to its dependencies
+
+- Propagate the same ID on **every** outbound call (HTTP to other services, message queues, Dapr sidecars, database calls via a custom SQL tag if supported).
+- Stamp it on **every** log line and every exception via your logger's MDC / scoped property / custom dimension.
+
+### Surfacing to the user
+
+The project's vision:
+
+> "If you're smart, when there's an error on the client, show the correlation ID or pluck it from your metrics system. Just hand that to me."
+
+Concretely:
+
+- **Error page / toast** shows the correlation ID ("If you contact support, reference ID \`abc-123\`").
+- **Browser console** logs it on every failure.
+- **Support dashboards / metrics UI** lets operators copy it from a row.
+- The user pastes it into chat, or points to a URL in the backend's UI (Azure Portal, Datadog, Grafana) and the skill extracts the ID from the URL.
+
+### How the skill receives the ID
+
+Any of these is fine — the skill normalizes:
+
+- Pasted string: \`"abc-123-def"\` or \`operation_Id=abc-123\`.
+- Pasted URL from the backend's web UI — the skill extracts the ID from known URL patterns per adapter (see adapter references).
+- Pasted screenshot of an error page — ask the user to type the ID if OCR isn't reliable.
+- **No ID** — the skill degrades to \`query_by_time_range\` + filter (service/endpoint/user/time window).
+
+---
+
+## Flow — 6 phases
+
+### Phase 0 — symptom elicitation
+
+Before doing anything, ask. One question at a time, multiple-choice preferred.
+
+1. **What's the symptom?** — offer: error message / slow page / unexpected behavior / intermittent failure / monitoring request.
+2. **Do you have a correlation ID / trace ID / request ID?** — if yes, paste. If no, continue.
+3. **If no ID**: *approximate time of failure* (last 5 min / last hour / specific timestamp), *affected surface* (endpoint / page / user / tenant / cluster), *how the symptom was observed* (user reported / automated alert / browser console / log tail).
+4. **Severity floor** — only errors, or also warnings? (informs phase 3 query).
+
+Summarize in one sentence: *"I'm investigating \`<symptom>\` for \`<ID or scope>\` in the last \`<window>\`. Proceeding to adapter selection."* — then move on.
+
+### Phase 1 — adapter selection
+
+1. **Read \`nonoise.config.json\`** at repo root. If \`observability.backend\` is set, propose it and ask for confirmation (one-word confirm or override).
+2. **Else, infer from \`docs/architecture/\`** — grep for known markers:
+   - "Application Insights" / "App Insights" → \`app-insights\`
+   - "Datadog" → \`datadog\`
+   - "Grafana" / "Loki" → \`grafana-loki\`
+   - "CloudWatch" / AWS-heavy stack → \`cloudwatch\`
+   - "OpenTelemetry collector" / "OTLP" → \`otel-collector\`
+3. **Else, ask** the user explicitly via multiple choice: \`app-insights | datadog | grafana-loki | cloudwatch | otel-collector | generic-log-file\`.
+4. **Announce the choice** — "Using \`<adapter>\`. Reference: \`references/adapter-<adapter>.md\`."
+
+### Phase 2 — access check
+
+Call \`authenticate()\` on the chosen adapter. Three outcomes:
+
+- **Ok** — print one line (*"\`<adapter>\` authenticated"*) and advance to phase 3.
+- **Fails with a remediation known to the adapter** — print the exact commands the user must run (e.g. \`az login\`, \`export DD_API_KEY=…\`, \`aws sso login\`), then wait for the user to run them (do **not** run auth commands yourself; they typically need an interactive prompt). Re-probe after user confirmation.
+- **Fails unrecoverably** — offer to degrade to the configured \`fallback\` adapter (default \`generic-log-file\`). Confirm before switching.
+
+The adapter reference files document every required env var, CLI prerequisite, and OIDC flow. Do **not** hardcode these in SKILL.md — they live per-adapter.
+
+### Phase 3 — query and ingest
+
+**Strategy depends on what the user provided in phase 0.**
+
+#### Sub-flow A — correlation ID present
+
+Call \`query_by_correlation_id(id, time_range)\`. Default \`time_range\` is \`6h\` unless the user said otherwise. If the result is empty, retry with widening windows (\`24h\`, then \`7d\`) and, if still empty, warn: *"No telemetry found for ID \`<id>\` in the last 7 days — the ID may be wrong, the backend may not have received the trace, or the logging level may be too low to capture it. Read \`references/adapter-<adapter>.md\` for backend-specific empty-result diagnostics."*
+
+On a non-empty result, list sampled exceptions via \`get_exception_details\` for each distinct exception in the trace.
+
+#### Sub-flow B — no ID, but a scope
+
+Call \`list_sampled_errors(time_range, severity)\` to surface the top N error clusters.
+
+For each cluster, pull one sample ID and descend into sub-flow A.
+
+This also serves as the default for *"what's broken lately?"* requests (no specific symptom, just a health-check).
+
+#### Sub-flow C — monitoring loop
+
+User wants to keep watching. Invoke the [\`loop\`](../../skills/loop/SKILL.md) (or harness-native equivalent) with a 1–5 min cadence; on each tick, call \`list_sampled_errors\` and diff against the last seen set. Report only newly appearing error clusters. Maintain the seen set between iterations.
+
+#### Building the timeline
+
+Whatever sub-flow ran, the phase's output is a **timeline of events** ordered by timestamp:
+
+\`\`\`
+T+0ms    REQUEST   POST /orders           orders-api     started
+T+12ms   DEPEND    SQL INSERT Orders      sql-server     ok
+T+45ms   DEPEND    HTTP POST inventory    inventory-api  FAILED (504)
+T+45ms   EXCEPTION TimeoutException       orders-api     "Inventory did not…"
+T+46ms   REQUEST   POST /orders           orders-api     status=500
+\`\`\`
+
+Present this to the user as a compact ASCII table. This is the primary artifact of phase 3.
+
+### Phase 4 — code correlation
+
+Now match trace entries to actual source code:
+
+1. **Extract candidate code locations** from exceptions — file names, line numbers, function names, class names appearing in stack traces.
+2. **Grep the repo** for each candidate. Prefer fully qualified names (namespace + class) for precision.
+3. **Read the file(s)** around the matched line. Reconstruct the execution path: which code path was taken, what inputs led here, which assumption failed.
+4. **Optional — use [\`graphify-setup\`](../graphify-setup/SKILL.md)** if the repo has a prepared graph. A graph query ("who calls \`OrderService.Place\`?") can disambiguate when the stack trace is ambiguous or optimized away.
+5. **Re-read the request/input data** from the trace — custom dimensions, request body (if captured), headers, user identity — to see what triggered the failing branch.
+
+Produce an **annotated timeline**: each row from phase 3 is now decorated with the \`file:line\` it corresponds to, and with the data that was flowing at that point.
+
+### Phase 5 — root cause and fix proposal
+
+Write the analysis in this structured format (keep it compact — readable at a glance):
+
+\`\`\`markdown
+## Analysis — <correlation ID or scope>
+
+**Endpoint**: <METHOD> <PATH>
+**Status**: <CODE>
+**Service chain**: <frontend> → <bff> → <service A> → <service B>
+**Source**: <deployment source / env>
+**Time**: <UTC timestamp of failure>
+
+### Call chain
+1. <service> <operation> (<duration>ms)      ok
+2. → <dependency> <target> (<duration>ms)   ok
+3.   → <dependency> <target> (<duration>ms) FAILED <reason>
+4. exception thrown: <Type>
+
+### Exception
+- **Type**: <ExceptionType>
+- **Message**: "<message>"
+- **Location**: <path/to/file.ext>:<line>
+
+### Root cause
+<1–2 sentences, plain language, causal>
+
+### Proposed fix
+**File**: <path>:<line>
+**Change**:
+\`\`\`diff
+- <bad line>
++ <good line>
+\`\`\`
+**Why this fixes it**: <1 sentence>
+**Regression test**: <test file + a one-liner describing the test to add>
+**Confidence**: HIGH / MEDIUM / LOW — <reason>
+
+### Follow-up questions (if any)
+- <question for the user if the fix is ambiguous>
+\`\`\`
+
+If confidence is LOW, **do not propose a destructive fix** — propose a diagnostic step instead (e.g. add logging, enable SQL instrumentation, reproduce locally).
+
+### Phase 6 — crystallize (optional)
+
+Offer, in one sentence:
+
+> "I can save this debugging workflow as a project-local skill so your team can re-run it next time. Want me to invoke \`skill-creator\`?"
+
+If yes, hand off to [\`skill-creator\`](../skill-creator/SKILL.md) with a draft frontmatter prefilled (name suggestion: \`debug-<scope>\`, description with the triggers seen in this session, methodology copied from the flow you just ran). If no, stop cleanly.
+
+---
+
+## Operating principles
+
+1. **Access first** — never fabricate a trace. If the backend is unreachable, coach the user through authentication or degrade to the fallback adapter.
+2. **Adapter-isolated** — no backend-specific logic (KQL, LogQL, …) leaks into SKILL.md. If a backend behavior appears in the core flow, it is a bug.
+3. **Canonical event shape** — the core flow only ever touches the normalized shape documented above.
+4. **Correlation ID is the key** — every piece of advice, every request for user input, steers toward capturing and using a correlation ID.
+5. **File:line or nothing** — a fix proposal without a concrete file and line is not actionable; say so explicitly and ask for more telemetry instead.
+6. **Confidence is mandatory** — every proposed fix carries HIGH / MEDIUM / LOW and a one-line justification.
+7. **Timeline before narrative** — the compact event table is always shown before the prose explanation. It is the shared artifact the user can scan.
+8. **Read-only on the backend** — never acknowledge an incident, never delete a log, never mutate telemetry.
+9. **Fallback with a warning** — degrading to \`generic-log-file\` is always possible, but the skill announces what the user is losing (distributed tracing, live data, aggregation) before switching.
+
+---
+
+## Anti-patterns
+
+1. **Hardcoding KQL** (or LogQL, or Logs Insights, or any adapter-specific query language) in SKILL.md — these belong in adapter reference files.
+2. **Assuming App Insights** — the first-class adapter is App Insights, but the skill must work even when the user has never heard of Azure.
+3. **Skipping the access probe** — running a query before \`authenticate()\` just produces opaque errors.
+4. **Proposing a fix without reproducing or correlating** — an untested patch based on a single log line is worse than no patch.
+5. **Ignoring correlation ID propagation** — if the traces are not correlated, tell the user why and what to fix **in their project**, rather than trying to patch around it.
+6. **Fabricating a correlation ID** — never invent one. If the user says they have none, degrade to phase 3 sub-flow B.
+7. **Running auth commands silently** — \`az login\`, \`aws sso login\`, etc. need an interactive terminal. Print the command, let the user run it, then re-probe.
+8. **Leaving the timeline implicit** — the compact event timeline (phase 3) must be visible to the user; it is the shared artifact that grounds the rest of the analysis.
+9. **Blowing past "empty result"** — an empty query result is informative: either the ID is wrong, the time range is off, or the backend is not capturing the data. Diagnose before retrying.
+
+---
+
+## When NOT to use this skill
+
+- **Pure local build/test failures** with no telemetry involved → use \`superpowers:systematic-debugging\`.
+- **Code review without a live incident** → use \`superpowers:requesting-code-review\`.
+- **Architectural question, not a bug** → use [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md).
+- **Creating a new skill from scratch** → use [\`skill-creator\`](../skill-creator/SKILL.md). This skill is for *using* observability; skill authoring is its own job.
+- **Infrastructure provisioning** ("stand up a Datadog account") → out of scope; use [\`ops-skill-builder\`](../ops-skill-builder/SKILL.md) to set up access paths, then return here.
+
+---
+
+## Reference files
+
+Read on demand — do not preload upfront.
+
+- [\`references/adapter-app-insights.md\`](./references/adapter-app-insights.md) — **first-class v1 adapter**. Full KQL examples, \`az\` CLI auth, \`APPINSIGHTS_API_KEY\` fallback, quirks.
+- [\`references/adapter-datadog.md\`](./references/adapter-datadog.md) — \`DD_API_KEY\` + \`DD_APP_KEY\` auth; Logs Search API and APM trace API.
+- [\`references/adapter-grafana-loki.md\`](./references/adapter-grafana-loki.md) — \`LOKI_URL\` + optional bearer; LogQL examples; Tempo bridge for traces.
+- [\`references/adapter-cloudwatch.md\`](./references/adapter-cloudwatch.md) — AWS CLI session; CloudWatch Logs Insights + X-Ray for traces.
+- [\`references/adapter-otel-collector.md\`](./references/adapter-otel-collector.md) — OTLP endpoint, Jaeger for traces, Prometheus for metrics; document-only.
+- [\`references/adapter-generic-log-file.md\`](./references/adapter-generic-log-file.md) — fallback for offline / air-gapped / "I just have a flat log". \`rg\`, \`jq\`, regex correlation.
+
+## Related skills
+
+- [\`skill-creator\`](../skill-creator/SKILL.md) — phase 6 target; crystallizes a debugging workflow into a reusable skill.
+- [\`graphify-setup\`](../graphify-setup/SKILL.md) — phase 4 companion for repo-scale code navigation.
+- [\`ops-skill-builder\`](../ops-skill-builder/SKILL.md) — sibling access-first skill for setting up the access paths this skill depends on.
+- [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — use when the investigation reveals a design problem, not a bug.
+",
+  ".claude/skills/observability-debug/references/adapter-app-insights.md": "# Adapter — \`app-insights\`
+
+> **Status**: implemented (first-class v1 adapter). Ported from the Risko reference project, whitelabeled. Uses Azure Application Insights via the \`az\` CLI as primary transport, with an \`APPINSIGHTS_API_KEY\` HTTP-API fallback for CI / non-interactive environments.
+
+Application Insights models telemetry in five tables — \`requests\`, \`dependencies\`, \`exceptions\`, \`traces\`, \`customEvents\` — queried via **KQL** (Kusto Query Language). This adapter wraps those tables behind the five contract methods.
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Availability probe](#availability-probe)
+- [Query examples — the five contract methods](#query-examples--the-five-contract-methods)
+- [Parsing results](#parsing-results)
+- [Pagination and rate limits](#pagination-and-rate-limits)
+- [Empty results — diagnostic table](#empty-results--diagnostic-table)
+- [Known quirks](#known-quirks)
+
+---
+
+## Authentication
+
+Two sources, tried in this order:
+
+1. **\`az\` CLI session** — if \`az account show\` succeeds, the CLI session is used. Recommended for local / interactive use.
+2. **\`APPINSIGHTS_API_KEY\` env var + \`APPINSIGHTS_APP_ID\`** — HTTP API fallback. Use in CI or where \`az\` is not available.
+
+The reference Application ID comes from \`nonoise.config.json.observability.settings.applicationId\`. Ask the user if missing.
+
+### \`az\` CLI setup
+
+On Windows, \`az\` is frequently installed but not on the bash \`PATH\`. Prepend this **once at the start of the first command**, then keep it in the shell environment:
+
+\`\`\`bash
+export PATH="$PATH:/c/Program Files/Microsoft SDKs/Azure/CLI2/wbin"
+\`\`\`
+
+### HTTP API fallback
+
+\`\`\`
+GET https://api.applicationinsights.io/v1/apps/{APPINSIGHTS_APP_ID}/query?query=<KQL>&timespan=PT6H
+Headers:
+  x-api-key: <APPINSIGHTS_API_KEY>
+\`\`\`
+
+API keys are created in the Azure Portal under "API Access" for the App Insights resource. Read-only scope is sufficient (\`Read telemetry\`).
+
+---
+
+## Availability probe
+
+The \`authenticate()\` implementation:
+
+\`\`\`bash
+export PATH="$PATH:/c/Program Files/Microsoft SDKs/Azure/CLI2/wbin"
+az account show --query "{name:name, id:id}" -o table 2>/dev/null || echo "NOT_LOGGED_IN"
+\`\`\`
+
+- If output contains \`NOT_LOGGED_IN\` → tell the user to run \`! az login\` in the prompt (interactive — the skill must not run it silently).
+- If \`az\` not on PATH even after the export → report "Azure CLI not installed"; suggest the API-key fallback.
+- If \`APPINSIGHTS_API_KEY\` is set, probe with a trivial KQL (\`requests | take 0\`) to confirm the key + app ID combo works.
+
+---
+
+## Query examples — the five contract methods
+
+All queries use \`--offset <TIMESPAN>\` to scope the window:
+
+- \`1h\` — recent errors, quick checks
+- \`6h\` — default triage window
+- \`24h\` — trend analysis, regression detection
+- \`7d\` — historical comparison
+
+### 1. \`authenticate()\`
+
+See above.
+
+### 2. \`query_by_correlation_id(id, time_range)\`
+
+Run these four queries in parallel; merge results into the canonical event shape.
+
+**Request envelope**:
+\`\`\`kusto
+requests | where operation_Id == "<ID>"
+| project timestamp, name, resultCode, duration, cloud_RoleName, cloud_RoleInstance, customDimensions
+\`\`\`
+
+**Dependency call chain**:
+\`\`\`kusto
+dependencies | where operation_Id == "<ID>"
+| project timestamp, target, name, duration, success, resultCode, type, data
+| order by timestamp asc
+\`\`\`
+
+**Exceptions**:
+\`\`\`kusto
+exceptions | where operation_Id == "<ID>"
+| project timestamp, type, outerMessage, innermostMessage, details, cloud_RoleName
+\`\`\`
+
+**Structured logs / audit**:
+\`\`\`kusto
+traces | where operation_Id == "<ID>"
+| order by timestamp asc
+| project timestamp, message, severityLevel, cloud_RoleName, customDimensions
+\`\`\`
+
+If the user provides only a \`CorrelationId\` (custom header value, not the App Insights \`operation_Id\`), resolve first:
+
+\`\`\`kusto
+traces
+| where customDimensions["CorrelationId"] == "<CORRELATION_ID>"
+| project timestamp, message, operation_Id, cloud_RoleName
+| take 5
+\`\`\`
+
+Pick the most recent \`operation_Id\` and run the four queries above.
+
+### 3. \`query_by_time_range(start, end, filter)\`
+
+\`\`\`kusto
+requests | where timestamp between (datetime(<start>) .. datetime(<end>))
+| where cloud_RoleName == "<service>" and name == "<endpoint>"
+| project timestamp, name, resultCode, duration, operation_Id, cloud_RoleName, success
+| order by timestamp desc
+| take 50
+\`\`\`
+
+### 4. \`get_exception_details(exception_id)\`
+
+App Insights exceptions are usually referenced by \`operation_Id\` + \`timestamp\`, not a standalone ID. When a caller supplies an \`operation_Id\`:
+
+\`\`\`kusto
+exceptions
+| where operation_Id == "<ID>"
+| project timestamp, type, outerMessage, innermostMessage, details, cloud_RoleName, customDimensions
+\`\`\`
+
+The \`details\` field contains the parsed stack trace array — use it directly to extract \`file:line\`.
+
+### 5. \`list_sampled_errors(time_range, severity)\`
+
+\`\`\`kusto
+requests | where success == false
+| where timestamp > ago(<TIMESPAN>)
+| summarize errorCount=count(), sampleId=any(operation_Id)
+         by name, resultCode, cloud_RoleName
+| order by errorCount desc
+| take 20
+\`\`\`
+
+The \`sampleId\` gives an operation_Id the caller can feed back into \`query_by_correlation_id\` for drill-down.
+
+### Query template — invocation
+
+\`\`\`bash
+export PATH="$PATH:/c/Program Files/Microsoft SDKs/Azure/CLI2/wbin"
+az monitor app-insights query \\
+  --app "<applicationId>" \\
+  --analytics-query '<KQL_QUERY>' \\
+  --offset <TIMESPAN> \\
+  --output json > "$TEMP/ai-result.json"
+\`\`\`
+
+---
+
+## Parsing results
+
+\`az monitor app-insights query\` returns a tabular JSON envelope. Parse it into row objects. Minimal parser in Node.js (no Python assumed):
+
+\`\`\`js
+const raw = JSON.parse(fs.readFileSync(path, 'utf8'));
+const table = raw.tables?.[0];
+if (!table || !table.rows?.length) { console.log('(no results)'); return; }
+const cols = table.columns.map(c => c.name);
+const rows = table.rows.map(r => Object.fromEntries(cols.map((c, i) => [c, r[i]])));
+\`\`\`
+
+For richer output (table mode, row limits), ship a \`scripts/parse-ai.js\` alongside this adapter — the reference project includes one and it is portable.
+
+---
+
+## Pagination and rate limits
+
+- **Default row cap**: \`az monitor app-insights query\` returns up to 30000 rows. Always apply \`| take N\` in triage queries (\`50\`–\`200\` is a reasonable default).
+- **Rate limit**: App Insights API is generous for read; a single KQL query counts as one call. No per-minute limit documented under normal use.
+- **Large windows**: queries over \`7d\` with no filters may time out — narrow by \`cloud_RoleName\` or \`success == false\` first.
+
+---
+
+## Empty results — diagnostic table
+
+When a query returns zero rows, check these **before** widening the window:
+
+| Empty table | Likely reason | What to do |
+|---|---|---|
+| \`requests\` | No matching requests in timeframe | Widen \`--offset\`; check endpoint name spelling |
+| \`dependencies\` | Request failed before making outbound calls | Check \`exceptions\` for the same operation_Id |
+| \`exceptions\` | Error was handled (caught + logged, not thrown) | Check \`traces\` for error-level messages |
+| \`traces\` | \`LoggingEnabled: false\` for this service/env | Tell the user — this data isn't available at the backend level |
+| Everything empty | Wrong operation_Id, or service not sending telemetry | Verify the ID; check telemetry config |
+
+Note: in many production setups, \`LoggingEnabled\` is false by default (GDPR / cost). If the user is investigating a prod issue and \`traces\` is always empty, that's the reason — advise enabling audit logging via config for the next deploy.
+
+---
+
+## Known quirks
+
+1. **\`render\` directives do not work via CLI** — \`| render timechart\` is valid in the Portal but ignored by \`az\` / HTTP API. Strip the render line and analyze tabular data.
+2. **Hashed user IDs** — in production, \`customDimensions["enduser.id"]\` is commonly SHA256-hashed for GDPR. Searching by raw OID returns nothing. Ask the user which env has hashing on.
+3. **SQL visibility depends on instrumentation** — SQL dependencies appear as individual rows only when the target service has SQL instrumentation enabled. Otherwise you only see the EF Core / ORM call as an aggregate dependency.
+4. **Custom correlation headers** — if the project uses \`X-Correlation-Id\` but the AI SDK is configured to propagate only the W3C \`traceparent\`, the header value lives in \`customDimensions["CorrelationId"]\` rather than as \`operation_Id\`. The resolve-first query above handles this.
+5. **Clock skew** — App Insights \`timestamp\` is server-side ingestion time, not the client's clock. Intra-service ordering is reliable; comparing to front-end timestamps is not.
+6. **KQL is case-sensitive** for column names (mostly) — \`operation_Id\` (lowercase o) is correct; \`Operation_Id\` is not.
+",
+  ".claude/skills/observability-debug/references/adapter-cloudwatch.md": "# Adapter — \`cloudwatch\`
+
+> **Status**: usable stub. AWS CLI is ubiquitous enough that this adapter can be exercised immediately given any authenticated AWS session; the main risk is per-account quirks (log group naming, X-Ray vs CloudWatch Traces). Paired with **X-Ray** for distributed traces.
+
+Amazon CloudWatch Logs stores log events; the query language is **CloudWatch Logs Insights** — a SQL-like DSL with \`fields\`, \`filter\`, \`stats\`, \`sort\`. For traces, **AWS X-Ray** is the Amazon-native option (CloudWatch Traces being the newer unified overlay). This adapter wraps Logs Insights primarily, with an X-Ray companion for trace retrieval.
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Availability probe](#availability-probe)
+- [Query examples — the five contract methods](#query-examples--the-five-contract-methods)
+- [X-Ray companion for traces](#x-ray-companion-for-traces)
+- [Pagination and rate limits](#pagination-and-rate-limits)
+- [Known quirks](#known-quirks)
+
+---
+
+## Authentication
+
+All AWS CLI auth mechanisms are supported — the adapter delegates entirely to the local AWS session:
+
+| Mechanism | How | Notes |
+|---|---|---|
+| AWS SSO | \`aws sso login --profile <profile>\` | Recommended for developer machines |
+| IAM access keys | \`AWS_ACCESS_KEY_ID\`, \`AWS_SECRET_ACCESS_KEY\`, \`AWS_SESSION_TOKEN\` (for STS) | Fine for CI |
+| EC2 / ECS / Lambda role | Automatic — no env vars needed | When running inside AWS |
+| \`aws configure\` named profile | \`AWS_PROFILE=<profile>\` | Common on multi-account setups |
+
+\`AWS_REGION\` must be set (or in the profile). No additional project-specific key is required.
+
+Required IAM permissions (read-only):
+
+- \`logs:StartQuery\`, \`logs:GetQueryResults\`, \`logs:DescribeLogGroups\`, \`logs:DescribeLogStreams\`
+- \`xray:BatchGetTraces\`, \`xray:GetTraceSummaries\` (for trace correlation)
+
+---
+
+## Availability probe
+
+\`\`\`bash
+aws sts get-caller-identity --output table 2>/dev/null || echo "NOT_AUTHENTICATED"
+\`\`\`
+
+If \`NOT_AUTHENTICATED\`, print remediation based on the user's preferred mechanism (SSO login, \`AWS_PROFILE\` set, etc.). Do **not** run \`aws sso login\` silently — it is interactive.
+
+Then confirm Logs Insights reachability:
+
+\`\`\`bash
+aws logs describe-log-groups --limit 1 --query "logGroups[0].logGroupName"
+\`\`\`
+
+---
+
+## Query examples — the five contract methods
+
+CloudWatch Logs Insights runs via \`start-query\` + \`get-query-results\`. The query is text; each log group must be specified explicitly (no wildcards).
+
+### \`query_by_correlation_id(id, time_range)\`
+
+Correlation IDs are usually stored in structured JSON logs; extract with \`parse\` or reference directly if the log event has been parsed at ingest:
+
+\`\`\`
+fields @timestamp, @message, @logStream, service, level, trace_id, correlation_id
+| filter correlation_id = "<ID>" or trace_id = "<ID>"
+| sort @timestamp asc
+| limit 200
+\`\`\`
+
+Invocation:
+
+\`\`\`bash
+QID=$(aws logs start-query \\
+  --log-group-names "/aws/ecs/orders-api" "/aws/ecs/inventory-api" \\
+  --start-time $(date -u -d '6 hours ago' +%s) \\
+  --end-time   $(date -u +%s) \\
+  --query-string 'fields @timestamp, @message, service, level, trace_id, correlation_id | filter correlation_id = "<ID>" or trace_id = "<ID>" | sort @timestamp asc | limit 200' \\
+  --query queryId --output text)
+
+# Poll until Complete:
+while [ "$(aws logs get-query-results --query-id "$QID" --query status --output text)" = "Running" ]; do sleep 1; done
+aws logs get-query-results --query-id "$QID" --output json
+\`\`\`
+
+### \`query_by_time_range(start, end, filter)\`
+
+\`\`\`
+fields @timestamp, @message, level, service
+| filter service = "<service>" and level = "ERROR"
+| sort @timestamp desc
+| limit 50
+\`\`\`
+
+### \`get_exception_details(exception_id)\`
+
+CloudWatch has no exception resource — "exception ID" is again \`(trace_id, @timestamp)\`. Re-query the narrow range and filter to \`level = "ERROR"\`. Exception stack is typically in an \`exception.stack_trace\` or \`error.stack\` field of the JSON log.
+
+### \`list_sampled_errors(time_range, severity)\`
+
+\`\`\`
+fields @timestamp, service, @message
+| filter level = "ERROR"
+| stats count(*) as errorCount by service, bin(5m)
+| sort errorCount desc
+| limit 20
+\`\`\`
+
+Or, for "what are the error messages right now":
+
+\`\`\`
+fields @timestamp, service, error.message
+| filter level = "ERROR"
+| stats count(*) as n by service, error.message
+| sort n desc
+| limit 20
+\`\`\`
+
+---
+
+## X-Ray companion for traces
+
+If the project sends traces to X-Ray, resolve a \`trace_id\` to its full span tree:
+
+\`\`\`bash
+aws xray batch-get-traces --trace-ids "<TRACE_ID>" --output json
+\`\`\`
+
+The response includes a \`Segments\` array; each segment has \`Document\` (JSON) with \`start_time\`, \`end_time\`, \`name\`, \`http\`, \`cause\` (on error), and \`subsegments\`. Parse into the canonical shape the same way as OTLP spans.
+
+Find traces by endpoint + time without an ID:
+
+\`\`\`bash
+aws xray get-trace-summaries \\
+  --start-time "$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)" \\
+  --end-time   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \\
+  --filter-expression 'http.url CONTAINS "/orders" AND error'
+\`\`\`
+
+---
+
+## Pagination and rate limits
+
+- **Logs Insights**: max 10000 rows per query. Use \`limit\` aggressively; multiple narrow queries beat one wide query.
+- **Query quotas**: 20 concurrent queries per account by default; adjustable. Logs Insights queries are billed per GB scanned — scope log groups tightly.
+- **X-Ray**: \`BatchGetTraces\` accepts up to 5 trace IDs per call. Pages via \`NextToken\`.
+- **Throttling**: AWS returns \`ThrottlingException\` — back off with jitter, 3 retries max.
+
+---
+
+## Known quirks
+
+1. **Log group naming** — \`/aws/lambda/<fn>\`, \`/aws/ecs/<task>\`, \`/ecs/<cluster>/<service>\`, custom namespaces — there is no convention. The adapter must be told which log groups to target; default is to discover them via \`describe-log-groups --log-group-name-prefix\`.
+2. **JSON parsing** — Logs Insights auto-parses JSON logs into fields, but nested objects require \`parse\` or dot access (\`http.status_code\`, \`error.stack.frames.0.file\`).
+3. **Clock is UTC** — \`@timestamp\` is always UTC. Start/end are Unix seconds on start-query.
+4. **X-Ray vs CloudWatch Traces** — newer AWS accounts route to CloudWatch Traces (Application Signals). API shape differs; sniff via \`aws application-signals list-services\` vs the \`xray\` probes.
+5. **Multi-region** — traces and logs are regional. Always confirm \`AWS_REGION\` matches where the service is deployed.
+6. **Cost** — Logs Insights charges per GB scanned. A query over \`7d\` on a chatty log group can be surprisingly expensive. Warn the user before running wide time-range queries.
+",
+  ".claude/skills/observability-debug/references/adapter-datadog.md": "# Adapter — \`datadog\`
+
+> **Status**: usable stub. Auth model fully documented and testable; response parsing wired for logs and traces (APM). The only thing preventing "implemented" status is end-to-end exercise against a real Datadog tenant in the NONoise test suite.
+
+Datadog exposes telemetry through four products that matter here: **Logs** (the log search API), **APM** (traces and spans), **Metrics**, and **Events**. This adapter uses Logs + APM. Query language is **Datadog Log Search syntax** (logs) and the APM trace search DSL (traces).
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Availability probe](#availability-probe)
+- [Query examples — the five contract methods](#query-examples--the-five-contract-methods)
+- [Pagination and rate limits](#pagination-and-rate-limits)
+- [Known quirks](#known-quirks)
+
+---
+
+## Authentication
+
+Datadog requires **two** keys — both required for most endpoints:
+
+| Env var | Purpose | Where to create |
+|---|---|---|
+| \`DD_API_KEY\` | Account-level API key | Organization Settings → API Keys |
+| \`DD_APP_KEY\` | User-level application key (scoped) | Personal Settings → Application Keys |
+| \`DD_SITE\` | Regional endpoint (default \`datadoghq.com\`) | One of: \`datadoghq.com\`, \`datadoghq.eu\`, \`us3.datadoghq.com\`, \`us5.datadoghq.com\`, \`ap1.datadoghq.com\` |
+
+All requests go to \`https://api.<DD_SITE>/api/...\`. Example base URLs:
+
+- US1 (default): \`https://api.datadoghq.com\`
+- EU: \`https://api.datadoghq.eu\`
+
+Both headers are required on every call:
+
+\`\`\`
+DD-API-KEY: <DD_API_KEY>
+DD-APPLICATION-KEY: <DD_APP_KEY>
+\`\`\`
+
+Scopes required on the App Key: \`logs_read\`, \`apm_read\`, \`apm_service_catalog_read\`.
+
+---
+
+## Availability probe
+
+\`\`\`bash
+curl -s -X GET "https://api.\${DD_SITE:-datadoghq.com}/api/v1/validate" \\
+  -H "DD-API-KEY: $DD_API_KEY" \\
+  -H "DD-APPLICATION-KEY: $DD_APP_KEY"
+\`\`\`
+
+Success returns \`{"valid": true}\`. Any other response → print remediation and stop.
+
+---
+
+## Query examples — the five contract methods
+
+Datadog's **Logs Search v2** API: \`POST /api/v2/logs/events/search\`. The **APM Spans Search** API: \`POST /api/v2/spans/events/search\`.
+
+### \`query_by_correlation_id(id, time_range)\`
+
+Two calls — logs and spans — merged into the canonical shape.
+
+**Logs** (correlation ID is indexed as \`@trace_id\` by the Datadog tracer, or a custom attribute like \`@correlation_id\` depending on your instrumentation):
+
+\`\`\`bash
+curl -X POST "https://api.\${DD_SITE}/api/v2/logs/events/search" \\
+  -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "filter": {
+      "query": "@trace_id:<ID>",
+      "from": "now-6h",
+      "to":   "now"
+    },
+    "sort": "timestamp",
+    "page": { "limit": 200 }
+  }'
+\`\`\`
+
+**Spans** (APM):
+
+\`\`\`bash
+curl -X POST "https://api.\${DD_SITE}/api/v2/spans/events/search" \\
+  -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "filter": {
+      "query": "trace_id:<ID>",
+      "from": "now-6h",
+      "to":   "now"
+    },
+    "sort": "timestamp",
+    "page": { "limit": 200 }
+  }'
+\`\`\`
+
+### \`query_by_time_range(start, end, filter)\`
+
+\`\`\`json
+{
+  "filter": {
+    "query": "service:<service-name> status:error",
+    "from": "<ISO-8601 or now-6h>",
+    "to":   "<ISO-8601 or now>"
+  },
+  "sort": "-timestamp",
+  "page": { "limit": 50 }
+}
+\`\`\`
+
+Common filter keys: \`service:\`, \`env:\`, \`host:\`, \`@http.status_code:\`, \`@usr.id:\`, \`status:\` (error/warn/info), \`resource_name:\`.
+
+### \`get_exception_details(exception_id)\`
+
+Datadog does not expose a standalone exception resource. Retrieve the log event by ID:
+
+\`\`\`bash
+curl -X GET "https://api.\${DD_SITE}/api/v2/logs/events/<LOG_EVENT_ID>" \\
+  -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY"
+\`\`\`
+
+The \`error.stack\`, \`error.kind\`, and \`error.message\` attributes carry the exception.
+
+### \`list_sampled_errors(time_range, severity)\`
+
+Aggregation endpoint — groups errors by service + resource:
+
+\`\`\`bash
+curl -X POST "https://api.\${DD_SITE}/api/v2/logs/analytics/aggregate" \\
+  -H "DD-API-KEY: $DD_API_KEY" -H "DD-APPLICATION-KEY: $DD_APP_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "compute": [{ "aggregation": "count", "type": "total" }],
+    "filter":  { "query": "status:error", "from": "now-6h", "to": "now" },
+    "group_by": [
+      { "facet": "service", "limit": 10, "sort": { "order": "desc", "aggregation": "count" } },
+      { "facet": "@resource_name", "limit": 5 }
+    ]
+  }'
+\`\`\`
+
+---
+
+## Pagination and rate limits
+
+- **Logs Search v2**: default \`page.limit\` is 10, max 1000. For correlation-ID queries 200 is plenty. Use \`page.cursor\` from the response for continuation.
+- **Rate limits**: vary per plan. On the \`Pro\` plan, \`logs_query\` is typically 300 req/hour per org. The \`X-RateLimit-Remaining\` header is always present — the adapter should back off at < 10% remaining.
+- **Retention**: indexed logs default to 15 days; live tail is ~15 min. If the user's time window exceeds retention, a 200 OK with an empty array comes back — mention this in empty-result diagnostics.
+
+---
+
+## Known quirks
+
+1. **\`trace_id\` vs \`@trace_id\`** — in log queries, attributes are prefixed with \`@\`; in span queries they are not. Same value, two syntaxes.
+2. **Custom correlation attribute** — if the project sets its own \`@correlation_id\` attribute (common when you need cross-language correlation older than OpenTelemetry), switch both queries to use it. Update \`observability.correlationIdHeader\` in \`nonoise.config.json\` to match.
+3. **Env-scoped tags** — always combine correlation ID with \`env:<env>\` (e.g. \`env:prod\`) when the same trace ID might appear across environments.
+4. **APM trace sampling** — at default sampling rates (1%), not every request has a trace. Logs will still have \`@trace_id\` for the sampled traces; for unsampled ones you're flying blind on APM.
+5. **Custom attributes must be faceted** — to query by \`@custom_attr\`, the attribute must be **faceted** in the Datadog UI. Advise the user to facet the correlation attribute at setup time.
+6. **Site-specific URLs** — always respect \`DD_SITE\`. A US1 key will not authenticate against the EU endpoint.
+",
+  ".claude/skills/observability-debug/references/adapter-generic-log-file.md": "# Adapter — \`generic-log-file\`
+
+> **Status**: implemented. Offline fallback. Works on any flat log file — JSON Lines, logfmt, or free-form text. The tools are \`rg\` (ripgrep), \`jq\`, and native shell. No network calls. Always available.
+
+When all else fails — the backend is unreachable, the project has no observability setup, the user dropped a log file into the repo from a production node — this adapter takes over. It trades distributed tracing and aggregation for **absolute availability**.
+
+## Table of contents
+
+- [When to use it](#when-to-use-it)
+- [Authentication](#authentication)
+- [Availability probe](#availability-probe)
+- [Query examples — the five contract methods](#query-examples--the-five-contract-methods)
+- [Pagination and rate limits](#pagination-and-rate-limits)
+- [Known quirks and tradeoffs](#known-quirks-and-tradeoffs)
+
+---
+
+## When to use it
+
+Four scenarios:
+
+1. **Fallback** — the configured \`backend\` failed its availability probe and \`observability.fallback\` is \`generic-log-file\`.
+2. **Air-gapped / offline** — the user explicitly wants offline debugging.
+3. **Post-mortem with a dropped log** — the user obtained \`prod.log\` from a sysadmin and wants to correlate it with the code.
+4. **Early development** — no observability stack is set up yet; the skill still works against \`./logs/app.log\`.
+
+---
+
+## Authentication
+
+None. The adapter reads files on the local filesystem. Required: the \`path\` config (or a user-provided absolute path).
+
+From \`nonoise.config.json\`:
+
+\`\`\`json
+{
+  "observability": {
+    "backend": "generic-log-file",
+    "fallbackSettings": {
+      "path": "./logs/app.log",
+      "format": "json-lines"
+    }
+  }
+}
+\`\`\`
+
+Supported \`format\` values:
+
+- \`json-lines\` — one JSON object per line (recommended for structured logs)
+- \`logfmt\` — \`key=value key2=value2\` (e.g. Go's slog default)
+- \`text\` — free-form — regex-only matching, no field extraction
+
+If \`path\` is a directory, all \`.log\` / \`.log.gz\` / \`.jsonl\` files inside are included. \`.gz\` is auto-decompressed via \`zcat\`.
+
+---
+
+## Availability probe
+
+\`\`\`bash
+test -r "<path>" && echo "ok" || echo "NOT_READABLE"
+\`\`\`
+
+Followed by a one-line sample to confirm format:
+
+\`\`\`bash
+head -n 1 "<path>" | jq -r type 2>/dev/null \\
+  || head -n 1 "<path>"
+\`\`\`
+
+Report back to the user:
+
+> "Reading \`<path>\` (format: json-lines, 24 MB, last line at 2026-04-18T10:14:02Z)."
+
+---
+
+## Query examples — the five contract methods
+
+### \`query_by_correlation_id(id, time_range)\`
+
+**JSON Lines**:
+
+\`\`\`bash
+rg --no-heading --no-filename -F '"<ID>"' "<path>" \\
+  | jq -c 'select(.trace_id == "<ID>" or .correlation_id == "<ID>" or .traceparent // "" | contains("<ID>"))' \\
+  | jq -s 'sort_by(.timestamp)'
+\`\`\`
+
+The \`rg -F\` first pass is pure string match — fast. The \`jq\` refine filters out coincidental string matches in unrelated fields.
+
+**logfmt**:
+
+\`\`\`bash
+rg --no-heading --no-filename "trace_id=<ID>|correlation_id=<ID>" "<path>"
+\`\`\`
+
+**text**:
+
+\`\`\`bash
+rg --no-heading --no-filename "<ID>" "<path>"
+\`\`\`
+
+Without structured fields, correlation is only by literal string presence — use with caution on short IDs.
+
+For \`time_range\`, post-filter by the log's native timestamp field. The adapter does not pre-slice on time (the files are too small to justify indexing; too big to justify sorting).
+
+### \`query_by_time_range(start, end, filter)\`
+
+\`\`\`bash
+rg --no-heading --no-filename "<filter>" "<path>" \\
+  | jq -c --arg s "<start ISO>" --arg e "<end ISO>" \\
+      'select(.timestamp >= $s and .timestamp <= $e)'
+\`\`\`
+
+For logfmt / text, use \`awk\` / \`rg\` with an appropriate regex for the timestamp.
+
+### \`get_exception_details(exception_id)\`
+
+In this adapter, "exception_id" is a composite \`(line_number, file_path)\` — since a flat log has no server-side IDs. The method re-reads the line by number:
+
+\`\`\`bash
+sed -n '<LINE>p' "<FILE>" | jq .
+\`\`\`
+
+The full exception payload is just the log entry — stack trace, inner message, and custom fields are all there. If the stack is truncated (rare in JSON logs but common in free-form), concatenate the 10 lines after the marker:
+
+\`\`\`bash
+sed -n '<LINE>,+10p' "<FILE>"
+\`\`\`
+
+### \`list_sampled_errors(time_range, severity)\`
+
+\`\`\`bash
+rg --no-heading --no-filename '"level":"ERROR"|"level":"error"|"severity":"ERROR"' "<path>" \\
+  | jq -c '{service: .service, message: .message, kind: (.error.type // .exception.type // "unknown")}' \\
+  | sort | uniq -c | sort -rn | head -20
+\`\`\`
+
+Groups identical error messages; counts occurrences. The sample ID is implicit — to drill down, grep by message text.
+
+---
+
+## Pagination and rate limits
+
+- **File size** — \`rg\` handles multi-GB files in seconds. No practical limit on queries; \`jq\` streaming (\`--stream\`) if memory is tight.
+- **No rate limits** — it's a filesystem.
+- **Time filtering** is linear in file size. For very large files, index by time via \`logrotate\` date markers or \`zgrep\` on rotated files.
+
+---
+
+## Known quirks and tradeoffs
+
+1. **No distributed tracing** — a single flat log only has what the current process emitted. Cross-service correlation requires merging logs from all services — tell the user this upfront.
+2. **Free-form \`text\` format is brittle** — without structured fields, stack traces spanning multiple lines are hard to detect. Prefer \`json-lines\` whenever possible; advise the user to switch their logger to structured output.
+3. **Clock sources** — if logs come from multiple hosts, clock skew makes timeline reconstruction unreliable. Sort by \`trace_id\` + an explicit sequence number when possible.
+4. **Gzipped rotated logs** — auto-decompress with \`zcat\` / \`zgrep\`; be mindful of costs on terabyte archives.
+5. **Sensitive data** — flat logs often contain request bodies with PII. Before sharing query output back to the user, skim for tokens / emails / names — if found, warn and suggest redaction.
+6. **No aggregation primitives** — \`count\`, \`sum\` over time buckets are ad-hoc shell pipelines; not as clean as LogQL / KQL. Accept the tradeoff for the "always works" guarantee.
+7. **The skill announces the degradation** — when this adapter is selected as a fallback, the core flow prints:
+
+   > "Degraded to \`generic-log-file\` — distributed tracing, live data, and cross-service aggregation are not available. File: \`<path>\`."
+
+   So the user is never surprised when correlation across services is missing.
+",
+  ".claude/skills/observability-debug/references/adapter-grafana-loki.md": "# Adapter — \`grafana-loki\`
+
+> **Status**: usable stub. Auth + LogQL queries documented. For distributed traces, Loki is typically paired with **Tempo** (same Grafana Labs stack) — a secondary endpoint is documented below. The stub is "usable" because \`curl\` + \`logcli\` are straightforward and the project may already have \`LOKI_URL\` configured for dashboards.
+
+Grafana Loki stores logs (and nothing else). Its query language is **LogQL**, a PromQL-inspired DSL. Traces live in **Tempo**; metrics in Prometheus/Mimir. This adapter wraps Loki for logs and optionally Tempo for spans.
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Availability probe](#availability-probe)
+- [Query examples — the five contract methods](#query-examples--the-five-contract-methods)
+- [Tempo — traces companion](#tempo--traces-companion)
+- [Pagination and rate limits](#pagination-and-rate-limits)
+- [Known quirks](#known-quirks)
+
+---
+
+## Authentication
+
+Loki supports several auth models depending on deployment:
+
+| Env var | Purpose | Notes |
+|---|---|---|
+| \`LOKI_URL\` | Base URL of the Loki read endpoint | e.g. \`https://logs.example.com\` |
+| \`LOKI_TOKEN\` | Bearer token (optional) | For gateways with token auth |
+| \`LOKI_TENANT_ID\` | Multi-tenant header (optional) | Sent as \`X-Scope-OrgID\` |
+| \`LOKI_USERNAME\` / \`LOKI_PASSWORD\` | Basic auth (optional) | For protected endpoints |
+
+Grafana Cloud uses a pattern like:
+
+\`\`\`
+LOKI_URL=https://logs-prod-XXX.grafana.net
+LOKI_USERNAME=<instance-id>        # numeric
+LOKI_PASSWORD=<cloud-access-policy-token>
+\`\`\`
+
+The \`logcli\` CLI respects \`LOKI_ADDR\`, \`LOKI_USERNAME\`, \`LOKI_PASSWORD\`, \`LOKI_TENANT_ID\`, and \`LOKI_BEARER_TOKEN\` — use it when available.
+
+---
+
+## Availability probe
+
+\`\`\`bash
+curl -s "\${LOKI_URL}/ready" -H "Authorization: Bearer $LOKI_TOKEN" \\
+  \${LOKI_TENANT_ID:+-H "X-Scope-OrgID: $LOKI_TENANT_ID"}
+\`\`\`
+
+Expected: HTTP 200 with body \`ready\`. Anything else → emit remediation and stop.
+
+---
+
+## Query examples — the five contract methods
+
+The Loki HTTP API endpoint for range queries is \`GET /loki/api/v1/query_range\`.
+
+### \`query_by_correlation_id(id, time_range)\`
+
+Correlation IDs are typically stored as **log labels** (if low cardinality, e.g. \`env\`, \`service\`) or as **JSON-parsed fields** (if high cardinality, e.g. \`trace_id\`, \`correlation_id\`). Use \`json\` or \`logfmt\` parsers accordingly:
+
+\`\`\`bash
+curl -G -s "\${LOKI_URL}/loki/api/v1/query_range" \\
+  -H "Authorization: Bearer $LOKI_TOKEN" \\
+  --data-urlencode 'query={service="orders-api"} | json | trace_id="<ID>"' \\
+  --data-urlencode "start=$(date -u -d '6 hours ago' +%s)000000000" \\
+  --data-urlencode "end=$(date -u +%s)000000000" \\
+  --data-urlencode 'limit=500' \\
+  --data-urlencode 'direction=forward'
+\`\`\`
+
+If the correlation ID is a log label (rare, cardinality-wise): \`{trace_id="<ID>"}\`.
+
+### \`query_by_time_range(start, end, filter)\`
+
+\`\`\`logql
+{service="orders-api", env="prod"} |~ "(?i)error|exception" | json
+\`\`\`
+
+Time is passed via \`start\` / \`end\` as nanosecond-since-epoch timestamps in the \`query_range\` endpoint.
+
+### \`get_exception_details(exception_id)\`
+
+Loki has no standalone "exception" resource. The "exception ID" in this adapter is a synthetic composite of \`(trace_id, timestamp)\`; the method re-runs a narrower correlation query with a tight time window around the timestamp and filters on \`level=error\`:
+
+\`\`\`logql
+{service="orders-api"} | json | trace_id="<ID>" | level="error"
+\`\`\`
+
+Return the matched log lines; stack traces are typically in the \`exception\` or \`stack_trace\` JSON field.
+
+### \`list_sampled_errors(time_range, severity)\`
+
+LogQL has aggregation via \`count_over_time\`. Top N error resources in the last 6h:
+
+\`\`\`logql
+topk(10,
+  sum by (service, resource) (
+    count_over_time({env="prod"} | json | level="error" [6h])
+  )
+)
+\`\`\`
+
+Query endpoint: \`GET /loki/api/v1/query\` (instant query) or \`/query_range\` (range). For "what's broken lately" the instant endpoint is cheaper.
+
+---
+
+## Tempo — traces companion
+
+When the project sends traces to Tempo (OTLP → Tempo, same Grafana stack), query traces by ID via:
+
+\`\`\`bash
+curl -s "\${TEMPO_URL}/api/traces/<TRACE_ID>" \\
+  -H "Authorization: Bearer $TEMPO_TOKEN"
+\`\`\`
+
+Configure a second env pair \`TEMPO_URL\` / \`TEMPO_TOKEN\` if available. If not, Loki alone still covers \`query_by_correlation_id\` (via the \`trace_id\` field on logs) and \`list_sampled_errors\` (via log counts).
+
+The Tempo response conforms to the OTLP trace JSON schema — the adapter converts it into the canonical shape the same way the \`otel-collector\` adapter does.
+
+---
+
+## Pagination and rate limits
+
+- **\`limit\` cap**: Loki defaults to \`100\`, max usually \`5000\`. For correlation-ID queries, \`500\` is fine. Use \`start\` / \`end\` to page; Loki does not use cursors.
+- **Query limits** (self-hosted): \`max_query_length\` (default 721h), \`max_query_parallelism\`, \`max_entries_limit_per_query\` — if you hit one, the error message is explicit.
+- **Rate limits** on Grafana Cloud: per-plan; respond with 429 + \`Retry-After\` when exceeded. Back off exponentially.
+- **Parallelism**: Loki splits long queries into chunks internally; you do not need to chunk on the client side.
+
+---
+
+## Known quirks
+
+1. **Label cardinality** — DO NOT use \`trace_id\` as a label. High cardinality kills Loki. It must be a parsed field (\`| json\` / \`| logfmt\`), not a label.
+2. **Parser choice** — \`json\` is expensive; \`logfmt\` is lighter. If the project logs structured JSON, it's worth the cost. If logs are free-form, use \`pattern\` or \`regexp\` to extract the correlation ID.
+3. **Time must be nanoseconds** — Loki's \`start\` / \`end\` are nanoseconds since epoch. \`date +%s\` returns seconds; append \`000000000\`.
+4. **Multi-tenant header** — on multi-tenant setups, omitting \`X-Scope-OrgID\` returns an empty set, not an error. Diagnose "empty results" by checking this header first.
+5. **Retention** — typically 30 days on Grafana Cloud starter tiers. If the window is older, results will be empty without explanation.
+6. **\`logcli\` vs HTTP** — \`logcli\` is great for interactive debug but returns text, not JSON. For programmatic parsing, use the HTTP API.
+",
+  ".claude/skills/observability-debug/references/adapter-otel-collector.md": "# Adapter — \`otel-collector\`
+
+> **Status**: document-only stub. Unlike the other adapters, "OTel collector" is a **pipeline**, not a backend — its final destination varies (Jaeger, Prometheus, custom). This reference documents the common deployment pattern and how the skill connects to the typical sinks. Wiring depends on the user's exact pipeline, so the adapter ships advice, not a finished implementation.
+
+An OpenTelemetry Collector receives OTLP (gRPC or HTTP) and forwards to one or more exporters. The three exporters most commonly observed in the wild — and therefore the three the adapter plans for:
+
+- **Jaeger** (or Grafana Tempo) for **traces**
+- **Prometheus** (scrape endpoint) for **metrics**
+- **Elasticsearch / OpenSearch** / **Loki** / **stdout → file** for **logs**
+
+When any of those exporters is present, the correct adapter to use is usually that sink's native one (\`grafana-loki\`, a dedicated Elasticsearch adapter, …). The \`otel-collector\` adapter is relevant when the sink is **Jaeger** + **Prometheus** with no separate log backend — a common open-source development / on-prem setup.
+
+## Table of contents
+
+- [Authentication](#authentication)
+- [Availability probe](#availability-probe)
+- [Query examples — the five contract methods](#query-examples--the-five-contract-methods)
+- [Integrating with a real log sink](#integrating-with-a-real-log-sink)
+- [Pagination and rate limits](#pagination-and-rate-limits)
+- [Known quirks](#known-quirks)
+
+---
+
+## Authentication
+
+OTLP endpoints are often unauthenticated on private networks. Public endpoints typically use:
+
+| Env var | Purpose |
+|---|---|
+| \`OTEL_EXPORTER_OTLP_ENDPOINT\` | OTLP endpoint (e.g. \`http://otel-collector:4318\`) |
+| \`OTEL_EXPORTER_OTLP_HEADERS\` | Static headers, e.g. \`Authorization=Bearer <token>\` |
+| \`JAEGER_QUERY_URL\` | Jaeger query UI base (e.g. \`http://jaeger:16686\`) |
+| \`PROMETHEUS_URL\` | Prometheus HTTP API (e.g. \`http://prom:9090\`) |
+
+**The collector itself has no query API** — it is a one-way pipeline. All read queries go to the downstream sinks (Jaeger, Prometheus, log backend).
+
+---
+
+## Availability probe
+
+Three sub-probes, depending on which sinks the project declares:
+
+\`\`\`bash
+# Jaeger
+curl -s "\${JAEGER_QUERY_URL}/api/services" | head -c 200
+
+# Prometheus
+curl -s "\${PROMETHEUS_URL}/-/ready"
+
+# Collector (health extension, if enabled)
+curl -s "\${OTEL_COLLECTOR_HEALTH:-http://otel-collector:13133}/health/status"
+\`\`\`
+
+At least one must succeed. Otherwise, emit remediation and stop.
+
+---
+
+## Query examples — the five contract methods
+
+### \`query_by_correlation_id(id, time_range)\`
+
+**Traces via Jaeger**:
+
+\`\`\`bash
+curl -s "\${JAEGER_QUERY_URL}/api/traces/<TRACE_ID>?prettyPrint=false"
+\`\`\`
+
+Response is the Jaeger-specific JSON (not OTLP). Fields: \`traceID\`, \`spans[].operationName\`, \`spans[].duration\`, \`spans[].references\`, \`spans[].tags\`, \`spans[].logs\`, \`spans[].process.serviceName\`.
+
+**Logs**: not handled by the collector itself. Delegate to the configured log sink adapter (\`grafana-loki\`, a file adapter, …). If the user has no log sink, the adapter degrades further to \`generic-log-file\` if the collector was configured with a \`file\` exporter.
+
+### \`query_by_time_range(start, end, filter)\`
+
+Jaeger search by service + time:
+
+\`\`\`bash
+curl -G "\${JAEGER_QUERY_URL}/api/traces" \\
+  --data-urlencode "service=<service>" \\
+  --data-urlencode "start=$(date -u -d '1 hour ago' +%s)000000" \\
+  --data-urlencode "end=$(date -u +%s)000000" \\
+  --data-urlencode "limit=20" \\
+  --data-urlencode "tags=%7B%22error%22%3A%22true%22%7D"
+\`\`\`
+
+(Start/end are microseconds — Jaeger's convention.)
+
+### \`get_exception_details(exception_id)\`
+
+Exceptions in OTel are spans with \`status.code = ERROR\` and an \`exception\` event in \`span.logs\`. Re-fetch the span by its \`spanID\` within the trace:
+
+\`\`\`bash
+curl -s "\${JAEGER_QUERY_URL}/api/traces/<TRACE_ID>"
+\`\`\`
+
+Find the span by \`spanID\`; extract \`logs[] | select(.fields[].key == "exception.stacktrace")\`.
+
+### \`list_sampled_errors(time_range, severity)\`
+
+Jaeger alone cannot aggregate errors; use Prometheus metrics emitted by the collector (if \`spanmetrics\` or \`servicegraph\` processors are configured):
+
+\`\`\`promql
+topk(10,
+  sum by (service_name, operation) (
+    rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR"}[5m])
+  )
+)
+\`\`\`
+
+Invocation:
+
+\`\`\`bash
+curl -G "\${PROMETHEUS_URL}/api/v1/query" \\
+  --data-urlencode 'query=topk(10, sum by (service_name, operation) (rate(traces_spanmetrics_calls_total{status_code="STATUS_CODE_ERROR"}[5m])))'
+\`\`\`
+
+If no \`spanmetrics\` processor is configured, this method is not available — the adapter reports \`capability_missing\` and falls back to per-service log queries if a log sink exists.
+
+---
+
+## Integrating with a real log sink
+
+When the collector exports logs to a known backend, **switch to that backend's adapter** rather than funneling through this one. Examples:
+
+| Collector log exporter | Recommended adapter |
+|---|---|
+| \`loki\` | \`grafana-loki\` |
+| \`elasticsearch\` / \`opensearch\` | (dedicated adapter, not in v1 — use \`generic-log-file\` via beats pipeline) |
+| \`otlphttp\` → vendor backend | that vendor's adapter (Datadog, New Relic, …) |
+| \`file\` | \`generic-log-file\` |
+
+Document the choice in \`nonoise.config.json.observability.backend\` directly — the \`otel-collector\` adapter is really the "Jaeger + Prometheus" case.
+
+---
+
+## Pagination and rate limits
+
+- **Jaeger query**: no documented rate limit on the query API; response size grows linearly with trace span count. Large traces (>5000 spans) slow the UI but not the API.
+- **Prometheus**: up to 11000 data points per range query by default; narrow the \`step\` parameter if the window is wide.
+- **Collector OTLP ingest**: 4 MB default gRPC message size. Irrelevant for reads.
+
+---
+
+## Known quirks
+
+1. **No central query API** — this is the main difference from every other adapter. You query **each exporter's** native API.
+2. **Trace ID format** — Jaeger accepts both 64-bit and 128-bit hex trace IDs. OTel always emits 128-bit. If a 64-bit Jaeger UI shows a short ID, the project is still on Jaeger-native instrumentation.
+3. **Sampling** — if the collector uses tail-based sampling (\`tailsamplingprocessor\`), most non-error traces are dropped. You'll see 100% of errors but only a % of successes — factor this into "rate" queries.
+4. **Span-to-log correlation** — OTel logs carry \`trace_id\` and \`span_id\` attributes when instrumentation is correct. If logs lack these, trace ↔ log correlation degrades to timestamp proximity + service name (brittle).
+5. **\`servicegraph\` processor** gives you \`service_graph_request_total\` metrics — the fastest way to answer "which service → which service is erroring out the most". Configure it when starting a new project.
+6. **OTLP JSON vs protobuf** — HTTP endpoints accept both; Jaeger query responses are Jaeger-proto JSON, not OTLP — conversion to canonical event shape requires mapping.
+",
+  ".claude/skills/ops-skill-builder/SKILL.md": "---
+name: ops-skill-builder
+description: Meta-skill that coaches the AI + user pair through ANY operational task (deploy, pipeline, provision, teardown, rollback, migrate, scale, cron, diagnose, debug-wiring) in ANY stack, then crystallizes the successful workflow into a project-local reusable skill. Starts by asking WHAT the user wants to achieve, then proposes an ordered access menu (CLI > API > Web) to reach the target environment, gathers context from the project's \`docs/architecture/\` + optional graphify index, proposes a dry-run plan with risk annotations, executes in paired or delegated mode, and — on success — invokes \`skill-creator\` to save the exact command sequence as a project-local skill under \`.claude/skills/<slug>/SKILL.md\`. Use this skill whenever the user says "deploy this service", "create a CI/CD pipeline for X", "set up rollback", "provision dev env", "run this migration", "I need to wire correlation-ID tracking into our observability layer so the AI can debug prod", "automate this ops thing I do manually", "I have credentials — help me operate on my cloud", "ops on Azure / AWS / GCP / kubernetes / any cloud", or when the user wants to turn a manual operation into a repeatable team skill. Also trigger without explicit mention when the user describes a repeated manual ops workflow and the conversation has no generic deploy skill that would fit their stack — this is the right skill because it builds THEIR deploy skill.
+source: NONoise (merges devops-deploy + devops-pipeline from Risko reference-project as a stack-neutral meta-skill)
+variant: nonoise generic; stack-neutral; access-first; crystallizes into project-local skills via skill-creator
+---
+
+# ops-skill-builder — Operational coach that builds YOUR ops skill
+
+This is a **meta-skill**. It does not ship a canned deploy or pipeline recipe. Instead, it coaches the AI + user pair through a five-phase flow:
+
+1. **Intent** — what do you want to achieve?
+2. **Access** — how can the AI reach the target (CLI, API, Web)?
+3. **Context** — what is the project + target environment actually like?
+4. **Operation** — what exactly do we do, and how (dry-run / paired / delegated)?
+5. **Crystallize** — save the working flow as a reusable project-local skill.
+
+The philosophy is the inverse of "ship a generic deploy skill". A generic deploy skill works 60% of the time because every organization is different. This skill builds **your** deploy skill, which works 100% of the time because it was grown from **your** environment, **your** access model, **your** constraints.
+
+## Position in the NONoise workflow
+
+This skill sits on the **operations** axis, orthogonal to the architectural axis (\`arch-brainstorm\` → \`arch-decision\` → \`sprint-manifest\` → \`spec-to-workitem\`). It is called any time the team needs to perform or automate an ops task.
+
+\`\`\`
+┌───────────────────────────────────────────────────────────────┐
+│                    operations axis                            │
+│                                                               │
+│   user describes an ops task                                  │
+│                    │                                          │
+│                    ▼                                          │
+│   ┌────────────────────────────┐                              │
+│   │      ops-skill-builder     │                              │
+│   │                            │                              │
+│   │  Phase 0  Intent           │                              │
+│   │  Phase 1  Access (menu)    │                              │
+│   │  Phase 2  Context          │──┐                           │
+│   │  Phase 3  Operation plan   │  │ (may call graphify-setup) │
+│   │  Phase 4  Execute          │  │ (may call arch docs)      │
+│   │  Phase 5  Crystallize      │──┼──▶ skill-creator          │
+│   │                            │  │                           │
+│   └────────────────────────────┘  │                           │
+│                                   ▼                           │
+│                 .claude/skills/<slug>/SKILL.md                │
+│                 (project-local, shareable via git)            │
+└───────────────────────────────────────────────────────────────┘
+\`\`\`
+
+Related skills:
+
+- [\`../skill-creator/SKILL.md\`](../skill-creator/SKILL.md) — invoked in Phase 5 to crystallize the successful flow.
+- [\`../graphify-setup/SKILL.md\`](../graphify-setup/SKILL.md) — invoked in Phase 2 when the operation needs code-level awareness (rollback mapped to the right module, a migration driven by schema references, etc.).
+- [\`../observability-debug/SKILL.md\`](../observability-debug/SKILL.md) — paired skill for production debugging: this skill handles Phase 0 "wire correlation-ID tracking on the code side" (an ops concern: configure App Insights / Datadog / OpenTelemetry), then \`observability-debug\` takes over Phase 1+ (read traces, find the bug, propose a fix).
+- [\`../spec-to-workitem/SKILL.md\`](../spec-to-workitem/SKILL.md) — sibling in spirit (adapter pattern, env-var auth, dry-run default).
+
+## What this skill does
+
+1. **Elicits intent** — asks the user what they want to achieve, in their own words, then slots it into a category (deploy / pipeline / provision / teardown / rollback / migrate / scale / cron / diagnose / debug-wiring / custom).
+2. **Proposes an access menu** — CLI first, API second, Web last — with trade-offs. Bundles reference file \`references/access-patterns.md\` with concrete examples for Azure / AWS / GCP / GitHub / Azure DevOps / Jira / Kubernetes / Terraform.
+3. **Gathers context** — reads \`docs/architecture/\` (project constraints), \`nonoise.config.json\` (project metadata + working language), optionally invokes \`graphify-setup\` to index the codebase, and probes the target environment (\`az account show\`, \`kubectl config current-context\`, \`gh auth status\`, etc.).
+4. **Defines the operation** — translates the user's natural-language intent into an ordered, risk-annotated plan. Every step is labeled \`non-destructive\` / \`reversible\` / \`destructive\`.
+5. **Executes paired or delegated** — dry-run is the default. Paired mode: step-by-step with "proceed?" between steps. Delegated mode: autonomous after plan confirmation. On error: snapshot state, explain, propose rollback.
+6. **Crystallizes** — on success, offers to save the exact sequence as a reusable project-local skill via \`skill-creator\`. The generated skill becomes the team's source of truth for "how we do this op in THIS project".
+
+## What this skill does NOT do
+
+- **Does not ship a pre-baked deploy recipe**. No hardcoded cloud provider, no hardcoded CI/CD vendor, no hardcoded auth flow.
+- **Does not hardcode credentials**. All auth is via env vars or existing CLI sessions — documented per access pattern in \`references/access-patterns.md\`.
+- **Does not execute destructive actions without explicit confirmation**. Dry-run is the default; destructive steps require a second, explicit confirmation.
+- **Does not skip the crystallization step silently**. Even if the user declines to save the skill, the offer is always made.
+- **Does not edit \`docs/architecture/\`** — read-only on the source of truth. If the operation uncovers an architecture drift, it is surfaced as a recommendation, not a silent edit.
+- **Does not replace \`observability-debug\`** for production debugging — it only sets up the correlation-ID wiring on the code side.
+
+---
+
+## Arguments
+
+\`$ARGUMENTS\` can be:
+
+- *(empty)* — start from scratch, Phase 0 asks the user what they want to achieve.
+- \`intent=<category>\` — skip Phase 0 category selection (e.g. \`intent=deploy\`, \`intent=pipeline\`, \`intent=rollback\`).
+- \`access=cli|api|web\` — skip Phase 1 access negotiation (use only if the user is already sure).
+- \`dry-run\` — force dry-run for Phase 4 (default anyway, but explicit).
+- \`paired\` — force paired execution mode.
+- \`delegated\` — force delegated execution mode (requires explicit plan confirmation regardless).
+- \`skill-slug=<slug>\` — pre-declare the crystallization target (Phase 5).
+
+If arguments are missing, the skill asks interactively — one question at a time, multiple-choice when possible, in the style of \`arch-brainstorm\`.
+
+---
+
+## Flow — five phases
+
+### Phase 0 — Intent elicitation
+
+**Goal**: understand what the user wants to achieve, in concrete terms.
+
+#### Actions
+
+1. **Ask the opening question** (verbatim or adapted):
+
+   > "What do you want to achieve? In your own words — one sentence is fine. If you don't have a specific task yet, tell me the area (deploy / pipeline / provision / rollback / migrate / scale / cron / diagnose / debug-wiring / custom) and we'll narrow down."
+
+2. **Map to a category**. Use this table as a guide — not as a strait-jacket. If the user's intent doesn't match, pick \`custom\` and work from their words.
+
+   | Category | Typical phrasing | Notes |
+   |---|---|---|
+   | \`deploy\` | "deploy service X to env Y" | Push a built artifact to a runtime environment |
+   | \`pipeline\` | "create a CI/CD pipeline for X" | Configure a build/release pipeline on the chosen CI vendor |
+   | \`provision\` | "set up a dev environment", "create a new cluster" | Create infrastructure from scratch |
+   | \`teardown\` | "delete the sandbox env", "clean up this experiment" | Remove infrastructure, explicit confirmation required |
+   | \`rollback\` | "undo the last deploy", "roll back to version N" | Reverse a previous deploy |
+   | \`migrate\` | "run this DB migration", "move data from A to B" | Schema or data migration |
+   | \`scale\` | "scale X up/down", "adjust autoscaler" | Change resource sizing |
+   | \`cron\` | "schedule a job that runs every night" | Create a scheduled task |
+   | \`diagnose\` | "figure out why prod is slow" | Read-only investigation |
+   | \`debug-wiring\` | "wire correlation-ID tracking so the AI can debug prod" | Code-side observability setup — Phase 0 of the prod-debug flow. After this skill finishes, hand off to \`observability-debug\`. |
+   | \`custom\` | anything else | Use the user's own words |
+
+3. **Ask about existing infra** — one sentence:
+
+   > "Do you already have infrastructure for this, or is this a greenfield op? In one sentence — e.g. 'We have an AKS cluster on Azure with 3 services, deployed via Helm from a GitHub Actions pipeline', or 'Nothing yet, we're starting from scratch'."
+
+4. **Acknowledge and summarize**. Before moving on, read back what you understood. Invite correction.
+
+#### Phase 0 checkpoint
+
+- [ ] Intent stated by the user in a sentence
+- [ ] Mapped to a category (or \`custom\`)
+- [ ] Existing infra described in a sentence
+- [ ] Summary confirmed by the user
+
+---
+
+### Phase 1 — Access proposal (the access menu)
+
+**Goal**: agree on HOW the AI will reach the target environment.
+
+#### Present the tiered menu
+
+Use this exact framing (adapt to the user's language from \`nonoise.config.json\` if it's not English):
+
+> "I need access to your target environment to help execute this. In order of simplicity:
+>
+> 1. **CLI access** — you grant me permission to run \`az\` / \`gcloud\` / \`aws\` / \`gh\` / \`kubectl\` / \`terraform\` / project-specific binaries on your behalf. Simplest, fastest, most auditable (your shell history keeps a record). **This is my recommendation.**
+> 2. **API access** — I call the cloud provider's REST API using a token you configure via env var (PAT, OIDC, service principal). Works when no CLI is installed or when the CLI is locked behind SSO.
+> 3. **Web access** — I navigate the vendor's web UI. This is **more complex**: it typically requires a browser MCP server (e.g. Playwright MCP) or pairing with you where you drive and I dictate.
+>
+> Which works for you? If unsure, go with #1."
+
+#### Match the choice to an auth flow
+
+Bundle reference [\`references/access-patterns.md\`](./references/access-patterns.md) covers concrete examples. Use it to guide the conversation:
+
+| Access tier | Typical commands to check it's live |
+|---|---|
+| CLI | \`az account show\`, \`gcloud auth list\`, \`aws sts get-caller-identity\`, \`gh auth status\`, \`kubectl config current-context\`, \`terraform version\`, \`pulumi whoami\` |
+| API | probe the provider's "whoami" endpoint with the user-supplied token — e.g. Azure DevOps \`GET /_apis/connectionData\`, GitHub \`GET /user\`, Jira \`GET /rest/api/3/myself\` |
+| Web | probe that a browser MCP server is configured (\`mcp__playwright__navigate\` or equivalent). If not, explain this will be pair-driven |
+
+#### Fallback chains
+
+If the preferred tier is unavailable (no CLI installed, no token, no browser MCP), propose the next tier **with the user's consent**. Never silently downgrade.
+
+If **none** of the three tiers is feasible, stop and ask the user what to do. Options:
+
+- Install the missing CLI (print the install command for the user to run manually — per global rule, LSP/runtime installs are advisor-only)
+- Generate the missing token (link to the provider's token-generation doc)
+- Defer the operation until access is set up
+
+#### Phase 1 checkpoint
+
+- [ ] Access tier chosen (CLI / API / Web) with explicit user consent
+- [ ] Auth source verified (CLI session alive, or token present and valid)
+- [ ] Fallback chain documented if primary fails
+
+---
+
+### Phase 2 — Context gathering
+
+**Goal**: know enough about the project AND the target environment to produce a safe, realistic plan.
+
+#### Project-side context
+
+1. **Read \`nonoise.config.json\`** — extract \`working_language\`, \`framework_version\`, \`installed_skills\`. Working language governs the operation's output language; the generated skill in Phase 5 inherits it.
+2. **Read \`docs/architecture/\`** — in this order:
+   - \`01-constraints.md\` — hard constraints (cloud provider, vendor restrictions, compliance)
+   - Other numbered files — stack, patterns, component registry
+3. **Read the repo root** — \`CLAUDE.md\`, \`AGENTS.md\`, \`.github/copilot-instructions.md\` if present (they may declare ops rules specific to this project).
+4. **Optionally invoke \`graphify-setup\`** — only if the operation needs code-level awareness:
+   - Rollback that needs to identify the right module
+   - Migration driven by schema references scattered in code
+   - Pipeline that needs to list every service's build command
+   - Debug-wiring that must know where HTTP clients / loggers live
+
+   If \`graphify-out/\` is missing, ask the user: "This op needs code-level context. Would you like me to invoke \`graphify-setup\` to index the codebase? (~1–5 min)". On decline, proceed without it.
+
+#### Target-side context
+
+Using the access granted in Phase 1, probe the target to learn its state:
+
+| Access tier | Probe examples |
+|---|---|
+| CLI | \`az aks list\`, \`kubectl get ns\`, \`gh pipeline list\`, \`gcloud run services list\`, \`aws s3 ls\`, \`terraform state list\` |
+| API | \`curl\` whatever's the equivalent "list" endpoint |
+| Web | navigate to the provider's dashboard and read back what's visible |
+
+#### Report back
+
+Before Phase 3, summarize to the user in ~100 words what you learned. Example:
+
+> "I read your \`docs/architecture/01-constraints.md\`: you're Azure-only, multi-region (italynorth + westeurope), compliance requires encryption-at-rest on all data stores. I probed your AKS: cluster \`aks-foo\` in \`rg-bar\`, 3 namespaces (\`dev\`, \`test\`, \`prod\`), 5 services already deployed. \`kubectl\` works with \`view\` role on all namespaces. \`az acr show --name acrxxx\` works. You're good to go for a dev-side deploy — I'd need an additional approver for prod."
+
+Invite correction. Move to Phase 3 only on explicit user "ok".
+
+#### Phase 2 checkpoint
+
+- [ ] \`nonoise.config.json\` + \`docs/architecture/\` read
+- [ ] Optional graphify indexing decided
+- [ ] Target environment probed
+- [ ] Report summarized and confirmed
+
+---
+
+### Phase 3 — Operation definition
+
+**Goal**: turn natural-language intent into a concrete ordered plan, with risk annotations.
+
+#### Steps
+
+1. **Ask the specific operation**. In the user's words:
+
+   > "Now, specifically: what do you want to do? Describe it like you'd tell a colleague. e.g. 'Deploy service \`payments-api\` version 1.4.2 to the dev namespace'."
+
+2. **Translate into an ordered plan**. Each step gets:
+   - A one-line description
+   - The exact command / API call / web action that will run
+   - A **risk label**: \`non-destructive\`, \`reversible\`, \`destructive\`
+   - A precondition check where applicable (e.g. "only if version 1.4.2 exists in the registry")
+
+3. **Present the plan as a table**. Example:
+
+   | # | Step | Command | Risk | Precondition |
+   |---|------|---------|------|--------------|
+   | 1 | Verify image tag exists in ACR | \`az acr repository show-tags --name acrxxx --repository payments-api --orderby time_desc --top 5\` | non-destructive | — |
+   | 2 | Update \`Chart.yaml\` appVersion to \`1.4.2\` | \`yq -i '.appVersion = "1.4.2"' infra/helm/payments-api/Chart.yaml\` | reversible (git revert) | step 1 passed |
+   | 3 | Commit + push to \`develop\` | \`git commit -am "deploy payments-api 1.4.2 to dev" && git push\` | reversible (git revert + force-push) | step 2 succeeded |
+   | 4 | Trigger CD pipeline | \`gh workflow run cd-dev.yml -f service=payments-api\` | destructive (live deploy) | push succeeded |
+   | 5 | Monitor rollout | \`kubectl rollout status deploy/payments-api -n dev --timeout=5m\` | non-destructive | pipeline triggered |
+   | 6 | Smoke-test endpoint | \`curl -sf https://payments-api-dev.example.com/health\` | non-destructive | rollout succeeded |
+
+4. **Offer execution modes**:
+
+   > "Three modes:
+   >
+   > - **Dry-run** (default): I print what I'd do, I don't touch anything. Best for the first iteration.
+   > - **Paired**: I execute one step at a time, show you the output, ask 'proceed?' before the next. You learn by watching.
+   > - **Delegated**: I execute the whole plan autonomously. You confirm the plan once, then I run it and report at the end.
+   >
+   > Which?"
+
+5. **For destructive steps**, require a second, explicit confirmation even in delegated mode.
+
+#### Phase 3 checkpoint
+
+- [ ] Plan presented as an ordered, risk-annotated table
+- [ ] Execution mode chosen
+- [ ] Destructive steps flagged, explicit confirmation obtained
+
+---
+
+### Phase 4 — Execute
+
+**Goal**: run the plan safely, capture what worked.
+
+#### Dry-run mode (default)
+
+For each step, print:
+
+\`\`\`
+[DRY-RUN] Step <N>: <description>
+Would run: <exact command>
+Risk: <label>
+Would check: <precondition>
+\`\`\`
+
+No side effects. At the end, summarize and offer: "Dry-run complete. Run paired or delegated now?"
+
+#### Paired mode
+
+For each step:
+
+1. Print the step and the command
+2. Execute it
+3. Show the output (trimmed, with escape codes rendered)
+4. Ask: "Output looks right? (y / fix / abort)"
+5. On \`fix\`: discuss, adjust the command, re-run (loop)
+6. On \`abort\`: stop, run rollback if any
+7. On \`y\`: proceed to next step
+
+#### Delegated mode
+
+1. Restate the plan, ask final "go" confirmation
+2. Execute all steps in order
+3. For each: log command + output to a local execution log at \`tmp/ops-skill-builder/<timestamp>-<slug>.log\`
+4. On any non-zero exit: stop, report the failing step + its output, propose rollback options, ask user what to do
+5. On full success: report the log path and step summary
+
+#### On error
+
+- **Snapshot state**: capture \`kubectl get all -n <ns>\` (or equivalent), last 20 lines of any log the user consented to read, exit codes of each step.
+- **Explain**: state what happened, not what "should have" happened. Show the exact error message.
+- **Propose rollback**: identify every step with risk \`reversible\` or \`destructive\` that ran, and propose a reverse operation. Ask the user to confirm rollback before running.
+- **Never auto-rollback destructive steps** — the user must confirm.
+
+#### On success
+
+- **Capture the exact commands used** — verbatim, no paraphrasing, no variable expansion. These are the seeds of the crystallized skill.
+- **Capture the access model** — which tier was used (CLI / API / Web), which env vars, which CLI sessions.
+- **Capture the context probes** — the "verify auth works" commands that will become pre-checks in the generated skill.
+
+#### Phase 4 checkpoint
+
+- [ ] Plan executed (dry-run, paired, or delegated)
+- [ ] All steps reported with output
+- [ ] Errors surfaced with rollback proposals
+- [ ] On success: exact command sequence captured
+
+---
+
+### Phase 5 — Crystallize (invoke skill-creator)
+
+**Goal**: turn the successful flow into a reusable project-local skill.
+
+#### Offer
+
+After Phase 4 succeeds (or after a successful paired run of a dry-run followed by a real run), ask:
+
+> "That worked. Do you want to save this as a reusable skill for your team? It'll live at \`.claude/skills/<slug>/SKILL.md\` — project-local, shareable via git. Anyone on the team who triggers it will re-run the exact same sequence, with the same access model, without re-negotiating."
+
+If the user declines, thank them and close gracefully. Do not nag.
+
+#### On acceptance — prepare the crystallization package
+
+Gather everything \`skill-creator\` needs. The template for the generated skill is documented in [\`references/ops-skill-template.md\`](./references/ops-skill-template.md) — hand it to \`skill-creator\` as the structural target.
+
+The package:
+
+\`\`\`yaml
+target_location: .claude/skills/<slug>/SKILL.md    # project-local, not global
+suggested_name: <slug>                             # kebab-case, e.g. "deploy-payments-api", "rollback-auth-service"
+suggested_description: >                           # one-paragraph, triggering-focused
+  <what the skill does> + <when to trigger> (include the category from Phase 0, the stack from Phase 2, the access tier from Phase 1)
+working_language: <from nonoise.config.json>       # the generated skill inherits the project's language
+
+# ==== the meat ====
+
+access_model:
+  tier: cli | api | web
+  auth_sources:                                    # list of env vars and/or CLI sessions
+    - type: cli_session
+      check: "az account show"
+    - type: env_var
+      name: "GH_TOKEN"
+      scope: "repo"
+  fallback: "If \`az\` CLI isn't authenticated, run \`az login\` and retry."
+
+preconditions:                                     # runs first in the generated skill
+  - name: "Verify Azure auth"
+    command: "az account show --query id -o tsv"
+    expect: "non-empty string"
+  - name: "Verify kubectl context"
+    command: "kubectl config current-context"
+    expect: "aks-prod-xyz"
+
+command_sequence:                                  # verbatim from Phase 4
+  - step: 1
+    description: "Verify image tag exists in ACR"
+    command: "az acr repository show-tags --name acrxxx --repository payments-api --orderby time_desc --top 5"
+    risk: non-destructive
+  - step: 2
+    ...
+
+verification:                                      # post-op checks
+  - "kubectl rollout status deploy/payments-api -n dev --timeout=5m"
+  - "curl -sf https://payments-api-dev.example.com/health"
+
+rollback_hints:                                    # reverse ops for reversible/destructive steps
+  - applies_to_step: 2
+    command: "git revert <commit> && git push"
+  - applies_to_step: 4
+    command: "gh workflow run cd-dev-rollback.yml -f version=<previous>"
+
+context_refs:                                      # where the generated skill should read from
+  - "docs/architecture/01-constraints.md"
+  - "nonoise.config.json"
+\`\`\`
+
+#### Invoke skill-creator
+
+Call the sibling skill:
+
+\`\`\`
+Skill: skill-creator
+args: crystallize from ops-skill-builder
+     target=.claude/skills/<slug>/SKILL.md
+     package=<path-to-the-yaml-above-written-to-tmp>
+\`\`\`
+
+\`skill-creator\` takes the package, generates a SKILL.md that follows the template in [\`references/ops-skill-template.md\`](./references/ops-skill-template.md), and writes it to the target location.
+
+#### After generation
+
+1. **Review together** — show the generated skill to the user, ask for corrections before committing.
+2. **Remind about secrets** — if the skill references env vars, ensure none of them are hardcoded; they must come from the user's shell or from \`.env\` (which is gitignored).
+3. **Offer to commit** — only if the user says "commit it". Never commit automatically.
+4. **Close the loop** — tell the user: "From now on, anyone on the team can run \`<slug>\` and get the same result. If the environment changes, re-run me (\`ops-skill-builder\`) and I'll regenerate the skill."
+
+#### Phase 5 checkpoint
+
+- [ ] Offer made to crystallize
+- [ ] On acceptance: package assembled
+- [ ] \`skill-creator\` invoked with the package
+- [ ] Generated skill reviewed with the user
+- [ ] User informed about secrets handling
+- [ ] Optional commit offered (never automatic)
+
+---
+
+## Operating principles
+
+1. **Intent before access, access before plan, plan before execution, execution before crystallization**. Never skip a phase.
+2. **Dry-run is the safety net** — always available, always offered, always the default.
+3. **The access menu is explicit** — CLI first, API second, Web last. Never silently downgrade.
+4. **Auth is externalized** — env vars or CLI sessions. Never hardcoded in the skill body, never written to committed files.
+5. **Destructive steps require double confirmation** — once when planning, once at execution time.
+6. **Crystallize on success** — every successful op is an opportunity to stop repeating the negotiation. Always offer.
+7. **Project-local skills, not global** — generated skills land under \`.claude/skills/<slug>/\`, not \`~/.claude/skills/\`. The team's skill is versioned with the repo.
+8. **Read-only on the source of truth** — this skill never edits \`docs/architecture/\`. Drifts are surfaced as recommendations.
+9. **Fail-soft on a step, fail-hard on auth or destructive without confirmation** — one broken step should not auto-abort everything; a missing credential or an unconfirmed destructive step always stops.
+10. **Inherit the project's working language** — the generated skill uses the language declared in \`nonoise.config.json\`.
+
+---
+
+## Anti-patterns
+
+1. **Hardcoding auth in the generated skill** — always env vars or CLI sessions referenced by name, never tokens inline.
+2. **Writing a generic deploy without going through the access menu** — skips Phase 1, produces a skill that doesn't work in the user's environment.
+3. **Skipping dry-run** — "I'll just run it" is the opposite of this skill's philosophy.
+4. **Executing destructive actions without explicit confirmation** — even in delegated mode.
+5. **Never crystallizing** — Phase 5 is not optional. If the op succeeds, the offer must be made. Declining is fine; forgetting to offer is not.
+6. **Using Web access as the default** — Web is the last resort, not the easy way.
+7. **Creating a global skill instead of project-local** — generated skills go under \`.claude/skills/<slug>/\`, not \`~/.claude/skills/\`.
+8. **Editing \`docs/architecture/\` silently** — if the op reveals a drift, surface it; do not rewrite the architecture doc.
+9. **Leaving the operation log only in memory** — write to \`tmp/ops-skill-builder/<timestamp>-<slug>.log\` so the user has a local audit trail.
+10. **Assuming the stack** — never assume "it's Azure" or "it's AWS" without confirming in Phase 2. Every project is different.
+
+---
+
+## When NOT to use this skill
+
+- **Bug fix in application code** → \`superpowers:systematic-debugging\`.
+- **Production debugging beyond the wiring phase** → \`observability-debug\` (this skill handles only the Phase 0 "wire correlation-ID tracking on the code side"; everything downstream — reading traces, correlating logs, finding the bug — is \`observability-debug\`).
+- **Architectural decision** → \`arch-brainstorm\` → \`arch-decision\`.
+- **One-off ops task the user will never repeat** → you can still use this skill, but skip Phase 5 with the user's consent.
+- **Non-ops tasks** (writing docs, generating code, running tests) → wrong skill.
+
+---
+
+## Resuming mid-flow
+
+If the user starts a new session mid-crystallization (e.g. Phase 4 ran, crystallization didn't):
+
+1. Check \`tmp/ops-skill-builder/\` for the latest execution log
+2. Ask: "I see you ran \`<op>\` successfully on \`<date>\`. Do you want to crystallize it now?"
+3. If yes: jump to Phase 5, using the captured log as the command sequence source
+
+If Phase 4 failed and left the environment in a broken state:
+
+1. Read the last execution log
+2. Identify which steps ran
+3. Propose a rollback plan based on the \`rollback_hints\` gathered in Phase 3
+4. Execute only with user confirmation
+
+---
+
+## Reference files
+
+- [\`references/access-patterns.md\`](./references/access-patterns.md) — the access menu in depth: CLI / API / Web examples across Azure / AWS / GCP / GitHub / Azure DevOps / Jira / Kubernetes / Terraform / Pulumi. Covers auth setup, verification probes, common failure modes.
+- [\`references/ops-skill-template.md\`](./references/ops-skill-template.md) — the canonical structure for a generated ops skill: frontmatter template, pre-check auth section, read-state section, validate-args section, execute section, verify section, report section, rollback section. This is the template \`skill-creator\` receives in Phase 5.
+- [\`references/examples.md\`](./references/examples.md) — three end-to-end worked examples in different clouds (Azure AKS deploy, AWS EKS rollout, GCP Cloud Run deploy), each showing the full five-phase flow.
+
+## Related skills
+
+- [\`../skill-creator/SKILL.md\`](../skill-creator/SKILL.md) — invoked in Phase 5 to crystallize.
+- [\`../graphify-setup/SKILL.md\`](../graphify-setup/SKILL.md) — invoked in Phase 2 when code-level context is needed.
+- [\`../observability-debug/SKILL.md\`](../observability-debug/SKILL.md) — takes over after Phase 0 debug-wiring for the actual production-debug flow.
+- [\`../spec-to-workitem/SKILL.md\`](../spec-to-workitem/SKILL.md) — sibling adapter-pattern skill (auth via env vars, dry-run default, tracker-agnostic).
+- [\`../arch-brainstorm/SKILL.md\`](../arch-brainstorm/SKILL.md) — the architectural-axis counterpart (one question at a time, multiple-choice, dialog-driven).
+",
+  ".claude/skills/ops-skill-builder/references/access-patterns.md": "# Access patterns — CLI / API / Web
+
+This reference is the **depth-dive** for Phase 1 of \`ops-skill-builder\`. It documents concrete auth setups, verification probes, and failure modes across the three access tiers and across the most common cloud / tool ecosystems.
+
+## Principle: three tiers, tried in order
+
+| Tier | Preference | When to use |
+|---|---|---|
+| **CLI** | 1st choice | A CLI exists for the target and the user is willing to run it with their credentials. Auditable (shell history), fast, minimal setup. |
+| **API** | 2nd choice | No CLI available, or the CLI is locked behind SSO / corporate proxy. The user supplies a token via env var. |
+| **Web** | 3rd choice | Neither CLI nor API is practical. Requires a browser MCP server (e.g. Playwright MCP), or pair-driven manual navigation. Documented as "more complex". |
+
+Never silently downgrade. If tier N is unavailable, explicitly ask the user to approve moving to tier N+1.
+
+---
+
+## Tier 1 — CLI access
+
+### Azure — \`az\`
+
+\`\`\`bash
+# Auth (interactive)
+az login
+
+# Auth (headless — service principal)
+az login --service-principal -u "$AZ_CLIENT_ID" -p "$AZ_CLIENT_SECRET" --tenant "$AZ_TENANT_ID"
+
+# Auth (headless — workload identity / OIDC, recommended in CI)
+az login --service-principal -u "$AZ_CLIENT_ID" --federated-token "$ID_TOKEN" --tenant "$AZ_TENANT_ID"
+
+# Verify
+az account show --query '{subscription:name, tenant:tenantId, user:user.name}' -o json
+
+# Switch subscription if needed
+az account set --subscription "<subscription-id-or-name>"
+\`\`\`
+
+**Windows bash note**: \`az\` is often installed under \`C:\\Program Files\\Microsoft SDKs\\Azure\\CLI2\\wbin\` and is **not on the bash \`PATH\` by default**. Add it at the top of every command block:
+
+\`\`\`bash
+export PATH="$PATH:/c/Program Files/Microsoft SDKs/Azure/CLI2/wbin"
+\`\`\`
+
+**Kubernetes via AKS**:
+
+\`\`\`bash
+az aks get-credentials --resource-group <rg> --name <cluster>
+# If the cluster uses Azure AD auth, convert kubeconfig via kubelogin:
+kubelogin convert-kubeconfig -l azurecli
+kubectl config set-context --current --namespace=<ns>
+\`\`\`
+
+### AWS — \`aws\`
+
+\`\`\`bash
+# Auth (interactive SSO, recommended for humans)
+aws configure sso
+aws sso login --profile <profile>
+
+# Auth (static keys — discouraged, acceptable for CI)
+aws configure    # prompts for Access Key ID / Secret Access Key / region
+
+# Verify
+aws sts get-caller-identity
+aws configure list
+
+# Switch profile
+export AWS_PROFILE=<profile>
+\`\`\`
+
+**Kubernetes via EKS**:
+
+\`\`\`bash
+aws eks update-kubeconfig --name <cluster> --region <region>
+kubectl get nodes
+\`\`\`
+
+### GCP — \`gcloud\`
+
+\`\`\`bash
+# Auth (interactive)
+gcloud auth login
+gcloud auth application-default login   # for ADC — most SDKs use this
+
+# Auth (service account key)
+gcloud auth activate-service-account --key-file="$GCP_SA_KEY_PATH"
+
+# Verify
+gcloud auth list
+gcloud config list
+gcloud projects list --format="value(projectId,name)"
+
+# Switch project
+gcloud config set project <project-id>
+\`\`\`
+
+**Kubernetes via GKE**:
+
+\`\`\`bash
+gcloud container clusters get-credentials <cluster> --region <region> --project <project>
+\`\`\`
+
+### GitHub — \`gh\`
+
+\`\`\`bash
+# Auth (interactive)
+gh auth login
+
+# Auth (headless)
+echo "$GH_TOKEN" | gh auth login --with-token
+
+# Verify
+gh auth status
+gh api user -q .login
+\`\`\`
+
+### Azure DevOps — \`az devops\` (extension) or raw CLI
+
+\`\`\`bash
+# Install extension
+az extension add --name azure-devops
+az devops configure --defaults organization=https://dev.azure.com/<org> project=<project>
+
+# Auth — use az login (if AAD-backed), or PAT
+export AZURE_DEVOPS_EXT_PAT="$AZDO_PAT"
+
+# Verify
+az devops project list
+az pipelines list --top 5
+\`\`\`
+
+### Kubernetes — \`kubectl\`
+
+\`\`\`bash
+# Verify current context
+kubectl config current-context
+kubectl config get-contexts
+kubectl auth can-i get pods --namespace=<ns>
+
+# Switch context / namespace
+kubectl config use-context <ctx>
+kubectl config set-context --current --namespace=<ns>
+\`\`\`
+
+### Terraform / OpenTofu
+
+\`\`\`bash
+# No "auth" step per se — relies on provider-level auth (az / aws / gcp / etc.)
+terraform -version
+terraform init
+terraform plan -out plan.tfplan       # always produce a plan first; it's the "dry-run"
+# Then, after explicit user approval:
+terraform apply plan.tfplan
+\`\`\`
+
+### Pulumi
+
+\`\`\`bash
+pulumi whoami
+pulumi stack ls
+pulumi preview                         # the "dry-run"
+pulumi up                              # with explicit confirmation
+\`\`\`
+
+### Helm
+
+\`\`\`bash
+helm version
+helm list -A
+helm diff upgrade <release> <chart> -f values.yaml   # dry-run diff (requires helm-diff plugin)
+helm upgrade --install <release> <chart> -f values.yaml --dry-run --debug
+\`\`\`
+
+---
+
+## Tier 2 — API access
+
+### Azure — Azure REST API
+
+\`\`\`bash
+# Acquire a token via az (simplest)
+export AZ_TOKEN=$(az account get-access-token --resource=https://management.azure.com/ --query accessToken -o tsv)
+
+# Or via service principal OAuth2 flow
+export AZ_TOKEN=$(curl -s -X POST \\
+  "https://login.microsoftonline.com/$AZ_TENANT_ID/oauth2/v2.0/token" \\
+  -d "grant_type=client_credentials" \\
+  -d "client_id=$AZ_CLIENT_ID" \\
+  -d "client_secret=$AZ_CLIENT_SECRET" \\
+  -d "scope=https://management.azure.com/.default" \\
+  | node -e "process.stdin.pipe(require('stream').Writable({write(c,e,cb){console.log(JSON.parse(c).access_token);cb();}}))")
+
+# Verify
+curl -s -H "Authorization: Bearer $AZ_TOKEN" \\
+  "https://management.azure.com/subscriptions?api-version=2022-12-01"
+\`\`\`
+
+### Azure DevOps — REST API
+
+\`\`\`bash
+export AZDO_PAT="<token-with-Build-Read-Execute-scope>"
+AZDO_BASE="https://dev.azure.com/<org>/<project>/_apis"
+
+# Auth style: HTTP Basic, empty username, PAT as password
+curl -s -u ":$AZDO_PAT" "$AZDO_BASE/connectionData?api-version=7.1"
+
+# List pipelines
+curl -s -u ":$AZDO_PAT" "$AZDO_BASE/pipelines?api-version=7.1"
+
+# Trigger a build
+curl -s -u ":$AZDO_PAT" -X POST -H "Content-Type: application/json" \\
+  -d '{"definition":{"id":123},"sourceBranch":"refs/heads/develop"}' \\
+  "$AZDO_BASE/build/builds?api-version=7.1"
+\`\`\`
+
+**Windows bash — JSON handling**: Python is often unavailable. Use \`node\` with temp files; avoid inline \`-d '{...}'\` payloads (shell escaping fails with backslashes):
+
+\`\`\`bash
+node -e '
+var payload = { definition: { id: 123 }, sourceBranch: "refs/heads/develop" };
+require("fs").writeFileSync(process.env.TEMP + "/payload.json", JSON.stringify(payload));
+'
+curl -s -u ":$AZDO_PAT" -X POST -H "Content-Type: application/json" \\
+  -d @"$TEMP/payload.json" \\
+  "$AZDO_BASE/build/builds?api-version=7.1" > "$TEMP/result.json"
+node -e "console.log(JSON.parse(require('fs').readFileSync(process.env.TEMP+'/result.json','utf8')).id)"
+\`\`\`
+
+### GitHub — REST API
+
+\`\`\`bash
+export GH_TOKEN="<PAT with repo scope, or fine-grained with Contents/Issues/Actions>"
+
+# Verify
+curl -s -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/user
+
+# Trigger a workflow
+curl -s -X POST \\
+  -H "Authorization: Bearer $GH_TOKEN" \\
+  -H "Accept: application/vnd.github+json" \\
+  https://api.github.com/repos/<owner>/<repo>/actions/workflows/<workflow>.yml/dispatches \\
+  -d '{"ref":"main","inputs":{"environment":"dev"}}'
+\`\`\`
+
+### AWS — SigV4 signing
+
+The AWS API uses SigV4 signing, not a bearer token. For quick API calls, the CLI is strictly easier than raw curl. If curl is required (automation), use \`aws-sigv4\` tooling, or call via the \`awscurl\` wrapper, or let the SDK do the signing.
+
+### GCP — REST API
+
+\`\`\`bash
+export GCP_TOKEN=$(gcloud auth print-access-token)
+
+# Verify
+curl -s -H "Authorization: Bearer $GCP_TOKEN" \\
+  "https://cloudresourcemanager.googleapis.com/v1/projects"
+\`\`\`
+
+### Jira Cloud — REST API
+
+\`\`\`bash
+export JIRA_EMAIL="user@example.com"
+export JIRA_API_TOKEN="<token from id.atlassian.com>"
+export JIRA_HOST="example.atlassian.net"
+
+# Verify
+curl -s -u "$JIRA_EMAIL:$JIRA_API_TOKEN" \\
+  "https://$JIRA_HOST/rest/api/3/myself"
+\`\`\`
+
+### Linear — GraphQL API
+
+\`\`\`bash
+export LINEAR_API_KEY="<personal API key from linear.app/settings/api>"
+
+# Verify
+curl -s -X POST https://api.linear.app/graphql \\
+  -H "Authorization: $LINEAR_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query":"query { viewer { id name email } }"}'
+\`\`\`
+
+### Kubernetes — raw API
+
+\`\`\`bash
+# Kubectl can proxy the API locally — useful if you need curl-style access
+kubectl proxy --port=8001 &
+curl -s http://localhost:8001/api/v1/namespaces
+# Kill the proxy when done: kill %1
+\`\`\`
+
+---
+
+## Tier 3 — Web access
+
+### Via a browser MCP server (Playwright MCP, puppeteer MCP, etc.)
+
+Check that a browser MCP is configured:
+
+- In Claude Code / Copilot: list MCP servers (\`/mcp\`, or check \`.mcp.json\`)
+- Probe for tool names like \`mcp__playwright__navigate\`, \`mcp__puppeteer__click\`
+
+If present, the skill can drive the browser. Typical flow:
+
+1. \`navigate\` to the vendor's login URL
+2. User completes any MFA step manually
+3. Skill navigates to the target page
+4. Skill reads back the DOM or screenshots it
+5. Skill proposes actions (click X, fill Y) and executes with user confirmation
+
+### Without a browser MCP — pair-driven
+
+If no MCP is available, the skill dictates steps and the user drives the browser:
+
+1. Skill: "Open https://portal.azure.com/#resource/subscriptions/..."
+2. User: confirms they're on the page
+3. Skill: "Click 'Overview' → 'Running pods'. Report what you see."
+4. User: types back or pastes a screenshot
+5. Skill: "Now click 'Restart' on pod \`payments-api-abc123\`. Confirm before clicking."
+6. User: clicks, reports outcome
+
+This mode is **slow and lossy**. Document it as "interactive pair mode" and only use it when no better option exists.
+
+### Web is "more complex" — what that means
+
+Compared to CLI / API, web access:
+
+- Cannot be safely automated without a browser MCP (DOMs change, selectors break)
+- Has no standard audit trail (no shell history)
+- Usually requires human-in-the-loop for MFA
+- Is the first to break on vendor UI updates
+
+Crystallized skills that depend on web access should **embed a warning in their description**: "Fragile: depends on the vendor's web UI, may break on UI changes. Preferred path is CLI or API; see \`references/access-patterns.md\`."
+
+---
+
+## Common failure modes and remediations
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| \`az: command not found\` (bash on Windows) | PATH doesn't include Azure CLI | \`export PATH="$PATH:/c/Program Files/Microsoft SDKs/Azure/CLI2/wbin"\` |
+| \`kubectl\` returns \`Forbidden\` | RBAC denies the current user | Ask an admin for a \`view\` / \`edit\` RoleBinding on the target namespace |
+| \`az acr\` returns \`connectivity_forbidden_error\` | Registry requires VPN / VNet | Ask the user to enable VPN; as fallback, read image tags from CI logs |
+| \`gh auth status\` says \`not logged in\` | No gh session | \`gh auth login\` interactively, or \`echo $GH_TOKEN | gh auth login --with-token\` |
+| Azure DevOps API returns \`JsonReaderException\` | Windows shell escaping broke inline JSON payload | Write payload via \`node\` to \`$TEMP/payload.json\`, use \`curl -d @$TEMP/payload.json\` |
+| Azure DevOps pipeline created but doesn't auto-trigger | Missing \`triggers[]\` array with \`settingsSourceType: 2\` | Add the trigger block pointing to YAML-defined triggers |
+| Pulumi / Terraform hangs on apply | Asking for interactive input (y/n) | Use \`-auto-approve\` only after explicit dry-run review; never in destructive ops without user confirmation |
+| \`aws sts\` returns \`ExpiredToken\` | SSO session expired | \`aws sso login --profile <profile>\` |
+| Jira API returns 401 | API token valid but email mismatched | Verify \`JIRA_EMAIL\` matches the token's owner |
+| Linear API returns 400 | GraphQL query malformed | Validate with \`linear.app/graphql\` playground first |
+
+---
+
+## Auth model summary for crystallized skills
+
+Every generated skill (Phase 5 output) must declare its auth model in the frontmatter and in a **Pre-check auth** section. Standard shape:
+
+\`\`\`markdown
+## Pre-check auth
+
+This skill requires <tier> access to <target>. Verify before running:
+
+\\\`\\\`\\\`bash
+<verify command>
+\\\`\\\`\\\`
+
+Expected output: <non-empty string / specific context name / etc.>
+
+If it fails:
+- Run <auth command> (interactive), OR
+- Set env var <NAME> (document scope/permissions required), OR
+- Ask your platform team for <specific permission>
+\`\`\`
+
+No secrets in the generated skill. Never. Secrets live in the user's shell or in \`.env\` (gitignored).
+",
+  ".claude/skills/ops-skill-builder/references/examples.md": "# Examples — three end-to-end flows
+
+Three worked examples of the full five-phase flow across Azure, AWS, and GCP. Each example is ~40 lines and demonstrates how intent, access, context, plan, execution, and crystallization fit together.
+
+These are illustrative — not copy-paste recipes. Your project's \`docs/architecture/\` and access model will change the specifics, which is exactly the point of this skill.
+
+---
+
+## Example 1 — Azure AKS deploy (CLI access)
+
+**User says**: "I want to deploy \`auth-service\` version 2.1.0 to the dev namespace on our AKS cluster."
+
+### Phase 0 — Intent
+- Category: \`deploy\`
+- Existing infra: "AKS cluster \`aks-foo\` on Azure, 3 namespaces (\`dev\`, \`test\`, \`prod\`), Helm-based deploys, GitHub Actions CI/CD."
+
+### Phase 1 — Access
+- Tier: CLI.
+- Probe: \`az account show\` → OK. \`kubectl config current-context\` → \`aks-foo\`. \`gh auth status\` → logged in.
+
+### Phase 2 — Context
+- Read \`docs/architecture/01-constraints.md\` → "Azure-only, Helm charts under \`infra/helm/<svc>/\`, appVersion in Chart.yaml drives the image tag."
+- No graphify needed (the user knows the service).
+- Target probe: \`kubectl get deploy auth-service -n dev -o jsonpath='{.spec.template.spec.containers[0].image}'\` → current image is \`auth-service:2.0.3\`.
+- \`az acr repository show-tags --name acrfoo --repository auth-service --orderby time_desc --top 5\` → \`2.1.0\`, \`2.0.3\`, \`2.0.2\` present.
+
+### Phase 3 — Plan
+| # | Step | Command | Risk |
+|---|------|---------|------|
+| 1 | Verify tag in ACR | \`az acr manifest show-metadata --registry acrfoo --name auth-service:2.1.0\` | non-destructive |
+| 2 | Update Chart.yaml | \`yq -i '.appVersion = "2.1.0"' infra/helm/auth-service/Chart.yaml\` | reversible |
+| 3 | Commit + push | \`git commit -am "deploy auth-service 2.1.0 to dev" && git push origin develop\` | reversible |
+| 4 | Trigger CD | \`gh workflow run cd-dev.yml -f service=auth-service\` | destructive |
+| 5 | Rollout status | \`kubectl rollout status deploy/auth-service -n dev --timeout=5m\` | non-destructive |
+| 6 | Health check | \`curl -sf https://auth-service-dev.example.com/health\` | non-destructive |
+
+Mode chosen: paired.
+
+### Phase 4 — Execute
+- Dry-run first → plan reviewed.
+- Paired run → each step shows output, user confirms.
+- Success.
+
+### Phase 5 — Crystallize
+- Accepted. Slug: \`deploy-auth-service-dev\`.
+- \`skill-creator\` invoked with the package.
+- Generated skill at \`.claude/skills/deploy-auth-service-dev/SKILL.md\`.
+- Reviewed together, committed.
+
+---
+
+## Example 2 — AWS EKS rollout (CLI access)
+
+**User says**: "We just pushed a hotfix. I need to roll out \`orders-svc\` to production on our EKS cluster without going through CI — fast path."
+
+### Phase 0 — Intent
+- Category: \`deploy\` (hotfix variant).
+- Existing infra: "EKS cluster \`eks-prod-us-east-1\`, kustomize overlays under \`k8s/overlays/<env>/\`, normally deployed via Argo CD but we have a manual fast-path."
+
+### Phase 1 — Access
+- Tier: CLI.
+- Probe: \`aws sts get-caller-identity\` → OK. \`kubectl config current-context\` → \`eks-prod\`. \`aws eks describe-cluster --name eks-prod-us-east-1 --region us-east-1\` → ACTIVE.
+
+### Phase 2 — Context
+- Read \`docs/architecture/01-constraints.md\` → "Production changes require manual approval from on-call. Rollback is \`kubectl rollout undo\`."
+- Skill pauses: "This is a prod op. Who approved? Please paste approval ticket / Slack link."
+- User confirms approval.
+- Target probe: \`kubectl get deploy orders-svc -n prod -o jsonpath='{.spec.template.spec.containers[0].image}'\` → \`orders-svc:3.2.1\`.
+- \`aws ecr describe-images --repository-name orders-svc --image-ids imageTag=3.2.2\` → new hotfix image exists.
+
+### Phase 3 — Plan
+| # | Step | Command | Risk |
+|---|------|---------|------|
+| 1 | Verify image in ECR | \`aws ecr describe-images --repository-name orders-svc --image-ids imageTag=3.2.2\` | non-destructive |
+| 2 | Patch deployment | \`kubectl set image deploy/orders-svc -n prod orders-svc=<ecr>/orders-svc:3.2.2\` | **destructive** (live prod) |
+| 3 | Watch rollout | \`kubectl rollout status deploy/orders-svc -n prod --timeout=5m\` | non-destructive |
+| 4 | Health check | \`curl -sf https://orders-svc.example.com/health\` | non-destructive |
+
+Mode chosen: paired (user wants to watch prod carefully).
+
+### Phase 4 — Execute
+- Destructive step 2 requires explicit \`y\` confirmation at run time. User approves.
+- Rollout succeeds. Health check OK.
+
+### Phase 5 — Crystallize
+- Accepted. Slug: \`hotfix-deploy-prod-eks\`.
+- Generated skill notes: "Requires prod approval. Not for regular deploys — use Argo CD for those. Fast-path only."
+- Committed.
+
+---
+
+## Example 3 — GCP Cloud Run deploy with pipeline setup (CLI access + API)
+
+**User says**: "I want to create a Cloud Build pipeline for our new service \`notifications\`, and do the first deploy to Cloud Run."
+
+### Phase 0 — Intent
+- Category: mixed — \`pipeline\` + \`deploy\`. Skill treats them as two linked ops.
+- Existing infra: "GCP project \`acme-prod\`, other services already on Cloud Run deployed via Cloud Build, GitHub repo \`acme/notifications\` newly created."
+
+### Phase 1 — Access
+- Tier: CLI primarily (gcloud), API as fallback for the Cloud Build trigger creation if \`gcloud builds triggers create\` doesn't support the GitHub v2 integration we need.
+- Probe: \`gcloud auth list\` → OK. \`gcloud config get project\` → \`acme-prod\`. \`gh auth status\` → OK (needed to set up the GitHub connection).
+
+### Phase 2 — Context
+- Read \`docs/architecture/01-constraints.md\` → "All new services must: deploy to Cloud Run, use the shared VPC connector \`vpc-conn-prod\`, have a min instances of 0 in dev."
+- Read existing similar service: \`services/billing/cloudbuild.yaml\` as a reference template.
+- Target probe: \`gcloud run services list\` → no \`notifications\` service yet (greenfield). \`gcloud builds triggers list\` → existing triggers visible for patterns.
+
+### Phase 3 — Plan
+| # | Step | Command | Risk |
+|---|------|---------|------|
+| 1 | Generate \`cloudbuild.yaml\` | (file write, using \`billing/cloudbuild.yaml\` as template) | reversible (git) |
+| 2 | Commit + push | \`git commit -am "add cloudbuild pipeline" && git push\` | reversible |
+| 3 | Create Cloud Build trigger | \`gcloud builds triggers create github --name=notifications-ci --repo-owner=acme --repo-name=notifications --branch-pattern=^main$ --build-config=cloudbuild.yaml\` | reversible (trigger deletable) |
+| 4 | Trigger first build | \`gcloud builds triggers run notifications-ci --branch=main\` | destructive (builds and pushes image) |
+| 5 | Deploy to Cloud Run | (Cloud Build does this via its own \`gcloud run deploy\` step) | destructive |
+| 6 | Verify service URL | \`gcloud run services describe notifications --region us-central1 --format='value(status.url)'\` | non-destructive |
+| 7 | Hit health endpoint | \`curl -sf $(gcloud run services describe notifications --region us-central1 --format='value(status.url)')/health\` | non-destructive |
+
+Mode chosen: paired — user wants to review each generated file and the first build logs.
+
+### Phase 4 — Execute
+- Paired run.
+- Step 3 fails: "Repository \`acme/notifications\` not connected to Cloud Build." Skill proposes fix: "Run \`gcloud builds connections create github\` or use the console one-time setup. Which do you prefer?" User opts for the console (web fallback). After connection, retry step 3 → OK.
+- Subsequent steps all pass.
+
+### Phase 5 — Crystallize
+- Accepted. Two skills generated (the skill-creator supports multi-skill output):
+  1. \`setup-cloudbuild-for-service\` — the pipeline bootstrap (reusable for any new service).
+  2. \`deploy-notifications-dev\` — the deploy-specific skill.
+- Generated skill 1 notes: "The GitHub-to-Cloud-Build connection step is web-only one-time setup per repo; this skill documents the manual step and the post-connection \`gcloud builds triggers create\` command."
+- Committed.
+
+---
+
+## Takeaways
+
+1. **Every example starts by asking the user what they want** — no assumed category, no assumed stack.
+2. **CLI was the right tier in all three** — the most common case. API and Web are fallbacks.
+3. **Context reading caught at least one constraint** in each example (e.g. prod requires approval, new services must use a VPC connector, greenfield service needs a GitHub connection).
+4. **Dry-run then paired** was the default pattern — only delegated when the op is well-known and low-risk.
+5. **Crystallization produced reusable skills** in every case — and each generated skill is specific enough to "just work" the second time.
+
+The flip from "generic skill that works sometimes" to "specific skill grown from your environment that works every time" is the entire value proposition.
+",
+  ".claude/skills/ops-skill-builder/references/ops-skill-template.md": "# Ops skill template — the canonical structure
+
+This is the **template** a generated ops skill follows. Phase 5 of \`ops-skill-builder\` hands this structure to \`skill-creator\` along with the crystallization package (see the YAML shape in the main \`SKILL.md\`).
+
+Every crystallized ops skill has the same skeleton: pre-check auth → read state → validate args → execute → verify → report → rollback hint. This uniformity is the whole point: once a team has two or three crystallized ops skills, their shape is predictable and new team members can read any of them in under a minute.
+
+## File layout
+
+\`\`\`
+.claude/skills/<slug>/
+├── SKILL.md                    (required)
+└── references/                 (optional, typically just examples and sample outputs)
+    └── example-run.md          (sample invocation + output — useful for onboarding)
+\`\`\`
+
+**Project-local, not global**: these skills live in the repo under \`.claude/skills/\`, committed alongside the code. They are inherently project-scoped.
+
+## Frontmatter template
+
+\`\`\`yaml
+---
+name: <slug>                         # kebab-case, e.g. deploy-payments-api-dev
+description: >
+  <one paragraph: what the skill does + when to trigger.
+   Include: the op category (deploy/pipeline/provision/...),
+   the target environment (dev/test/prod),
+   the stack ("Azure AKS", "GCP Cloud Run", "AWS EKS"),
+   concrete trigger phrases ("deploy payments-api to dev",
+   "push 1.4.2 to dev namespace"). The description is the
+   triggering mechanism — be concrete.>
+source: ops-skill-builder (crystallized <YYYY-MM-DD> from a live run by <user>)
+variant: project-local; access-tier=<cli|api|web>; target=<env-or-scope>
+working_language: <from nonoise.config.json at crystallization time>
+access_tier: <cli|api|web>
+requires_env:                        # list of required env vars (no values)
+  - AZDO_PAT
+  - GH_TOKEN
+requires_cli:                        # list of required CLI tools
+  - az
+  - kubectl
+  - helm
+risk_level: <non-destructive | reversible | destructive>
+---
+\`\`\`
+
+## Body structure — mandatory sections in this order
+
+### 1. Pre-check auth
+
+Verify the user can actually perform the operation **before** touching any side-effecting command.
+
+\`\`\`markdown
+## Pre-check auth
+
+This skill requires <tier> access. Verify:
+
+\\\`\\\`\\\`bash
+<verify command 1>   # e.g. az account show --query id -o tsv
+<verify command 2>   # e.g. kubectl config current-context
+\\\`\\\`\\\`
+
+Expected:
+- Command 1: non-empty subscription ID, matching \`<expected-subscription>\`
+- Command 2: \`<expected-context>\` (e.g. \`aks-prod-xyz\`)
+
+If either fails:
+- \`az login\` (interactive) — then retry
+- \`az aks get-credentials --resource-group <rg> --name <cluster>\` — then retry
+- Ensure env var \`<NAME>\` is set with scope \`<scope>\`
+\`\`\`
+
+### 2. Read state
+
+Pre-op context. Always read-only. Shows the user the current state before making changes.
+
+\`\`\`markdown
+## Read state
+
+\\\`\\\`\\\`bash
+# Current image tag in the target environment
+kubectl get deploy <deploy> -n <ns> -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+# Latest tags available in the registry
+az acr repository show-tags --name <acr> --repository <svc> --orderby time_desc --top 5
+
+# Current replica count
+kubectl get deploy <deploy> -n <ns> -o jsonpath='{.spec.replicas}'
+\\\`\\\`\\\`
+
+Report the output to the user. Do not proceed if the state looks wrong.
+\`\`\`
+
+### 3. Validate args
+
+Parse \`$ARGUMENTS\`. Fail fast on missing / malformed inputs.
+
+\`\`\`markdown
+## Validate args
+
+Expected: \`<required-arg-1>=<format>\` \`<required-arg-2>=<format>\` [\`<optional>\`=<format>]
+
+Example: \`version=1.4.2 env=dev\`
+
+Validation:
+- \`version\` must match semver
+- \`env\` must be one of: \`dev\`, \`test\`
+- \`env=prod\` is rejected by this skill — use \`deploy-payments-api-prod\` instead (requires approval)
+\`\`\`
+
+### 4. Execute
+
+The ordered plan. **Every step annotated with risk**. Destructive steps require explicit confirmation at run time.
+
+\`\`\`markdown
+## Execute
+
+| # | Step | Command | Risk | Precondition |
+|---|------|---------|------|--------------|
+| 1 | Verify target version exists | \`az acr manifest show-metadata --registry <acr> --name <svc>:<version>\` | non-destructive | — |
+| 2 | Update Chart.yaml | \`yq -i '.appVersion = "<version>"' infra/helm/<svc>/Chart.yaml\` | reversible (git revert) | 1 OK |
+| 3 | Commit + push | \`git commit -am "deploy <svc> <version> to <env>" && git push origin develop\` | reversible | 2 OK |
+| 4 | Trigger CD | \`gh workflow run cd-<env>.yml -f service=<svc>\` | **destructive** — live deploy | push OK |
+| 5 | Monitor rollout | \`kubectl rollout status deploy/<svc> -n <env> --timeout=5m\` | non-destructive | 4 triggered |
+
+**Destructive step (4) requires explicit \`y\` confirmation at run time.**
+
+**Dry-run**: if invoked with \`dry-run\`, print the table and the commands but do not execute.
+\`\`\`
+
+### 5. Verify
+
+Post-op checks. If these fail, the op did not succeed — propose rollback.
+
+\`\`\`markdown
+## Verify
+
+\\\`\\\`\\\`bash
+# Pod running the new image
+kubectl get pods -n <env> -l app=<svc> -o jsonpath='{.items[*].spec.containers[*].image}' | grep -q "<version>"
+
+# Health endpoint responds
+curl -sf https://<svc>-<env>.example.com/health
+
+# No pod restarts in the last 2 minutes
+kubectl get pods -n <env> -l app=<svc> --sort-by=.status.startTime
+\\\`\\\`\\\`
+
+All three must pass. If any fail, treat the deploy as broken and invoke the rollback section.
+\`\`\`
+
+### 6. Report
+
+Tell the user what happened, in one readable block.
+
+\`\`\`markdown
+## Report
+
+Print at the end:
+
+\\\`\\\`\\\`
+<slug> — <op> complete (<mode>)
+
+Target:     <env>
+Service:    <svc>
+Version:    <old> → <new>
+Duration:   <seconds>s
+Verified:   rollout OK, health OK, no restarts
+Log:        tmp/<slug>/<timestamp>.log
+\\\`\\\`\\\`
+
+If dry-run: replace "Verified" with "(dry-run, no changes applied)".
+\`\`\`
+
+### 7. Rollback
+
+Every skill that has reversible / destructive steps ships with a rollback recipe. Even if the user never invokes it, documenting it is mandatory.
+
+\`\`\`markdown
+## Rollback
+
+If the deploy fails or the new version is unhealthy:
+
+\\\`\\\`\\\`bash
+# Option A — CD-driven rollback (preferred when available)
+gh workflow run cd-<env>-rollback.yml -f service=<svc> -f version=<previous-version>
+
+# Option B — git revert + redeploy
+git revert <commit-sha> && git push origin develop
+# CD pipeline re-runs with the previous Chart.yaml
+
+# Option C — kubectl-level emergency rollback
+kubectl rollout undo deploy/<svc> -n <env>
+\\\`\\\`\\\`
+
+Rollback always requires explicit user confirmation. Never auto-trigger.
+\`\`\`
+
+### 8. Anti-patterns (short)
+
+Close with a concise anti-patterns list. Focus on what's specific to **this** op.
+
+\`\`\`markdown
+## Anti-patterns
+
+- Running this skill on \`prod\` — use \`deploy-payments-api-prod\` instead
+- Skipping the verify step — a deploy is not done until the rollout succeeds + health responds
+- Hardcoding the version in the skill — always pass via \`version=<semver>\`
+- Committing the token into the skill body — auth is via \`GH_TOKEN\` env var
+\`\`\`
+
+## Full example — \`deploy-payments-api-dev\`
+
+Below is a full sample SKILL.md that follows this template. Use it as the gold standard the first time you crystallize a skill.
+
+\`\`\`markdown
+---
+name: deploy-payments-api-dev
+description: >
+  Deploy the \`payments-api\` microservice to the \`dev\` namespace on AKS
+  cluster \`aks-adp-noprd\`, by updating the service's Helm Chart.yaml
+  appVersion, pushing to \`develop\`, and triggering the \`cd-dev.yml\`
+  GitHub Actions workflow. Use when the user says
+  "deploy payments-api to dev", "push <version> of payments-api to dev",
+  "roll out payments-api <version>". For prod use
+  \`deploy-payments-api-prod\` instead.
+source: ops-skill-builder (crystallized 2026-04-18 from a live run by russo)
+variant: project-local; access-tier=cli; target=aks-adp-noprd/dev
+working_language: en
+access_tier: cli
+requires_env: []
+requires_cli:
+  - az
+  - kubectl
+  - gh
+  - yq
+  - git
+risk_level: destructive
+---
+
+# deploy-payments-api-dev
+
+Canonical deploy of \`payments-api\` to the \`dev\` environment.
+
+## Pre-check auth
+
+\\\`\\\`\\\`bash
+az account show --query id -o tsv                       # expect: <dev-subscription-id>
+kubectl config current-context                          # expect: aks-adp-noprd
+gh auth status                                          # expect: logged in to github.com
+\\\`\\\`\\\`
+
+If any fail:
+- \`az login\` then \`az account set --subscription <dev-subscription-id>\`
+- \`az aks get-credentials --resource-group rg-adp-app-noprd --name aks-adp-noprd\`
+- \`gh auth login\`
+
+## Read state
+
+\\\`\\\`\\\`bash
+kubectl get deploy payments-api -n dev -o jsonpath='{.spec.template.spec.containers[0].image}'
+az acr repository show-tags --name acrxxx --repository payments-api --orderby time_desc --top 5
+\\\`\\\`\\\`
+
+## Validate args
+
+\`version=<semver>\` required.
+
+## Execute
+
+| # | Step | Command | Risk |
+|---|------|---------|------|
+| 1 | Verify tag exists | \`az acr manifest show-metadata --registry acrxxx --name payments-api:$VERSION\` | non-destructive |
+| 2 | Update Chart.yaml | \`yq -i ".appVersion = \\"$VERSION\\"" infra/helm/payments-api/Chart.yaml\` | reversible |
+| 3 | Commit + push | \`git commit -am "deploy payments-api $VERSION to dev" && git push origin develop\` | reversible |
+| 4 | Trigger CD | \`gh workflow run cd-dev.yml -f service=payments-api\` | **destructive** |
+| 5 | Monitor | \`kubectl rollout status deploy/payments-api -n dev --timeout=5m\` | non-destructive |
+
+## Verify
+
+\\\`\\\`\\\`bash
+kubectl get pods -n dev -l app=payments-api -o jsonpath='{.items[*].spec.containers[*].image}' | grep -q "$VERSION"
+curl -sf https://payments-api-dev.example.com/health
+\\\`\\\`\\\`
+
+## Report
+
+\\\`\\\`\\\`
+deploy-payments-api-dev — deploy complete
+Target:   dev
+Service:  payments-api
+Version:  <old> → <new>
+Duration: <s>s
+Verified: rollout OK, health OK
+Log:      tmp/deploy-payments-api-dev/<ts>.log
+\\\`\\\`\\\`
+
+## Rollback
+
+\\\`\\\`\\\`bash
+gh workflow run cd-dev-rollback.yml -f service=payments-api -f version=<previous>
+# or: kubectl rollout undo deploy/payments-api -n dev
+\\\`\\\`\\\`
+
+## Anti-patterns
+
+- Running on prod — use \`deploy-payments-api-prod\`
+- Skipping verify — a deploy is not done until rollout + health pass
+- Hardcoding the version
+\`\`\`
+
+## Why this template works
+
+- **Same shape every time** — team members can jump between skills with zero ramp-up.
+- **Auth is a first-class section** — no "it works on my machine" surprises.
+- **Risk is explicit** — destructive steps are labelled and double-confirmed.
+- **Rollback is planned, not improvised** — every skill has a rollback recipe even if never exercised.
+- **Language is inherited** — generated skills in Italian / Spanish / etc. use the project's working language declared in \`nonoise.config.json\`.
+",
   ".claude/skills/playwright-cli/SKILL.md": "---
 name: playwright-cli
 description: Automates browser interactions for web testing, form filling, screenshots, and data extraction. Use when the user needs to navigate websites, interact with web pages, fill forms, take screenshots, test web applications, or extract information from web pages.
@@ -6127,7 +8841,7 @@ The skill is the natural front door for any new engagement where the product tea
 4. **Proposes a domain / feature breakdown** — groups candidates by functional domain and feature; presents the breakdown to the user for confirmation.
 5. **Dialogs with the user** to disambiguate, deduplicate, and fill gaps — one question at a time, multiple-choice when possible.
 6. **Writes requirement files** under \`docs/requirements/<domain>/<feature>.md\` with standard frontmatter and sections.
-7. **Parks source documents** in \`docs/calls/\` (for meetings / call transcripts) or \`docs/support/\` (for PDFs, legacy analyses, third-party briefs) and cross-references them from each requirement file.
+7. **Parks source documents** in a single per-domain bucket \`docs/requirements/<domain>/sources/\` (one place per domain — everything that fed \`<feature>.md\` lives right next to it) and cross-references them from each requirement file. Only cross-domain / shared material goes to the top-level \`docs/calls/\` (multi-domain meetings) or \`docs/support/\` (shared research, vendor docs, regulatory, legacy analyses).
 8. **Suggests the next step** — invoke \`arch-brainstorm area <domain-or-feature>\` to start the architectural design.
 
 ## What this skill does NOT do
@@ -6156,7 +8870,7 @@ Whatever language is chosen, all frontmatter field **names** stay in English (\`
 | \`requirements-ingest\` (no args) | Ask the user for paths to raw documents, one at a time |
 | \`requirements-ingest <path1> <path2> ...\` | Start from those paths |
 | "ingest these files: A, B, C" | Treat A, B, C as the input set |
-| "process this call transcript from yesterday" | Treat it as a single-source ingestion — tag it as a call, park under \`docs/calls/\` with today's date prefix |
+| "process this call transcript from yesterday" | Treat it as a single-source ingestion — park under the target domain's \`docs/requirements/<domain>/sources/<YYYY-MM-DD>-<slug>.md\` if domain-specific; under top-level \`docs/calls/\` only if the meeting spans multiple domains |
 | "add these new requirements to domain \`billing\`" | Targeted ingestion: constrain output to \`docs/requirements/billing/\`; allow creating new features inside it but do not create new domains |
 
 **Before starting real work**, the skill must always:
@@ -6336,21 +9050,28 @@ Ask the user to confirm the breakdown before writing anything.
 
 ### Phase 4: WRITE — produce requirement files and park sources
 
-**Goal**: for each \`(domain, feature)\` in the confirmed breakdown, write or update the requirement file; for each source document, park it under \`docs/calls/\` or \`docs/support/\` and cross-reference it.
+**Goal**: for each \`(domain, feature)\` in the confirmed breakdown, write or update the requirement file; for each source document, park it under the target domain's \`sources/\` subfolder and cross-reference it.
 
-#### Source document parking
+#### Source document parking — one bucket per domain
 
-First, park the source documents:
+**Default destination for every source**: \`docs/requirements/<domain>/sources/<filename>\` (free-form inside, no sub-categorization). The rationale: everything that fed a given feature file lives right next to it — no hunting across multiple top-level folders.
 
-- **Call transcripts / meeting notes** → \`docs/calls/<YYYY-MM-DD>-<short-slug>.<ext>\`
-  - Date: the date of the call (from the document if stated, else ask the user)
-  - Example: \`docs/calls/2026-04-18-business-user-signup.md\`
-  - If the original format is not markdown (e.g. DOCX), also drop a markdown companion with the meeting summary when feasible, keeping the binary alongside.
-- **Stakeholder briefs / PDFs / DOCX** → \`docs/support/<slug>.<ext>\`
-  - Example: \`docs/support/vendor-payment-api-spec.pdf\`
-  - If the user already parked the document elsewhere, keep the existing path and only reference it.
-- **Emails / chat excerpts** → \`docs/support/emails/<YYYY-MM-DD>-<short-slug>.md\`
-- **Markdown notes the user wrote** → user's choice: park under \`docs/support/notes/\` or leave in place if already inside \`docs/\`
+Date-prefix the filename when the document has a chronology (calls, emails, versioned briefs): \`<YYYY-MM-DD>-<short-slug>.<ext>\`. Example filenames inside \`docs/requirements/billing/sources/\`:
+
+- \`2026-04-18-business-kickoff.md\` — call transcript
+- \`vendor-payment-api-spec.pdf\` — stakeholder brief (no date needed; version is in the filename if relevant)
+- \`2026-04-10-email-thread-invoice-rules.md\` — email thread
+- \`finance-team-notes.md\` — note the user wrote
+- \`mockup-invoice-list-v2.png\` — UI mockup
+
+Sub-categorization inside \`sources/\` is **not required**. If a domain accumulates many files of a kind, the user can organize freely (\`sources/calls/\`, \`sources/emails/\`, \`sources/mockups/\`) — the skill does not impose the structure.
+
+**Exceptions — when to use top-level \`docs/calls/\` or \`docs/support/\` instead**:
+
+- **Multi-domain meeting** — a call that genuinely spans 2+ domains (company-wide kick-off, quarterly planning, cross-team review). Park at \`docs/calls/<YYYY-MM-DD>-<slug>.<ext>\`, and every affected feature file adds an entry to \`source_documents\` referencing that path.
+- **Cross-domain shared material** — a vendor spec used across many features, a regulatory standard (GDPR, PCI-DSS, etc.), a legacy analysis that informs multiple domains. Park under the existing \`docs/support/<legacy|research|vendor|regulatory>/<slug>.<ext>\` buckets (these are declared in \`docs/support/README.md\`).
+
+**Decision rule**: if in doubt, prefer per-domain (\`sources/\`). Promote to top-level only when a second domain actually cites the same file.
 
 Before moving files, **ask the user** whether to copy or move. Default: copy (preserve the original path the user referenced). Never silently delete originals.
 
@@ -6365,10 +9086,10 @@ domain: <domain-slug>
 feature: <feature-slug>
 status: draft
 source_documents:
-  - path: docs/calls/2026-04-18-business-user-signup.md
+  - path: docs/requirements/user-signup/sources/2026-04-18-business-user-signup.md
     kind: call-transcript
     sections: ["3.2 OTP flow"]
-  - path: docs/support/vendor-payment-api-spec.pdf
+  - path: docs/requirements/user-signup/sources/vendor-payment-api-spec.pdf
     kind: brief
     sections: ["pp. 12-14"]
 created_at: YYYY-MM-DD
@@ -6424,9 +9145,9 @@ TBDs, disagreements between sources, missing information. Every open point must 
 
 Verbatim quotes from the source documents that ground this requirement. Useful when the team later wants to check whether the ingestion preserved intent.
 
-> "<quote 1>" — source: \`docs/calls/2026-04-18-business-user-signup.md\` §3.2
+> "<quote 1>" — source: \`sources/2026-04-18-business-user-signup.md\` §3.2
 >
-> "<quote 2>" — source: \`docs/support/vendor-payment-api-spec.pdf\` p. 13
+> "<quote 2>" — source: \`sources/vendor-payment-api-spec.pdf\` p. 13
 \`\`\`
 
 #### Updating an existing requirement file
@@ -6442,8 +9163,8 @@ If the feature file already exists (incremental ingestion):
    \`\`\`markdown
    ## Ingestion history
 
-   - 2026-04-18 — added CR-005, CR-006 from \`docs/calls/2026-04-18-business-user-signup.md\`
-   - 2026-03-02 — initial ingestion from \`docs/support/vendor-payment-api-spec.pdf\`
+   - 2026-04-18 — added CR-005, CR-006 from \`sources/2026-04-18-business-user-signup.md\`
+   - 2026-03-02 — initial ingestion from \`sources/vendor-payment-api-spec.pdf\`
    \`\`\`
 
 #### Cross-references
@@ -6464,8 +9185,13 @@ After all files are written, update (or create) \`docs/requirements/<domain>/REA
 
 ## Source documents referenced
 
-- [docs/calls/2026-04-18-business-user-signup.md](../../calls/2026-04-18-business-user-signup.md)
-- [docs/support/vendor-payment-api-spec.pdf](../../support/vendor-payment-api-spec.pdf)
+Per-domain (in \`./sources/\`):
+- [sources/2026-04-18-business-kickoff.md](./sources/2026-04-18-business-kickoff.md)
+- [sources/vendor-payment-api-spec.pdf](./sources/vendor-payment-api-spec.pdf)
+
+Cross-domain (top-level, only when shared with other domains):
+- [docs/calls/2026-04-10-quarterly-planning.md](../../calls/2026-04-10-quarterly-planning.md)
+- [docs/support/regulatory/gdpr-art-7.md](../../support/regulatory/gdpr-art-7.md)
 \`\`\`
 
 #### Self-review before saving
@@ -6585,8 +9311,8 @@ The skill is stateless between invocations — state lives entirely in the files
 - **PRD validation** → \`arch-decision\`
 - **Sprint promotion** → \`sprint-manifest\`
 - **Bug reports / incidents** → do not file as requirements; use the project's issue tracker
-- **Pure legacy analysis** (no forward-looking requirements) → park directly under \`docs/support/\` without going through ingestion
-- **Meeting notes you just want to archive** — if there is nothing actionable, park under \`docs/calls/\` directly without creating requirement files
+- **Pure legacy analysis** (no forward-looking requirements) → park directly under \`docs/support/legacy/\` without going through ingestion
+- **Meeting notes you just want to archive** — if there is nothing actionable, park under \`docs/calls/\` (cross-domain) or the relevant \`docs/requirements/<domain>/sources/\` directly without creating requirement files
 
 ---
 
@@ -6807,35 +9533,46 @@ During merging and structuring, conflicts will appear. The skill never resolves 
 
 ## Source-document kinds and parking rules
 
+**Default destination for every kind**: \`docs/requirements/<domain>/sources/<filename>\`. Filename conventions below describe only the naming pattern — not separate destinations.
+
 ### Call transcripts / meeting notes
 
-- Park to \`docs/calls/<YYYY-MM-DD>-<short-slug>.<ext>\`
+- Filename: \`<YYYY-MM-DD>-<short-slug>.<ext>\`
 - Date = date of the meeting (from document or user)
-- Slug = domain or feature focus, kebab-case
+- Slug = feature or focus, kebab-case
 - Examples:
-  - \`2026-04-10-billing-kickoff.md\`
-  - \`2026-04-15-signup-ux-review.md\`
+  - \`docs/requirements/billing/sources/2026-04-10-billing-kickoff.md\`
+  - \`docs/requirements/user-signup/sources/2026-04-15-ux-review.md\`
+- **Exception**: if the meeting spans ≥ 2 domains (company kick-off, quarterly planning, multi-team review), park at top-level \`docs/calls/<YYYY-MM-DD>-<short-slug>.<ext>\` and reference from each affected feature file.
 
 ### Stakeholder briefs (PDF, DOCX)
 
-- Park to \`docs/support/<slug>.<ext>\`
-- Slug = short descriptor; no date prefix (briefs are less temporal than calls)
-- If the brief has a natural versioning (v1, v2), include it: \`finance-brief-q2-v2.pdf\`
+- Filename: \`<slug>.<ext>\`; no date prefix (briefs are less temporal than calls)
+- If the brief has natural versioning (v1, v2), include it: \`finance-brief-q2-v2.pdf\`
+- Example: \`docs/requirements/billing/sources/finance-team-brief-q2.pdf\`
+- **Exception**: if the brief is reused across multiple domains (vendor spec, regulatory standard), park under the shared \`docs/support/<legacy|research|vendor|regulatory>/\` as declared by \`docs/support/README.md\`.
 
 ### Emails / chat excerpts
 
-- Park to \`docs/support/emails/<YYYY-MM-DD>-<slug>.md\`
+- Filename: \`<YYYY-MM-DD>-<slug>.md\`
 - Convert the excerpt to markdown when possible; preserve sender / recipient / date in the file header
+- Example: \`docs/requirements/billing/sources/2026-04-16-email-tax-rules.md\`
 
 ### Markdown notes (user-authored)
 
-- Let the user decide: leave in place (if already under \`docs/\`) or park under \`docs/support/notes/<slug>.md\`
+- Filename: \`<slug>.md\`
+- Let the user decide: leave in place (if already under \`docs/\` and the user prefers not to move) or park under the target domain's \`sources/\`
 - Never silently move
 
 ### Mockups / wireframes / screenshots
 
-- Park to \`docs/support/mockups/<domain>/<feature>-<NN>.<ext>\` where \`NN\` is an incremental index
+- Filename: \`<feature>-<NN>.<ext>\` where \`NN\` is an incremental index (\`signup-01.png\`, \`signup-02.png\`)
+- Example: \`docs/requirements/user-signup/sources/signup-flow-01.png\`
 - Reference from the requirement file's \`source_documents\` with \`kind: mockup\`
+
+### Sub-organization inside \`sources/\` (optional)
+
+If a domain accumulates many files, the user can freely sub-organize — e.g. \`sources/calls/\`, \`sources/emails/\`, \`sources/mockups/\`. The skill does not impose the sub-structure; only the top-level \`sources/\` is mandatory.
 
 ### Copy vs move
 
@@ -6943,9 +9680,9 @@ TBDs, disagreements between source documents, missing information. Every open po
 
 Verbatim quotes from the source documents that ground this requirement. This is the audit trail that lets the team check later whether ingestion preserved the stakeholder's intent.
 
-> "<quote 1>" — source: \`docs/calls/2026-04-18-<slug>.md\` §3.2
+> "<quote 1>" — source: \`sources/2026-04-18-<slug>.md\` §3.2
 >
-> "<quote 2>" — source: \`docs/support/<brief>.pdf\` p. 13
+> "<quote 2>" — source: \`sources/<brief>.pdf\` p. 13
 
 ## Ingestion history
 
@@ -7044,10 +9781,10 @@ domain: billing
 feature: invoice-generation
 status: draft
 source_documents:
-  - path: docs/calls/2026-04-10-billing-kickoff.md
+  - path: docs/requirements/billing/sources/2026-04-10-billing-kickoff.md
     kind: call-transcript
     sections: ["§2 Monthly cycle", "§4 Edge cases"]
-  - path: docs/support/finance-team-brief-q2.pdf
+  - path: docs/requirements/billing/sources/finance-team-brief-q2.pdf
     kind: brief
     sections: ["pp. 4-7"]
 created_at: 2026-04-18
@@ -7101,15 +9838,15 @@ The monthly close currently takes ~3 operator-days of manual spreadsheet work. T
 
 ## Source quotes
 
-> "We need one invoice per contract, same logic as the manual spreadsheet, but automated and finished by lunch on day 1." — source: \`docs/calls/2026-04-10-billing-kickoff.md\` §2
+> "We need one invoice per contract, same logic as the manual spreadsheet, but automated and finished by lunch on day 1." — source: \`sources/2026-04-10-billing-kickoff.md\` §2
 >
-> "Contracts in a disputed state should not produce invoices — finance handles those manually until the dispute is resolved." — source: \`docs/calls/2026-04-10-billing-kickoff.md\` §4
+> "Contracts in a disputed state should not produce invoices — finance handles those manually until the dispute is resolved." — source: \`sources/2026-04-10-billing-kickoff.md\` §4
 >
-> "For contracts without a tax profile, a draft invoice should still be generated with a warning, so finance sees the backlog at-a-glance." — source: \`docs/support/finance-team-brief-q2.pdf\` p. 5
+> "For contracts without a tax profile, a draft invoice should still be generated with a warning, so finance sees the backlog at-a-glance." — source: \`sources/finance-team-brief-q2.pdf\` p. 5
 
 ## Ingestion history
 
-- 2026-04-18 — initial ingestion from \`docs/calls/2026-04-10-billing-kickoff.md\` and \`docs/support/finance-team-brief-q2.pdf\` (candidates CR-001 through CR-007)
+- 2026-04-18 — initial ingestion from \`sources/2026-04-10-billing-kickoff.md\` and \`sources/finance-team-brief-q2.pdf\` (candidates CR-001 through CR-007)
 \`\`\`
 
 ---
@@ -10161,7 +12898,9 @@ Each component in the registry has a state:
 ",
   "docs/calls/README.md": "# \`docs/calls/\` — meeting notes and call transcripts
 
-This folder holds **raw meeting material**: notes, transcripts, recordings-to-text from business calls, technical calls, stakeholder interviews.
+This folder holds **cross-domain meeting material**: notes, transcripts, recordings-to-text from business calls, technical calls, stakeholder interviews that span **multiple requirement domains** (company-wide kick-offs, quarterly planning, multi-team reviews).
+
+**Domain-specific calls** live inside the domain they feed: \`docs/requirements/<domain>/sources/<YYYY-MM-DD>-<slug>.md\`. Use this top-level folder only when the same meeting informs 2+ domains.
 
 ## Why this folder exists
 
@@ -10265,16 +13004,25 @@ This folder holds the **requirements** that drive the project: user-facing featu
 
 ## Suggested layout
 
-Organize by domain, feature, or epic — whichever matches how your team reasons about the product:
+Organize by domain / epic. **All raw source material that fed a domain's requirements lives inside that domain's \`sources/\` subfolder** — there is no scattering across \`calls/\`, \`support/notes/\`, etc. for per-domain material. Cross-domain material (multi-domain meetings, shared vendor specs, regulatory standards) uses the top-level \`docs/calls/\` and \`docs/support/\` buckets.
 
 \`\`\`
 requirements/
 ├── <domain-or-epic>/
-│   ├── <feature>.md
-│   └── <feature>.md
+│   ├── <feature>.md            ← structured requirement (output)
+│   ├── README.md               ← domain index
+│   └── sources/                ← ALL raw inputs that fed this domain
+│       ├── 2026-04-10-kickoff-call.md
+│       ├── vendor-brief.pdf
+│       ├── email-thread.md
+│       └── mockup-flow-01.png
 └── <another-domain>/
-    └── <feature>.md
+    ├── <feature>.md
+    └── sources/
+        └── ...
 \`\`\`
+
+Sub-organization inside \`sources/\` is **optional and user-driven** — free-form. If a domain accumulates many items, organize as you prefer (\`sources/calls/\`, \`sources/emails/\`, etc.); the skill does not impose the sub-structure.
 
 Each requirement file should include:
 
@@ -10385,7 +13133,9 @@ A promoted PRD is **immutable**. If a change is needed, create a new study (\`02
 ",
   "docs/support/README.md": "# \`docs/support/\` — supporting documents
 
-This folder is the **catch-all for contextual material** that does not fit the other top-level folders but is still valuable context for the team and for NONoise skills.
+This folder is the **catch-all for cross-domain contextual material** that does not fit the other top-level folders but is still valuable context for the team and for NONoise skills.
+
+**Per-domain material** (emails / notes / briefs that fed a specific requirement) lives inside the domain it supports: \`docs/requirements/<domain>/sources/<filename>\`. Use this top-level folder only for material that is genuinely **shared across domains** (vendor specs used by 2+ domains, regulatory standards like GDPR / PCI-DSS, legacy analyses informing multiple teams).
 
 ## What goes here
 
@@ -10457,7 +13207,9 @@ support/
     "atr",
     "reverse-engineering",
     "requirements-ingest",
-    "spec-to-workitem"
+    "spec-to-workitem",
+    "ops-skill-builder",
+    "observability-debug"
   ]
 }
 ",
@@ -10489,6 +13241,17 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/docs-md-generator/SKILL.md",
   ".claude/skills/frontend-design/SKILL.md",
   ".claude/skills/graphify-setup/SKILL.md",
+  ".claude/skills/observability-debug/SKILL.md",
+  ".claude/skills/observability-debug/references/adapter-app-insights.md",
+  ".claude/skills/observability-debug/references/adapter-cloudwatch.md",
+  ".claude/skills/observability-debug/references/adapter-datadog.md",
+  ".claude/skills/observability-debug/references/adapter-generic-log-file.md",
+  ".claude/skills/observability-debug/references/adapter-grafana-loki.md",
+  ".claude/skills/observability-debug/references/adapter-otel-collector.md",
+  ".claude/skills/ops-skill-builder/SKILL.md",
+  ".claude/skills/ops-skill-builder/references/access-patterns.md",
+  ".claude/skills/ops-skill-builder/references/examples.md",
+  ".claude/skills/ops-skill-builder/references/ops-skill-template.md",
   ".claude/skills/playwright-cli/SKILL.md",
   ".claude/skills/playwright-cli/references/request-mocking.md",
   ".claude/skills/playwright-cli/references/running-code.md",
