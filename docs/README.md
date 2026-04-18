@@ -16,6 +16,7 @@ These files are also the source material for the public site at [NONoise-frmw-si
 8. **[`cross-tool.md`](cross-tool.md)** — support matrix for Claude Code, GitHub Copilot, Cursor, Gemini CLI, Codex.
 9. **[`external-tools.md`](external-tools.md)** — the tools Polly mentions but NONoise does not integrate (voice, memory, kanban, trackers).
 10. **[`installation.md`](installation.md)** — install, scaffold output, repo layout, dev loop for framework contributors.
+11. **[`site-brief.md`](site-brief.md)** — brief for reworking the public NoNoise site around the bootstrapper framing. Self-contained spec an AI (Claude UI) can consume to regenerate the site's content dictionary and JSX.
 
 ## Read selectively (returning reader)
 
