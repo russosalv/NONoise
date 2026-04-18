@@ -2,6 +2,15 @@
 
 Claude Code-specific conventions for this project. For cross-tool context see `AGENTS.md`.
 
+## Workspace-centric skills
+
+This is a NONoise multi-repo workspace. The `.claude/skills/` tree lives at
+the workspace root (this directory). All skills — including Polly — are
+available when you open this directory in Claude Code. Sub-repos under
+`repos/` are managed as separate code repositories; they do NOT carry
+their own skill tree. If you need skills inside a specific sub-repo,
+copy the `.claude/` folder manually into that sub-repo (rarely needed).
+
 ## Entry point — Polly
 
 This project ships with **Polly**, the NONoise SDLC orchestrator. Start there whenever you

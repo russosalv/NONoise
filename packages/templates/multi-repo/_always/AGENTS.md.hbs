@@ -1,21 +1,57 @@
 # {{projectName}}
 
-AI-agents context for this project.
+AI-agents context for this **NONoise multi-repo workspace**.
 
 {{#if aiTools.claudeCode}}See `CLAUDE.md` for Claude Code-specific conventions.
 {{/if}}{{#if aiTools.copilot}}See `.github/copilot-instructions.md` for GitHub Copilot rules.
 {{/if}}{{#if aiTools.geminiCli}}See `GEMINI.md` for Gemini CLI rules.
 {{/if}}
 
+## What this workspace is
+
+This directory is an **umbrella workspace** that hosts N git sub-repositories
+under `repos/`. The list of sub-repos is declared in `repositories.json` at the
+workspace root. Each sub-repo keeps its own `.git` directory — the workspace
+itself does not contain their code directly.
+
+## Managing sub-repos
+
+- `repositories.json` — manifest of the sub-repos (name, url, path, branch,
+  status). Only entries with `"status": "active"` are processed by the scripts.
+- `./scripts/clone-all.sh` (or `.ps1`) — bootstrap: clones every active sub-repo
+  into `repos/<path>/`. Safe to re-run; already-cloned repos are skipped.
+- `./scripts/switch-branch.sh <branch>` (or `.ps1 -BranchName <branch>`) — aligns
+  every active sub-repo onto the same branch. Uncommitted changes are auto-stashed.
+- `./scripts/pull-all.sh` (or `.ps1`) — `git pull --ff-only` across all active sub-repos.
+
+## VibeKanban compatibility
+
+Keeping every sub-repo on the same branch (via `switch-branch`) makes tools like
+VibeKanban treat the workspace as a single unit of work — one branch, many repos,
+one task.
+
+## Workspace-centric skills policy
+
+The `.claude/skills/` tree lives **only at workspace root**. Open the workspace
+root in Claude Code / Copilot / etc. and every bundled skill (including Polly,
+the NONoise SDLC orchestrator) is available.
+
+Sub-repos under `repos/` are plain code repositories and do **not** carry their
+own skill tree. If you genuinely need skills inside a specific sub-repo, copy
+the `.claude/` folder manually — NONoise ships workspace-centric by default.
+
 ## Project structure
 
-- `src/` — application code
-- `docs/` — architecture docs, ADRs, specs
-- `tools/` — utility scripts
+- `repositories.json` — sub-repo manifest (workspace root)
+- `scripts/` — `clone-all`, `switch-branch`, `pull-all` (`.sh` + `.ps1`)
+- `repos/` — sub-repositories land here after `clone-all`
+- `docs/` — architecture, requirements, PRD, sprints, calls, support
+- `src/`, `tools/`, `.vscode/` — workspace-level utilities and shared code
 
 ## Build & test
 
-(fill this in once the project has code)
+(fill this in once the workspace has code — sub-repos generally keep their own
+build/test instructions; this section covers workspace-level orchestration only)
 
 <!-- >>> graphify (managed by graphify-setup skill) -->
 ## graphify

@@ -2,6 +2,14 @@
 
 Project-scoped rules for Copilot. For cross-tool context see `AGENTS.md`.
 
+## Workspace-centric skills
+
+This is a NONoise multi-repo workspace. The `.claude/skills/` tree lives at
+the workspace root. Open this directory in your editor and Copilot will
+find every skill. Sub-repos under `repos/` are separate git repositories
+and do NOT carry their own skill tree. If you need skills inside a
+specific sub-repo, copy `.claude/` manually.
+
 ## Entry point — Polly
 
 This project ships with **Polly**, the NONoise SDLC orchestrator. Whenever the developer

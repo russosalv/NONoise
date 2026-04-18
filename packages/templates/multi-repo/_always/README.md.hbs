@@ -1,13 +1,116 @@
 # {{projectName}}
 
+This is a **NONoise multi-repo workspace** — an umbrella that hosts N git
+sub-repositories under `repos/` and orchestrates them via a root-level
+`repositories.json` manifest plus a small set of scripts.
+
 Scaffolded with [create-nonoise](https://github.com/russosalv/NONoise) v{{frameworkVersion}}.
 
-## Getting started
+## Quickstart
 
+1. Open `repositories.json` at the workspace root and replace the placeholder
+   entry with the real sub-repos (set `"status": "active"` for each one).
+2. Run the bootstrap script:
+
+   ```bash
+   # macOS / Linux / Git Bash
+   ./scripts/clone-all.sh
+
+   # Windows PowerShell
+   ./scripts/clone-all.ps1
+   ```
+
+3. Open the workspace root in your editor. AI tools (Claude Code, Copilot, etc.)
+   will pick up the `.claude/skills/` tree that ships with the workspace.
+
+## Managing sub-repos
+
+All scripts live under `scripts/` and come in both `.sh` and `.ps1` flavors.
+
+### `clone-all`
+
+Clones every active sub-repo declared in `repositories.json` into `repos/<path>/`.
+Already-cloned sub-repos are skipped. Safe to re-run whenever you add a new
+entry to the manifest.
+
+```bash
+./scripts/clone-all.sh
+# or
+./scripts/clone-all.ps1
 ```
-cd {{projectName}}
-# add your code under src/
+
+### `switch-branch`
+
+Puts every active sub-repo onto the same branch. If the branch exists locally
+it's checked out; otherwise it's tracked from `origin/`; otherwise it's created
+(optionally from a base branch). Uncommitted changes are auto-stashed.
+
+```bash
+./scripts/switch-branch.sh feature/123-my-feature
+./scripts/switch-branch.sh feature/123-my-feature --base develop --fetch
+
+# PowerShell
+./scripts/switch-branch.ps1 -BranchName feature/123-my-feature
+./scripts/switch-branch.ps1 -BranchName feature/123-my-feature -BaseBranch develop -FetchFirst
 ```
+
+### `pull-all`
+
+Runs `git pull --ff-only` in every active sub-repo.
+
+```bash
+./scripts/pull-all.sh
+# or
+./scripts/pull-all.ps1
+```
+
+## Working inside a single sub-repo
+
+By default this workspace is **workspace-centric**: the `.claude/skills/` tree
+lives only at the workspace root, and you open the workspace root with your AI
+tool to access every skill (including Polly, the SDLC orchestrator). Sub-repos
+under `repos/` are managed as plain git repositories with no embedded skill tree.
+
+### Escape hatch
+
+If you prefer having the full `.claude/` tree inside a specific sub-repo (for
+example, you want to work on one sub-repo in isolation with its own AI context),
+copy it manually:
+
+```bash
+cp -r .claude repos/<path>/.claude
+# PowerShell
+Copy-Item -Recurse .claude repos/<path>/.claude
+```
+
+NONoise ships workspace-centric by default; there is no automation for this
+step on purpose — it's an explicit choice the developer makes per sub-repo.
+
+## VibeKanban compatibility
+
+VibeKanban supports umbrella workspaces with multiple sub-repos as long as they
+are colocated in a single tree and can be aligned onto the same branch. Running
+`./scripts/switch-branch.sh <branch>` before a VibeKanban task makes the whole
+workspace behave as one unit of work.
+
+## Docs hierarchy
+
+Like every NONoise project, this workspace ships with a standard `docs/` layout:
+
+- `docs/architecture/` — source of truth: architectural decisions, patterns,
+  component registry, cross-cutting rules for the whole workspace
+- `docs/requirements/` — functional & business requirements (output of
+  `requirements-ingest`)
+- `docs/calls/` — meeting transcripts and notes
+- `docs/support/` — reverse-engineering dossiers and reference material
+- `docs/prd/` — product requirement documents (output of `arch-brainstorm`,
+  validated by `arch-decision`)
+- `docs/sprints/` — sprint manifests (output of `sprint-manifest`)
+
+The standard NONoise SDLC flow is: `requirements-ingest` -> `arch-brainstorm` ->
+`arch-decision` -> `sprint-manifest` -> `atr`. Invoke Polly (via `/polly` or
+"start polly") any time you're unsure what to run next — Polly is the conductor
+across the SDLC.
 
 ## AI tools enabled
 
