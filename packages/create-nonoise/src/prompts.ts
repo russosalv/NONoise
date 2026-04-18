@@ -8,6 +8,8 @@ export type CliFlags = {
   ai?: string;              // csv
   noGit?: boolean;
   yes?: boolean;
+  bmad?: boolean;
+  noBmad?: boolean;
 };
 
 const DEFAULT_AI_TOOLS: AiTools = {
@@ -25,6 +27,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
   const template = flags.template ?? 'single-project';
   const aiTools = await askAiTools(flags);
   const gitInit = flags.noGit === true ? false : flags.yes === true ? true : await askGitInit();
+  const installBmad = await askInstallBmad(flags);
 
   return {
     projectName: name,
@@ -33,6 +36,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
     aiTools,
     gitInit,
     frameworkVersion,
+    installBmad,
   };
 }
 
@@ -105,6 +109,18 @@ function parseAiCsv(csv: string): AiTools {
 
 async function askGitInit(): Promise<boolean> {
   const answer = await confirm({ message: 'Initialize a git repository?', initialValue: true });
+  abortIfCancel(answer);
+  return answer as boolean;
+}
+
+async function askInstallBmad(flags: CliFlags): Promise<boolean> {
+  if (flags.noBmad === true) return false;
+  if (flags.bmad === true) return true;
+  if (flags.yes) return true;
+  const answer = await confirm({
+    message: 'Install BMAD agent skills? (requires network, runs `npx bmad-method install`)',
+    initialValue: true,
+  });
   abortIfCancel(answer);
   return answer as boolean;
 }
