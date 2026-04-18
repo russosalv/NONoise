@@ -48,6 +48,8 @@ function parseArgv(args: string[]): ParsedFlags {
     else if (a === '--version' || a === '-v') out.version = true;
     else if (a === '--yes' || a === '-y') out.yes = true;
     else if (a === '--no-git') out.noGit = true;
+    else if (a === '--bmad') out.bmad = true;
+    else if (a === '--no-bmad') out.noBmad = true;
     else if (a === '--template') out.template = args[++i] as TemplateName;
     else if (a === '--ai') out.ai = args[++i];
     else if (!a.startsWith('-') && !out.positionalDir) out.positionalDir = a;
@@ -73,6 +75,8 @@ Options:
   --template <name>   Template name (default: single-project)
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
   --no-git            Skip git init
+  --bmad              Install BMAD agent skills (default: ask)
+  --no-bmad           Skip BMAD install
   --yes, -y           Use defaults, non-interactive
   --version, -v       Print version
   --help, -h          Print help
