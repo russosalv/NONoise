@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
 const [major] = process.versions.node.split('.').map(Number);
@@ -9,5 +9,6 @@ if (major < 20) {
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
-const { main } = await import(resolve(here, '..', 'dist', 'index.js'));
+const distEntry = resolve(here, '..', 'dist', 'index.js');
+const { main } = await import(pathToFileURL(distEntry).href);
 await main();
