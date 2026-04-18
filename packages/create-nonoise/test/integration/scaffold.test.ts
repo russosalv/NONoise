@@ -39,6 +39,7 @@ describe('scaffold() integration', () => {
       },
       gitInit: false,
       frameworkVersion: '0.1.0',
+      installBmad: false,
       ...overrides,
     };
   }
@@ -64,23 +65,59 @@ describe('scaffold() integration', () => {
     await expect(stat(join(projectPath, 'CLAUDE.md'))).rejects.toThrow();
   });
 
-  it('installs the 3 MVP skills when claudeCode is true', async () => {
+  it('installs the 5 MVP skills when claudeCode is true', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
-    const g = await readFile(join(projectPath, '.claude', 'skills', 'graphify-gitignore', 'SKILL.md'), 'utf8');
-    const v = await readFile(join(projectPath, '.claude', 'skills', 'vscode-config-generator', 'SKILL.md'), 'utf8');
-    const d = await readFile(join(projectPath, '.claude', 'skills', 'docs-md-generator', 'SKILL.md'), 'utf8');
-    expect(g).toContain('graphify-gitignore');
-    expect(v).toContain('vscode-config-generator');
-    expect(d).toContain('docs-md-generator');
+    const expected = [
+      'graphify-gitignore',
+      'vscode-config-generator',
+      'docs-md-generator',
+      'playwright-cli',
+      'frontend-design',
+    ];
+    for (const name of expected) {
+      const content = await readFile(
+        join(projectPath, '.claude', 'skills', name, 'SKILL.md'),
+        'utf8',
+      );
+      expect(content).toContain(name);
+    }
   });
 
-  it('does NOT install skills when claudeCode is false', async () => {
+  it('installs skills when Copilot-only (no claudeCode) — cross-tool install', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
-    await expect(stat(join(projectPath, '.claude', 'skills', 'graphify-gitignore'))).rejects.toThrow();
+    const g = await readFile(
+      join(projectPath, '.claude', 'skills', 'graphify-gitignore', 'SKILL.md'),
+      'utf8',
+    );
+    expect(g).toContain('graphify-gitignore');
+  });
+
+  it('does NOT install skills when zero AI tools are selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi() }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    await expect(
+      stat(join(projectPath, '.claude', 'skills', 'graphify-gitignore')),
+    ).rejects.toThrow();
+  });
+
+  it('records installBmad=false when BMAD was not requested', async () => {
+    await scaffold(buildCtx({ installBmad: false }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const raw = await readFile(join(projectPath, 'nonoise.config.json'), 'utf8');
+    const cfg = JSON.parse(raw) as {
+      installBmad: boolean;
+      bmadInstalled: boolean;
+      bmadInstallError: string | null;
+    };
+    expect(cfg.installBmad).toBe(false);
+    expect(cfg.bmadInstalled).toBe(false);
+    expect(cfg.bmadInstallError).toBeNull();
   });
 
   it('produces valid nonoise.config.json with accurate aiTools booleans', async () => {
