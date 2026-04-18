@@ -1,0 +1,90 @@
+workspace "{{projectName}}" "C4 model for {{projectName}} — maintained by the c4-doc-writer skill." {
+
+    model {
+
+        // ------------------------------------------------------------------
+        // People — who uses the system
+        // ------------------------------------------------------------------
+        // operator = person "Operator" "Day-to-day operator of the platform."
+        // endUser  = person "End User" "Consumer of the public-facing features."
+
+        // ------------------------------------------------------------------
+        // Software system — the project being built
+        // ------------------------------------------------------------------
+        {{projectName}} = softwareSystem "{{projectName}}" "TODO — one-line description of the system." {
+
+            // Containers live here. Declare one per runtime-deployable unit.
+            // Argument order is: name, description, technology.
+            //
+            // Examples:
+            //   shell   = container "Shell"   "Host application"         "Angular 20"
+            //   bff     = container "BFF"     "Backend-for-frontend"     "Node 22, TypeScript"
+            //   msAuth  = container "ms-auth" "Authentication service"   ".NET 10"
+            //   db      = container "Postgres" "Primary database"        "Postgres 16" {
+            //       tags "Database"
+            //   }
+        }
+
+        // ------------------------------------------------------------------
+        // External systems — anything this app integrates with
+        // ------------------------------------------------------------------
+        // paymentGw = softwareSystem "Payment Gateway" "Third-party payments." {
+        //     tags "External"
+        // }
+
+        // ------------------------------------------------------------------
+        // Relationships — declared at the level that makes the diagram read well
+        // ------------------------------------------------------------------
+        // operator -> {{projectName}} "Uses"
+        // {{projectName}} -> paymentGw "Authorizes payments" "HTTPS"
+    }
+
+    views {
+
+        systemLandscape "landscape" "The system and its external neighbours." {
+            include *
+            autoLayout lr
+        }
+
+        systemContext {{projectName}} "context" "{{projectName}} in context." {
+            include *
+            autoLayout
+        }
+
+        container {{projectName}} "containers" "Containers inside {{projectName}}." {
+            include *
+            autoLayout
+        }
+
+        // Add component views per container when Component-level detail is needed.
+        // component <containerId> "<slug>" "<title>" {
+        //     include *
+        //     autoLayout
+        // }
+
+        // Add dynamic views for flows you want to document.
+        // dynamic {{projectName}} "signup" "User signup flow." {
+        //     operator -> shell "Submits form"
+        //     shell    -> bff   "POST /signup"
+        //     bff      -> msAuth "CreateUser"
+        // }
+
+        styles {
+            element "Person" {
+                shape Person
+                background #08427B
+                color #ffffff
+            }
+            element "External" {
+                background #999999
+                color #ffffff
+            }
+            element "Database" {
+                shape Cylinder
+            }
+            element "Queue" {
+                shape Pipe
+            }
+        }
+    }
+}

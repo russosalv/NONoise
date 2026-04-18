@@ -143,6 +143,7 @@ Sometimes the user's need does not fit the main SDLC loop. Recognize and route:
 | "design this UI" | `frontend-design` |
 | "generate VSCode configs" | `vscode-config-generator` |
 | "I need a docs / design / prd markdown file" | `docs-md-generator` / `design-md-generator` |
+| "update C4 diagrams" | `c4-doc-writer` |
 | "I don't know which skill I want" | `skill-finder` |
 
 ## Fallback for missing skills

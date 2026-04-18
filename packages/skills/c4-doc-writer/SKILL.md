@@ -1,0 +1,217 @@
+---
+name: c4-doc-writer
+description: Produces and maintains living C4 architecture diagrams (Context / Container / Component / Code) for a NONoise project by emitting and updating a single Structurizr DSL workspace (`docs/architecture/c4/workspace.dsl`), from which multiple views are regenerated on demand. Unlike static Mermaid, the DSL is source-controlled, diff-able, and yields Context + Container + Component views from a single model. USE THIS SKILL right after `arch-decision` returns PASS on a PRD — the "Impact on docs/architecture/" checklist should include a call into this skill so the diagrams stay in sync with the validated decision. Also triggers on manual invocation — "/c4 update", "update c4", "update C4 diagrams", "generate C4 diagrams", "refresh the architecture diagrams", "structurizr", "rebuild the container view after this ADR", "sync the C4 with the new PRD". Also triggers without explicit mention when the user says they want to refresh the architectural diagrams after a PRD/ADR was validated. Stack-neutral — works for any project that has `docs/architecture/` populated, whether Angular+dotnet, Node+React, Python, Go, Flutter, data pipelines, or CLIs.
+source: NONoise framework (new skill)
+variant: nonoise generic; stack-neutral; Structurizr DSL as the single source
+---
+
+# c4-doc-writer — Living C4 diagrams via Structurizr DSL
+
+This skill keeps the project's C4 architecture diagrams in sync with the validated architectural decisions. It does **not** brainstorm architecture (`arch-brainstorm`) nor validate it (`arch-decision`) — it is invoked **after** a validated PRD to update the diagram source (`docs/architecture/c4/workspace.dsl`) and regenerate views.
+
+## Why Structurizr DSL (not Mermaid, not PlantUML)
+
+Mermaid is great for one-off sketches but it ages fast — every view is hand-written and there is no model underneath. Structurizr DSL is:
+
+- **Model-first**: you declare `person`, `softwareSystem`, `container`, `component` once; the views block derives multiple diagrams from the same model
+- **Source-controlled**: plain text, diff-able, reviewable in PR
+- **Portable**: renders to Mermaid, PlantUML, Structurizr native, DOT — pick what your stack reads best
+- **Standard**: official C4 reference implementation (https://structurizr.com)
+
+See `references/structurizr-dsl-cheatsheet.md` for the canonical patterns and `references/c4-levels-primer.md` for what each level means and how it maps to NONoise artifacts.
+
+## Position in the workflow
+
+```
+arch-brainstorm ──▶ arch-decision ──PASS──▶ c4-doc-writer ──▶ sprint-manifest
+                        │                       │
+                        │                       └─▶ docs/architecture/c4/workspace.dsl
+                        │                           + rendered views (Mermaid/PlantUML)
+                        │
+                        └─▶ "Impact on docs/architecture/" checklist includes
+                            "refresh C4 via c4-doc-writer"
+```
+
+Three valid entry points:
+
+1. **After `arch-decision` PASS** (primary) — the architect or Polly engages this skill to reflect the validated decision in the diagrams
+2. **Manual refresh** — user says "update C4", "refresh diagrams", "/c4 update"
+3. **Initial setup** — first time the project has a validated architecture and no `workspace.dsl` exists yet: the skill scaffolds from `assets/workspace.dsl.template`
+
+## Inputs
+
+Before writing anything, the skill collects context from:
+
+- `nonoise.config.json` — project name, stack, template
+- `docs/architecture/01-constraints.md` and any ADRs (`docs/architecture/02-*.md` …) — the source of truth
+- `docs/prd/<area>/` — **only** PRDs with `status: validated` in frontmatter. Skip `draft` and `rejected`.
+- `docs/sprints/Sprint-N/sprint-manifest.md` if present — component-level breakdown hints
+- Existing `docs/architecture/c4/workspace.dsl` if present — **never overwrite blindly**, always diff and propose changes
+
+If `docs/architecture/` is empty, stop and tell the user to run the arch workflow first (`arch-brainstorm` → `arch-decision`).
+
+## Flow — 5 phases
+
+Each phase is a checkpoint. Ask for confirmation before the next one. Polly-style: **one question at a time**, never dump the full plan.
+
+### Phase 1 — Discover
+
+1. Read `nonoise.config.json` — extract `projectName`, template, aiTools
+2. List `docs/architecture/*.md` — record which constraints/ADRs exist
+3. List `docs/prd/*/` — filter `status: validated` only
+4. Check whether `docs/architecture/c4/workspace.dsl` already exists
+5. Produce a short discovery summary:
+
+```
+Found:
+  - project: <projectName>
+  - constraints: 01-constraints.md (+ N ADRs)
+  - validated PRDs: 3 (user-signup/01-email-otp, notifications/02-pubsub, …)
+  - existing workspace.dsl: yes, last modified <date>
+```
+
+Ask: **"Proceed to propose model updates?"** Wait for confirmation.
+
+### Phase 2 — Propose model updates (Q&A, no disk writes)
+
+Walk the architect through the model dimensions, one question at a time. Do **not** write to `workspace.dsl` during this phase — accumulate the proposed changes in working memory first.
+
+Canonical question set — ask only the ones that are unclear from the discovered material:
+
+1. **Software system name** — default from `nonoise.config.json` `projectName`. Ask only if the architect wants a different display name (e.g. code name vs product name).
+2. **Actors (persons)** — extract candidates from `docs/requirements/<domain>/` personas. Ask: "I see these user roles: <list>. Are any missing or should any be merged?"
+3. **External systems** — from ADRs, integration tables, `docs/calls/` mentions. Ask: "External systems this app talks to? I see <list> mentioned in ADRs."
+4. **Containers** — from `docs/architecture/` "components" / "services" sections and the validated PRDs. Ask one at a time: "Container `X` — purpose, tech, one-line description?"
+5. **Relationships** — for each pair of containers with likely traffic, ask: "`A -> B`: what does A send to B, and over what protocol?"
+6. **Components (optional, per container)** — only if the architect wants Component-level views. Usually skipped in initial runs.
+
+Phase 2 output = a proposal diff printed to the chat:
+
+```
+Proposed DSL changes:
++ person "Compliance Officer"
++ container "ms-auth" ".NET" "Authentication service"
+~ container "bff" tech updated from ".NET 8" to ".NET 10"
+- container "legacy-worker" (removed — superseded by ms-notifications per PRD 02-pubsub)
+```
+
+Ask: **"Apply this diff to `workspace.dsl`?"** Wait for confirmation.
+
+### Phase 3 — Write / update DSL
+
+1. If `workspace.dsl` does **not** exist: render `assets/workspace.dsl.template` with `{{projectName}}` replaced, then layer the Phase 2 proposals on top
+2. If it exists: apply the Phase 2 diff precisely. Preserve style, formatting, comments, and custom elements the architect added by hand (tags, styles, custom views)
+3. Ensure the file ends with a `views` block that contains at least:
+   - A `systemContext` view
+   - A `systemLandscape` view (if there are external systems)
+   - One `container` view per software system
+   - Dynamic views for flows that matter (e.g. "user signup sequence") — only if the architect asked for them
+4. **Syntactic validation** — parse the DSL mentally for balanced braces, required blocks (`workspace { model { … } views { … } }`), and naming uniqueness. If in doubt, tell the user to run `structurizr-cli validate -workspace workspace.dsl` (install info in `references/install-structurizr-cli.md`).
+5. Write the file. One atomic write, not piecemeal.
+
+### Phase 4 — Regenerate views
+
+The skill does **not** run Structurizr CLI itself (framework rule: no auto-install of third-party tooling, see `references/install-structurizr-cli.md`). Instead, it prints the exact commands the user runs:
+
+```bash
+# Option A — local CLI (recommended for dev loop)
+structurizr-cli export -workspace docs/architecture/c4/workspace.dsl \
+  -format mermaid \
+  -output docs/architecture/c4/rendered
+
+# Option B — one-shot docker (no install)
+docker run --rm -v "$PWD:/usr/local/structurizr" structurizr/cli \
+  export -workspace /usr/local/structurizr/docs/architecture/c4/workspace.dsl \
+  -format mermaid \
+  -output /usr/local/structurizr/docs/architecture/c4/rendered
+
+# Optional — PlantUML in addition to Mermaid
+structurizr-cli export -workspace docs/architecture/c4/workspace.dsl \
+  -format plantuml \
+  -output docs/architecture/c4/rendered
+```
+
+Expected output layout:
+
+```
+docs/architecture/c4/
+  workspace.dsl                 (the single source)
+  rendered/
+    structurizr-SystemContext.md      (Mermaid)
+    structurizr-Container.md          (Mermaid)
+    structurizr-Component-<name>.md   (Mermaid, if Component views declared)
+    structurizr-SignupSequence.md     (Mermaid dynamic view)
+    *.puml                            (PlantUML — if Option C ran)
+  CHANGELOG.md
+```
+
+If the user prefers PNG / SVG directly, Structurizr Lite in docker can render to a browser at `http://localhost:8080`:
+
+```bash
+docker run -it --rm -p 8080:8080 -v "$PWD/docs/architecture/c4:/usr/local/structurizr" structurizr/lite
+```
+
+Tell the user, don't run it.
+
+### Phase 5 — Changelog
+
+Append to `docs/architecture/c4/CHANGELOG.md` a dated entry. Create the file if absent. Template:
+
+```markdown
+## YYYY-MM-DD — <headline>
+
+- Triggered by: <which ADR / PRD / manual run>
+- Added: <new containers / actors / external systems>
+- Changed: <modified tech / renamed / relocated>
+- Removed: <deleted containers or relations>
+- Views affected: <systemContext | container | component-<x> | dynamic-<name>>
+- Rendered formats: <mermaid | plantuml | both>
+```
+
+Keep entries terse — one bullet per change, one paragraph max. The changelog is for humans scanning the history, not for CI machines.
+
+## Output summary (end of run)
+
+Print a block like this at the end:
+
+```
+C4 workspace updated.
+  source   : docs/architecture/c4/workspace.dsl
+  changelog: docs/architecture/c4/CHANGELOG.md  (+1 entry)
+  next     : run `structurizr-cli export ...` (see Phase 4) to regenerate views
+  tracker  : triggered by arch-decision PASS on docs/prd/<area>/NN-<study>.md
+```
+
+Return control to Polly (or to the user directly if invoked standalone). Do **not** invoke `sprint-manifest` — that's a separate decision.
+
+## Resuming mid-flow
+
+If the user aborts at Phase 2 (e.g. one question too many), save no state. Next time the skill runs it re-reads the architecture and starts fresh. The DSL file on disk is the only persistent state.
+
+## Anti-patterns
+
+1. **Silent overwrite of `workspace.dsl`** — always diff and confirm. Architects may have hand-edited styling, tags, or custom views.
+2. **Running Structurizr CLI automatically** — advisor-only per framework policy (same rule as LSP / voice tools). Print the command, let the user run it.
+3. **Drawing from `draft` PRDs** — only `validated` PRDs inform the diagrams. Draft architecture is not ground truth.
+4. **Invoking `arch-decision` from here** — wrong direction. This skill is downstream of validation, not upstream.
+5. **Per-view DSL fragments** — keep one `workspace.dsl`. Do not scatter DSL across per-area files. If the project is a monorepo with multiple independent systems, use multiple `softwareSystem` blocks inside one workspace.
+6. **Code level by default** — C4 Code is rarely useful outside a few hot spots. Do not emit Code views unless the architect explicitly asked.
+
+## When NOT to use
+
+- The project has no `docs/architecture/` yet → run `arch-brainstorm` + `arch-decision` first
+- A draft PRD needs to be validated → that's `arch-decision`'s job
+- The user wants a one-shot Mermaid diagram for a slide deck → pure Mermaid is faster; this skill is for the living source
+- The project is a pure-data artifact (notebook, dataset, single script) with no system boundary → C4 is overkill
+
+## References
+
+- `references/structurizr-dsl-cheatsheet.md` — the DSL patterns you will use 95% of the time
+- `references/install-structurizr-cli.md` — how the user installs the CLI (advisor-only)
+- `references/c4-levels-primer.md` — what Context/Container/Component/Code mean, mapped to NONoise inputs
+- `assets/workspace.dsl.template` — scaffold used when no `workspace.dsl` exists yet
+- Sibling skill [`arch-decision`](../arch-decision/SKILL.md) — the upstream validator; its "Impact on docs/architecture/" checklist should mention this skill
+- Sibling skill [`arch-brainstorm`](../arch-brainstorm/SKILL.md) — produces the PRDs this skill reads
+- Sibling skill [`polly`](../polly/SKILL.md) — the orchestrator; engages this skill after `arch-decision` PASS
+- External: https://structurizr.com — official DSL reference and playground
+- External: https://c4model.com — C4 levels reference (Simon Brown)

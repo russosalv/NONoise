@@ -46,6 +46,7 @@ const MVP_SKILL_BUNDLE = [
   'ops-skill-builder',
   'observability-debug',
   'polly',
+  'c4-doc-writer',
 ] as const;
 
 export type ScaffoldPaths = {

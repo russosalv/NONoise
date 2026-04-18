@@ -135,6 +135,8 @@ Output is a validated PRD + FPF audit at `docs/prd/<area>/audit/`. No
 auto-sync to `docs/architecture/` — Alex does that manually with the DOC
 capability.
 
+After `arch-decision` PASS, engage `c4-doc-writer` to update `docs/architecture/c4/workspace.dsl`. This keeps the architectural diagrams in sync with the validated decision — one Structurizr DSL source, many regenerated views (Context / Container / Component). The skill is advisory on CLI install (never auto-installs Structurizr) and appends a dated entry to `docs/architecture/c4/CHANGELOG.md` noting which ADR triggered the refresh.
+
 ## Greenfield — Step 2.7 — Sprint breakdown     `[pair]`
 
 Prompt:
