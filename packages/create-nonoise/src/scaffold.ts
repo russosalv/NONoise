@@ -23,11 +23,13 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   const templateDir = join(paths.templatesRoot, ctx.template);
 
   const resolved = await resolveTemplateFiles(templateDir, ctx.aiTools);
+  const now = new Date();
   const renderCtx: HandlebarsRenderContext = {
     ...ctx,
     projectNamePascal: toPascalCase(ctx.projectName),
     projectNameSnake: toSnakeCase(ctx.projectName),
-    year: new Date().getFullYear().toString(),
+    year: now.getFullYear().toString(),
+    createdAt: now.toISOString(),
   };
 
   for (const file of resolved) {

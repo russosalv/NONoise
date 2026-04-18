@@ -22,6 +22,7 @@ export type HandlebarsRenderContext = ProjectContext & {
   projectNamePascal: string;
   projectNameSnake: string;
   year: string;
+  createdAt: string;
 };
 
 export const AI_TOOL_TO_FLAG: Record<AiToolKey, string> = {
