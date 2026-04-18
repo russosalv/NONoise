@@ -67,9 +67,9 @@ Prompt:
 > Now the PRD. I'll engage `superpowers:brainstorming` — it drafts a first
 > PRD version, we iterate together. Then it'll land in `docs/prd/`.
 
-**Fallback** if `superpowers:brainstorming` is not installed: see
-`fallback-messages.md` § brainstorming. In short: draft the PRD
-conversationally following `docs/prd/README.md` conventions.
+`superpowers:brainstorming` ships with the MVP bundle (vendored from
+`obra/superpowers`), so this step should always succeed. If the user
+removed it manually, fall back per `fallback-messages.md` § brainstorming.
 
 ## Greenfield — Step 2.5 — Architecture options
 

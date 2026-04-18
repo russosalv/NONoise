@@ -11,6 +11,11 @@ use one of the templates below. All templates:
 Never block the SDLC on a missing skill. A partial walkthrough beats a
 hard stop.
 
+**Note**: the MVP bundle auto-installs every skill Polly references
+(including `superpowers:*` vendored from `obra/superpowers`). Fallback
+kicks in only when the user manually removed a skill from
+`.claude/skills/` or is running in a non-standard setup.
+
 ## Generic template
 
 > The `<skill-name>` skill is not installed in this project. We can:

@@ -5,7 +5,7 @@ import Handlebars from 'handlebars';
 import { execSync } from 'node:child_process';
 import type { ProjectContext, HandlebarsRenderContext } from './types.js';
 import { resolveTemplateFiles } from './template-resolver.js';
-import { installSkills } from './skill-installer.js';
+import { installSkills, installVendor } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
 
 function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
@@ -16,6 +16,10 @@ function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
     aiTools.geminiCli ||
     aiTools.codex
   );
+}
+
+function supportsPolly(aiTools: ProjectContext['aiTools']): boolean {
+  return aiTools.claudeCode || aiTools.copilot;
 }
 
 const MVP_SKILL_BUNDLE = [
@@ -83,9 +87,19 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
       projectPath: ctx.projectPath,
       skillNames: Array.from(MVP_SKILL_BUNDLE),
     });
+    await installVendor({
+      vendorSourcePath: join(paths.skillsRoot, 'vendor', 'superpowers'),
+      projectPath: ctx.projectPath,
+      namespace: 'superpowers',
+      installClaudeSpecific: ctx.aiTools.claudeCode,
+    });
   }
 
   await rewriteNonoiseConfig(ctx, paths, renderCtx);
+
+  if (supportsPolly(ctx.aiTools)) {
+    await writePollyStartMarker(ctx.projectPath);
+  }
 
   if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
     runGraphifyInstall();
@@ -94,6 +108,21 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   if (ctx.gitInit) {
     runGitInit(ctx.projectPath);
   }
+}
+
+async function writePollyStartMarker(projectPath: string): Promise<void> {
+  const dir = join(projectPath, '.nonoise');
+  await mkdir(dir, { recursive: true });
+  const body =
+    '# Polly auto-trigger marker\n' +
+    '\n' +
+    'This file is a one-shot marker written by `create-nonoise`. On the next AI\n' +
+    'session, the tool will read its context file (`CLAUDE.md` or\n' +
+    '`.github/copilot-instructions.md`), see the `## polly` block, invoke the\n' +
+    '`polly` skill, and delete this file.\n' +
+    '\n' +
+    'Delete this file manually if you do NOT want Polly to auto-trigger.\n';
+  await writeFile(join(dir, 'POLLY_START.md'), body, 'utf8');
 }
 
 async function rewriteNonoiseConfig(

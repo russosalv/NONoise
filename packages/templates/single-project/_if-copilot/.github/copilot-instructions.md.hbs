@@ -2,6 +2,15 @@
 
 Project-scoped rules for Copilot. For cross-tool context see `AGENTS.md`.
 
+## Entry point — Polly
+
+This project ships with **Polly**, the NONoise SDLC orchestrator. Whenever the developer
+is unsure what to do next, or asks "start polly" / "avvia polly" / "orchestrate this
+project", read `.claude/skills/polly/SKILL.md` and follow its decision tree.
+
+If the file `.nonoise/POLLY_START.md` exists in the project root, your FIRST action this
+session is to invoke Polly, then delete `.nonoise/POLLY_START.md` so it doesn't re-trigger.
+
 ## Conventions
 
 - Follow the existing code style in the file you're editing.
@@ -10,17 +19,60 @@ Project-scoped rules for Copilot. For cross-tool context see `AGENTS.md`.
 
 ## Available skills (cross-tool)
 
-This project contains a library of AI skills in `.claude/skills/`. The skills are plain markdown and apply to every AI tool, including Copilot. When the user's task matches the description of one of these skills, open the corresponding `SKILL.md` file and follow its instructions.
+This project contains a library of AI skills in `.claude/skills/`. The skills are plain
+markdown and apply to every AI tool, including Copilot. When the user's task matches the
+description of one of these skills, open the corresponding `SKILL.md` file and follow its
+instructions.
 
-Installed skills (see each folder's `SKILL.md` for triggers and workflow):
+Installed skills:
 
-- `graphify-setup`
-- `vscode-config-generator`
-- `docs-md-generator` (stub)
-- `playwright-cli`
-- `frontend-design`
+**Orchestrator** — `polly`
 
-If BMAD agent skills are also installed (`bmad-agent-*`, `bmad-advanced-elicitation`), use them when the user asks for the corresponding persona (analyst, architect, tech-writer, UX designer).
+**Requirements & discovery** — `requirements-ingest`, `bmad-agent-analyst`,
+`bmad-advanced-elicitation`
+
+**Architecture & validation** — `arch-brainstorm`, `arch-decision`, `quint-fpf`,
+`bmad-agent-architect`
+
+**Sprint & implementation** — `sprint-manifest`, `atr`
+
+**Brownfield** — `graphify-setup`, `reverse-engineering`
+
+**Ops & observability** — `ops-skill-builder`, `observability-debug`
+
+**Integrations** — `spec-to-workitem`, `playwright-cli`, `frontend-design`,
+`bmad-agent-ux-designer`, `bmad-agent-tech-writer`
+
+**Generators** — `vscode-config-generator`, `docs-md-generator`, `design-md-generator`
+
+**Utility** — `skill-finder`
+
+**Superpowers (vendored from `obra/superpowers`)** — read these when the
+workflow calls for them (Polly engages them during the SDLC loop):
+`superpowers:brainstorming`, `superpowers:writing-plans`,
+`superpowers:executing-plans`, `superpowers:test-driven-development`,
+`superpowers:verification-before-completion`, `superpowers:systematic-debugging`,
+`superpowers:subagent-driven-development`, `superpowers:dispatching-parallel-agents`,
+`superpowers:using-git-worktrees`, `superpowers:finishing-a-development-branch`,
+`superpowers:requesting-code-review`, `superpowers:receiving-code-review`,
+`superpowers:writing-skills`, `superpowers:using-superpowers`
+
+Bundled skills live at `.claude/skills/<name>/SKILL.md`. Vendored superpowers
+live at `.claude/skills/superpowers/<name>/SKILL.md`. Open each folder's
+`SKILL.md` for triggers and workflow.
+
+<!-- >>> polly (managed by polly skill) -->
+## polly
+
+If the file `.nonoise/POLLY_START.md` exists, your FIRST action this session is to
+invoke Polly — read `.claude/skills/polly/SKILL.md` and follow its decision tree fully —
+then delete `.nonoise/POLLY_START.md` so the next session does not re-trigger.
+
+Otherwise, invoke Polly when the user says "start polly" / "avvia polly" / "run polly" /
+"orchestrate this project", or when they seem lost ("where do I start?", "which skill
+for X?", "what's next?"). Polly is the conductor across the SDLC — it decides which
+specialist skill to engage next.
+<!-- <<< polly -->
 
 <!-- >>> graphify (managed by graphify-setup skill) -->
 ## graphify

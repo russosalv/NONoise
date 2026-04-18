@@ -2,17 +2,72 @@
 
 Claude Code-specific conventions for this project. For cross-tool context see `AGENTS.md`.
 
+## Entry point — Polly
+
+This project ships with **Polly**, the NONoise SDLC orchestrator. Start there whenever you
+(or the developer) don't know what to do next:
+
+- Type `/polly` to launch
+- Or say "start polly" / "avvia polly" / "orchestrate this project"
+- Or, if `.nonoise/POLLY_START.md` exists, Polly auto-triggers on the next session
+
+Polly will ask whether the project is greenfield or brownfield, then engage the right bundled
+skill for each SDLC step.
+
 ## Installed skills
 
-- `graphify-setup` — installs graphify and wires its rules into every AI‑tool context file; manages `.gitignore` entries for graphify outputs.
-- `vscode-config-generator` — generates `.vscode/tasks.json` and `launch.json` for the detected stack.
-- `docs-md-generator` — (stub) will generate coherent `CLAUDE.md`/`AGENTS.md`/`copilot-instructions.md`.
+**SDLC orchestrator** — `polly`
+
+**Requirements & discovery** — `requirements-ingest`, `bmad-agent-analyst`,
+`bmad-advanced-elicitation`
+
+**Architecture & validation** — `arch-brainstorm`, `arch-decision`, `quint-fpf`,
+`bmad-agent-architect`
+
+**Sprint & implementation** — `sprint-manifest`, `atr`
+
+**Brownfield** — `graphify-setup`, `reverse-engineering`
+
+**Ops & observability** — `ops-skill-builder`, `observability-debug`
+
+**Integrations** — `spec-to-workitem`, `playwright-cli`, `frontend-design`,
+`bmad-agent-ux-designer`, `bmad-agent-tech-writer`
+
+**Generators** — `vscode-config-generator`, `docs-md-generator`, `design-md-generator`
+
+**Utility** — `skill-finder`
+
+**Superpowers (vendored from `obra/superpowers`)** — `superpowers:brainstorming`,
+`superpowers:writing-plans`, `superpowers:executing-plans`,
+`superpowers:test-driven-development`, `superpowers:verification-before-completion`,
+`superpowers:systematic-debugging`, `superpowers:subagent-driven-development`,
+`superpowers:dispatching-parallel-agents`, `superpowers:using-git-worktrees`,
+`superpowers:finishing-a-development-branch`, `superpowers:requesting-code-review`,
+`superpowers:receiving-code-review`, `superpowers:writing-skills`,
+`superpowers:using-superpowers`
+
+Bundled skills live at `.claude/skills/<name>/SKILL.md`. Vendored superpowers
+live at `.claude/skills/superpowers/<name>/SKILL.md`. Read the frontmatter for
+the full trigger list. Slash commands for superpowers live in
+`.claude/commands/superpowers/`.
 
 ## Working in this project
 
 - Prefer editing existing files over creating new ones.
 - Run tests before committing.
 - Follow the project's code style.
+
+<!-- >>> polly (managed by polly skill) -->
+## polly
+
+If the file `.nonoise/POLLY_START.md` exists, your FIRST action this session is to
+invoke the `polly` skill in full, and then delete `.nonoise/POLLY_START.md`. The file
+is a one-shot marker — deleting it prevents repeated auto-triggers.
+
+Otherwise, invoke Polly when the user types `/polly`, says "start polly" / "avvia polly" /
+"run polly" / "orchestrate this project", or when they seem lost ("where do I start?",
+"which skill for X?", "what's next?").
+<!-- <<< polly -->
 
 <!-- >>> graphify (managed by graphify-setup skill) -->
 ## graphify

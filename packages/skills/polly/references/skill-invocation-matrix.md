@@ -6,8 +6,9 @@ the framework, and the phrase Polly uses to hand off.
 ## Legend
 
 - **Installed** — ships in the MVP bundle today, always available
-- **Vendor-pending** — planned to vendor from an upstream source; use
-  fallback in the meantime (see `fallback-messages.md`)
+- **Installed (vendored)** — vendored from upstream (e.g. `superpowers:*`
+  from `obra/superpowers`); installed into `.claude/skills/<namespace>/`
+  of every scaffolded project
 - **External** — not part of the bundle; engage only if the user confirms
   it is installed locally (via `skill-finder` or manual install)
 
@@ -21,7 +22,7 @@ the framework, and the phrase Polly uses to hand off.
 | `bmad-agent-architect` | Installed | "Architect persona engaged — let's lay out the architectural frame." |
 | `bmad-agent-ux-designer` | Installed | "UX-designer persona engaged — let's map the flows." |
 | `bmad-agent-tech-writer` | Installed | "Tech-writer persona engaged — let's get the docs drafted." |
-| `superpowers:brainstorming` | Vendor-pending | "I'll engage superpowers:brainstorming for the PRD." (fallback: manual, see `fallback-messages.md`) |
+| `superpowers:brainstorming` | Installed (vendored) | "I'll engage superpowers:brainstorming for the PRD." |
 | `arch-brainstorm` | Installed | "I'll engage arch-brainstorm — it proposes architectures against the constraints." |
 | `quint-fpf` | Installed | Engaged automatically by `arch-decision`. Polly does not invoke it directly. |
 | `arch-decision` | Installed | "I'll engage arch-decision — it picks one architecture and writes the ADR." |
@@ -49,18 +50,26 @@ the framework, and the phrase Polly uses to hand off.
 | `design-md-generator` | Installed | "I need a design.md", "design doc template" |
 | `skill-finder` | Installed | "I don't know which skill I want" |
 
-## Superpowers (vendor-pending — full list)
+## Superpowers (vendored from obra/superpowers — full list)
 
-When the `superpowers` vendor lands in the framework (SP-9 step 2), the
-following skills become available to Polly. Until then, treat them as
-vendor-pending and use manual fallback:
+Installed under `.claude/skills/superpowers/<name>/` in every scaffolded
+project (Claude Code also gets `.claude/agents/superpowers/`,
+`.claude/commands/superpowers/`, `.claude/hooks/superpowers/`):
 
-- `superpowers:brainstorming`
-- `superpowers:writing-plans`
-- `superpowers:executing-plans`
-- `superpowers:tdd`
-- `superpowers:verification-before-completion`
-- `superpowers:systematic-debugging`
+- `superpowers:brainstorming` — PRD drafting, creative exploration
+- `superpowers:writing-plans` — convert specs into numbered plans
+- `superpowers:executing-plans` — run a plan with review checkpoints
+- `superpowers:test-driven-development` — TDD discipline for features/fixes
+- `superpowers:verification-before-completion` — evidence before claims
+- `superpowers:systematic-debugging` — structured debugging approach
+- `superpowers:subagent-driven-development` — delegate independent tasks
+- `superpowers:dispatching-parallel-agents` — parallel independent work
+- `superpowers:using-git-worktrees` — isolated workspace per feature
+- `superpowers:finishing-a-development-branch` — merge/PR decisions
+- `superpowers:requesting-code-review` — request review before merging
+- `superpowers:receiving-code-review` — handle review feedback well
+- `superpowers:writing-skills` — create/edit skills
+- `superpowers:using-superpowers` — bootstrap instructions (auto-loaded)
 
 ## External / user-managed
 

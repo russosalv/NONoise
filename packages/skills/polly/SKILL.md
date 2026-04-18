@@ -67,11 +67,11 @@ empty `docs/` tree. Wait for the answer.
 1. Stack question
 2. Existing source material?  → requirements-ingest
 3. Requirements elicitation  → bmad-agent-analyst (or bmad-advanced-elicitation)
-4. PRD drafting              → superpowers:brainstorming (fallback: manual)
+4. PRD drafting              → superpowers:brainstorming
 5. Architecture options      → arch-brainstorm
 6. Architecture decision     → arch-decision
 7. Sprint breakdown          → sprint-manifest
-8. Implementation loop       → atr (per task)
+8. Implementation loop       → atr (per task) + superpowers:test-driven-development
 ```
 
 Each numbered step is one clarification plus one skill invocation. Don't
@@ -109,9 +109,11 @@ Sometimes the user's need does not fit the main SDLC loop. Recognize and route:
 
 ## Fallback for missing skills
 
-Not every skill listed in the decision tree is guaranteed to be installed in
-every project. Vendor skills (`superpowers:*`) may not have shipped yet. If
-you try to engage a skill and it is not present:
+The MVP bundle ships all SDLC skills — including `superpowers:*` (vendored
+from `obra/superpowers`). Fallback is only needed for (a) skills the user
+removed manually from `.claude/skills/`, or (b) external skills Polly
+references but aren't bundled (rare). If you try to engage a skill and it
+is not present:
 
 1. Tell the user the skill is not installed, and offer three choices:
    - **(a) Skip** — move to the next step
