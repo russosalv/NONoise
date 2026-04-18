@@ -8,10 +8,22 @@ import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
 
+function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
+  return (
+    aiTools.claudeCode ||
+    aiTools.copilot ||
+    aiTools.cursor ||
+    aiTools.geminiCli ||
+    aiTools.codex
+  );
+}
+
 const MVP_SKILL_BUNDLE = [
   'graphify-gitignore',
   'vscode-config-generator',
   'docs-md-generator',
+  'playwright-cli',
+  'frontend-design',
 ] as const;
 
 export type ScaffoldPaths = {
@@ -46,7 +58,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     }
   }
 
-  if (ctx.aiTools.claudeCode) {
+  if (hasAnyAiTool(ctx.aiTools)) {
     await installSkills({
       skillsRoot: paths.skillsRoot,
       projectPath: ctx.projectPath,

@@ -16,6 +16,7 @@ export type ProjectContext = {
   aiTools: AiTools;
   gitInit: boolean;
   frameworkVersion: string;
+  installBmad: boolean;
 };
 
 export type HandlebarsRenderContext = ProjectContext & {
