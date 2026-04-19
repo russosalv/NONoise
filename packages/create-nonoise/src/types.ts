@@ -18,6 +18,13 @@ export type RepoEntry = {
   branch?: string;
 };
 
+export type ExistingRepoConfig = {
+  url?: string;
+  branch?: string;
+  cloneNow?: boolean;
+  configured: boolean;
+};
+
 export type ProjectContext = {
   projectName: string;
   projectPath: string;
@@ -28,6 +35,7 @@ export type ProjectContext = {
   frameworkVersion: string;
   repos?: RepoEntry[];
   multiRepoConfigured?: boolean;
+  existingRepo?: ExistingRepoConfig;
 };
 
 export type HandlebarsRenderContext = ProjectContext & {

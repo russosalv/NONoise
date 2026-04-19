@@ -2,7 +2,7 @@ import { mkdir, writeFile, readFile, cp } from 'node:fs/promises';
 import { dirname, join, posix, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import type { ProjectContext, HandlebarsRenderContext, RepoEntry } from './types.js';
 import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills, installVendor } from './skill-installer.js';
@@ -57,6 +57,16 @@ export type ScaffoldPaths = {
 
 export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promise<void> {
   const templateDir = join(paths.templatesRoot, ctx.template);
+
+  // Step 0 — if the user opted to clone an existing repo, do that first so the
+  // NONoise layer lands on top of real content instead of an empty dir.
+  if (
+    ctx.workspaceKind === 'existing-single' &&
+    ctx.existingRepo?.cloneNow &&
+    ctx.existingRepo?.url
+  ) {
+    cloneExistingRepo(ctx.existingRepo.url, ctx.existingRepo.branch, ctx.projectPath);
+  }
 
   const resolved = await resolveTemplateFiles(templateDir, ctx.aiTools);
   const now = new Date();
@@ -228,6 +238,19 @@ function detectPython(): string | null {
     }
   }
   return null;
+}
+
+function cloneExistingRepo(url: string, branch: string | undefined, dest: string): void {
+  const args = ['clone'];
+  if (branch) args.push('-b', branch);
+  args.push(url, dest);
+  try {
+    execFileSync('git', args, { stdio: 'ignore' });
+  } catch {
+    throw new Error(
+      `git clone failed for ${url} → ${dest}. Check the URL, branch and your network/auth.`,
+    );
+  }
 }
 
 function runGitInit(cwd: string): void {

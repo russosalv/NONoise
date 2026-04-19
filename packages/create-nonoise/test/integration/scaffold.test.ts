@@ -527,4 +527,85 @@ describe('scaffold() — workspace kinds (new / existing-single / existing-multi
       }),
     ).resolves.not.toThrow();
   });
+
+  it('existing-single with configured=false writes the skip marker to nonoise.config.json', async () => {
+    await scaffold(
+      buildCtx({
+        workspaceKind: 'existing-single',
+        existingRepo: { configured: false },
+      }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+    const cfg = JSON.parse(
+      await readFile(join(projectPath, 'nonoise.config.json'), 'utf8'),
+    ) as { existingRepo?: { configured?: boolean; url?: string } };
+    expect(cfg.existingRepo?.configured).toBe(false);
+    expect(cfg.existingRepo?.url).toBeUndefined();
+  });
+
+  it('existing-single with url and cloneNow=false records url+branch without cloning', async () => {
+    await scaffold(
+      buildCtx({
+        workspaceKind: 'existing-single',
+        existingRepo: {
+          url: 'https://example.com/org/repo.git',
+          branch: 'main',
+          cloneNow: false,
+          configured: true,
+        },
+      }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+    const cfg = JSON.parse(
+      await readFile(join(projectPath, 'nonoise.config.json'), 'utf8'),
+    ) as {
+      workspaceKind?: string;
+      existingRepo?: { configured?: boolean; url?: string; branch?: string; cloned?: boolean };
+    };
+    expect(cfg.workspaceKind).toBe('existing-single');
+    expect(cfg.existingRepo?.configured).toBe(true);
+    expect(cfg.existingRepo?.url).toBe('https://example.com/org/repo.git');
+    expect(cfg.existingRepo?.branch).toBe('main');
+    expect(cfg.existingRepo?.cloned).toBe(false);
+  });
+
+  it('existing-single with cloneNow clones a local bare repo into projectPath before layering', async () => {
+    // Build a local bare repo to clone from (avoids network in tests)
+    const fs = await import('node:fs/promises');
+    const { execFileSync } = await import('node:child_process');
+    const bare = join(parent, 'upstream.git');
+    const seedSrc = join(parent, 'seed');
+    await fs.mkdir(seedSrc, { recursive: true });
+    await fs.writeFile(join(seedSrc, 'UPSTREAM.md'), '# upstream seed\n', 'utf8');
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: seedSrc });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'add', '.'], { cwd: seedSrc });
+    execFileSync(
+      'git',
+      ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'seed'],
+      { cwd: seedSrc },
+    );
+    execFileSync('git', ['clone', '-q', '--bare', seedSrc, bare]);
+
+    await scaffold(
+      buildCtx({
+        workspaceKind: 'existing-single',
+        existingRepo: {
+          url: bare,
+          branch: 'main',
+          cloneNow: true,
+          configured: true,
+        },
+      }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+
+    // Upstream content landed
+    const upstream = await readFile(join(projectPath, 'UPSTREAM.md'), 'utf8');
+    expect(upstream).toContain('upstream seed');
+    // .git directory from the clone is present
+    await expect(stat(join(projectPath, '.git'))).resolves.toBeTruthy();
+    // NONoise layer landed on top
+    const agents = await readFile(join(projectPath, 'AGENTS.md'), 'utf8');
+    expect(agents).toContain('ws');
+  }, 30_000);
 });

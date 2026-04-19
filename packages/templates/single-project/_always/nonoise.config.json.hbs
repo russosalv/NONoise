@@ -2,7 +2,14 @@
   "$schema": "https://nonoise.dev/schemas/project-config.v1.json",
   "frameworkVersion": "{{frameworkVersion}}",
   "template": "{{template}}",
-  "createdAt": "{{createdAt}}",
+  {{#if workspaceKind}}"workspaceKind": "{{workspaceKind}}",
+  {{/if}}{{#if existingRepo}}"existingRepo": {
+    "configured": {{existingRepo.configured}}{{#if existingRepo.url}},
+    "url": "{{existingRepo.url}}",
+    "branch": "{{existingRepo.branch}}",
+    "cloned": {{existingRepo.cloneNow}}{{/if}}
+  },
+  {{/if}}"createdAt": "{{createdAt}}",
   "aiTools": {
     "claudeCode": {{aiTools.claudeCode}},
     "copilot": {{aiTools.copilot}},

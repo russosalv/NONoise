@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import type {
   AiToolKey,
   AiTools,
+  ExistingRepoConfig,
   ProjectContext,
   RepoEntry,
   TemplateName,
@@ -37,13 +38,16 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
 
   let repos: RepoEntry[] | undefined;
   let multiRepoConfigured: boolean | undefined;
+  let existingRepo: ExistingRepoConfig | undefined;
   if (workspaceKind === 'existing-multi') {
     const collected = await askRepos(flags);
     repos = collected.repos;
     multiRepoConfigured = collected.configured;
+  } else if (workspaceKind === 'existing-single') {
+    existingRepo = await askExistingRepo(flags);
   }
 
-  const gitInit = await askGitInit(flags, workspaceKind);
+  const gitInit = await askGitInit(flags, workspaceKind, existingRepo);
 
   return {
     projectName: name,
@@ -55,6 +59,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
     frameworkVersion,
     repos,
     multiRepoConfigured,
+    existingRepo,
   };
 }
 
@@ -237,8 +242,62 @@ async function askRepos(
   return { repos, configured: repos.length > 0 };
 }
 
-async function askGitInit(flags: CliFlags, workspaceKind: WorkspaceKind): Promise<boolean> {
+async function askExistingRepo(flags: CliFlags): Promise<ExistingRepoConfig> {
+  if (flags.yes) return { configured: false };
+
+  type Choice = 'clone' | 'skip';
+  const start = await select({
+    message: 'Existing repo: point to it now?',
+    options: [
+      { value: 'clone' as Choice, label: 'Yes — clone an existing repo into the project folder' },
+      { value: 'skip' as Choice, label: 'Skip — I\'ll set it up later (or let Polly help)' },
+    ],
+    initialValue: 'clone' as Choice,
+  });
+  abortIfCancel(start);
+  if (start === 'skip') return { configured: false };
+
+  const url = await text({
+    message: 'Git URL',
+    placeholder: 'https://github.com/your-org/your-repo.git',
+    validate(value) {
+      if (!value) return 'URL is required (or choose Skip above).';
+      if (!/^(https?:\/\/|git@|ssh:\/\/|git:\/\/)/.test(value)) {
+        return 'Expected https://, git@, ssh:// or git:// URL.';
+      }
+    },
+  });
+  abortIfCancel(url);
+
+  const branch = await text({
+    message: 'Branch',
+    placeholder: 'main',
+    initialValue: 'main',
+  });
+  abortIfCancel(branch);
+
+  const cloneNow = await confirm({
+    message: 'Clone it now into the project folder?',
+    initialValue: true,
+  });
+  abortIfCancel(cloneNow);
+
+  return {
+    url: url as string,
+    branch: (branch as string) || 'main',
+    cloneNow: cloneNow as boolean,
+    configured: true,
+  };
+}
+
+async function askGitInit(
+  flags: CliFlags,
+  workspaceKind: WorkspaceKind,
+  existingRepo: ExistingRepoConfig | undefined,
+): Promise<boolean> {
   if (flags.noGit === true) return false;
+  // When we're cloning an existing repo, it already carries its own .git — no init.
+  if (existingRepo?.cloneNow) return false;
   if (flags.yes === true) return workspaceKind === 'new';
 
   const existing = workspaceKind !== 'new';
