@@ -5,10 +5,25 @@ NONoise bundles **40+ skills** in total: 25 NONoise-native skills under `package
 This document is organised by **domain**. Each skill entry has:
 
 - **Name** and link to SKILL.md.
+- **Provenance** — see the legend below.
 - **Purpose** — what it does, one paragraph.
 - **Trigger** — how to invoke it (slash command, phrase, auto-trigger condition).
 - **Inputs / outputs** — where it reads and writes.
 - **Phase** — which SDLC step engages it (see [`sdlc.md`](sdlc.md)).
+
+---
+
+## Provenance legend
+
+Every skill under `packages/skills/` falls into one of three provenance tiers. The tier is explicit on each skill's entry below so nothing reads like an indistinct mash-up of borrowed pieces.
+
+| Tier | Meaning | Count |
+|---|---|---:|
+| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 23 |
+| **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design`, `playwright-cli`, and the `graphify` tool (wrapped by the custom `graphify-setup`). | 2 |
+| **vendored** | Installed under a namespace, pinned by commit, refreshed via `scripts/sync-vendor.mjs`. Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
+
+The `graphify` tool itself is external (not a skill bundled under `packages/skills/`); the bundled `graphify-setup` wires it into the project and is custom NONoise.
 
 ---
 
@@ -37,6 +52,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `polly`
 - **SKILL.md:** [`packages/skills/polly/SKILL.md`](../packages/skills/polly/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** the NONoise orchestrator. Walks the full SDLC; picks the next skill; announces `[pair]` / `[solo]` mode per step. Auto-triggers post-scaffold via `.nonoise/POLLY_START.md`. Full dedicated doc: [`polly.md`](polly.md).
 - **Triggers:** `/polly` in Claude Code, *"start polly"* / *"avvia polly"* / *"run polly"* in Copilot and others, confusion-trigger (*"where do I start?"*), auto-trigger from scaffold marker.
 - **Reads:** `.nonoise/POLLY_START.md`, `nonoise.config.json`, `repositories.json`, the `docs/` tree state.
@@ -49,6 +65,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `requirements-ingest`
 - **SKILL.md:** [`packages/skills/requirements-ingest/SKILL.md`](../packages/skills/requirements-ingest/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** turns raw PDFs / DOCX / emails / call transcripts / slide decks into structured requirement files under `docs/requirements/<domain>/<feature>.md`. Applies an explicit signal taxonomy: *functional* / *business-rule* / *UI* / *out-of-scope* / *open-question*. Parks the raw transcripts under `docs/calls/` and cross-references them from the structured files.
 - **Triggers:** Polly's Step 3 (greenfield) or B4 (brownfield); manual invocation when a new batch of raw material arrives.
 - **Reads:** files in any format; uses `tools/md-extractor/` for PDF / DOCX / images.
@@ -57,7 +74,8 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `bmad-agent-analyst`
 - **SKILL.md:** [`packages/skills/bmad-agent-analyst/SKILL.md`](../packages/skills/bmad-agent-analyst/SKILL.md)
-- **Purpose:** *Isa* persona — strategic business analyst. Requirements elicitation, market / domain / tech research, PRFAQ drafting. BMAD-derived.
+- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (handoff with `arch-brainstorm`, RV capability toward `bmad-req-validator`, own `docs/requirements/` conventions).
+- **Purpose:** *Isa* persona — strategic business analyst. Requirements elicitation, market / domain / tech research, PRFAQ drafting.
 - **Triggers:** Polly's Step 4; manual "engage Isa" / "start the analyst".
 - **Reads:** `docs/requirements/`, `docs/calls/`.
 - **Writes:** `docs/requirements/`.
@@ -65,6 +83,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `bmad-advanced-elicitation`
 - **SKILL.md:** [`packages/skills/bmad-advanced-elicitation/SKILL.md`](../packages/skills/bmad-advanced-elicitation/SKILL.md)
+- **Provenance:** custom NONoise — derived from the BMAD suite, customized to hook into the NONoise personas and their method selector.
 - **Purpose:** stress-tests requirement drafts through 25+ structured methods — Socratic, pre-mortem, red-team, SCAMPER, inversion, Five Whys, MoSCoW, ATAM-lite, six thinking hats, etc. Use when first-pass requirements feel too smooth.
 - **Triggers:** Polly's Step 4 (optional branch); manual "stress-test these requirements".
 - **Reads:** `docs/requirements/`.
@@ -73,6 +92,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `bmad-req-validator`
 - **SKILL.md:** [`packages/skills/bmad-req-validator/SKILL.md`](../packages/skills/bmad-req-validator/SKILL.md)
+- **Provenance:** custom NONoise — fully native. The `bmad-` prefix reflects the family of conventions (persona, handoff, naming), not the origin.
 - **Purpose:** scores requirement files against MoSCoW, IEEE 830, INVEST, SMART, and BABOK categories. Flags ambiguity, incompleteness, non-testability. Composed of sub-validators under `skills/` — MoSCoW validator, IEEE 830 validator, INVEST / SMART validators, ATAM-lite.
 - **Triggers:** Polly's Step 4 (gate before moving to Step 5); manual "validate these requirements".
 - **Reads:** `docs/requirements/`.
@@ -85,6 +105,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `arch-brainstorm`
 - **SKILL.md:** [`packages/skills/arch-brainstorm/SKILL.md`](../packages/skills/arch-brainstorm/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** Step 1 of the architecture workflow — dialogic brainstorm of architectural options. Surfaces canonical patterns first (DDD, Clean Arch, CQRS, Repository, hexagonal, event-sourcing, saga, BFF). Lists exotic options only when constraints eliminate the canonical set. Produces a draft PRD under `docs/prd/<area>/<feature>.md` with frontmatter `status: draft`.
 - **Triggers:** Polly's Step 6; manual "brainstorm architecture for X".
 - **Reads:** `docs/requirements/`, `docs/architecture/`, `docs/prd/`.
@@ -93,6 +114,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `arch-decision`
 - **SKILL.md:** [`packages/skills/arch-decision/SKILL.md`](../packages/skills/arch-decision/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** Step 2 of the architecture workflow — formal Quint FPF validation of a draft PRD. Runs the six-phase structured-reasoning cycle to audit the decision; updates the PRD frontmatter to `status: validated` (ship it) or `status: rejected` (back to brainstorm). Produces an ADR at `docs/architecture/decisions/<ADR-N>.md`.
 - **Triggers:** Polly's Step 7; manual "validate this PRD".
 - **Reads:** `docs/prd/<area>/<feature>.md` (draft).
@@ -101,6 +123,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `quint-fpf`
 - **SKILL.md:** [`packages/skills/quint-fpf/SKILL.md`](../packages/skills/quint-fpf/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** First Principles Framework. A six-phase structured reasoning cycle with an audit trail and bias checks. Six main commands (`q0-init`, `q1-hypothesize`, `q1-add`, `q2-verify`, `q3-validate`, `q4-audit`, `q5-decide`) plus support commands (`q-actualize`, `q-decay`, `q-query`, `q-reset`, `q-status`). Invoked by `arch-decision` but also usable standalone for any "I need to think from first principles about X" situation.
 - **Triggers:** `arch-decision` invokes it; manual `/q0-init` to start a fresh cycle.
 - **Reads:** whatever the cycle hypothesises about (a PRD, a requirement, a decision).
@@ -109,6 +132,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `bmad-agent-architect`
 - **SKILL.md:** [`packages/skills/bmad-agent-architect/SKILL.md`](../packages/skills/bmad-agent-architect/SKILL.md)
+- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (direct integration with `arch-brainstorm` / `arch-decision`, Quint FPF as default validator, bias toward canonical patterns).
 - **Purpose:** *Alex* persona — system architect. Drives the `arch-brainstorm` → `arch-decision` → source-of-truth loop. Opinionated about canonical patterns, parametric memory, symmetry, local deducibility. Refuses opaque binary dependencies.
 - **Triggers:** Polly's Steps 6-7 (persona layer on top of the skills); manual "engage Alex" / "start the architect".
 - **Reads / writes:** same surface as `arch-brainstorm` and `arch-decision`.
@@ -116,6 +140,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `c4-doc-writer`
 - **SKILL.md:** [`packages/skills/c4-doc-writer/SKILL.md`](../packages/skills/c4-doc-writer/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** maintains living C4 diagrams (Context / Container / Component / Code) via a single Structurizr DSL workspace at `docs/architecture/c4/workspace.dsl`. Regenerates Mermaid / PlantUML / Structurizr / DOT views on demand. Stack-neutral.
 - **Triggers:** after `arch-decision` returns PASS (the "Impact on docs/architecture/" checklist calls this skill); `/c4 update`, "update c4", "generate C4 diagrams", "rebuild the container view after this ADR", "structurizr", "sync the C4 with the new PRD".
 - **Reads:** `docs/architecture/c4/workspace.dsl`, recent ADRs.
@@ -129,6 +154,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `sprint-manifest`
 - **SKILL.md:** [`packages/skills/sprint-manifest/SKILL.md`](../packages/skills/sprint-manifest/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** Step 3 of the architectural workflow — promotes validated PRDs to a sprint. Breaks work into macro functional tasks (vertical slices where possible), assigns confidence levels (CL1 = trivial / well-specified, CL2 = normal, CL3 = spike / unknown).
 - **Triggers:** Polly's Step 8.
 - **Reads:** validated PRDs under `docs/prd/`.
@@ -137,6 +163,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `atr`
 - **SKILL.md:** [`packages/skills/atr/SKILL.md`](../packages/skills/atr/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** Acceptance Test Runner. Reads acceptance criteria from the sprint manifest, generates a testbook, executes via Playwright, produces Markdown reports with screenshots. Mentions VibeKanban as a push target for failures (info-only — see [`external-tools.md`](external-tools.md)).
 - **Triggers:** dev trio Step 3; manual "run ATR" after implementation.
 - **Reads:** `docs/sprints/Sprint-N/manifest.md`, acceptance-criteria references.
@@ -150,6 +177,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `graphify-setup`
 - **SKILL.md:** [`packages/skills/graphify-setup/SKILL.md`](../packages/skills/graphify-setup/SKILL.md)
+- **Provenance:** custom NONoise. Wraps the external `graphify` tool (used as-is) and wires it into the project.
 - **Purpose:** installs the `graphify` knowledge-graph tool and wires its usage rules into the project. After this skill runs, `graphify .` produces `graphify-out/GRAPH_REPORT.md` + a JSON/HTML graph. Usage rules include a hook that reminds the AI to read `GRAPH_REPORT.md` before searching raw files.
 - **Triggers:** Polly's Step B2; manual "setup graphify".
 - **Reads:** project state (for rule wiring).
@@ -158,6 +186,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `reverse-engineering`
 - **SKILL.md:** [`packages/skills/reverse-engineering/SKILL.md`](../packages/skills/reverse-engineering/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** versioned reverse-engineering dossier for any subject — legacy codebase, third-party API, data pipeline. Interactive Q&A with the user; explicit save trigger. Dossiers accumulate under `docs/support/reverse/<subject>/`.
 - **Triggers:** Polly's Step B3; manual "reverse-engineer X", "document how Y works".
 - **Reads:** the target codebase / API / pipeline; graphify output if available.
@@ -170,6 +199,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `ops-skill-builder`
 - **SKILL.md:** [`packages/skills/ops-skill-builder/SKILL.md`](../packages/skills/ops-skill-builder/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** meta-skill — coaches any ops task (deploy, pipeline, provision, migrate, restore, rotate secrets) through a five-phase *access-first coach-then-crystallise* flow: (1) elicit goal, (2) access menu **CLI > API > Web**, (3) context gather, (4) paired execution with dry-run default, (5) crystallise the workflow into a project-local skill via `skill-creator`. The idea: every ops task your team does twice should become a skill the third time.
 - **Triggers:** Polly's Step 10 (ongoing); manual "help me deploy", "build an ops skill for X".
 - **Reads:** the target ops system; the team's existing ops skills.
@@ -179,6 +209,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `observability-debug`
 - **SKILL.md:** [`packages/skills/observability-debug/SKILL.md`](../packages/skills/observability-debug/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** backend-agnostic trace / log triage. Adapter pattern for App Insights, Datadog, Grafana+Loki, CloudWatch, OpenTelemetry Collector, generic log files. Canonical event shape across adapters. Root-causes incidents with file:line precision.
 - **Triggers:** on incident; manual "debug the error at X", "triage this trace ID".
 - **Reads:** the observability backend via its CLI (CLI > API > Web from the access-first principle).
@@ -192,6 +223,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `spec-to-workitem`
 - **SKILL.md:** [`packages/skills/spec-to-workitem/SKILL.md`](../packages/skills/spec-to-workitem/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** translates sprint manifest tasks into work items on an external tracker via the adapter pattern. Adapters: GitHub Issues, Azure DevOps, Jira, Linear, plus a `dryrun` adapter for verification without hitting a real tracker.
 - **Triggers:** after `sprint-manifest`; manual "push the sprint to Azure DevOps".
 - **Reads:** `docs/sprints/Sprint-N/manifest.md`.
@@ -200,6 +232,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `playwright-cli`
 - **SKILL.md:** [`packages/skills/playwright-cli/SKILL.md`](../packages/skills/playwright-cli/SKILL.md)
+- **Provenance:** **imported — used as-is** from the community skill registry. Not customized. `atr` calls it through its standard interface.
 - **Purpose:** browser automation — navigation, form filling, screenshots, data extraction, request mocking, session management, storage state, trace / webm recording, test-code generation. Used by `atr` under the hood; also usable standalone.
 - **Triggers:** invoked by `atr`; manual "drive the browser to X", "record a Playwright test for Y".
 - **Reads:** the target web app.
@@ -209,6 +242,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `frontend-design`
 - **SKILL.md:** [`packages/skills/frontend-design/SKILL.md`](../packages/skills/frontend-design/SKILL.md)
+- **Provenance:** **imported — used as-is** from the community skill registry. Not customized. Polly calls it through its standard interface; the NONoise-side hook sits inside `bmad-agent-ux-designer` (Giulia), which hands off to it.
 - **Purpose:** production-grade frontend interfaces with high design quality. Explicitly avoids the generic-AI aesthetic. Creates distinctive, polished code for web components, pages, artefacts, posters, applications.
 - **Triggers:** Polly's Step 5 (when feature has UI); manual "design this UI", "build this component".
 - **Reads:** `DESIGN.md` if present, the feature requirements.
@@ -217,6 +251,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `bmad-agent-ux-designer`
 - **SKILL.md:** [`packages/skills/bmad-agent-ux-designer/SKILL.md`](../packages/skills/bmad-agent-ux-designer/SKILL.md)
+- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (DESIGN.md as source of truth, direct handoff to `frontend-design`, integration with the final polish pass).
 - **Purpose:** *Giulia* persona — UX designer. Interaction design, `DESIGN.md` authoring, UI critique.
 - **Triggers:** Polly's Step 5; manual "engage Giulia".
 - **Reads / writes:** `DESIGN.md`, feature requirements.
@@ -224,6 +259,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `bmad-agent-tech-writer`
 - **SKILL.md:** [`packages/skills/bmad-agent-tech-writer/SKILL.md`](../packages/skills/bmad-agent-tech-writer/SKILL.md)
+- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (output under the NONoise `docs/` tree, collaboration with `reverse-engineering` for brownfield, own template conventions).
 - **Purpose:** *Daniel* persona — tech writer. READMEs, user guides, API docs, Mermaid diagrams.
 - **Triggers:** manual "engage Daniel", "write the docs for X".
 - **Reads:** the feature / module to document.
@@ -236,6 +272,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `vscode-config-generator`
 - **SKILL.md:** [`packages/skills/vscode-config-generator/SKILL.md`](../packages/skills/vscode-config-generator/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** generates `.vscode/tasks.json` + `.vscode/launch.json` based on detected stack (Node, .NET, Python). Saves setup time on new projects.
 - **Triggers:** manual "generate VS Code config"; optionally on scaffold.
 - **Reads:** the project's package.json / .csproj / pyproject.toml.
@@ -244,6 +281,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `docs-md-generator`
 - **SKILL.md:** [`packages/skills/docs-md-generator/SKILL.md`](../packages/skills/docs-md-generator/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** keeps `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` coherent from a single source-of-truth. Prevents drift between tool-specific context files.
 - **Triggers:** manual "regenerate context files"; optionally on scaffold and on context-file edits.
 - **Reads:** the master source file.
@@ -252,6 +290,7 @@ This document is organised by **domain**. Each skill entry has:
 
 ### `design-md-generator`
 - **SKILL.md:** [`packages/skills/design-md-generator/SKILL.md`](../packages/skills/design-md-generator/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** generates a `DESIGN.md` design-system document in the Stitch format popularised by `getdesign.md`.
 - **Triggers:** manual "generate DESIGN.md", "create the design system doc".
 - **Reads:** the frontend code / feature description.
