@@ -303,6 +303,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 
 ### `skill-finder`
 - **SKILL.md:** [`packages/skills/skill-finder/SKILL.md`](../packages/skills/skill-finder/SKILL.md)
+- **Provenance:** custom NONoise.
 - **Purpose:** discovers AI skills from a curated registry (Anthropic official, plugin marketplaces, community, awesome-lists) and installs them into the project. Keeps the skill library growing without manual hunt.
 - **Triggers:** manual "find a skill for X", "install a skill", "search for skills about Y".
 - **Reads:** registry sources configured in `packages/skills/skill-finder/scripts/`.
