@@ -443,6 +443,20 @@ describe('scaffold() — multi-repo template', () => {
     });
     await expect(stat(join(projectPath, 'repositories.json'))).rejects.toThrow();
   });
+
+  it('multi-repo template does NOT create a workspace-level src/ folder', async () => {
+    // Multi-repo workspaces host code inside repos/<name>/; a root src/ is noise.
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    await expect(stat(join(projectPath, 'src'))).rejects.toThrow();
+  });
+
+  it('single-project template does NOT create a repos/ folder', async () => {
+    // Symmetric regression: new/single-project must not inherit multi-repo infra.
+    await scaffold(buildCtx({ template: 'single-project', workspaceKind: 'new' }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    await expect(stat(join(projectPath, 'repos'))).rejects.toThrow();
+  });
 });
 
 describe('scaffold() — workspace kinds (new / existing-single / existing-multi)', () => {

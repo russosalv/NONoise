@@ -46,7 +46,10 @@ the `.claude/` folder manually — NONoise ships workspace-centric by default.
 - `scripts/` — `clone-all`, `switch-branch`, `pull-all` (`.sh` + `.ps1`)
 - `repos/` — sub-repositories land here after `clone-all`
 - `docs/` — architecture, requirements, PRD, sprints, calls, support
-- `src/`, `tools/`, `.vscode/` — workspace-level utilities and shared code
+- `tools/` — workspace-level utilities
+
+Application code lives inside each sub-repo under `repos/<name>/`, **not** at
+the workspace root. There is no workspace-level `src/` by design.
 
 ## Build & test
 
