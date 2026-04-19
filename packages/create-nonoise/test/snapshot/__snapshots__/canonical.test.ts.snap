@@ -13241,6 +13241,27 @@ Graphify must see **useful text only**. Before indexing, filter:
   \`\`\`
 - Other textual formats (\`.org\`, \`.adoc\`, \`.asciidoc\`) — same pattern: add them to the \`document\` bucket, recompute \`total_files\` / \`total_words\`, continue.
 
+**Legacy code with no AST parser — reclassify as \`document\`.** Graphify's structural extraction (AST) only handles modern languages with available parsers (Python, TypeScript, Go, Rust, Java, C/C++, Ruby, Swift, Kotlin, C#, Scala, PHP, Lua). Legacy code falls through that step and loses all signal. The fix is to move it into the \`document\` bucket so the semantic LLM pass reads it as prose — which is the *correct* approach for legacy reverse-engineering: the LLM extracts programs, paragraphs, \`PERFORM\`/\`CALL\` targets, copybook references, file/dataset names, \`DATA DIVISION\` items and so on directly from the text. Don't go hunting for COBOL AST parsers — they're either missing, half-baked, or worse than the LLM.
+
+Affected extensions:
+
+- COBOL (\`.cbl\`, \`.cob\`, \`.cpy\`), RPG (\`.rpg\`, \`.rpgle\`), FORTRAN (\`.f\`, \`.f90\`, \`.for\`), JCL (\`.jcl\`), PL/I (\`.pli\`, \`.pl1\`), ABAP (\`.abap\`), Assembler (\`.asm\`, \`.s\`). Extend the set if the subject uses other legacy dialects (CLIST, REXX, NATURAL, Easytrieve, etc.).
+
+After \`detect()\`:
+
+\`\`\`python
+LEGACY_EXTS = {'.cbl','.cob','.cpy','.rpg','.rpgle','.f','.f90','.for',
+               '.jcl','.pli','.pl1','.abap','.asm','.s'}
+files = result['files']
+moved = [f for f in files.get('code', []) if Path(f).suffix.lower() in LEGACY_EXTS]
+if moved:
+    files['code']     = [f for f in files['code'] if f not in moved]
+    files.setdefault('document', []).extend(moved)
+    print(f'Reclassified {len(moved)} legacy file(s) as documents (no AST parser).')
+\`\`\`
+
+When the **subject source** (Q3) is mostly legacy code, *always* apply this before invoking graphify on it (Step 2.2). Print to the user which extensions were reclassified so they understand why the AST node count is low / zero.
+
 After filtering, show the user before/after counts and the final file list. If total > 200 (graphify threshold) or > 15 post-filter, ask explicit confirmation.
 
 **PDF note** (print once per run when you detect raw PDFs):

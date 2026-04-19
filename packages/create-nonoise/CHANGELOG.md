@@ -1,5 +1,11 @@
 # create-nonoise
 
+## 0.24.1
+
+### Patch Changes
+
+- Refresh canonical scaffold snapshot to include the new COBOL/legacy block in the bundled `reverse-engineering` skill (test-only fix; user-facing content unchanged from 0.24.0). Republishes 0.24.0 as 0.24.1 because the 0.24.0 release workflow failed at the test step before reaching `npm publish`.
+
 ## 0.24.0
 
 ### Minor Changes
