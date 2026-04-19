@@ -37,7 +37,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 | [Sprint & implementation](#sprint--implementation) | 2 | Break work down, run acceptance |
 | [Brownfield & knowledge](#brownfield--knowledge) | 2 | Index and document existing code |
 | [Ops & observability](#ops--observability) | 2 | Operate systems and triage incidents |
-| [Integrations](#integrations) | 3 | Trackers, browsers, UI/UX |
+| [Integrations](#integrations) | 5 | Trackers, browsers, UI/UX, personas |
 | [Generators](#generators) | 3 | VSCode config, docs MDs, design MD |
 | [Utility](#utility) | 1 | Discover and install more skills |
 | [Vendored superpowers](#vendored-superpowers) | 14 | Planning / execution / review / worktrees |
