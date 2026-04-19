@@ -51,7 +51,13 @@ function parseArgv(args: string[]): ParsedFlags {
     else if (a === '--version' || a === '-v') out.version = true;
     else if (a === '--yes' || a === '-y') out.yes = true;
     else if (a === '--no-git') out.noGit = true;
-    else if (a === '--template') out.template = args[++i] as TemplateName;
+    else if (a === '--template') {
+      const raw = args[++i];
+      if (raw !== 'single-project' && raw !== 'multi-repo') {
+        throw new Error(`Unknown template "${raw}". Valid: single-project | multi-repo.`);
+      }
+      out.template = raw as TemplateName;
+    }
     else if (a === '--ai') out.ai = args[++i];
     else if (!a.startsWith('-') && !out.positionalDir) out.positionalDir = a;
     i++;
@@ -73,7 +79,7 @@ Usage:
   create-nonoise [directory] [options]
 
 Options:
-  --template <name>   Template name (default: single-project)
+  --template <name>   Template: single-project | multi-repo (default: single-project; asked interactively if omitted)
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
   --no-git            Skip git init
   --yes, -y           Use defaults, non-interactive

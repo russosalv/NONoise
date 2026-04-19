@@ -7,7 +7,7 @@ export type AiToolKey =
 
 export type AiTools = Record<AiToolKey, boolean>;
 
-export type TemplateName = 'single-project';
+export type TemplateName = 'single-project' | 'multi-repo';
 
 export type ProjectContext = {
   projectName: string;
