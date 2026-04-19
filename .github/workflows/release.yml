@@ -53,6 +53,12 @@ jobs:
           tar -tzf "$TARBALL" | wc -l
 
       - name: Publish to npm with provenance
-        run: pnpm --filter create-nonoise publish --access public --provenance --no-git-checks
+        # Use `npm publish` (not `pnpm publish`) because pnpm's publish path
+        # does not populate the README metadata on the registry, which leaves
+        # the npm package page blank. npm publish picks up README.md at the
+        # package root correctly.
+        run: |
+          cd packages/create-nonoise
+          npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
