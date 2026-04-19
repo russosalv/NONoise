@@ -2,7 +2,7 @@
 
 **An AI SDLC bootstrapper.** One command turns an empty directory into a fully-wired, AI-ready project — skills, docs hierarchy, cross-tool context files, and an orchestrator (Polly) that walks your team through the whole software lifecycle.
 
-🌐 **Site:** https://nonoise-frmw.com
+🌐 **Site:** https://nonoise-frmk.com
 📦 **Repo:** https://github.com/russosalv/NONoise
 📚 **Docs:** https://github.com/russosalv/NONoise/tree/main/docs
 
