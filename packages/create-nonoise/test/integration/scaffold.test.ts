@@ -549,6 +549,58 @@ describe('scaffold() — workspace kinds (new / existing-single / existing-multi
     expect(cfg.repositories.map((r) => r.name)).toEqual(['app']);
   });
 
+  it('user block is injected into CLAUDE.md and copilot-instructions.md when user is set', async () => {
+    await scaffold(
+      buildCtx({
+        aiTools: buildAi({ claudeCode: true, copilot: true }),
+        user: { name: 'Alessandro', locale: 'it', localeLabel: 'Italian (Italiano)' },
+      }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+    const claude = await readFile(join(projectPath, 'CLAUDE.md'), 'utf8');
+    expect(claude).toContain('<!-- >>> user (managed by create-nonoise) -->');
+    expect(claude).toContain('The developer\'s name is **Alessandro**');
+    expect(claude).toContain('Italian (Italiano)');
+    expect(claude).toContain('`it`');
+
+    const copilot = await readFile(join(projectPath, '.github', 'copilot-instructions.md'), 'utf8');
+    expect(copilot).toContain('<!-- >>> user (managed by create-nonoise) -->');
+    expect(copilot).toContain('Alessandro');
+
+    const agents = await readFile(join(projectPath, 'AGENTS.md'), 'utf8');
+    expect(agents).toContain('<!-- >>> user (managed by create-nonoise) -->');
+  });
+
+  it('user block is absent when user is not set', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const claude = await readFile(join(projectPath, 'CLAUDE.md'), 'utf8');
+    expect(claude).not.toContain('<!-- >>> user');
+    const agents = await readFile(join(projectPath, 'AGENTS.md'), 'utf8');
+    expect(agents).not.toContain('<!-- >>> user');
+  });
+
+  it('nonoise.config.json contains user.name and user.locale when user is set', async () => {
+    await scaffold(
+      buildCtx({
+        user: { name: 'Alessandro', locale: 'it', localeLabel: 'Italian (Italiano)' },
+      }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+    const cfg = JSON.parse(await readFile(join(projectPath, 'nonoise.config.json'), 'utf8')) as {
+      user?: { name?: string; locale?: string };
+    };
+    expect(cfg.user?.name).toBe('Alessandro');
+    expect(cfg.user?.locale).toBe('it');
+  });
+
+  it('nonoise.config.json omits "user" block when user is not set', async () => {
+    await scaffold(buildCtx(), { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    const cfg = JSON.parse(await readFile(join(projectPath, 'nonoise.config.json'), 'utf8')) as {
+      user?: unknown;
+    };
+    expect(cfg.user).toBeUndefined();
+  });
+
   it('cloneNow=true on a repo entry clones into <projectPath>/repos/<path>/', async () => {
     // Build a local bare repo to clone from (avoids network in tests)
     const fs = await import('node:fs/promises');

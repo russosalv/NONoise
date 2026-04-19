@@ -66,6 +66,8 @@ function parseArgv(args: string[]): ParsedFlags {
       out.workspaceKind = raw as WorkspaceKind;
     }
     else if (a === '--ai') out.ai = args[++i];
+    else if (a === '--user-name') out.userName = args[++i];
+    else if (a === '--user-locale') out.userLocale = args[++i];
     else if (!a.startsWith('-') && !out.positionalDir) out.positionalDir = a;
     i++;
   }
@@ -89,6 +91,8 @@ Options:
   --workspace <kind>  Workspace: new | existing-single | existing-multi (asked interactively if omitted)
   --template <name>   Template: single-project | multi-repo (back-compat; inferred from --workspace if present)
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
+  --user-name <name>  Developer name (used by AI to address you; default: git user.name)
+  --user-locale <iso> Language for the AI to reply in (ISO 639-1; default: OS locale)
   --no-git            Skip git init
   --yes, -y           Use defaults, non-interactive
   --version, -v       Print version

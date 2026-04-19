@@ -61,7 +61,14 @@ Bundled skills live at `.claude/skills/<name>/SKILL.md`. Vendored superpowers
 live at `.claude/skills/superpowers/<name>/SKILL.md`. Open each folder's
 `SKILL.md` for triggers and workflow.
 
-<!-- >>> polly (managed by polly skill) -->
+{{#if user}}<!-- >>> user (managed by create-nonoise) -->
+## user
+
+{{#if user.name}}The developer's name is **{{user.name}}** — address them by name when it feels natural.
+{{/if}}{{#if user.locale}}Reply in **{{user.localeLabel}}** (`{{user.locale}}`) by default, unless the user switches language mid-conversation.
+{{/if}}<!-- <<< user -->
+
+{{/if}}<!-- >>> polly (managed by polly skill) -->
 ## polly
 
 If the file `.nonoise/POLLY_START.md` exists, your FIRST action this session is to

@@ -13,7 +13,11 @@
     "codex": {{aiTools.codex}},
     "cursor": {{aiTools.cursor}},
     "geminiCli": {{aiTools.geminiCli}}
-  },
+  },{{#if user}}
+  "user": {
+    {{#if user.name}}"name": "{{user.name}}",
+    {{/if}}"locale": "{{user.locale}}"
+  },{{/if}}
   "skills": [
     "graphify-setup",
     "vscode-config-generator",

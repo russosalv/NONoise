@@ -19,6 +19,12 @@ export type RepoEntry = {
   cloneNow?: boolean;
 };
 
+export type UserConfig = {
+  name?: string;
+  locale?: string;       // ISO 639-1 code (en, it, es, …)
+  localeLabel?: string;  // Human label (English, Italian, …) — optional, used for prose
+};
+
 export type ProjectContext = {
   projectName: string;
   projectPath: string;
@@ -29,6 +35,7 @@ export type ProjectContext = {
   frameworkVersion: string;
   repos?: RepoEntry[];
   multiRepoConfigured?: boolean;
+  user?: UserConfig;
 };
 
 export type HandlebarsRenderContext = ProjectContext & {

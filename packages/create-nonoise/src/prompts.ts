@@ -1,4 +1,5 @@
 import { intro, outro, text, select, multiselect, confirm, isCancel, cancel, spinner, note } from '@clack/prompts';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import type {
   AiToolKey,
@@ -6,6 +7,7 @@ import type {
   ProjectContext,
   RepoEntry,
   TemplateName,
+  UserConfig,
   WorkspaceKind,
 } from './types.js';
 import { templateForWorkspace } from './types.js';
@@ -17,6 +19,8 @@ export type CliFlags = {
   ai?: string;              // csv
   noGit?: boolean;
   yes?: boolean;
+  userName?: string;
+  userLocale?: string;      // ISO 639-1
 };
 
 const DEFAULT_AI_TOOLS: AiTools = {
@@ -48,6 +52,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
   }
 
   const gitInit = await askGitInit(flags, workspaceKind, repos);
+  const user = await askUser(flags, aiTools);
 
   return {
     projectName: name,
@@ -59,6 +64,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
     frameworkVersion,
     repos,
     multiRepoConfigured,
+    user,
   };
 }
 
@@ -339,6 +345,112 @@ async function askGitInit(
   });
   abortIfCancel(answer);
   return answer as boolean;
+}
+
+const COMMON_LOCALES: Array<{ code: string; label: string }> = [
+  { code: 'en', label: 'English' },
+  { code: 'it', label: 'Italian (Italiano)' },
+  { code: 'es', label: 'Spanish (Español)' },
+  { code: 'fr', label: 'French (Français)' },
+  { code: 'de', label: 'German (Deutsch)' },
+  { code: 'pt', label: 'Portuguese (Português)' },
+  { code: 'ja', label: 'Japanese (日本語)' },
+  { code: 'zh', label: 'Chinese (中文)' },
+];
+
+function hasAnyAiTool(a: AiTools): boolean {
+  return a.claudeCode || a.copilot || a.cursor || a.geminiCli || a.codex;
+}
+
+function detectGitUserName(): string | undefined {
+  try {
+    const out = execFileSync('git', ['config', '--global', 'user.name'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).toString().trim();
+    return out || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function detectLocale(): string {
+  const raw =
+    process.env.LC_ALL ||
+    process.env.LC_MESSAGES ||
+    process.env.LANG ||
+    // Node 14+
+    (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().locale : '') ||
+    'en';
+  // Normalize "it_IT.UTF-8" / "it-IT" → "it"
+  const code = raw.split(/[._-]/)[0]!.toLowerCase();
+  return /^[a-z]{2,3}$/.test(code) ? code : 'en';
+}
+
+function labelForLocale(code: string): string {
+  const match = COMMON_LOCALES.find((l) => l.code === code);
+  return match ? match.label : code;
+}
+
+async function askUser(flags: CliFlags, aiTools: AiTools): Promise<UserConfig | undefined> {
+  // Skip entirely if no AI tool will consume the block.
+  if (!hasAnyAiTool(aiTools)) return undefined;
+
+  // Flag-driven: fully non-interactive path.
+  if (flags.yes || (flags.userName !== undefined && flags.userLocale !== undefined)) {
+    const name = flags.userName?.trim() || detectGitUserName();
+    const locale = flags.userLocale?.trim() || detectLocale();
+    if (!name && !locale) return undefined;
+    return {
+      name: name || undefined,
+      locale,
+      localeLabel: labelForLocale(locale),
+    };
+  }
+
+  const detectedName = flags.userName?.trim() || detectGitUserName() || '';
+  const nameAnswer = await text({
+    message: 'Your name (for the AI to address you — press Enter to skip)',
+    placeholder: detectedName || 'Alessandro',
+    initialValue: detectedName,
+  });
+  abortIfCancel(nameAnswer);
+  const name = (nameAnswer as string).trim();
+
+  const detectedLocale = flags.userLocale?.trim() || detectLocale();
+  const isCommon = COMMON_LOCALES.some((l) => l.code === detectedLocale);
+  const localeChoice = await select({
+    message: 'Language the AI should reply in',
+    options: [
+      ...COMMON_LOCALES.map((l) => ({ value: l.code, label: l.label })),
+      { value: '__other__', label: 'Other (enter ISO 639-1 code)' },
+    ],
+    initialValue: isCommon ? detectedLocale : '__other__',
+  });
+  abortIfCancel(localeChoice);
+
+  let locale: string;
+  if (localeChoice === '__other__') {
+    const raw = await text({
+      message: 'ISO 639-1 code (e.g. nl, sv, pl)',
+      placeholder: detectedLocale,
+      initialValue: isCommon ? '' : detectedLocale,
+      validate(value) {
+        if (!value) return 'Code is required.';
+        if (!/^[a-z]{2,3}$/.test(value)) return 'Expected 2–3 lowercase letters.';
+      },
+    });
+    abortIfCancel(raw);
+    locale = (raw as string).toLowerCase();
+  } else {
+    locale = localeChoice as string;
+  }
+
+  if (!name && !locale) return undefined;
+  return {
+    name: name || undefined,
+    locale,
+    localeLabel: labelForLocale(locale),
+  };
 }
 
 function abortIfCancel(value: unknown): void {
