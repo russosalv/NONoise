@@ -528,48 +528,28 @@ describe('scaffold() — workspace kinds (new / existing-single / existing-multi
     ).resolves.not.toThrow();
   });
 
-  it('existing-single with configured=false writes the skip marker to nonoise.config.json', async () => {
+  it('existing-single uses the multi-repo template (repos/, .gitignore, scripts)', async () => {
     await scaffold(
       buildCtx({
+        template: 'multi-repo',
         workspaceKind: 'existing-single',
-        existingRepo: { configured: false },
+        multiRepoConfigured: true,
+        repos: [{ name: 'app', url: 'https://example.com/o/app.git', path: 'app', branch: 'main' }],
       }),
       { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
     );
-    const cfg = JSON.parse(
-      await readFile(join(projectPath, 'nonoise.config.json'), 'utf8'),
-    ) as { existingRepo?: { configured?: boolean; url?: string } };
-    expect(cfg.existingRepo?.configured).toBe(false);
-    expect(cfg.existingRepo?.url).toBeUndefined();
-  });
-
-  it('existing-single with url and cloneNow=false records url+branch without cloning', async () => {
-    await scaffold(
-      buildCtx({
-        workspaceKind: 'existing-single',
-        existingRepo: {
-          url: 'https://example.com/org/repo.git',
-          branch: 'main',
-          cloneNow: false,
-          configured: true,
-        },
-      }),
-      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
-    );
-    const cfg = JSON.parse(
-      await readFile(join(projectPath, 'nonoise.config.json'), 'utf8'),
-    ) as {
-      workspaceKind?: string;
-      existingRepo?: { configured?: boolean; url?: string; branch?: string; cloned?: boolean };
+    // gitignore from multi-repo template must ignore repos/*/
+    const gi = await readFile(join(projectPath, '.gitignore'), 'utf8');
+    expect(gi).toMatch(/repos\/\*\//);
+    expect(gi).toMatch(/!repos\/\.gitkeep/);
+    // repositories.json has the single entry
+    const cfg = JSON.parse(await readFile(join(projectPath, 'repositories.json'), 'utf8')) as {
+      repositories: Array<{ name: string }>;
     };
-    expect(cfg.workspaceKind).toBe('existing-single');
-    expect(cfg.existingRepo?.configured).toBe(true);
-    expect(cfg.existingRepo?.url).toBe('https://example.com/org/repo.git');
-    expect(cfg.existingRepo?.branch).toBe('main');
-    expect(cfg.existingRepo?.cloned).toBe(false);
+    expect(cfg.repositories.map((r) => r.name)).toEqual(['app']);
   });
 
-  it('existing-single with cloneNow clones a local bare repo into projectPath before layering', async () => {
+  it('cloneNow=true on a repo entry clones into <projectPath>/repos/<path>/', async () => {
     // Build a local bare repo to clone from (avoids network in tests)
     const fs = await import('node:fs/promises');
     const { execFileSync } = await import('node:child_process');
@@ -588,23 +568,20 @@ describe('scaffold() — workspace kinds (new / existing-single / existing-multi
 
     await scaffold(
       buildCtx({
+        template: 'multi-repo',
         workspaceKind: 'existing-single',
-        existingRepo: {
-          url: bare,
-          branch: 'main',
-          cloneNow: true,
-          configured: true,
-        },
+        multiRepoConfigured: true,
+        repos: [{ name: 'app', url: bare, path: 'app', branch: 'main', cloneNow: true }],
       }),
       { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
     );
 
-    // Upstream content landed
-    const upstream = await readFile(join(projectPath, 'UPSTREAM.md'), 'utf8');
+    // Upstream content landed under repos/app/
+    const upstream = await readFile(join(projectPath, 'repos', 'app', 'UPSTREAM.md'), 'utf8');
     expect(upstream).toContain('upstream seed');
-    // .git directory from the clone is present
-    await expect(stat(join(projectPath, '.git'))).resolves.toBeTruthy();
-    // NONoise layer landed on top
+    // Sub-repo .git is there (it's its own repo)
+    await expect(stat(join(projectPath, 'repos', 'app', '.git'))).resolves.toBeTruthy();
+    // Workspace root is NOT the sub-repo — NONoise files live here unchanged
     const agents = await readFile(join(projectPath, 'AGENTS.md'), 'utf8');
     expect(agents).toContain('ws');
   }, 30_000);

@@ -58,16 +58,6 @@ export type ScaffoldPaths = {
 export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promise<void> {
   const templateDir = join(paths.templatesRoot, ctx.template);
 
-  // Step 0 — if the user opted to clone an existing repo, do that first so the
-  // NONoise layer lands on top of real content instead of an empty dir.
-  if (
-    ctx.workspaceKind === 'existing-single' &&
-    ctx.existingRepo?.cloneNow &&
-    ctx.existingRepo?.url
-  ) {
-    cloneExistingRepo(ctx.existingRepo.url, ctx.existingRepo.branch, ctx.projectPath);
-  }
-
   const resolved = await resolveTemplateFiles(templateDir, ctx.aiTools);
   const now = new Date();
   const renderCtx: HandlebarsRenderContext = {
@@ -115,6 +105,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
 
   if (ctx.template === 'multi-repo' && ctx.repos && ctx.repos.length > 0) {
     await writeRepositoriesJson(ctx.projectPath, ctx.repos);
+    cloneRequestedRepos(ctx.projectPath, ctx.repos);
   }
 
   if (supportsPolly(ctx.aiTools)) {
@@ -240,7 +231,15 @@ function detectPython(): string | null {
   return null;
 }
 
-function cloneExistingRepo(url: string, branch: string | undefined, dest: string): void {
+function cloneRequestedRepos(workspaceRoot: string, repos: RepoEntry[]): void {
+  for (const r of repos) {
+    if (!r.cloneNow) continue;
+    const dest = join(workspaceRoot, 'repos', nativePath(r.path));
+    cloneRepo(r.url, r.branch, dest);
+  }
+}
+
+function cloneRepo(url: string, branch: string | undefined, dest: string): void {
   const args = ['clone'];
   if (branch) args.push('-b', branch);
   args.push(url, dest);

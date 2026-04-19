@@ -16,13 +16,7 @@ export type RepoEntry = {
   url: string;
   path: string;
   branch?: string;
-};
-
-export type ExistingRepoConfig = {
-  url?: string;
-  branch?: string;
   cloneNow?: boolean;
-  configured: boolean;
 };
 
 export type ProjectContext = {
@@ -35,7 +29,6 @@ export type ProjectContext = {
   frameworkVersion: string;
   repos?: RepoEntry[];
   multiRepoConfigured?: boolean;
-  existingRepo?: ExistingRepoConfig;
 };
 
 export type HandlebarsRenderContext = ProjectContext & {
@@ -46,7 +39,9 @@ export type HandlebarsRenderContext = ProjectContext & {
 };
 
 export function templateForWorkspace(kind: WorkspaceKind): TemplateName {
-  return kind === 'existing-multi' ? 'multi-repo' : 'single-project';
+  // Both existing-* workspaces wrap one-or-more repos under repos/ and need
+  // the same gitignore + scripts, so they share the multi-repo template.
+  return kind === 'new' ? 'single-project' : 'multi-repo';
 }
 
 export const AI_TOOL_TO_FLAG: Record<AiToolKey, string> = {

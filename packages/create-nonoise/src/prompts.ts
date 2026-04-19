@@ -3,7 +3,6 @@ import { resolve } from 'node:path';
 import type {
   AiToolKey,
   AiTools,
-  ExistingRepoConfig,
   ProjectContext,
   RepoEntry,
   TemplateName,
@@ -38,16 +37,17 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
 
   let repos: RepoEntry[] | undefined;
   let multiRepoConfigured: boolean | undefined;
-  let existingRepo: ExistingRepoConfig | undefined;
   if (workspaceKind === 'existing-multi') {
     const collected = await askRepos(flags);
     repos = collected.repos;
     multiRepoConfigured = collected.configured;
   } else if (workspaceKind === 'existing-single') {
-    existingRepo = await askExistingRepo(flags);
+    const single = await askSingleRepo(flags);
+    repos = single.repo ? [single.repo] : undefined;
+    multiRepoConfigured = single.configured;
   }
 
-  const gitInit = await askGitInit(flags, workspaceKind, existingRepo);
+  const gitInit = await askGitInit(flags, workspaceKind, repos);
 
   return {
     projectName: name,
@@ -59,7 +59,6 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
     frameworkVersion,
     repos,
     multiRepoConfigured,
-    existingRepo,
   };
 }
 
@@ -242,20 +241,22 @@ async function askRepos(
   return { repos, configured: repos.length > 0 };
 }
 
-async function askExistingRepo(flags: CliFlags): Promise<ExistingRepoConfig> {
-  if (flags.yes) return { configured: false };
+async function askSingleRepo(
+  flags: CliFlags,
+): Promise<{ repo: RepoEntry | undefined; configured: boolean }> {
+  if (flags.yes) return { repo: undefined, configured: false };
 
   type Choice = 'clone' | 'skip';
   const start = await select({
     message: 'Existing repo: point to it now?',
     options: [
-      { value: 'clone' as Choice, label: 'Yes — clone an existing repo into the project folder' },
+      { value: 'clone' as Choice, label: 'Yes — point to it (and optionally clone now)' },
       { value: 'skip' as Choice, label: 'Skip — I\'ll set it up later (or let Polly help)' },
     ],
     initialValue: 'clone' as Choice,
   });
   abortIfCancel(start);
-  if (start === 'skip') return { configured: false };
+  if (start === 'skip') return { repo: undefined, configured: false };
 
   const url = await text({
     message: 'Git URL',
@@ -269,6 +270,20 @@ async function askExistingRepo(flags: CliFlags): Promise<ExistingRepoConfig> {
   });
   abortIfCancel(url);
 
+  const defaultName = deriveRepoNameFromUrl(url as string);
+  const name = await text({
+    message: 'Short name (kebab-case, used as folder under repos/)',
+    placeholder: defaultName,
+    initialValue: defaultName,
+    validate(value) {
+      if (!value) return 'Name is required.';
+      if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(value)) {
+        return 'Use kebab-case: lowercase letters, digits, single hyphens.';
+      }
+    },
+  });
+  abortIfCancel(name);
+
   const branch = await text({
     message: 'Branch',
     placeholder: 'main',
@@ -277,33 +292,48 @@ async function askExistingRepo(flags: CliFlags): Promise<ExistingRepoConfig> {
   abortIfCancel(branch);
 
   const cloneNow = await confirm({
-    message: 'Clone it now into the project folder?',
+    message: `Clone it now into repos/${name as string}/?`,
     initialValue: true,
   });
   abortIfCancel(cloneNow);
 
   return {
-    url: url as string,
-    branch: (branch as string) || 'main',
-    cloneNow: cloneNow as boolean,
+    repo: {
+      name: name as string,
+      url: url as string,
+      path: name as string,
+      branch: (branch as string) || 'main',
+      cloneNow: cloneNow as boolean,
+    },
     configured: true,
   };
+}
+
+function deriveRepoNameFromUrl(url: string): string {
+  const last = url.split('/').pop() ?? '';
+  const stripped = last.replace(/\.git$/i, '');
+  // Normalize to kebab-case best-effort; fall back to 'repo' if empty.
+  const kebab = stripped
+    .replace(/[A-Z]+/g, (m, i: number) => (i === 0 ? m.toLowerCase() : '-' + m.toLowerCase()))
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+  return kebab || 'repo';
 }
 
 async function askGitInit(
   flags: CliFlags,
   workspaceKind: WorkspaceKind,
-  existingRepo: ExistingRepoConfig | undefined,
+  repos: RepoEntry[] | undefined,
 ): Promise<boolean> {
   if (flags.noGit === true) return false;
-  // When we're cloning an existing repo, it already carries its own .git — no init.
-  if (existingRepo?.cloneNow) return false;
   if (flags.yes === true) return workspaceKind === 'new';
 
   const existing = workspaceKind !== 'new';
+  const hasClones = repos?.some((r) => r.cloneNow) === true;
   const answer = await confirm({
     message: existing
-      ? 'Initialize a git repository? (you probably already have one)'
+      ? `Initialize a git repository at the workspace root?${hasClones ? ' (cloned sub-repos already have their own .git)' : ''}`
       : 'Initialize a git repository?',
     initialValue: !existing,
   });
