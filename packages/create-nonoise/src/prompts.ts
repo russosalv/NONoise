@@ -1,4 +1,4 @@
-import { intro, outro, text, multiselect, confirm, isCancel, cancel, spinner, note } from '@clack/prompts';
+import { intro, outro, text, select, multiselect, confirm, isCancel, cancel, spinner, note } from '@clack/prompts';
 import { resolve } from 'node:path';
 import type { AiToolKey, AiTools, ProjectContext, TemplateName } from './types.js';
 
@@ -22,7 +22,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
   intro('create-nonoise • SDLC bootstrapper');
 
   const name = await askProjectName(flags);
-  const template = flags.template ?? 'single-project';
+  const template = await askTemplate(flags);
   const aiTools = await askAiTools(flags);
   const gitInit = flags.noGit === true ? false : flags.yes === true ? true : await askGitInit();
 
@@ -62,6 +62,30 @@ function validateProjectName(name: string): void {
     throw new Error('Use kebab-case: lowercase letters, digits, and single hyphens.');
   }
   if (name.length > 214) throw new Error('Project name is too long (max 214 chars).');
+}
+
+async function askTemplate(flags: CliFlags): Promise<TemplateName> {
+  if (flags.template) return flags.template;
+  if (flags.yes) return 'single-project';
+
+  const answer = await select({
+    message: 'What are you setting up?',
+    options: [
+      {
+        value: 'single-project' as TemplateName,
+        label: 'New project (single repo)',
+        hint: 'Scaffold a fresh project from scratch',
+      },
+      {
+        value: 'multi-repo' as TemplateName,
+        label: 'Existing multi-repo workspace',
+        hint: 'Wrap one or more existing repos with NONoise',
+      },
+    ],
+    initialValue: 'single-project' as TemplateName,
+  });
+  abortIfCancel(answer);
+  return answer as TemplateName;
 }
 
 async function askAiTools(flags: CliFlags): Promise<AiTools> {
