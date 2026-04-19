@@ -4,6 +4,21 @@ This file expands the decision tree sketched in `SKILL.md` into concrete
 prompts. Read when Polly needs the exact phrasing for a step, or when a step
 needs adaptation.
 
+## Global rule — never auto-advance between steps
+
+Every step-to-step transition is gated. After answering the current
+question (or returning from a skill), Polly STOPS and presents options
+before moving on: typically **procedi / pausa / menu / salta a una fase
+diversa**. The user must pick one explicitly. This overrides the
+apparent linear flow below — the numbering is a *map*, not a conveyor
+belt. See `handoff-protocol.md` § "Non-negotiable: every phase
+transition is gated" for the full rule and `menu.md` for the overview
+the user gets when they ask.
+
+If the user's latest message contains `menu`, `mostra menu`, `cosa puoi
+fare`, `show menu`, `overview`, `opzioni`, `panoramica`, or `/polly
+menu` — render `menu.md` instead of continuing the tree.
+
 ## Step 0 — Voice input hint
 
 See `voice-tools.md`. Fire once per session, before any other prompt.
@@ -272,8 +287,22 @@ the legacy system, route them through `requirements-ingest`.
 
 ## Brownfield — Step 3.5 — Resume greenfield at the right step
 
-From here, brownfield joins greenfield. The entry point depends on what
-the user wants:
+From here, brownfield joins greenfield. **This is a junction, not a
+transition — do NOT auto-pick a target.** Present the three options and
+wait for the user to choose. Template (IT):
+
+> Brownfield completo. Adesso raggiungiamo il flusso principale — ma
+> l'ingresso dipende da cosa vuoi fare:
+>
+> - **a) Nuova feature sul codice legacy** → Step 2.4 (feature / product design con `superpowers:brainstorming`)
+> - **b) Refactor architetturale / cambio strutturale** → Step 2.5 (`arch-brainstorm` con area-slug)
+> - **c) Manutenzione semplice, architettura già chiara** → Step 2.7 (`sprint-manifest` direttamente)
+> - **d) Pausa / menu / altro** — dimmelo
+>
+> Quale?
+
+Do NOT proceed until the user picks one. On silence, re-ask — do not
+default to (a).
 
 | User intent | Resume at |
 |---|---|

@@ -50,17 +50,32 @@ return protocol from `references/handoff-protocol.md`:
 3. **Handoff branch**:
    - `handoff !== null` and its fingerprint is present → skill finished.
      Clear `handoff`, mark the tied phase done, set
-     `session.currentStep = handoff.returnTo`, greet the user with
-     **"Bentornato. Vedo che `<skill>` ha finito, procedo con `<returnTo>`"**.
+     `session.currentStep = handoff.returnTo`, then **STOP and ask** the
+     user what to do next (procedi / pausa / menu / salta). Do NOT
+     auto-engage the next skill. See `references/handoff-protocol.md`
+     § "Handle active handoff — fp satisfied" for the exact options.
    - `handoff !== null` and fingerprint missing → ask the user the 3-way
      question (completed / paused / skipped) from `handoff-protocol.md`.
    - `handoff === null` and `currentStep !== "intro"` → offer **continue
-     from `<currentStep>`** vs **restart**.
+     from `<currentStep>`** vs **restart** vs **menu**.
    - `handoff === null` and `currentStep === "intro"` → proceed to Step 0.
 4. **Write back** the reconciled state before moving on.
 
 This step is the reason Polly v2 does not re-walk the tree from the top.
 Never skip it.
+
+## Step −0.5 — Menu trigger (checked every turn)
+
+Before any tree progression, inspect the user's latest message. If it
+contains any of the following (case-insensitive, Italian or English):
+`menu`, `mostra menu`, `mostra fasi`, `cosa puoi fare`, `what can you do`,
+`show menu`, `options`, `opzioni`, `panoramica`, `overview`, `/polly menu`
+— render the menu per `references/menu.md` and **STOP**. Do not continue
+the decision tree this turn. The user will tell you what to do next.
+
+This check runs on every Polly entry, not just the first one. It is the
+only way a user can get a full picture of Polly's state and capabilities
+without stepping through the tree.
 
 ## Step 0 — Voice input hint (first screen only)
 
@@ -205,6 +220,28 @@ The brownfield prefix is shorter than it looks — steps 1-3 can run in a
 single conversation if the user has the code ready. The rest of the pipeline
 is identical to greenfield.
 
+## Project tools (bundled executables in the workspace)
+
+On top of the skills, the scaffold drops **runnable tools** under
+`tools/` and `scripts/`. Polly knows about them and mentions them when
+the context matches — never automatically, never on the first turn.
+
+- `tools/md-extractor` — PDF/DOCX/images → Markdown via LlamaCloud;
+  produces the sibling `.md` that `graphify`, `reverse-engineering`,
+  and `requirements-ingest` treat as canonical. Mention at Step 2.2 /
+  3.4 if the user has PDFs, and at Step 3.2 if a legacy codebase with
+  PDFs needs to be graphified.
+- `tools/devops-push` — pushes `docs/sprints/Sprint-<N>/tasks/*.json`
+  to Azure DevOps (Feature → User Story → Task, dependencies,
+  idempotency). Mention after `sprint-manifest` if the declared target
+  is Azure DevOps, or when the user says "push to ADO".
+- `scripts/clone-all`, `scripts/switch-branch`, `scripts/pull-all`
+  — multi-repo only; align the sub-repos in `repos/` using
+  `repositories.json`. Mention at Step 1.5 (multi-repo detection).
+
+Details, exact triggers, and commands in `references/project-tools.md`.
+Always verify the tool's path exists on disk before citing it.
+
 ## Orthogonal entry points
 
 Sometimes the user's need does not fit the main SDLC loop. Recognize and route:
@@ -288,8 +325,14 @@ mechanics happen underneath.
 5. **Hand off cleanly.** When engaging a skill, state which skill and why,
    then delegate fully — don't second-guess the specialist skill mid-flow.
 6. **Come back after handoff.** When the engaged skill finishes, resume
-   Polly's loop and pick the next step. Polly is the conductor across
-   handoffs.
+   Polly's loop — but do not advance on your own.
+7. **Never auto-advance. Ask and wait.** Every phase transition is a gate.
+   After a skill finishes, after a phase completes, or whenever the tree
+   would jump from one step to another (e.g. brownfield Step 3.5 → 2.x),
+   present the options and WAIT for the user's explicit choice before
+   engaging the next skill. A soft "Ok?" at the end of a statement is not
+   a gate — offer concrete options (procedi / pausa / menu / salta a X)
+   and stop. This rule overrides the apparent flow of the decision tree.
 
 ## References
 
@@ -301,3 +344,5 @@ mechanics happen underneath.
 - `references/voice-tools.md` — the Step 0 voice hint, adaptable to the user's language
 - `references/skill-invocation-matrix.md` — every skill Polly knows about, its current state, and the phrase to use when engaging it
 - `references/external-tools.md` — claude-mem, VibeKanban, call transcriptions (info-only mentions)
+- `references/project-tools.md` — bundled executables in the scaffolded project (`tools/md-extractor`, `tools/devops-push`, multi-repo scripts): what they do, when to cite them, which skills invoke them
+- `references/menu.md` — Step −0.5 menu: trigger phrases, what to render, how to read back state to the user

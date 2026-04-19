@@ -55,6 +55,7 @@ Your output should be structured, actionable, and focused on helping maintain hi
   ".claude/commands/.gitkeep": "",
   ".claude/commands/polly.md": "---
 description: Start Polly — the NONoise SDLC orchestrator.
+argument-hint: "[menu]"
 ---
 
 Invoke the \`polly\` skill immediately and follow its decision tree step by
@@ -63,7 +64,20 @@ greenfield or brownfield, then engages the right bundled skill (requirements
 ingestion, BMAD elicitation, arch brainstorm / decision, sprint manifest,
 ATR, reverse engineering, etc.) in the right order.
 
+If the slash argument is \`menu\` (e.g. \`/polly menu\`), or the user's message
+contains \`menu\` / \`mostra menu\` / \`cosa puoi fare\` / \`show menu\` /
+\`overview\`, render the menu described in
+\`.claude/skills/polly/references/menu.md\` instead of walking the tree.
+The menu is read-only: it shows where we are, which phases are done,
+what's next, and every skill Polly can engage — then stops.
+
+Polly never auto-advances. After every skill finishes and at every tree
+junction, Polly presents concrete options (procedi / pausa / menu / salta
+a un'altra fase) and waits for the user's explicit choice.
+
 Do not ask the user what to do next — Polly will.
+
+Argument received (if any): $ARGUMENTS
 ",
   ".claude/commands/superpowers/brainstorm.md": "---
 description: "Deprecated - use the superpowers:brainstorming skill instead"
@@ -9023,17 +9037,32 @@ return protocol from \`references/handoff-protocol.md\`:
 3. **Handoff branch**:
    - \`handoff !== null\` and its fingerprint is present → skill finished.
      Clear \`handoff\`, mark the tied phase done, set
-     \`session.currentStep = handoff.returnTo\`, greet the user with
-     **"Bentornato. Vedo che \`<skill>\` ha finito, procedo con \`<returnTo>\`"**.
+     \`session.currentStep = handoff.returnTo\`, then **STOP and ask** the
+     user what to do next (procedi / pausa / menu / salta). Do NOT
+     auto-engage the next skill. See \`references/handoff-protocol.md\`
+     § "Handle active handoff — fp satisfied" for the exact options.
    - \`handoff !== null\` and fingerprint missing → ask the user the 3-way
      question (completed / paused / skipped) from \`handoff-protocol.md\`.
    - \`handoff === null\` and \`currentStep !== "intro"\` → offer **continue
-     from \`<currentStep>\`** vs **restart**.
+     from \`<currentStep>\`** vs **restart** vs **menu**.
    - \`handoff === null\` and \`currentStep === "intro"\` → proceed to Step 0.
 4. **Write back** the reconciled state before moving on.
 
 This step is the reason Polly v2 does not re-walk the tree from the top.
 Never skip it.
+
+## Step −0.5 — Menu trigger (checked every turn)
+
+Before any tree progression, inspect the user's latest message. If it
+contains any of the following (case-insensitive, Italian or English):
+\`menu\`, \`mostra menu\`, \`mostra fasi\`, \`cosa puoi fare\`, \`what can you do\`,
+\`show menu\`, \`options\`, \`opzioni\`, \`panoramica\`, \`overview\`, \`/polly menu\`
+— render the menu per \`references/menu.md\` and **STOP**. Do not continue
+the decision tree this turn. The user will tell you what to do next.
+
+This check runs on every Polly entry, not just the first one. It is the
+only way a user can get a full picture of Polly's state and capabilities
+without stepping through the tree.
 
 ## Step 0 — Voice input hint (first screen only)
 
@@ -9178,6 +9207,28 @@ The brownfield prefix is shorter than it looks — steps 1-3 can run in a
 single conversation if the user has the code ready. The rest of the pipeline
 is identical to greenfield.
 
+## Project tools (bundled executables in the workspace)
+
+On top of the skills, the scaffold drops **runnable tools** under
+\`tools/\` and \`scripts/\`. Polly knows about them and mentions them when
+the context matches — never automatically, never on the first turn.
+
+- \`tools/md-extractor\` — PDF/DOCX/images → Markdown via LlamaCloud;
+  produces the sibling \`.md\` that \`graphify\`, \`reverse-engineering\`,
+  and \`requirements-ingest\` treat as canonical. Mention at Step 2.2 /
+  3.4 if the user has PDFs, and at Step 3.2 if a legacy codebase with
+  PDFs needs to be graphified.
+- \`tools/devops-push\` — pushes \`docs/sprints/Sprint-<N>/tasks/*.json\`
+  to Azure DevOps (Feature → User Story → Task, dependencies,
+  idempotency). Mention after \`sprint-manifest\` if the declared target
+  is Azure DevOps, or when the user says "push to ADO".
+- \`scripts/clone-all\`, \`scripts/switch-branch\`, \`scripts/pull-all\`
+  — multi-repo only; align the sub-repos in \`repos/\` using
+  \`repositories.json\`. Mention at Step 1.5 (multi-repo detection).
+
+Details, exact triggers, and commands in \`references/project-tools.md\`.
+Always verify the tool's path exists on disk before citing it.
+
 ## Orthogonal entry points
 
 Sometimes the user's need does not fit the main SDLC loop. Recognize and route:
@@ -9261,8 +9312,14 @@ mechanics happen underneath.
 5. **Hand off cleanly.** When engaging a skill, state which skill and why,
    then delegate fully — don't second-guess the specialist skill mid-flow.
 6. **Come back after handoff.** When the engaged skill finishes, resume
-   Polly's loop and pick the next step. Polly is the conductor across
-   handoffs.
+   Polly's loop — but do not advance on your own.
+7. **Never auto-advance. Ask and wait.** Every phase transition is a gate.
+   After a skill finishes, after a phase completes, or whenever the tree
+   would jump from one step to another (e.g. brownfield Step 3.5 → 2.x),
+   present the options and WAIT for the user's explicit choice before
+   engaging the next skill. A soft "Ok?" at the end of a statement is not
+   a gate — offer concrete options (procedi / pausa / menu / salta a X)
+   and stop. This rule overrides the apparent flow of the decision tree.
 
 ## References
 
@@ -9274,12 +9331,29 @@ mechanics happen underneath.
 - \`references/voice-tools.md\` — the Step 0 voice hint, adaptable to the user's language
 - \`references/skill-invocation-matrix.md\` — every skill Polly knows about, its current state, and the phrase to use when engaging it
 - \`references/external-tools.md\` — claude-mem, VibeKanban, call transcriptions (info-only mentions)
+- \`references/project-tools.md\` — bundled executables in the scaffolded project (\`tools/md-extractor\`, \`tools/devops-push\`, multi-repo scripts): what they do, when to cite them, which skills invoke them
+- \`references/menu.md\` — Step −0.5 menu: trigger phrases, what to render, how to read back state to the user
 ",
   ".claude/skills/polly/references/decision-tree.md": "# Polly — decision tree in full
 
 This file expands the decision tree sketched in \`SKILL.md\` into concrete
 prompts. Read when Polly needs the exact phrasing for a step, or when a step
 needs adaptation.
+
+## Global rule — never auto-advance between steps
+
+Every step-to-step transition is gated. After answering the current
+question (or returning from a skill), Polly STOPS and presents options
+before moving on: typically **procedi / pausa / menu / salta a una fase
+diversa**. The user must pick one explicitly. This overrides the
+apparent linear flow below — the numbering is a *map*, not a conveyor
+belt. See \`handoff-protocol.md\` § "Non-negotiable: every phase
+transition is gated" for the full rule and \`menu.md\` for the overview
+the user gets when they ask.
+
+If the user's latest message contains \`menu\`, \`mostra menu\`, \`cosa puoi
+fare\`, \`show menu\`, \`overview\`, \`opzioni\`, \`panoramica\`, or \`/polly
+menu\` — render \`menu.md\` instead of continuing the tree.
 
 ## Step 0 — Voice input hint
 
@@ -9549,8 +9623,22 @@ the legacy system, route them through \`requirements-ingest\`.
 
 ## Brownfield — Step 3.5 — Resume greenfield at the right step
 
-From here, brownfield joins greenfield. The entry point depends on what
-the user wants:
+From here, brownfield joins greenfield. **This is a junction, not a
+transition — do NOT auto-pick a target.** Present the three options and
+wait for the user to choose. Template (IT):
+
+> Brownfield completo. Adesso raggiungiamo il flusso principale — ma
+> l'ingresso dipende da cosa vuoi fare:
+>
+> - **a) Nuova feature sul codice legacy** → Step 2.4 (feature / product design con \`superpowers:brainstorming\`)
+> - **b) Refactor architetturale / cambio strutturale** → Step 2.5 (\`arch-brainstorm\` con area-slug)
+> - **c) Manutenzione semplice, architettura già chiara** → Step 2.7 (\`sprint-manifest\` direttamente)
+> - **d) Pausa / menu / altro** — dimmelo
+>
+> Quale?
+
+Do NOT proceed until the user picks one. On silence, re-ask — do not
+default to (a).
 
 | User intent | Resume at |
 |---|---|
@@ -9943,6 +10031,26 @@ as the source of truth for phase completion.
 
 Everything else in Polly's decision tree is unchanged.
 
+## Non-negotiable: every phase transition is gated
+
+Polly does not auto-advance. Ever. After any skill completes, any phase
+finishes, or the tree hits a junction (e.g. brownfield Step 3.5 → the
+greenfield resume point), Polly presents concrete options — typically
+**procedi / pausa / menu / salta** — and **waits for the user's explicit
+answer** before engaging the next skill.
+
+A soft "Ok?" at the end of a declarative sentence is NOT a gate. A
+statement like "Procedo con X" is NOT a gate. A gate is a question with
+concrete options and a full stop.
+
+This applies equally to:
+- Return from a completed handoff (§ "Handle active handoff")
+- Resume after silent re-entry (§ "No active handoff — offer resume")
+- Step-to-step transitions inside a single session (no filesystem signal,
+  but still a junction — ask)
+- The brownfield → greenfield seam (Step 3.5 has multiple resume targets;
+  never auto-pick one)
+
 ---
 
 ## Handoff — what Polly does
@@ -10040,9 +10148,33 @@ Let \`fp = fingerprint(handoff.skill)\`.
   3. Set \`session.currentStep = handoff.returnTo\`.
   4. Append a \`return\` event and a \`phase-complete\` event.
   5. Write the file.
-  6. Greet the user:
+  6. Greet the user with **an explicit choice, then STOP and wait**. Do
+     not engage the next skill in the same turn. Template (IT):
+
      > Bentornato. Vedo che **\`<X>\`** ha finito — trovo \`<fingerprint>\`.
-     > Procedo con la prossima fase: **\`<returnTo>\`**. Ok?
+     > La prossima fase sarebbe **\`<returnTo>\`** — <1 frase su cosa fa>.
+     >
+     > Cosa vuoi fare?
+     > - **a) Procedi** — ingaggio \`<next skill>\` per \`<returnTo>\`
+     > - **b) Pausa** — ci fermiamo qui, riprendiamo con \`/polly\` quando vuoi
+     > - **c) Menu** — mostrami tutte le fasi e le skill disponibili
+     > - **d) Salta a un'altra fase** — dimmi quale (es. "vai a sprint")
+
+     English equivalent:
+
+     > Welcome back. **\`<X>\`** is done — I can see \`<fingerprint>\`.
+     > The next phase would be **\`<returnTo>\`** — <1 sentence on what it does>.
+     >
+     > What would you like to do?
+     > - **a) Proceed** — I'll engage \`<next skill>\` for \`<returnTo>\`
+     > - **b) Pause** — we stop here, resume with \`/polly\` later
+     > - **c) Menu** — show me all phases and available skills
+     > - **d) Jump to a different phase** — tell me which one
+
+     **Wait for the answer before doing anything else.** The user may type
+     (a), "procedi", "yes", a skill name, "menu", "pausa", "stop" — parse
+     permissively but never auto-advance on silence or on a bare
+     acknowledgement. If the answer is ambiguous, ask again.
 
 - **\`fp\` NOT satisfied** → ambiguous. Ask the user directly, offering 3
   choices:
@@ -10060,17 +10192,22 @@ Let \`fp = fingerprint(handoff.skill)\`.
 
 If \`handoff === null\` AND \`session.currentStep !== "intro"\`:
 
-Show the user their progress and offer to resume vs restart:
+Show the user their progress and offer options — same gate pattern as
+above: present concrete choices and WAIT.
 
 > Bentornato. Ecco dove eravamo:
 > - Tipo progetto: **\`<kind>\`** (\`<scope>\`)
 > - Ultimo passo: **\`<currentStep>\`**
 > - Fasi completate: \`<list of phases with done:true>\`
 >
-> **Continua da \`<currentStep>\`** oppure **Ricomincia dall'inizio**?
+> Cosa vuoi fare?
+> - **a) Continua da \`<currentStep>\`**
+> - **b) Menu** — vedi tutte le fasi e le skill
+> - **c) Ricomincia dall'inizio**
 
 Restart = clear session (but keep \`voiceHintShown: true\` — no point
-re-showing it) and re-enter the tree at Step 1.
+re-showing it) and re-enter the tree at Step 1. Wait for the explicit
+choice; never assume "continue" on silence.
 
 ### 5. No handoff, fresh session
 
@@ -10137,6 +10274,434 @@ should benefit from the accumulated state.
 - If you can't parse the file (corrupted JSON), rename it to
   \`polly-state.corrupt-<timestamp>.json\` and bootstrap a fresh one, log a
   \`reset\` event mentioning the rename. Tell the user.
+",
+  ".claude/skills/polly/references/menu.md": "# Polly — menu command
+
+The menu is Polly's read-only overview. It answers three questions in one
+render:
+
+1. **Where we are** — project kind, scope, current step, phases done/pending
+2. **Where we can go** — the full decision tree for this \`kind\`, with the
+   current step highlighted and the available transitions
+3. **What Polly can orchestrate** — every skill Polly can hand off to,
+   grouped by flow, plus orthogonal entry points
+
+The menu never engages a skill and never changes state. It prints, then
+Polly waits for the user's next instruction.
+
+The sample outputs below are shown in Italian (matching the locale of
+the user who currently drives the project); adapt the locale at render
+time based on \`user.locale\` in \`nonoise.config.json\` or the ongoing
+conversation language.
+
+## Trigger phrases
+
+The menu fires on any of these (case-insensitive, IT or EN), checked at
+Step −0.5 of \`SKILL.md\` on every turn:
+
+- \`menu\`
+- \`mostra menu\` / \`show menu\`
+- \`mostra fasi\` / \`show phases\`
+- \`cosa puoi fare\` / \`what can you do\`
+- \`opzioni\` / \`options\`
+- \`panoramica\` / \`overview\`
+- \`/polly menu\` (when the slash command carries an \`menu\` argument)
+
+If the phrase appears alongside another instruction (e.g. "menu poi
+procedi"), render the menu first, then ask the user to confirm the
+follow-up.
+
+## What to render
+
+Structure the output as plain markdown. Four sections, in this order.
+
+### 1. Current state
+
+Read \`.nonoise/polly-state.json\`. Render:
+
+\`\`\`
+## 📍 Dove siamo
+
+- **Progetto**: <kind> (<scope or "—">)
+- **Step corrente**: <currentStep>
+- **Stack**: <stack or "non deciso">
+- **Area attiva**: <activeArea or "—">
+- **Sprint attivo**: <activeSprint or "—">
+- **Handoff aperto**: <handoff.skill or "nessuno">
+\`\`\`
+
+If the state file is absent (fresh session with no Step 0 yet), say so
+plainly — e.g. "Polly has no saved state yet: we're at the start" /
+"Polly non ha ancora stato salvato: siamo all'inizio" — and skip to
+section 2.
+
+### 2. Phases
+
+Render every phase from \`phases\` with a status glyph:
+
+\`\`\`
+## ✅ Fasi
+
+| Fase            | Stato | Fingerprint                                   |
+|-----------------|-------|-----------------------------------------------|
+| scan            | ✓     | graphify-out/GRAPH_REPORT.md                  |
+| reverse         | ✓     | docs/support/reverse/*/overview.md            |
+| requirements    | ○     | docs/requirements/**/requirements.md          |
+| featureDesign   | ○     | docs/superpowers/specs/*.md                   |
+| archBrainstorm  | ○     | docs/prd/*/NN-*.md                            |
+| archDecision    | ○     | docs/prd/*/audit/*.md (status: validated)     |
+| fpfAudit        | ○     | .quint/ or docs/fpf/*                          |
+| sprint          | ○     | docs/sprints/Sprint-N/sprint-manifest.md      |
+| implementation  | ○     | (tracked via sprint progress)                 |
+| acceptance      | ○     | docs/sprints/Sprint-N/acceptance/*            |
+| c4              | ○     | docs/architecture/c4/workspace.dsl            |
+| workitemExport  | ○     | (varies — spec-to-workitem output)            |
+\`\`\`
+
+Glyphs: \`✓\` = done (from \`phases[P].done === true\`), \`○\` = pending,
+\`⋯\` = in-progress (there's an active handoff tied to this phase).
+
+### 3. Possible next steps
+
+Based on \`kind\` and \`currentStep\`, show the local slice of the decision
+tree. Don't dump all 8 greenfield steps if we're at step 2.6 — show the
+current node, the 1-2 natural next nodes, and the junction options.
+
+Example for brownfield after \`reverse\` just completed:
+
+\`\`\`
+## 🧭 Prossimi passi
+
+Sei al giunto brownfield → greenfield. Tre strade:
+
+- **a) Nuova feature** — Step 2.4 → \`superpowers:brainstorming\`
+- **b) Refactor architetturale** — Step 2.5 → \`arch-brainstorm\`
+- **c) Manutenzione semplice** — Step 2.7 → \`sprint-manifest\`
+\`\`\`
+
+Example mid-greenfield after \`archDecision\`:
+
+\`\`\`
+## 🧭 Prossimi passi
+
+- **a) Continua** — Step 2.7 sprint-manifest (la prossima fase naturale)
+- **b) Aggiorna i C4** — \`c4-doc-writer\` (consigliato dopo un arch-decision)
+- **c) Export work items** — \`spec-to-workitem\` (Jira / Azure DevOps / GitHub Issues)
+- **d) Salta a un altro punto** — dimmi quale
+\`\`\`
+
+Always include a "jump elsewhere" option so the user can break out of
+the linear flow.
+
+### 4. Skills Polly can engage
+
+Reference \`skill-invocation-matrix.md\` for the full list. In the menu,
+render a compact version grouped by use:
+
+\`\`\`
+## 🛠 Skill che posso ingaggiare
+
+**Flusso greenfield / brownfield**
+- \`requirements-ingest\` — organizza materiale esistente in docs/requirements
+- \`bmad-agent-analyst\` — elicitation strutturata
+- \`superpowers:brainstorming\` — feature / product design
+- \`arch-brainstorm\` — opzioni architetturali
+- \`arch-decision\` — commit all'architettura (FPF audit incluso)
+- \`sprint-manifest\` — manifesto di sprint aggregato
+- \`atr\` — acceptance + test + implementazione per task
+
+**Brownfield**
+- \`graphify-setup\` / \`graphify\` — indicizzazione del codice
+- \`reverse-engineering\` — dossier interattivo sul legacy
+
+**Implementation (dev trio + ATR)**
+- \`superpowers:writing-plans\` → \`superpowers:executing-plans\` → \`atr\` → \`superpowers:finishing-a-development-branch\`
+
+**Entry points ortogonali**
+- \`observability-debug\` — "prod è rotto"
+- \`ops-skill-builder\` — "questa operazione la ripeto a mano"
+- \`spec-to-workitem\` — push a Jira / Azure DevOps / GitHub / Linear
+- \`frontend-design\` — design UI
+- \`playwright-cli\` — test Playwright
+- \`c4-doc-writer\` — aggiorna i diagrammi C4
+- \`docs-md-generator\` / \`design-md-generator\` — template markdown
+- \`skill-finder\` — "non so quale skill mi serve"
+\`\`\`
+
+Keep this list in sync with \`skill-invocation-matrix.md\`. If a skill is
+missing locally (fingerprint check), mark it with \`(not installed)\` (or
+\`(non installata)\` when rendering in Italian) and point to
+\`fallback-messages.md\`.
+
+### 4.25. Project tools (bundled executables)
+
+On top of the skills, the scaffold drops runnable tools under \`tools/\`
+and (in multi-repo workspaces) \`scripts/\`. List only the ones actually
+present on the filesystem — see \`project-tools.md\` for the detection
+table.
+
+\`\`\`
+## 🧰 Tool nel progetto
+
+- **\`tools/md-extractor\`** — PDF/DOCX/immagini → Markdown (via LlamaCloud).
+  Produce il \`.md\` sorella che \`graphify\` / \`reverse-engineering\` /
+  \`requirements-ingest\` leggono come canonico.
+  \`node tools/md-extractor/extract.js <path>\`
+- **\`tools/devops-push\`** — push della gerarchia Feature → User Story →
+  Task su Azure DevOps (legge i JSON prodotti da \`sprint-manifest\`).
+  \`cd tools/devops-push && npm start\` (dry-run di default)
+\`\`\`
+
+In multi-repo workspaces, add:
+
+\`\`\`
+- **\`scripts/clone-all\`** — clona i sub-repo attivi da \`repositories.json\`
+- **\`scripts/switch-branch <branch>\`** — allinea tutti i sub-repo sullo
+  stesso branch (crea se manca)
+- **\`scripts/pull-all\`** — \`git pull --ff-only\` su tutti i sub-repo
+\`\`\`
+
+If a tool is not on disk, do not include it in the list. Never promise
+tools that aren't actually there.
+
+### 4.5. Bonus capabilities (via skill-finder)
+
+Polly is not limited to the bundled skills: via \`skill-finder\` it can
+search, download, and install skills from external registries (official
+Anthropic, Claude plugin marketplaces, community repos) straight into
+\`.claude/skills/\` of the current project. Make this an explicit invite
+in the menu — most users don't know this path exists. Example of how
+to present it (Italian sample output, since the rest of the menu uses
+IT):
+
+\`\`\`
+## ✨ Cose ganze che posso sbloccare (via skill-finder)
+
+Le skill qui sopra sono quelle bundlate. Ma posso andare a cercarne
+altre e installarle al volo — basta chiedere «cerca una skill per X»:
+
+- 📊 **Slide / pitch deck (PPTX)** — \`pptx\` skill (Anthropic ufficiale)
+- 🎬 **Video / animazioni** — skill community (Remotion, Manim, ecc.)
+- 📄 **PDF generativi** — \`pdf\` skill (Anthropic ufficiale)
+- 🧾 **Excel / fogli di calcolo** — skill community dedicate
+- 🖼 **Editing immagini / generative art** — skill community
+- 🌐 **Stack-specific** — Angular / C# / .NET / Go / Python avanzato
+  (skill che non bundlo di default per non appesantire lo scaffold)
+- ➕ **Qualsiasi altra cosa** — dimmi il dominio, skill-finder cerca
+  nei registri ufficiali e community e ti propone 3-5 candidate
+
+Scrivi «cerca una skill per <cosa>» e ingaggio \`skill-finder\`.
+\`\`\`
+
+The list is **indicative, not exhaustive** — it's there to spark a
+lightbulb, not to maintain a catalog. The actual registries live in
+\`packages/skills/skill-finder/registry.json\` and are the source of
+truth. If the user names something specific, do not promise it exists:
+delegate to \`skill-finder\`, which will do the real lookup and propose
+what it actually finds (including the offer to generate the skill from
+scratch via \`skill-creator\` if no registry has one).
+
+### 5. Closing question
+
+End with a single question that returns control to the user. English
+template:
+
+> What would you like to do? Pick one of the letters above, name a
+> specific skill, type "find a skill for &lt;thing&gt;" to unlock extra
+> capabilities (PPT, video, PDF, etc.), or say "pause" to stop here.
+
+Italian adaptation:
+
+> Cosa vuoi fare? Scrivi la lettera di una delle opzioni qui sopra,
+> il nome di una skill specifica, «cerca una skill per &lt;cosa&gt;» per
+> sbloccare capacità extra (PPT, video, PDF, ecc.), oppure «pausa» per
+> fermarci.
+
+Then **stop**. Do not engage a skill in the same turn. Do not auto-pick
+an option on silence.
+
+## What the menu is NOT
+
+- Not a state-changing action. Rendering the menu must not write
+  \`polly-state.json\`.
+- Not a tutorial. Keep it compact; link to \`decision-tree.md\` for long
+  explanations rather than inlining them.
+- Not a replacement for the tree. When the user picks an option, hand
+  back to the normal flow at that step (using the handoff protocol for
+  skill engagement).
+
+## Copilot / other tools
+
+The menu is plain markdown — it renders identically in Claude Code and
+Copilot. The trigger phrases are the same. The only difference is how
+the user re-enters Polly after the menu: \`/polly\` in Claude Code, "back
+to polly" in Copilot.
+",
+  ".claude/skills/polly/references/project-tools.md": "# Polly — project tools (bundled executables)
+
+Distinct from **skills** (markdown instructions that guide the AI) and
+from **external tools** (\`external-tools.md\` — claude-mem, VibeKanban,
+etc.), **project tools** are Node.js / shell executables that the
+scaffold drops physically into the project under \`tools/\` and
+\`scripts/\`. Polly knows about them, mentions them at the right moment,
+and knows which skill invokes them in practice.
+
+Polly **never runs these tools directly**: it explains what they do,
+when they help, and lets the user (or the skill that owns the call)
+launch them.
+
+## Detection
+
+Before mentioning a tool, Polly verifies the folder exists in the
+workspace. Do not trust the list blindly — the project may have removed
+or renamed them:
+
+| Tool | Expected path | Present in |
+|---|---|---|
+| \`md-extractor\` | \`tools/md-extractor/extract.js\` | single-project + multi-repo |
+| \`devops-push\` | \`tools/devops-push/src/cli.js\` | single-project + multi-repo |
+| \`clone-all\` | \`scripts/clone-all.sh\` + \`.ps1\` | multi-repo only |
+| \`switch-branch\` | \`scripts/switch-branch.sh\` + \`.ps1\` | multi-repo only |
+| \`pull-all\` | \`scripts/pull-all.sh\` + \`.ps1\` | multi-repo only |
+
+If the path does not exist, do not mention the tool — or propose
+\`skill-finder\` to reinstall it (see \`fallback-messages.md\`).
+
+## 1. \`tools/md-extractor\` — PDF/DOCX/images → Markdown
+
+**What it does.** Converts documents (\`.pdf\`, \`.docx\`, \`.jpg\`, \`.jpeg\`,
+\`.png\`) into structured Markdown via LlamaCloud (tier \`agentic\`),
+extracting embedded images into a sibling \`<basename>-assets/\` folder
+and rewriting the Markdown image references to point at that folder.
+
+**Why it exists.** The sibling \`.md\` is the de-facto contract with the
+downstream skills:
+- \`graphify\` indexes the \`.md\`, not the \`.pdf\`
+- \`reverse-engineering\` looks for a sibling \`.md\` next to every \`.pdf\`
+  under \`docs/support/reverse/<subject>/.meta/raw/\`
+- \`requirements-ingest\` consumes \`docs/requirements/<domain>/sources/*.md\`
+
+**When Polly mentions it:**
+- During Step 2.2 / 3.4 ("existing source material?") if the user
+  names PDFs, DOCX, scanned specs, contracts, or briefs saved as PDF
+- During brownfield Step 3.2 if there are legacy PDF documents that
+  need to be indexed by \`graphify\`
+- Any time the conversation mentions "I have a PDF with the specs"
+
+**Sample line Polly can say (EN):**
+
+> Got PDFs or DOCX? Before passing them to \`requirements-ingest\` or
+> \`graphify\`, run \`tools/md-extractor\` — it extracts the content into
+> Markdown (+ images) next to the original. The downstream skills read
+> that \`.md\`, not the PDF. Needs \`LLAMA_CLOUD_API_KEY\` (the tool asks
+> if missing). Command: \`node tools/md-extractor/extract.js <path>\`.
+
+Italian adaptation:
+
+> Hai documenti in PDF/DOCX? Prima di passarli a \`requirements-ingest\`
+> o a \`graphify\`, lancia \`tools/md-extractor\` — estrae in Markdown
+> (+ immagini) accanto al file originale. Le skill a valle leggono quel
+> \`.md\`, non il PDF. Serve \`LLAMA_CLOUD_API_KEY\` (il tool la chiede se
+> manca). Comando: \`node tools/md-extractor/extract.js <path>\`.
+
+**Prerequisites:** Node.js + LlamaCloud account. \`npm install\` inside
+the folder the first time.
+
+## 2. \`tools/devops-push\` — sprint → Azure DevOps
+
+**What it does.** Interactive CLI that reads
+\`docs/sprints/Sprint-<N>/tasks/<id>-tasks.json\` (produced by
+\`sprint-manifest\`) and pushes the \`Feature > User Story > Task\`
+hierarchy to Azure DevOps via the REST API. Persists work-item IDs
+into the JSON for idempotency. Supports \`push all\` / \`push one\` /
+\`push step-by-step\` + dry-run (default on).
+
+**Why it exists.** \`spec-to-workitem\` is the skill that *decides what
+to push* (can target Jira, GitHub Issues, Linear, etc.), but for Azure
+DevOps the actual push needs a client that speaks the REST API,
+handles JSON Patch, maps \`Microsoft.VSTS.Scheduling.*\`, and wires
+dependencies via \`System.LinkTypes.Dependency-Reverse\`. That client is
+\`devops-push\`.
+
+**When Polly mentions it:**
+- After a completed \`sprint-manifest\`, if the user's declared target is
+  Azure DevOps
+- When the user says "push to Azure DevOps" / "sync with ADO" / "create
+  the work items in DevOps"
+- As the *recommended tool* called out by the \`spec-to-workitem\` skill
+  when the target is ADO (other targets use different paths)
+
+**Sample line Polly can say (EN):**
+
+> For Azure DevOps there's \`tools/devops-push\`: it reads the tasks
+> JSON that \`sprint-manifest\` produced under
+> \`docs/sprints/Sprint-<N>/tasks/\` and creates the Feature → User
+> Story → Task hierarchy, with dependencies and idempotency. Setup:
+> \`.env\` with org / project / PAT / iteration path, then \`npm start\`.
+> Default is dry-run — disable it when you're ready.
+
+**Prerequisites:** Node.js + Azure DevOps PAT with scope *Work Items
+(R&W)* + a filled \`tools/devops-push/.env\`.
+
+## 3. Multi-repo scripts (\`scripts/*.sh\` + \`.ps1\`)
+
+Multi-repo workspaces only. They read \`repositories.json\` at the
+workspace root.
+
+### \`clone-all\`
+Clones every sub-repo marked \`active\` into \`repos/<path>/\`.
+Idempotent: skips if already present.
+
+**When:** after the user has filled \`repositories.json\` for the first
+time, or at the start of a fresh checkout on a new machine.
+
+### \`switch-branch <branch>\`
+Checks out \`<branch>\` across all \`active\` sub-repos. Creates the branch
+if missing. Key for making VibeKanban treat the workspace as a single
+unit during triage.
+
+**When:** to align all sub-repos on a shared feature branch (e.g. a
+sprint that spans frontend + backend + infra) or to reproduce a past
+state.
+
+### \`pull-all\`
+\`git pull --ff-only\` across all \`active\` sub-repos.
+
+**When:** at the start of each working session in a multi-repo
+workspace, so local state is never taken for granted.
+
+**Polly mentions them:**
+- At Step 1.5 (multi-repo detection) if \`repos/\` is still empty
+- When the user says "align all repos on branch X" / "clone
+  everything" / "update the sub-repos"
+
+## Rules
+
+- **Never auto-execute.** Polly explains; the user runs (or the skill
+  that owns the call runs it explicitly).
+- **Never one line more than needed.** A tool gets mentioned when the
+  context matches; don't dump the whole list every time.
+- **Never on the first turn.** The intro is not the place for these
+  pointers — they belong at the relevant step, or in the menu.
+- **Respect detection.** If the tool's folder does not exist, do not
+  say it exists. Offer \`skill-finder\` or a manual reinstall from the
+  template instead.
+- **One tool per session.** If the user already heard about
+  \`md-extractor\` earlier in the session, don't re-describe it on the
+  next occasion — the name and the command are enough.
+
+## Relationship with skills
+
+| Tool | Skills that drive / benefit from it |
+|---|---|
+| \`md-extractor\` | \`requirements-ingest\`, \`reverse-engineering\`, \`graphify-setup\` |
+| \`devops-push\` | \`spec-to-workitem\` (for Azure DevOps targets) |
+| \`clone-all\` / \`switch-branch\` / \`pull-all\` | No skill — workspace infrastructure for multi-repo |
+
+The skills already know about these tools in their own references (see
+e.g. \`reverse-engineering\` § "PDFs in .meta/raw/"). Polly is the
+conductor that reminds the user of the staging before entering the
+skill.
 ",
   ".claude/skills/polly/references/skill-invocation-matrix.md": "# Polly — skill invocation matrix
 
@@ -24611,6 +25176,8 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/polly/references/fallback-messages.md",
   ".claude/skills/polly/references/fingerprints.md",
   ".claude/skills/polly/references/handoff-protocol.md",
+  ".claude/skills/polly/references/menu.md",
+  ".claude/skills/polly/references/project-tools.md",
   ".claude/skills/polly/references/skill-invocation-matrix.md",
   ".claude/skills/polly/references/state-schema.md",
   ".claude/skills/polly/references/voice-tools.md",

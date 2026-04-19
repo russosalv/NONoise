@@ -1,0 +1,1 @@
+{"nodes": [{"id": "template:spec-reviewer-prompt", "label": "Spec Reviewer Prompt Template", "file_type": "document", "source_file": "packages/skills/vendor/superpowers/skills/subagent-driven-development/spec-reviewer-prompt.md", "source_location": null, "source_url": null, "captured_at": null, "author": "superpowers", "contributor": null}], "edges": [], "hyperedges": []}

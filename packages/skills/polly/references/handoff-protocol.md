@@ -19,6 +19,26 @@ as the source of truth for phase completion.
 
 Everything else in Polly's decision tree is unchanged.
 
+## Non-negotiable: every phase transition is gated
+
+Polly does not auto-advance. Ever. After any skill completes, any phase
+finishes, or the tree hits a junction (e.g. brownfield Step 3.5 → the
+greenfield resume point), Polly presents concrete options — typically
+**procedi / pausa / menu / salta** — and **waits for the user's explicit
+answer** before engaging the next skill.
+
+A soft "Ok?" at the end of a declarative sentence is NOT a gate. A
+statement like "Procedo con X" is NOT a gate. A gate is a question with
+concrete options and a full stop.
+
+This applies equally to:
+- Return from a completed handoff (§ "Handle active handoff")
+- Resume after silent re-entry (§ "No active handoff — offer resume")
+- Step-to-step transitions inside a single session (no filesystem signal,
+  but still a junction — ask)
+- The brownfield → greenfield seam (Step 3.5 has multiple resume targets;
+  never auto-pick one)
+
 ---
 
 ## Handoff — what Polly does
@@ -116,9 +136,33 @@ Let `fp = fingerprint(handoff.skill)`.
   3. Set `session.currentStep = handoff.returnTo`.
   4. Append a `return` event and a `phase-complete` event.
   5. Write the file.
-  6. Greet the user:
+  6. Greet the user with **an explicit choice, then STOP and wait**. Do
+     not engage the next skill in the same turn. Template (IT):
+
      > Bentornato. Vedo che **`<X>`** ha finito — trovo `<fingerprint>`.
-     > Procedo con la prossima fase: **`<returnTo>`**. Ok?
+     > La prossima fase sarebbe **`<returnTo>`** — <1 frase su cosa fa>.
+     >
+     > Cosa vuoi fare?
+     > - **a) Procedi** — ingaggio `<next skill>` per `<returnTo>`
+     > - **b) Pausa** — ci fermiamo qui, riprendiamo con `/polly` quando vuoi
+     > - **c) Menu** — mostrami tutte le fasi e le skill disponibili
+     > - **d) Salta a un'altra fase** — dimmi quale (es. "vai a sprint")
+
+     English equivalent:
+
+     > Welcome back. **`<X>`** is done — I can see `<fingerprint>`.
+     > The next phase would be **`<returnTo>`** — <1 sentence on what it does>.
+     >
+     > What would you like to do?
+     > - **a) Proceed** — I'll engage `<next skill>` for `<returnTo>`
+     > - **b) Pause** — we stop here, resume with `/polly` later
+     > - **c) Menu** — show me all phases and available skills
+     > - **d) Jump to a different phase** — tell me which one
+
+     **Wait for the answer before doing anything else.** The user may type
+     (a), "procedi", "yes", a skill name, "menu", "pausa", "stop" — parse
+     permissively but never auto-advance on silence or on a bare
+     acknowledgement. If the answer is ambiguous, ask again.
 
 - **`fp` NOT satisfied** → ambiguous. Ask the user directly, offering 3
   choices:
@@ -136,17 +180,22 @@ Let `fp = fingerprint(handoff.skill)`.
 
 If `handoff === null` AND `session.currentStep !== "intro"`:
 
-Show the user their progress and offer to resume vs restart:
+Show the user their progress and offer options — same gate pattern as
+above: present concrete choices and WAIT.
 
 > Bentornato. Ecco dove eravamo:
 > - Tipo progetto: **`<kind>`** (`<scope>`)
 > - Ultimo passo: **`<currentStep>`**
 > - Fasi completate: `<list of phases with done:true>`
 >
-> **Continua da `<currentStep>`** oppure **Ricomincia dall'inizio**?
+> Cosa vuoi fare?
+> - **a) Continua da `<currentStep>`**
+> - **b) Menu** — vedi tutte le fasi e le skill
+> - **c) Ricomincia dall'inizio**
 
 Restart = clear session (but keep `voiceHintShown: true` — no point
-re-showing it) and re-enter the tree at Step 1.
+re-showing it) and re-enter the tree at Step 1. Wait for the explicit
+choice; never assume "continue" on silence.
 
 ### 5. No handoff, fresh session
 
