@@ -199,6 +199,47 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     };
   }
 
+  it('writes .nonoise/polly-state.json with schema v1 initial shape when Polly is supported', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const raw = await readFile(join(projectPath, '.nonoise', 'polly-state.json'), 'utf8');
+    const state = JSON.parse(raw) as {
+      version: number;
+      voiceHintShown: boolean;
+      session: { currentStep: string; kind: string };
+      handoff: unknown;
+      phases: Record<string, { done: boolean }>;
+      events: Array<{ action: string }>;
+    };
+    expect(state.version).toBe(1);
+    expect(state.voiceHintShown).toBe(false);
+    expect(state.session.currentStep).toBe('intro');
+    expect(state.session.kind).toBe('unknown');
+    expect(state.handoff).toBeNull();
+    expect(state.phases.scan!.done).toBe(false);
+    expect(state.phases.sprint!.done).toBe(false);
+    expect(state.events[0]!.action).toBe('bootstrap');
+  });
+
+  it('writes .nonoise/polly-state.mjs CLI next to polly-state.json when Polly is supported', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    const body = await readFile(join(projectPath, '.nonoise', 'polly-state.mjs'), 'utf8');
+    expect(body).toContain('#!/usr/bin/env node');
+    expect(body).toContain('--reset');
+    expect(body).toContain('polly-state.json');
+  });
+
+  it('does NOT write polly-state.json or polly-state.mjs when no Polly-compatible AI is selected', async () => {
+    await scaffold(buildCtx({ aiTools: buildAi({ cursor: true }) }), {
+      templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+    });
+    await expect(stat(join(projectPath, '.nonoise', 'polly-state.json'))).rejects.toThrow();
+    await expect(stat(join(projectPath, '.nonoise', 'polly-state.mjs'))).rejects.toThrow();
+  });
+
   it('writes .nonoise/POLLY_START.md when Claude is selected', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,

@@ -110,6 +110,8 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
 
   if (supportsPolly(ctx.aiTools)) {
     await writePollyStartMarker(ctx.projectPath);
+    await writePollyInitialState(ctx.projectPath);
+    await writePollyStateCli(ctx.projectPath);
   }
 
   if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
@@ -134,6 +136,173 @@ async function writePollyStartMarker(projectPath: string): Promise<void> {
     '\n' +
     'Delete this file manually if you do NOT want Polly to auto-trigger.\n';
   await writeFile(join(dir, 'POLLY_START.md'), body, 'utf8');
+}
+
+async function writePollyInitialState(projectPath: string): Promise<void> {
+  const dir = join(projectPath, '.nonoise');
+  await mkdir(dir, { recursive: true });
+  const now = new Date().toISOString();
+  const state = {
+    $schema: 'https://nonoise.dev/schemas/polly-state.v1.json',
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    voiceHintShown: false,
+    session: {
+      kind: 'unknown',
+      scope: null,
+      currentStep: 'intro',
+      mode: 'unknown',
+      stack: null,
+      activeArea: null,
+      activeSprint: null,
+      studyCounter: {},
+      brownfieldCodePath: null,
+    },
+    handoff: null,
+    phases: {
+      scan:           { done: false },
+      reverse:        { done: false },
+      requirements:   { done: false },
+      featureDesign:  { done: false },
+      archBrainstorm: { done: false },
+      archDecision:   { done: false },
+      fpfAudit:       { done: false },
+      sprint:         { done: false },
+      implementation: { done: false },
+      acceptance:     { done: false },
+      c4:             { done: false },
+      workitemExport: { done: false },
+    },
+    events: [
+      { at: now, action: 'bootstrap', note: 'created by create-nonoise scaffold' },
+    ],
+  };
+  await writeFile(
+    join(dir, 'polly-state.json'),
+    JSON.stringify(state, null, 2) + '\n',
+    'utf8',
+  );
+}
+
+async function writePollyStateCli(projectPath: string): Promise<void> {
+  const dir = join(projectPath, '.nonoise');
+  await mkdir(dir, { recursive: true });
+  const body = `#!/usr/bin/env node
+// Polly state inspector / resetter.
+//
+// Usage:
+//   node .nonoise/polly-state.mjs              # print current state summary
+//   node .nonoise/polly-state.mjs --json       # print raw JSON
+//   node .nonoise/polly-state.mjs --reset      # archive current state, write a fresh one
+//
+// See .claude/skills/polly/references/state-schema.md for the schema.
+import { readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const STATE_PATH = resolve(HERE, 'polly-state.json');
+
+function initialState() {
+  const now = new Date().toISOString();
+  return {
+    $schema: 'https://nonoise.dev/schemas/polly-state.v1.json',
+    version: 1,
+    createdAt: now,
+    updatedAt: now,
+    voiceHintShown: false,
+    session: {
+      kind: 'unknown', scope: null, currentStep: 'intro', mode: 'unknown',
+      stack: null, activeArea: null, activeSprint: null,
+      studyCounter: {}, brownfieldCodePath: null,
+    },
+    handoff: null,
+    phases: {
+      scan: { done: false }, reverse: { done: false },
+      requirements: { done: false }, featureDesign: { done: false },
+      archBrainstorm: { done: false }, archDecision: { done: false },
+      fpfAudit: { done: false }, sprint: { done: false },
+      implementation: { done: false }, acceptance: { done: false },
+      c4: { done: false }, workitemExport: { done: false },
+    },
+    events: [{ at: now, action: 'bootstrap', note: 'reset via polly-state.mjs --reset' }],
+  };
+}
+
+async function load() {
+  try {
+    const raw = await readFile(STATE_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch (e) {
+    if (e.code === 'ENOENT') return null;
+    throw e;
+  }
+}
+
+function summarize(s) {
+  const done = Object.entries(s.phases)
+    .filter(([, v]) => v && v.done)
+    .map(([k]) => k);
+  const pending = Object.entries(s.phases)
+    .filter(([, v]) => !v || !v.done)
+    .map(([k]) => k);
+  const lines = [
+    \`Polly state v\${s.version} — updated \${s.updatedAt}\`,
+    '',
+    \`  kind:         \${s.session.kind}\`,
+    \`  scope:        \${s.session.scope ?? '(n/a)'}\`,
+    \`  currentStep:  \${s.session.currentStep}\`,
+    \`  mode:         \${s.session.mode}\`,
+    \`  stack:        \${s.session.stack ?? '(n/a)'}\`,
+    \`  activeArea:   \${s.session.activeArea ?? '(n/a)'}\`,
+    \`  activeSprint: \${s.session.activeSprint ?? '(n/a)'}\`,
+    '',
+    \`  handoff:      \${s.handoff ? s.handoff.skill + ' → ' + s.handoff.returnTo : '(none)'}\`,
+    '',
+    \`  phases done:    \${done.join(', ') || '(none)'}\`,
+    \`  phases pending: \${pending.join(', ')}\`,
+    '',
+    \`  voiceHintShown: \${s.voiceHintShown}\`,
+    \`  events:         \${s.events?.length ?? 0} entries (last: \${s.events?.at(-1)?.action ?? 'none'})\`,
+  ];
+  return lines.join('\\n');
+}
+
+async function main() {
+  const args = new Set(process.argv.slice(2));
+
+  if (args.has('--reset')) {
+    const exists = await stat(STATE_PATH).then(() => true).catch(() => false);
+    if (exists) {
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const archived = resolve(HERE, \`polly-state.archived-\${ts}.json\`);
+      await rename(STATE_PATH, archived);
+      console.log(\`Archived previous state → \${archived}\`);
+    }
+    await writeFile(STATE_PATH, JSON.stringify(initialState(), null, 2) + '\\n', 'utf8');
+    console.log('Wrote fresh polly-state.json. Next /polly starts from intro.');
+    return;
+  }
+
+  const state = await load();
+  if (!state) {
+    console.log('No polly-state.json found. Run create-nonoise or /polly to bootstrap.');
+    process.exit(1);
+  }
+  if (args.has('--json')) {
+    console.log(JSON.stringify(state, null, 2));
+    return;
+  }
+  console.log(summarize(state));
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
+`;
+  await writeFile(join(dir, 'polly-state.mjs'), body, 'utf8');
 }
 
 async function writeRepositoriesJson(projectPath: string, repos: RepoEntry[]): Promise<void> {

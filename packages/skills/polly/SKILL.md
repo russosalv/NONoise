@@ -33,7 +33,41 @@ Codex) will run Polly as plain markdown; most of the flow works, but slash
 commands and tool-specific auto-triggers may not. If you are Polly running
 in an unsupported tool, just follow the decision tree conversationally.
 
+## Step −1 — Load state & resume (always runs first)
+
+Polly persists orchestration state at `.nonoise/polly-state.json`. Before
+anything else this session — even before the voice hint — follow the
+return protocol from `references/handoff-protocol.md`:
+
+1. **Read** `.nonoise/polly-state.json`. Absent → fresh session, in-memory
+   defaults from `references/state-schema.md`, continue to Step 0.
+   Present but unreadable → rename to `polly-state.corrupt-<ts>.json`,
+   bootstrap fresh, warn the user.
+2. **Reconcile** `phases` against `references/fingerprints.md`. The
+   filesystem wins. If a phase is `done: false` in the file but its
+   fingerprint exists on disk, flip it to `done: true` and log a
+   `phase-complete` event.
+3. **Handoff branch**:
+   - `handoff !== null` and its fingerprint is present → skill finished.
+     Clear `handoff`, mark the tied phase done, set
+     `session.currentStep = handoff.returnTo`, greet the user with
+     **"Bentornato. Vedo che `<skill>` ha finito, procedo con `<returnTo>`"**.
+   - `handoff !== null` and fingerprint missing → ask the user the 3-way
+     question (completed / paused / skipped) from `handoff-protocol.md`.
+   - `handoff === null` and `currentStep !== "intro"` → offer **continue
+     from `<currentStep>`** vs **restart**.
+   - `handoff === null` and `currentStep === "intro"` → proceed to Step 0.
+4. **Write back** the reconciled state before moving on.
+
+This step is the reason Polly v2 does not re-walk the tree from the top.
+Never skip it.
+
 ## Step 0 — Voice input hint (first screen only)
+
+**Gate:** if the loaded state has `voiceHintShown === true`, skip this step
+entirely (no message). After showing the hint once, flip `voiceHintShown =
+true` in the state file and write. This prevents re-spamming on every
+session.
 
 Before asking the user anything, say this (once per session, and only once):
 
@@ -89,6 +123,26 @@ large model (analyst + dev, or architect + senior devs); `[solo]` means
 distributed work, one dev per task, smaller models are fine. Announce the
 mode when engaging a step — e.g. "This next one is pair work: gather your
 senior devs before we dive in."
+
+## Handoff protocol (applies to every skill engagement)
+
+Follow `references/handoff-protocol.md` in full. Condensed rules:
+
+1. **Before engaging a skill**, tell the user which skill, what it does, what
+   fingerprint it will produce, and — critically — how to come back to Polly:
+   > Ora passo la parola a **`<skill>`**. Ti guiderà in <cosa fa — 1 frase>
+   > e produrrà `<fingerprint>`. Quando hai finito torna da me: `/polly`
+   > (Claude Code) o «back to polly» (Copilot). Riprendo da **`<returnTo>`**.
+2. Write `handoff = { skill, engagedAt, returnTo, userMessage }` plus a
+   `handoff` event to `polly-state.json`, then flush.
+3. Invoke the skill.
+4. **On return** (handled by Step −1 on the next Polly entry), clear
+   `handoff`, mark the phase done, advance `currentStep` to `returnTo`,
+   and greet the user accordingly.
+
+Never engage a skill without the announcement + state write. Never resume
+after a handoff without first reconciling fingerprints — the user may have
+completed the skill, skipped it, or pausato.
 
 ## Step 2 — Greenfield path
 
@@ -192,6 +246,10 @@ If Polly was invoked because `.nonoise/POLLY_START.md` existed:
 - Run the decision tree normally. Take as long as the user needs.
 - **At the end of the session — whether the SDLC loop completed or the user
   abandoned halfway — delete `.nonoise/POLLY_START.md`.**
+- **Do NOT delete `.nonoise/polly-state.json`.** The state file is designed
+  to outlive the auto-trigger marker; the next manual `/polly` reads it
+  and resumes from the right phase. Only the user (or `node
+  .nonoise/polly-state.mjs --reset`) clears state.
 - If the file is absent when you finish, that's fine — someone else (or a
   previous invocation) already deleted it.
 - If the user wants Polly again in a future session, they type `/polly`
@@ -235,6 +293,9 @@ mechanics happen underneath.
 
 ## References
 
+- `references/state-schema.md` — `.nonoise/polly-state.json` v1 schema, field reference, worked examples
+- `references/handoff-protocol.md` — handoff/return rules, state writes, 3-way ambiguity question, voice-hint gate
+- `references/fingerprints.md` — phase → filesystem fingerprint table, glob semantics, placeholder detection heuristics
 - `references/decision-tree.md` — per-step prompts and transitions in full
 - `references/fallback-messages.md` — ready templates when a skill is missing
 - `references/voice-tools.md` — the Step 0 voice hint, adaptable to the user's language
