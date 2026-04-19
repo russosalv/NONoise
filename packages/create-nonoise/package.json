@@ -1,6 +1,6 @@
 {
   "name": "create-nonoise",
-  "version": "0.23.81",
+  "version": "0.23.82",
   "description": "SDLC bootstrapper — scaffolds projects with skills, agents, and tools",
   "type": "module",
   "repository": {
@@ -37,12 +37,20 @@
     "handlebars": "^4.7.8"
   },
   "devDependencies": {
-    "@types/node": "^22.7.5"
+    "@types/node": "^22.7.5",
+    "jimp": "^1.6.1"
   },
   "publishConfig": {
     "access": "public",
     "provenance": true
   },
-  "keywords": ["scaffold", "cli", "sdlc", "claude-code", "copilot", "nonoise"],
+  "keywords": [
+    "scaffold",
+    "cli",
+    "sdlc",
+    "claude-code",
+    "copilot",
+    "nonoise"
+  ],
   "license": "MIT"
 }
