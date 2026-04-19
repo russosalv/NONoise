@@ -14,7 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify NPM_TOKEN is set
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::NPM_TOKEN secret is not set on this repository."
+            echo "Go to Settings → Secrets and variables → Actions → New repository secret."
+            exit 1
+          fi
+          echo "NPM_TOKEN is present."
+
       - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
 
       - uses: actions/setup-node@v4
         with:
@@ -26,6 +39,18 @@ jobs:
       - run: pnpm -r run typecheck
       - run: pnpm -r run build
       - run: pnpm -r run test
+
+      - name: Pack (dry audit of tarball)
+        run: |
+          cd packages/create-nonoise
+          pnpm pack --pack-destination /tmp
+          TARBALL=$(ls /tmp/create-nonoise-*.tgz | head -n 1)
+          echo "Tarball: $TARBALL"
+          echo "Size: $(du -h "$TARBALL" | cut -f1)"
+          echo "--- contents (top 40) ---"
+          tar -tzf "$TARBALL" | head -40
+          echo "--- total entries ---"
+          tar -tzf "$TARBALL" | wc -l
 
       - name: Publish to npm with provenance
         run: pnpm --filter create-nonoise publish --access public --provenance --no-git-checks

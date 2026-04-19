@@ -1,6 +1,6 @@
 {
   "name": "create-nonoise",
-  "version": "0.1.0",
+  "version": "0.23.71",
   "description": "SDLC bootstrapper — scaffolds projects with skills, agents, and tools",
   "type": "module",
   "bin": {
