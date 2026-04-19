@@ -1,5 +1,11 @@
 # create-nonoise
 
+## 0.24.2
+
+### Patch Changes
+
+- Polly: new `/polly-menu` command giving a read-only overview of current state, phases, possible next steps, and engageable skills (with EN/IT trigger phrases and structured output). Added `references/project-tools.md` documenting `md-extractor`, `devops-push`, and the multi-repo management scripts.
+
 ## 0.24.1
 
 ### Patch Changes
