@@ -245,10 +245,19 @@ function cloneExistingRepo(url: string, branch: string | undefined, dest: string
   if (branch) args.push('-b', branch);
   args.push(url, dest);
   try {
-    execFileSync('git', args, { stdio: 'ignore' });
-  } catch {
+    execFileSync('git', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  } catch (e) {
+    const err = e as { stderr?: Buffer | string; code?: string; message?: string };
+    const stderr = err.stderr
+      ? (typeof err.stderr === 'string' ? err.stderr : err.stderr.toString())
+      : '';
+    const hint =
+      err.code === 'ENOENT'
+        ? '\nHint: "git" was not found on PATH. Install Git and retry.'
+        : '';
+    const detail = stderr.trim() || err.message || '(no output captured)';
     throw new Error(
-      `git clone failed for ${url} → ${dest}. Check the URL, branch and your network/auth.`,
+      `git clone failed for ${url} → ${dest}\n--- git stderr ---\n${detail}\n------------------${hint}`,
     );
   }
 }
