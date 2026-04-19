@@ -1,10 +1,19 @@
 import { intro, outro, text, select, multiselect, confirm, isCancel, cancel, spinner, note } from '@clack/prompts';
 import { resolve } from 'node:path';
-import type { AiToolKey, AiTools, ProjectContext, TemplateName } from './types.js';
+import type {
+  AiToolKey,
+  AiTools,
+  ProjectContext,
+  RepoEntry,
+  TemplateName,
+  WorkspaceKind,
+} from './types.js';
+import { templateForWorkspace } from './types.js';
 
 export type CliFlags = {
   positionalDir?: string;
   template?: TemplateName;
+  workspaceKind?: WorkspaceKind;
   ai?: string;              // csv
   noGit?: boolean;
   yes?: boolean;
@@ -22,17 +31,30 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
   intro('create-nonoise • SDLC bootstrapper');
 
   const name = await askProjectName(flags);
-  const template = await askTemplate(flags);
+  const workspaceKind = await askWorkspaceKind(flags);
+  const template = templateForWorkspace(workspaceKind);
   const aiTools = await askAiTools(flags);
-  const gitInit = flags.noGit === true ? false : flags.yes === true ? true : await askGitInit();
+
+  let repos: RepoEntry[] | undefined;
+  let multiRepoConfigured: boolean | undefined;
+  if (workspaceKind === 'existing-multi') {
+    const collected = await askRepos(flags);
+    repos = collected.repos;
+    multiRepoConfigured = collected.configured;
+  }
+
+  const gitInit = await askGitInit(flags, workspaceKind);
 
   return {
     projectName: name,
     projectPath: resolve(process.cwd(), name),
     template,
+    workspaceKind,
     aiTools,
     gitInit,
     frameworkVersion,
+    repos,
+    multiRepoConfigured,
   };
 }
 
@@ -64,28 +86,36 @@ function validateProjectName(name: string): void {
   if (name.length > 214) throw new Error('Project name is too long (max 214 chars).');
 }
 
-async function askTemplate(flags: CliFlags): Promise<TemplateName> {
-  if (flags.template) return flags.template;
-  if (flags.yes) return 'single-project';
+async function askWorkspaceKind(flags: CliFlags): Promise<WorkspaceKind> {
+  if (flags.workspaceKind) return flags.workspaceKind;
+  // Back-compat: if --template was passed explicitly, infer kind
+  if (flags.template === 'multi-repo') return 'existing-multi';
+  if (flags.template === 'single-project') return 'new';
+  if (flags.yes) return 'new';
 
   const answer = await select({
     message: 'What are you setting up?',
     options: [
       {
-        value: 'single-project' as TemplateName,
+        value: 'new' as WorkspaceKind,
         label: 'New project (single repo)',
         hint: 'Scaffold a fresh project from scratch',
       },
       {
-        value: 'multi-repo' as TemplateName,
+        value: 'existing-single' as WorkspaceKind,
+        label: 'Existing single repo (mono-repo, app, library…)',
+        hint: 'Layer NONoise on top of an existing repo',
+      },
+      {
+        value: 'existing-multi' as WorkspaceKind,
         label: 'Existing multi-repo workspace',
-        hint: 'Wrap one or more existing repos with NONoise',
+        hint: 'Orchestrate multiple existing repos under one workspace',
       },
     ],
-    initialValue: 'single-project' as TemplateName,
+    initialValue: 'new' as WorkspaceKind,
   });
   abortIfCancel(answer);
-  return answer as TemplateName;
+  return answer as WorkspaceKind;
 }
 
 async function askAiTools(flags: CliFlags): Promise<AiTools> {
@@ -127,8 +157,97 @@ function parseAiCsv(csv: string): AiTools {
   };
 }
 
-async function askGitInit(): Promise<boolean> {
-  const answer = await confirm({ message: 'Initialize a git repository?', initialValue: true });
+async function askRepos(
+  flags: CliFlags,
+): Promise<{ repos: RepoEntry[] | undefined; configured: boolean }> {
+  // Non-interactive: skip. Polly (or manual edit of repositories.json) finishes the job.
+  if (flags.yes) return { repos: undefined, configured: false };
+
+  type ReposChoice = 'add' | 'skip';
+  const start = await select({
+    message: 'Configure sub-repos now?',
+    options: [
+      { value: 'add' as ReposChoice, label: 'Yes — add entries interactively' },
+      { value: 'skip' as ReposChoice, label: 'Skip — I\'ll do it later (or let Polly help)' },
+    ],
+    initialValue: 'add' as ReposChoice,
+  });
+  abortIfCancel(start);
+  if (start === 'skip') return { repos: undefined, configured: false };
+
+  const repos: RepoEntry[] = [];
+  // Loop until user says "done"
+  while (true) {
+    const name = await text({
+      message: `Repo #${repos.length + 1} — short name (kebab-case)`,
+      placeholder: 'api-service',
+      validate(value) {
+        if (!value) return 'Name is required.';
+        if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(value)) {
+          return 'Use kebab-case: lowercase letters, digits, single hyphens.';
+        }
+      },
+    });
+    abortIfCancel(name);
+
+    const url = await text({
+      message: 'Git URL',
+      placeholder: 'https://github.com/your-org/api-service.git',
+      validate(value) {
+        if (!value) return 'URL is required.';
+        if (!/^(https?:\/\/|git@|ssh:\/\/|git:\/\/)/.test(value)) {
+          return 'Expected https://, git@, ssh:// or git:// URL.';
+        }
+      },
+    });
+    abortIfCancel(url);
+
+    const path = await text({
+      message: 'Target path under repos/',
+      placeholder: `backend/${name as string}`,
+      initialValue: `${name as string}`,
+      validate(value) {
+        if (!value) return 'Path is required.';
+        if (value.startsWith('/') || value.includes('..')) {
+          return 'Path must be relative and must not contain "..".';
+        }
+      },
+    });
+    abortIfCancel(path);
+
+    const branch = await text({
+      message: 'Branch',
+      placeholder: 'main',
+      initialValue: 'main',
+    });
+    abortIfCancel(branch);
+
+    repos.push({
+      name: name as string,
+      url: url as string,
+      path: path as string,
+      branch: (branch as string) || 'main',
+    });
+
+    const more = await confirm({ message: 'Add another repo?', initialValue: false });
+    abortIfCancel(more);
+    if (!more) break;
+  }
+
+  return { repos, configured: repos.length > 0 };
+}
+
+async function askGitInit(flags: CliFlags, workspaceKind: WorkspaceKind): Promise<boolean> {
+  if (flags.noGit === true) return false;
+  if (flags.yes === true) return workspaceKind === 'new';
+
+  const existing = workspaceKind !== 'new';
+  const answer = await confirm({
+    message: existing
+      ? 'Initialize a git repository? (you probably already have one)'
+      : 'Initialize a git repository?',
+    initialValue: !existing,
+  });
   abortIfCancel(answer);
   return answer as boolean;
 }

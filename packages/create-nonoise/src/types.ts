@@ -9,13 +9,25 @@ export type AiTools = Record<AiToolKey, boolean>;
 
 export type TemplateName = 'single-project' | 'multi-repo';
 
+export type WorkspaceKind = 'new' | 'existing-single' | 'existing-multi';
+
+export type RepoEntry = {
+  name: string;
+  url: string;
+  path: string;
+  branch?: string;
+};
+
 export type ProjectContext = {
   projectName: string;
   projectPath: string;
   template: TemplateName;
+  workspaceKind: WorkspaceKind;
   aiTools: AiTools;
   gitInit: boolean;
   frameworkVersion: string;
+  repos?: RepoEntry[];
+  multiRepoConfigured?: boolean;
 };
 
 export type HandlebarsRenderContext = ProjectContext & {
@@ -24,6 +36,10 @@ export type HandlebarsRenderContext = ProjectContext & {
   year: string;
   createdAt: string;
 };
+
+export function templateForWorkspace(kind: WorkspaceKind): TemplateName {
+  return kind === 'existing-multi' ? 'multi-repo' : 'single-project';
+}
 
 export const AI_TOOL_TO_FLAG: Record<AiToolKey, string> = {
   claudeCode: 'claude-code',

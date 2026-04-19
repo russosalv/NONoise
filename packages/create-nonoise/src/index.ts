@@ -5,7 +5,7 @@ import { scaffold, defaultScaffoldPaths } from './scaffold.js';
 import { runPrompts, outro, spinner, note } from './prompts.js';
 import { printBanner } from './banner.js';
 import type { CliFlags } from './prompts.js';
-import type { TemplateName } from './types.js';
+import type { TemplateName, WorkspaceKind } from './types.js';
 
 export async function main(): Promise<void> {
   const flags = parseArgv(process.argv.slice(2));
@@ -58,6 +58,13 @@ function parseArgv(args: string[]): ParsedFlags {
       }
       out.template = raw as TemplateName;
     }
+    else if (a === '--workspace') {
+      const raw = args[++i];
+      if (raw !== 'new' && raw !== 'existing-single' && raw !== 'existing-multi') {
+        throw new Error(`Unknown workspace "${raw}". Valid: new | existing-single | existing-multi.`);
+      }
+      out.workspaceKind = raw as WorkspaceKind;
+    }
     else if (a === '--ai') out.ai = args[++i];
     else if (!a.startsWith('-') && !out.positionalDir) out.positionalDir = a;
     i++;
@@ -79,7 +86,8 @@ Usage:
   create-nonoise [directory] [options]
 
 Options:
-  --template <name>   Template: single-project | multi-repo (default: single-project; asked interactively if omitted)
+  --workspace <kind>  Workspace: new | existing-single | existing-multi (asked interactively if omitted)
+  --template <name>   Template: single-project | multi-repo (back-compat; inferred from --workspace if present)
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
   --no-git            Skip git init
   --yes, -y           Use defaults, non-interactive

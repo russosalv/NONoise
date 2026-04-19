@@ -3,7 +3,7 @@ import { dirname, join, posix, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
 import { execSync } from 'node:child_process';
-import type { ProjectContext, HandlebarsRenderContext } from './types.js';
+import type { ProjectContext, HandlebarsRenderContext, RepoEntry } from './types.js';
 import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills, installVendor } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
@@ -62,6 +62,11 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   const now = new Date();
   const renderCtx: HandlebarsRenderContext = {
     ...ctx,
+    // For multi-repo, normalize the marker so the config template always has a bool.
+    multiRepoConfigured:
+      ctx.template === 'multi-repo'
+        ? ctx.multiRepoConfigured === true
+        : ctx.multiRepoConfigured,
     projectNamePascal: toPascalCase(ctx.projectName),
     projectNameSnake: toSnakeCase(ctx.projectName),
     year: now.getFullYear().toString(),
@@ -78,7 +83,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
       const rendered = tpl(renderCtx);
       await writeFile(destAbs, rendered, 'utf8');
     } else {
-      await cp(file.sourcePath, destAbs);
+      await cp(file.sourcePath, destAbs, { force: true });
     }
   }
 
@@ -97,6 +102,10 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   }
 
   await rewriteNonoiseConfig(ctx, paths, renderCtx);
+
+  if (ctx.template === 'multi-repo' && ctx.repos && ctx.repos.length > 0) {
+    await writeRepositoriesJson(ctx.projectPath, ctx.repos);
+  }
 
   if (supportsPolly(ctx.aiTools)) {
     await writePollyStartMarker(ctx.projectPath);
@@ -124,6 +133,34 @@ async function writePollyStartMarker(projectPath: string): Promise<void> {
     '\n' +
     'Delete this file manually if you do NOT want Polly to auto-trigger.\n';
   await writeFile(join(dir, 'POLLY_START.md'), body, 'utf8');
+}
+
+async function writeRepositoriesJson(projectPath: string, repos: RepoEntry[]): Promise<void> {
+  const payload = {
+    $schema: 'https://nonoise.dev/schemas/repositories.v1.json',
+    description:
+      'Sub-repository configuration for this NONoise multi-repo workspace. Update entries and run ./scripts/clone-all.(sh|ps1)',
+    version: '1.0.0',
+    repositories: repos.map((r) => ({
+      name: r.name,
+      url: r.url,
+      path: r.path,
+      branch: r.branch ?? 'main',
+      description: '',
+      category: 'any',
+      language: 'any',
+      status: 'active',
+    })),
+    notes: [
+      "'path' is relative to repos/ — scripts prepend repos/ automatically",
+      "'status' can be: active, inactive, deprecated, archived — scripts process active only",
+    ],
+  };
+  await writeFile(
+    join(projectPath, 'repositories.json'),
+    JSON.stringify(payload, null, 2) + '\n',
+    'utf8',
+  );
 }
 
 async function rewriteNonoiseConfig(

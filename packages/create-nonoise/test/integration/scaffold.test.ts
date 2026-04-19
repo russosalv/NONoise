@@ -30,6 +30,7 @@ describe('scaffold() integration', () => {
       projectName: 'my-app',
       projectPath,
       template: 'single-project',
+      workspaceKind: 'new',
       aiTools: {
         claudeCode: true,
         copilot: true,
@@ -184,6 +185,7 @@ describe('scaffold() — Polly & superpowers wiring', () => {
       projectName: 'my-app',
       projectPath,
       template: 'single-project',
+      workspaceKind: 'new',
       aiTools: {
         claudeCode: true,
         copilot: true,
@@ -327,6 +329,7 @@ describe('scaffold() — multi-repo template', () => {
       projectName: 'my-workspace',
       projectPath,
       template: 'multi-repo',
+      workspaceKind: 'existing-multi',
       aiTools: {
         claudeCode: true,
         copilot: true,
@@ -394,9 +397,134 @@ describe('scaffold() — multi-repo template', () => {
   });
 
   it('single-project template does NOT produce repositories.json', async () => {
-    await scaffold(buildCtx({ template: 'single-project' }), {
+    await scaffold(buildCtx({ template: 'single-project', workspaceKind: 'new' }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
     await expect(stat(join(projectPath, 'repositories.json'))).rejects.toThrow();
+  });
+});
+
+describe('scaffold() — workspace kinds (new / existing-single / existing-multi)', () => {
+  let parent: string;
+  let projectPath: string;
+
+  beforeEach(async () => {
+    parent = await mkdtemp(join(tmpdir(), 'nonoise-workspace-'));
+    projectPath = join(parent, 'ws');
+  });
+
+  afterEach(async () => {
+    await rm(parent, { recursive: true, force: true });
+  });
+
+  function buildCtx(overrides: Partial<ProjectContext> = {}): ProjectContext {
+    return {
+      projectName: 'ws',
+      projectPath,
+      template: 'single-project',
+      workspaceKind: 'new',
+      aiTools: buildAi({ claudeCode: true }),
+      gitInit: false,
+      frameworkVersion: '0.1.0',
+      ...overrides,
+    };
+  }
+
+  it('existing-multi with user-provided repos writes them into repositories.json', async () => {
+    await scaffold(
+      buildCtx({
+        template: 'multi-repo',
+        workspaceKind: 'existing-multi',
+        multiRepoConfigured: true,
+        repos: [
+          { name: 'api', url: 'https://github.com/acme/api.git', path: 'backend/api', branch: 'main' },
+          { name: 'web', url: 'https://github.com/acme/web.git', path: 'frontend/web' },
+        ],
+      }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+    const raw = await readFile(join(projectPath, 'repositories.json'), 'utf8');
+    const cfg = JSON.parse(raw) as { repositories: Array<{ name: string; url: string; path: string; branch?: string; status?: string }> };
+    expect(cfg.repositories.map((r) => r.name)).toEqual(['api', 'web']);
+    expect(cfg.repositories[0]!.url).toBe('https://github.com/acme/api.git');
+    expect(cfg.repositories[0]!.branch).toBe('main');
+    expect(cfg.repositories[1]!.path).toBe('frontend/web');
+    expect(cfg.repositories[0]!.status).toBe('active');
+  });
+
+  it('existing-multi with multiRepoConfigured=true writes that marker to nonoise.config.json', async () => {
+    await scaffold(
+      buildCtx({
+        template: 'multi-repo',
+        workspaceKind: 'existing-multi',
+        multiRepoConfigured: true,
+        repos: [{ name: 'api', url: 'https://github.com/acme/api.git', path: 'api' }],
+      }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+    const cfg = JSON.parse(
+      await readFile(join(projectPath, 'nonoise.config.json'), 'utf8'),
+    ) as { multiRepo?: { configured?: boolean } };
+    expect(cfg.multiRepo?.configured).toBe(true);
+  });
+
+  it('existing-multi when user skips leaves multiRepo.configured=false and placeholder repositories.json', async () => {
+    await scaffold(
+      buildCtx({
+        template: 'multi-repo',
+        workspaceKind: 'existing-multi',
+        multiRepoConfigured: false,
+      }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+    const cfg = JSON.parse(
+      await readFile(join(projectPath, 'nonoise.config.json'), 'utf8'),
+    ) as { multiRepo?: { configured?: boolean } };
+    expect(cfg.multiRepo?.configured).toBe(false);
+
+    // When skipped, repositories.json still ships as the placeholder template
+    const repos = JSON.parse(
+      await readFile(join(projectPath, 'repositories.json'), 'utf8'),
+    ) as { repositories: unknown[] };
+    expect(Array.isArray(repos.repositories)).toBe(true);
+  });
+
+  it('existing-single scaffolds single-project layout into a pre-existing non-empty dir without throwing', async () => {
+    // Pre-create the target dir with some files
+    await (await import('node:fs/promises')).mkdir(projectPath, { recursive: true });
+    await (await import('node:fs/promises')).writeFile(
+      join(projectPath, 'existing-src.ts'),
+      '// pre-existing user code\n',
+      'utf8',
+    );
+
+    await scaffold(
+      buildCtx({ template: 'single-project', workspaceKind: 'existing-single' }),
+      { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT },
+    );
+
+    // Pre-existing file is preserved
+    const preserved = await readFile(join(projectPath, 'existing-src.ts'), 'utf8');
+    expect(preserved).toContain('pre-existing user code');
+
+    // Template layer landed on top
+    const agents = await readFile(join(projectPath, 'AGENTS.md'), 'utf8');
+    expect(agents).toContain('ws');
+  });
+
+  it('new kind with the same non-empty dir is allowed (scaffold does not guard) — prompts.ts is the guard', async () => {
+    // Document current behavior: scaffold() itself doesn't reject non-empty dirs.
+    // The interactive layer (prompts.ts) is responsible for that UX check.
+    await (await import('node:fs/promises')).mkdir(projectPath, { recursive: true });
+    await (await import('node:fs/promises')).writeFile(
+      join(projectPath, 'x.txt'),
+      'hi',
+      'utf8',
+    );
+    await expect(
+      scaffold(buildCtx({ workspaceKind: 'new' }), {
+        templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
+      }),
+    ).resolves.not.toThrow();
   });
 });
