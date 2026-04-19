@@ -46,6 +46,22 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
   <img src="logos/flow.png" alt="NONoise SDLC flow" width="100%" />
 </p>
 
+```
+🚀 create-nonoise ──► 🎼 Polly
+                          │
+             ┌────────────┴────────────┐
+        Greenfield                Brownfield
+             │                        │
+             ▼                        ▼
+       📋 Requirements ──► 🔍 Discovery ──► 🏛️ Architecture ──► 📅 Sprint Planning
+                                                                          │
+                    ┌─────────────────────────────────────────────────────┘
+                    ▼
+             ⚙️ Implementation ──► 🧪 Unit & Integration ──► 🤖 Test Automation ──► ✅ Acceptance
+                    ▲                                                                      │
+                    └──────────────────────── 🔁 Next sprint ────────────────────────────┘
+```
+
 You never pick the wrong skill. You always know the next step.
 
 **Canonical architectures beat exotic ones** because they're already in the parametric memory of every frontier LLM. NONoise's architectural skills push toward DDD, Clean Architecture, CQRS, standard REST — and only allow deviations that survive a formal Quint FPF validation. Every token you spend re-teaching the LLM your bespoke abstraction is a token it isn't spending on your actual problem.
