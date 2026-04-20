@@ -39,3 +39,4 @@ Thumbs.db
 packages/create-nonoise/templates/
 packages/create-nonoise/skills/
 .tmp/*
+docs/superpowers/*
