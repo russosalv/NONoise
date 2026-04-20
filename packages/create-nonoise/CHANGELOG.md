@@ -1,5 +1,16 @@
 # create-nonoise
 
+## 0.24.3
+
+### Patch Changes
+
+- Polly state file now ships with a local JSON Schema. `create-nonoise` writes
+  `.nonoise/schemas/polly-state.v1.json` alongside `polly-state.json`, and the
+  state file's `$schema` points to it via a relative path
+  (`./schemas/polly-state.v1.json`) instead of a remote URL. Editors (VS Code,
+  Cursor, JetBrains) now resolve validation and autocomplete from the local
+  file — no network, no published schema URL required.
+
 ## 0.24.2
 
 ### Patch Changes
