@@ -18,11 +18,17 @@ the fingerprints in `fingerprints.md`; **on conflict, the filesystem wins**.
 Same directory as `POLLY_START.md` (the one-shot scaffold marker) so that
 everything Polly-infrastructural is contained in `.nonoise/`.
 
+The companion JSON Schema lives alongside it at
+`<workspace-root>/.nonoise/schemas/polly-state.v1.json`. The state file's
+`$schema` points to it with a relative path (`./schemas/polly-state.v1.json`)
+so editors (VS Code, JetBrains, Cursor) resolve it locally — no network,
+no published URL. Re-scaffolding refreshes it; do not edit by hand.
+
 ## JSON shape (v1)
 
 ```json
 {
-  "$schema": "https://nonoise.dev/schemas/polly-state.v1.json",
+  "$schema": "./schemas/polly-state.v1.json",
   "version": 1,
   "createdAt": "2026-04-19T20:00:00Z",
   "updatedAt": "2026-04-19T20:15:00Z",
@@ -159,7 +165,7 @@ everything else is optional.
 
 ```json
 {
-  "$schema": "https://nonoise.dev/schemas/polly-state.v1.json",
+  "$schema": "./schemas/polly-state.v1.json",
   "version": 1,
   "createdAt": "2026-04-19T19:00:00Z",
   "updatedAt": "2026-04-19T19:00:00Z",
@@ -202,7 +208,7 @@ Brownfield scan in progress:
 
 ```json
 {
-  "$schema": "https://nonoise.dev/schemas/polly-state.v1.json",
+  "$schema": "./schemas/polly-state.v1.json",
   "version": 1,
   "createdAt": "2026-04-19T19:00:00Z",
   "updatedAt": "2026-04-19T20:05:00Z",

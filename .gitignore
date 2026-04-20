@@ -38,3 +38,4 @@ Thumbs.db
 # Bundled assets (produced by prepack, not checked in)
 packages/create-nonoise/templates/
 packages/create-nonoise/skills/
+.tmp/*

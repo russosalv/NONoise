@@ -110,6 +110,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
 
   if (supportsPolly(ctx.aiTools)) {
     await writePollyStartMarker(ctx.projectPath);
+    await writePollyStateSchema(ctx.projectPath);
     await writePollyInitialState(ctx.projectPath);
     await writePollyStateCli(ctx.projectPath);
   }
@@ -143,7 +144,7 @@ async function writePollyInitialState(projectPath: string): Promise<void> {
   await mkdir(dir, { recursive: true });
   const now = new Date().toISOString();
   const state = {
-    $schema: 'https://nonoise.dev/schemas/polly-state.v1.json',
+    $schema: './schemas/polly-state.v1.json',
     version: 1,
     createdAt: now,
     updatedAt: now,
@@ -185,6 +186,131 @@ async function writePollyInitialState(projectPath: string): Promise<void> {
   );
 }
 
+async function writePollyStateSchema(projectPath: string): Promise<void> {
+  const dir = join(projectPath, '.nonoise', 'schemas');
+  await mkdir(dir, { recursive: true });
+  const schema = {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    $id: 'polly-state.v1.json',
+    title: 'Polly state (v1)',
+    description:
+      'Local JSON Schema for .nonoise/polly-state.json. See .claude/skills/polly/references/state-schema.md for the full spec.',
+    type: 'object',
+    required: ['version', 'createdAt', 'updatedAt', 'session', 'phases'],
+    properties: {
+      $schema: { type: 'string' },
+      version: { const: 1 },
+      createdAt: { type: 'string', format: 'date-time' },
+      updatedAt: { type: 'string', format: 'date-time' },
+      voiceHintShown: { type: 'boolean' },
+      session: {
+        type: 'object',
+        required: ['kind', 'currentStep', 'mode'],
+        properties: {
+          kind: {
+            enum: ['greenfield', 'brownfield', 'refactor', 'arch-study', 'unknown'],
+          },
+          scope: {
+            oneOf: [
+              { type: 'null' },
+              { enum: ['new-feature', 'refactor', 'arch-study'] },
+            ],
+          },
+          currentStep: {
+            enum: [
+              'intro', 'stack', 'material', 'requirements',
+              'feature-design', 'arch-brainstorm', 'arch-decision',
+              'sprint', 'implementation', 'acceptance', 'done',
+            ],
+          },
+          mode: { enum: ['pair', 'solo', 'unknown'] },
+          stack: { type: ['string', 'null'] },
+          activeArea: { type: ['string', 'null'] },
+          activeSprint: { type: ['string', 'null'] },
+          studyCounter: {
+            type: 'object',
+            additionalProperties: { type: 'integer', minimum: 0 },
+          },
+          brownfieldCodePath: { type: ['string', 'null'] },
+        },
+      },
+      handoff: {
+        oneOf: [
+          { type: 'null' },
+          {
+            type: 'object',
+            required: ['skill', 'engagedAt', 'returnTo'],
+            properties: {
+              skill: { type: 'string' },
+              engagedAt: { type: 'string', format: 'date-time' },
+              returnTo: { type: 'string' },
+              userMessage: { type: 'string' },
+            },
+          },
+        ],
+      },
+      phases: {
+        type: 'object',
+        description:
+          'Cache of "is this phase done?". Reconciled against filesystem fingerprints on every Polly entry.',
+        additionalProperties: { $ref: '#/$defs/phase' },
+        properties: {
+          scan: { $ref: '#/$defs/phase' },
+          reverse: { $ref: '#/$defs/phase' },
+          requirements: { $ref: '#/$defs/phase' },
+          featureDesign: { $ref: '#/$defs/phase' },
+          archBrainstorm: { $ref: '#/$defs/phase' },
+          archDecision: { $ref: '#/$defs/phase' },
+          fpfAudit: { $ref: '#/$defs/phase' },
+          sprint: { $ref: '#/$defs/phase' },
+          implementation: { $ref: '#/$defs/phase' },
+          acceptance: { $ref: '#/$defs/phase' },
+          c4: { $ref: '#/$defs/phase' },
+          workitemExport: { $ref: '#/$defs/phase' },
+        },
+      },
+      events: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['action'],
+          properties: {
+            at: { type: 'string', format: 'date-time' },
+            action: {
+              enum: [
+                'bootstrap', 'answered', 'handoff', 'return',
+                'phase-complete', 'skip', 'abandon', 'reset',
+              ],
+            },
+            phase: { type: 'string' },
+            skill: { type: 'string' },
+            key: { type: 'string' },
+            value: {},
+            note: { type: ['string', 'null'] },
+          },
+        },
+      },
+    },
+    $defs: {
+      phase: {
+        type: 'object',
+        required: ['done'],
+        properties: {
+          done: { type: 'boolean' },
+          via: { type: 'string' },
+          at: { type: 'string', format: 'date-time' },
+          note: { type: ['string', 'null'] },
+        },
+      },
+    },
+  };
+  await writeFile(
+    join(dir, 'polly-state.v1.json'),
+    JSON.stringify(schema, null, 2) + '\n',
+    'utf8',
+  );
+}
+
 async function writePollyStateCli(projectPath: string): Promise<void> {
   const dir = join(projectPath, '.nonoise');
   await mkdir(dir, { recursive: true });
@@ -207,7 +333,7 @@ const STATE_PATH = resolve(HERE, 'polly-state.json');
 function initialState() {
   const now = new Date().toISOString();
   return {
-    $schema: 'https://nonoise.dev/schemas/polly-state.v1.json',
+    $schema: './schemas/polly-state.v1.json',
     version: 1,
     createdAt: now,
     updatedAt: now,

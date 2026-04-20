@@ -10828,11 +10828,17 @@ the fingerprints in \`fingerprints.md\`; **on conflict, the filesystem wins**.
 Same directory as \`POLLY_START.md\` (the one-shot scaffold marker) so that
 everything Polly-infrastructural is contained in \`.nonoise/\`.
 
+The companion JSON Schema lives alongside it at
+\`<workspace-root>/.nonoise/schemas/polly-state.v1.json\`. The state file's
+\`$schema\` points to it with a relative path (\`./schemas/polly-state.v1.json\`)
+so editors (VS Code, JetBrains, Cursor) resolve it locally — no network,
+no published URL. Re-scaffolding refreshes it; do not edit by hand.
+
 ## JSON shape (v1)
 
 \`\`\`json
 {
-  "$schema": "https://nonoise.dev/schemas/polly-state.v1.json",
+  "$schema": "./schemas/polly-state.v1.json",
   "version": 1,
   "createdAt": "2026-04-19T20:00:00Z",
   "updatedAt": "2026-04-19T20:15:00Z",
@@ -10969,7 +10975,7 @@ everything else is optional.
 
 \`\`\`json
 {
-  "$schema": "https://nonoise.dev/schemas/polly-state.v1.json",
+  "$schema": "./schemas/polly-state.v1.json",
   "version": 1,
   "createdAt": "2026-04-19T19:00:00Z",
   "updatedAt": "2026-04-19T19:00:00Z",
@@ -11012,7 +11018,7 @@ Brownfield scan in progress:
 
 \`\`\`json
 {
-  "$schema": "https://nonoise.dev/schemas/polly-state.v1.json",
+  "$schema": "./schemas/polly-state.v1.json",
   "version": 1,
   "createdAt": "2026-04-19T19:00:00Z",
   "updatedAt": "2026-04-19T20:05:00Z",
@@ -23458,7 +23464,7 @@ session, the tool will read its context file (\`CLAUDE.md\` or
 Delete this file manually if you do NOT want Polly to auto-trigger.
 ",
   ".nonoise/polly-state.json": "{
-  "$schema": "https://nonoise.dev/schemas/polly-state.v1.json",
+  "$schema": "./schemas/polly-state.v1.json",
   "version": 1,
   "createdAt": "<ISO_TIMESTAMP>",
   "updatedAt": "<ISO_TIMESTAMP>",
@@ -23520,6 +23526,270 @@ Delete this file manually if you do NOT want Polly to auto-trigger.
       "note": "created by create-nonoise scaffold"
     }
   ]
+}
+",
+  ".nonoise/schemas/polly-state.v1.json": "{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polly-state.v1.json",
+  "title": "Polly state (v1)",
+  "description": "Local JSON Schema for .nonoise/polly-state.json. See .claude/skills/polly/references/state-schema.md for the full spec.",
+  "type": "object",
+  "required": [
+    "version",
+    "createdAt",
+    "updatedAt",
+    "session",
+    "phases"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "voiceHintShown": {
+      "type": "boolean"
+    },
+    "session": {
+      "type": "object",
+      "required": [
+        "kind",
+        "currentStep",
+        "mode"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "greenfield",
+            "brownfield",
+            "refactor",
+            "arch-study",
+            "unknown"
+          ]
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "new-feature",
+                "refactor",
+                "arch-study"
+              ]
+            }
+          ]
+        },
+        "currentStep": {
+          "enum": [
+            "intro",
+            "stack",
+            "material",
+            "requirements",
+            "feature-design",
+            "arch-brainstorm",
+            "arch-decision",
+            "sprint",
+            "implementation",
+            "acceptance",
+            "done"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "pair",
+            "solo",
+            "unknown"
+          ]
+        },
+        "stack": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "activeArea": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "activeSprint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "studyCounter": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "brownfieldCodePath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "handoff": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "skill",
+            "engagedAt",
+            "returnTo"
+          ],
+          "properties": {
+            "skill": {
+              "type": "string"
+            },
+            "engagedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "returnTo": {
+              "type": "string"
+            },
+            "userMessage": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "phases": {
+      "type": "object",
+      "description": "Cache of \\"is this phase done?\\". Reconciled against filesystem fingerprints on every Polly entry.",
+      "additionalProperties": {
+        "$ref": "#/$defs/phase"
+      },
+      "properties": {
+        "scan": {
+          "$ref": "#/$defs/phase"
+        },
+        "reverse": {
+          "$ref": "#/$defs/phase"
+        },
+        "requirements": {
+          "$ref": "#/$defs/phase"
+        },
+        "featureDesign": {
+          "$ref": "#/$defs/phase"
+        },
+        "archBrainstorm": {
+          "$ref": "#/$defs/phase"
+        },
+        "archDecision": {
+          "$ref": "#/$defs/phase"
+        },
+        "fpfAudit": {
+          "$ref": "#/$defs/phase"
+        },
+        "sprint": {
+          "$ref": "#/$defs/phase"
+        },
+        "implementation": {
+          "$ref": "#/$defs/phase"
+        },
+        "acceptance": {
+          "$ref": "#/$defs/phase"
+        },
+        "c4": {
+          "$ref": "#/$defs/phase"
+        },
+        "workitemExport": {
+          "$ref": "#/$defs/phase"
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "action": {
+            "enum": [
+              "bootstrap",
+              "answered",
+              "handoff",
+              "return",
+              "phase-complete",
+              "skip",
+              "abandon",
+              "reset"
+            ]
+          },
+          "phase": {
+            "type": "string"
+          },
+          "skill": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "value": {},
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "phase": {
+      "type": "object",
+      "required": [
+        "done"
+      ],
+      "properties": {
+        "done": {
+          "type": "boolean"
+        },
+        "via": {
+          "type": "string"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
 }
 ",
   ".vscode/extensions.json": "{
@@ -25273,6 +25543,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".nonoise/POLLY_START.md",
   ".nonoise/polly-state.json",
   ".nonoise/polly-state.mjs",
+  ".nonoise/schemas/polly-state.v1.json",
   ".vscode/extensions.json",
   ".vscode/settings.json",
   "AGENTS.md",
