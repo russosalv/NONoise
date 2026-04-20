@@ -1,26 +1,6 @@
 ---
 name: observability-debug
-description: |
-  Observability-driven debugging, triage, and performance analysis.
-  Ingests traces, logs, and exceptions from any configured observability
-  backend (App Insights, Datadog, Grafana+Loki, CloudWatch, OpenTelemetry
-  collector, or a generic log file), correlates them by request/trace ID,
-  walks the call chain, identifies the root cause in source code, and
-  proposes a fix with file:line precision. Backend-agnostic by design via
-  an adapter pattern — the methodology is the same across backends; only
-  the data source changes.
-
-  USE this skill whenever the user mentions errors, latency, production
-  incidents, or triage — even without naming a specific tool. Triggers:
-  pasted correlation IDs, trace IDs, operation IDs, request IDs; browser
-  console errors; HTTP status codes (500, 401, 403, 504, timeout);
-  performance complaints ("is slow", "is lagging"); phrases like
-  "what's broken", "why isn't this working", "check the logs", "triage
-  this", "read the logs and tell me why X happened", "find the exception
-  for request Y", "what changed in prod in the last hour".
-  Also triggers on monitoring requests ("watch for new errors", "check
-  cluster health") and user-specific investigation ("what did user X hit
-  today").
+description: Observability-driven debugging, triage, and performance analysis. Ingests traces, logs, and exceptions from any configured backend (App Insights, Datadog, Grafana+Loki, CloudWatch, OpenTelemetry collector, or a generic log file), correlates them by request/trace ID, walks the call chain, identifies the root cause in source code, and proposes a fix with file:line precision. Backend-agnostic via adapter pattern — same methodology across backends. USE whenever the user mentions errors, latency, production incidents, or triage — even without naming a tool. Triggers — pasted correlation/trace/operation/request IDs, browser console errors, HTTP status codes (500, 401, 403, 504, timeout), performance complaints ("is slow", "is lagging"), phrases like "what's broken", "why isn't this working", "check the logs", "triage this", "find the exception for request Y", "what changed in prod in the last hour".
 
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; adapter pattern
