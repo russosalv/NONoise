@@ -498,3 +498,20 @@ If Phase 4 failed and left the environment in a broken state:
 - [`../observability-debug/SKILL.md`](../observability-debug/SKILL.md) — takes over after Phase 0 debug-wiring for the actual production-debug flow.
 - [`../spec-to-workitem/SKILL.md`](../spec-to-workitem/SKILL.md) — sibling adapter-pattern skill (auth via env vars, dry-run default, tracker-agnostic).
 - [`../arch-brainstorm/SKILL.md`](../arch-brainstorm/SKILL.md) — the architectural-axis counterpart (one question at a time, multiple-choice, dialog-driven).
+
+## Copilot compatibility rules for new skills
+
+When this skill (or `skill-creator` invoked from Phase 5) emits a new `SKILL.md`, the YAML frontmatter MUST satisfy these rules or the skill will fail to load in GitHub Copilot:
+
+- **`description` ≤ 1024 characters.** Copilot rejects longer descriptions outright. Claude Code does not enforce this, but a single source of truth is preferred.
+- **No `: ` (colon + space) inside an unquoted YAML scalar.** A strict YAML parser reads that as a nested mapping. Rewrite to use an em-dash (`—`) or another separator, or wrap the whole value in double quotes.
+- **Avoid markdown bold/italic/links inside the `description` field.** They add bytes without improving triggering and can confuse strict parsers.
+- **Trigger focus over narrative.** Descriptions are read by a triggering LLM that prioritizes concrete phrases / slash commands. Narrative flourishes dilute the signal.
+
+Verify before committing:
+
+```bash
+pnpm --filter create-nonoise exec vitest run test/validation/skill-frontmatter-copilot.test.ts
+```
+
+The test fails the build if any native skill in `packages/skills/*/SKILL.md` violates these rules.
