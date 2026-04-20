@@ -1186,7 +1186,7 @@ If even one of these checks fails, **do not save**. Fix first.
 ",
   ".claude/skills/arch-decision/SKILL.md": "---
 name: arch-decision
-description: Formal validation of an existing PRD (produced by \`arch-brainstorm\`) using the Quint FPF methodology via the \`quint-fpf\` sub-skill. Reads a PRD in \`draft\` status, extracts architectural hypotheses from the decision story, verifies them through abduction → deduction → induction, computes R_eff via WLNK, produces an audit report, and updates the frontmatter to \`validated\`/\`rejected\`. On PASS it reminds the architect to update \`docs/architecture/\` (the source of truth) manually — NONoise does not prescribe an auto-sync skill. USE AS STEP 2 of the NONoise architectural workflow — \`arch-brainstorm\` → **\`arch-decision\`** → \`sprint-manifest\`. Input is a path to a \`draft\` PRD; output is validation or revision requests. Does not create PRDs from scratch (that is \`arch-brainstorm\`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
+description: Step 2 of the NONoise architectural workflow — formally validates an existing PRD (produced by \`arch-brainstorm\`) using the Quint FPF methodology via the \`quint-fpf\` sub-skill. Reads a PRD in \`draft\` status, extracts architectural hypotheses, runs abduction → deduction → induction, computes R_eff via WLNK, produces an audit report, and updates frontmatter to \`validated\` or \`rejected\`. On PASS reminds the architect to update \`docs/architecture/\` manually — NONoise does not auto-sync. Input is a path to a \`draft\` PRD. Does not create PRDs from scratch (that is \`arch-brainstorm\`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; delegates methodology to quint-fpf
 ---
@@ -3277,7 +3277,7 @@ In Polly's greenfield flow, Giulia typically runs before \`frontend-design\` —
 ",
   ".claude/skills/c4-doc-writer/SKILL.md": "---
 name: c4-doc-writer
-description: Produces and maintains living C4 architecture diagrams (Context / Container / Component / Code) for a NONoise project by emitting and updating a single Structurizr DSL workspace (\`docs/architecture/c4/workspace.dsl\`), from which multiple views are regenerated on demand. Unlike static Mermaid, the DSL is source-controlled, diff-able, and yields Context + Container + Component views from a single model. USE THIS SKILL right after \`arch-decision\` returns PASS on a PRD — the "Impact on docs/architecture/" checklist should include a call into this skill so the diagrams stay in sync with the validated decision. Also triggers on manual invocation — "/c4 update", "update c4", "update C4 diagrams", "generate C4 diagrams", "refresh the architecture diagrams", "structurizr", "rebuild the container view after this ADR", "sync the C4 with the new PRD". Also triggers without explicit mention when the user says they want to refresh the architectural diagrams after a PRD/ADR was validated. Stack-neutral — works for any project that has \`docs/architecture/\` populated, whether Angular+dotnet, Node+React, Python, Go, Flutter, data pipelines, or CLIs.
+description: Produces and maintains living C4 architecture diagrams (Context / Container / Component / Code) for a NONoise project via a single Structurizr DSL workspace at \`docs/architecture/c4/workspace.dsl\`, from which all views are regenerated. Source-controlled, diff-able — unlike static Mermaid. USE right after \`arch-decision\` returns PASS on a PRD so diagrams stay in sync with the validated decision. Triggers on "/c4 update", "update c4", "update C4 diagrams", "generate C4 diagrams", "refresh the architecture diagrams", "structurizr", "rebuild the container view", "sync the C4 with the new PRD". Also triggers without explicit mention when the user wants to refresh architectural diagrams after a PRD/ADR was validated. Stack-neutral — works for any project with populated \`docs/architecture/\` (Angular+dotnet, Node+React, Python, Go, Flutter, data pipelines, CLIs).
 source: NONoise framework (new skill)
 variant: nonoise generic; stack-neutral; Structurizr DSL as the single source
 ---
@@ -4067,7 +4067,7 @@ Repeat the same pattern for sections 2-9 with real content filled in from the Q&
 ",
   ".claude/skills/docs-md-generator/SKILL.md": "---
 name: docs-md-generator
-description: Generate and keep in sync the three meta-docs of a NONoise project — \`AGENTS.md\` (root, cross-tool, source of truth), \`CLAUDE.md\` (root, Claude Code adapter), and \`.github/copilot-instructions.md\` (GitHub Copilot adapter) — treating \`AGENTS.md\` as the single source of truth and preserving skill-owned managed blocks verbatim. Use this skill whenever the user says "generate CLAUDE.md", "generate AGENTS.md", "generate copilot-instructions.md", "sync the meta-docs", "sync CLAUDE.md and AGENTS.md", "the docs are out of date", "AGENTS.md changed — regenerate the others", "bootstrap docs from scratch", "import this project into NONoise conventions", "reconcile CLAUDE.md and AGENTS.md", "AGENTS.md is the source of truth — fix the others", or when they say they started with an existing codebase (brownfield, no NONoise scaffold) and want NONoise-style meta-docs produced consistently. Also trigger proactively when the user edits \`AGENTS.md\` and asks for "the others to match", or when the three files visibly disagree. This is the meta-docs keeper — do not wait for a perfect phrase, engage whenever the three files are in scope together.
+description: Generate and keep in sync the three meta-docs of a NONoise project — \`AGENTS.md\` (root, cross-tool, source of truth), \`CLAUDE.md\` (root, Claude Code adapter), and \`.github/copilot-instructions.md\` (Copilot adapter). Treats \`AGENTS.md\` as the single source of truth and preserves skill-owned managed blocks verbatim. Use whenever the user says "generate CLAUDE.md", "generate AGENTS.md", "generate copilot-instructions.md", "sync the meta-docs", "the docs are out of date", "AGENTS.md changed — regenerate the others", "bootstrap docs from scratch", "import this project into NONoise conventions", "reconcile CLAUDE.md and AGENTS.md", or when they start from an existing codebase and want NONoise-style meta-docs produced consistently. Trigger proactively when the user edits \`AGENTS.md\` and asks for "the others to match", or when the three files visibly disagree.
 ---
 
 # docs-md-generator
@@ -4881,27 +4881,7 @@ After each run, report to the user:
 ",
   ".claude/skills/observability-debug/SKILL.md": "---
 name: observability-debug
-description: |
-  Observability-driven debugging, triage, and performance analysis.
-  Ingests traces, logs, and exceptions from any configured observability
-  backend (App Insights, Datadog, Grafana+Loki, CloudWatch, OpenTelemetry
-  collector, or a generic log file), correlates them by request/trace ID,
-  walks the call chain, identifies the root cause in source code, and
-  proposes a fix with file:line precision. Backend-agnostic by design via
-  an adapter pattern — the methodology is the same across backends; only
-  the data source changes.
-
-  USE this skill whenever the user mentions errors, latency, production
-  incidents, or triage — even without naming a specific tool. Triggers:
-  pasted correlation IDs, trace IDs, operation IDs, request IDs; browser
-  console errors; HTTP status codes (500, 401, 403, 504, timeout);
-  performance complaints ("is slow", "is lagging"); phrases like
-  "what's broken", "why isn't this working", "check the logs", "triage
-  this", "read the logs and tell me why X happened", "find the exception
-  for request Y", "what changed in prod in the last hour".
-  Also triggers on monitoring requests ("watch for new errors", "check
-  cluster health") and user-specific investigation ("what did user X hit
-  today").
+description: Observability-driven debugging, triage, and performance analysis. Ingests traces, logs, and exceptions from any configured backend (App Insights, Datadog, Grafana+Loki, CloudWatch, OpenTelemetry collector, or a generic log file), correlates them by request/trace ID, walks the call chain, identifies the root cause in source code, and proposes a fix with file:line precision. Backend-agnostic via adapter pattern — same methodology across backends. USE whenever the user mentions errors, latency, production incidents, or triage — even without naming a tool. Triggers — pasted correlation/trace/operation/request IDs, browser console errors, HTTP status codes (500, 401, 403, 504, timeout), performance complaints ("is slow", "is lagging"), phrases like "what's broken", "why isn't this working", "check the logs", "triage this", "find the exception for request Y", "what changed in prod in the last hour".
 
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; adapter pattern
@@ -6360,7 +6340,7 @@ Document the choice in \`nonoise.config.json.observability.backend\` directly �
 ",
   ".claude/skills/ops-skill-builder/SKILL.md": "---
 name: ops-skill-builder
-description: Meta-skill that coaches the AI + user pair through ANY operational task (deploy, pipeline, provision, teardown, rollback, migrate, scale, cron, diagnose, debug-wiring) in ANY stack, then crystallizes the successful workflow into a project-local reusable skill. Starts by asking WHAT the user wants to achieve, then proposes an ordered access menu (CLI > API > Web) to reach the target environment, gathers context from the project's \`docs/architecture/\` + optional graphify index, proposes a dry-run plan with risk annotations, executes in paired or delegated mode, and — on success — invokes \`skill-creator\` to save the exact command sequence as a project-local skill under \`.claude/skills/<slug>/SKILL.md\`. Use this skill whenever the user says "deploy this service", "create a CI/CD pipeline for X", "set up rollback", "provision dev env", "run this migration", "I need to wire correlation-ID tracking into our observability layer so the AI can debug prod", "automate this ops thing I do manually", "I have credentials — help me operate on my cloud", "ops on Azure / AWS / GCP / kubernetes / any cloud", or when the user wants to turn a manual operation into a repeatable team skill. Also trigger without explicit mention when the user describes a repeated manual ops workflow and the conversation has no generic deploy skill that would fit their stack — this is the right skill because it builds THEIR deploy skill.
+description: Meta-skill that coaches the AI + user pair through any operational task (deploy, pipeline, provision, migrate, rollback, diagnose, debug-wiring) in any stack, then crystallizes the successful workflow into a project-local reusable skill. Asks WHAT the user wants to achieve, proposes an access menu (CLI > API > Web), gathers context from \`docs/architecture/\` + optional graphify index, proposes a dry-run plan with risk annotations, executes in paired or delegated mode, and — on success — invokes \`skill-creator\` to save the command sequence as a project-local skill under \`.claude/skills/<slug>/SKILL.md\`. Triggers — "deploy this service", "create a CI/CD pipeline for X", "set up rollback", "provision dev env", "run this migration", "automate this ops thing I do manually", "ops on Azure / AWS / GCP / kubernetes", or turning a manual op into a repeatable team skill. Also triggers without explicit mention when the user describes a repeated manual ops workflow with no fitting deploy skill available.
 source: NONoise (merges devops-deploy + devops-pipeline from Risko reference-project as a stack-neutral meta-skill)
 variant: nonoise generic; stack-neutral; access-first; crystallizes into project-local skills via skill-creator
 ---
@@ -6858,6 +6838,23 @@ If Phase 4 failed and left the environment in a broken state:
 - [\`../observability-debug/SKILL.md\`](../observability-debug/SKILL.md) — takes over after Phase 0 debug-wiring for the actual production-debug flow.
 - [\`../spec-to-workitem/SKILL.md\`](../spec-to-workitem/SKILL.md) — sibling adapter-pattern skill (auth via env vars, dry-run default, tracker-agnostic).
 - [\`../arch-brainstorm/SKILL.md\`](../arch-brainstorm/SKILL.md) — the architectural-axis counterpart (one question at a time, multiple-choice, dialog-driven).
+
+## Copilot compatibility rules for new skills
+
+When this skill (or \`skill-creator\` invoked from Phase 5) emits a new \`SKILL.md\`, the YAML frontmatter MUST satisfy these rules or the skill will fail to load in GitHub Copilot:
+
+- **\`description\` ≤ 1024 characters.** Copilot rejects longer descriptions outright. Claude Code does not enforce this, but a single source of truth is preferred.
+- **No \`: \` (colon + space) inside an unquoted YAML scalar.** A strict YAML parser reads that as a nested mapping. Rewrite to use an em-dash (\`—\`) or another separator, or wrap the whole value in double quotes.
+- **Avoid markdown bold/italic/links inside the \`description\` field.** They add bytes without improving triggering and can confuse strict parsers.
+- **Trigger focus over narrative.** Descriptions are read by a triggering LLM that prioritizes concrete phrases / slash commands. Narrative flourishes dilute the signal.
+
+Verify before committing:
+
+\`\`\`bash
+pnpm --filter create-nonoise exec vitest run test/validation/skill-frontmatter-copilot.test.ts
+\`\`\`
+
+The test fails the build if any native skill in \`packages/skills/*/SKILL.md\` violates these rules.
 ",
   ".claude/skills/ops-skill-builder/references/access-patterns.md": "# Access patterns — per-tool concrete probes
 
@@ -8987,7 +8984,7 @@ playwright-cli video-stop recordings/checkout-test-run-42.webm
 ",
   ".claude/skills/polly/SKILL.md": "---
 name: polly
-description: Polly is the NONoise orchestrator skill — the conductor who guides a developer through the full SDLC of a project scaffolded by create-nonoise. Invoke Polly whenever the user types \`/polly\`, says "start polly" / "avvia polly" / "run polly" / "orchestrate this project", asks "what skill should I use next?", wonders how to kick off a new feature, is staring at a freshly scaffolded NONoise repo and doesn't know where to begin, or right after create-nonoise finishes (triggered by \`.nonoise/POLLY_START.md\`). Polly does NOT write code: it asks the right questions, decides greenfield vs brownfield, and engages the right NONoise skill in the right order — requirements-ingest → bmad-agent-analyst → arch-brainstorm → arch-decision → sprint-manifest → atr for greenfield; graphify + reverse-engineering + the same pipeline for brownfield. Use Polly aggressively whenever the user seems lost in a NONoise-scaffolded project, even when they do not name it explicitly — most users won't know Polly exists until Polly introduces itself.
+description: NONoise SDLC orchestrator — decides which skill to run next based on project state. Use whenever the user types \`/polly\`, says "start polly" / "avvia polly" / "run polly" / "orchestrate this project", asks "what skill should I use next?", is lost in a freshly scaffolded NONoise repo, or right after \`create-nonoise\` finishes (marker at \`.nonoise/POLLY_START.md\`). Polly does not write code itself — it asks the right questions, decides greenfield vs brownfield, and engages the right NONoise skill in the correct order (requirements-ingest, bmad-agent-analyst, arch-brainstorm, arch-decision, sprint-manifest, atr for greenfield; graphify + reverse-engineering + same pipeline for brownfield). Trigger aggressively when the user seems lost in a NONoise project even without explicit mention — most users won't know Polly exists until it introduces itself.
 ---
 
 # Polly — NONoise Orchestrator
@@ -13557,7 +13554,7 @@ When the feature file already exists and new input brings additional candidates:
 ",
   ".claude/skills/reverse-engineering/SKILL.md": "---
 name: reverse-engineering
-description: Produces and incrementally maintains a versioned reverse-engineering dossier for a specific subject — a legacy codebase, a current microservice, a third-party API, an internal library, a data pipeline, anything worth understanding. Output is a collection of markdown chapters under \`docs/support/reverse/<subject-slug>/\` built by combining project documents (sprint inputs, meeting notes, functional specs) with the subject's code/artifacts indexed via the [graphify](../graphify-setup/SKILL.md) knowledge graph. The flow is (1) graphify indexing — loads context only, writes nothing; (2) long-running interactive Q&A loop on the graph and source; (3) **explicit save trigger from the user** ("save", "ok write it", "make v1.5") bumps the minor version, updates only the chapters in the consolidated intent, appends a changelog entry. Use when the user asks to "reverse-engineer X", "document legacy Y", "build a dossier on vendor Z's API", "refresh the reverse on <subject>", "new version of the reverse", "add what emerged from this meeting to the reverse of <subject>", or mentions a path under \`docs/support/reverse/\` in an update context. Do NOT use for one-shot graph queries (route to \`/graphify query\`) or for single-chapter manual edits outside a versioning flow.
+description: Produces and incrementally maintains a versioned reverse-engineering dossier for a subject — a legacy codebase, a microservice, a third-party API, an internal library, a data pipeline. Output is markdown chapters under \`docs/support/reverse/<subject-slug>/\`, combining project documents (sprint inputs, meeting notes, functional specs) with the subject's code/artifacts indexed via the graphify knowledge graph. Flow — (1) graphify indexing loads context only, (2) long-running interactive Q&A on graph and source, (3) explicit save trigger ("save", "ok write it", "make v1.5") bumps minor version, updates only chapters in the consolidated intent, appends a changelog entry. Triggers — "reverse-engineer X", "document legacy Y", "build a dossier on vendor Z's API", "refresh the reverse on <subject>", "new version of the reverse", or mention of a path under \`docs/support/reverse/\` in an update context. Do NOT use for one-shot graph queries or single-chapter manual edits.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; output under docs/support/reverse/<subject-slug>/
 ---
@@ -14691,7 +14688,7 @@ Bumps the limit to 5000/hour. Skill‑finder never requires a token — falls ba
 ",
   ".claude/skills/spec-to-workitem/SKILL.md": "---
 name: spec-to-workitem
-description: Translates macro functional tasks from a NONoise sprint manifest (\`docs/sprints/Sprint-N/sprint-manifest.md\`) into work items on an external issue tracker via a pluggable **adapter** pattern. Ships with adapters for GitHub Issues (default), Azure DevOps, Jira, and Linear, plus a \`dry-run\` mode that prints what would be created without touching any remote system. Idempotent by design — searches for existing work items matching a task ID before creating new ones. Use this skill when the user mentions "export to tracker", "create issues from sprint manifest", "push work items", "sync sprint to GitHub / Azure DevOps / Jira / Linear", "spec to workitem", "dry-run work items", or wants to translate a manifest into an external backlog. Triggers — \`/spec-to-workitem sprint N\`, \`/spec-to-workitem sprint N adapter=github-issues\`, \`/spec-to-workitem sprint N dry-run\`, "export Sprint N to Jira", "create GitHub issues for the sprint manifest". Authentication is **always per-adapter, via environment variables** — the skill never hardcodes credentials.
+description: Translates macro functional tasks from a NONoise sprint manifest (\`docs/sprints/Sprint-N/sprint-manifest.md\`) into work items on an external issue tracker via a pluggable adapter pattern. Ships adapters for GitHub Issues (default), Azure DevOps, Jira, Linear, plus \`dry-run\` mode that prints what would be created without touching any remote system. Idempotent — searches for existing work items matching a task ID before creating new ones. Use when the user mentions "export to tracker", "create issues from sprint manifest", "push work items", "sync sprint to GitHub / Azure DevOps / Jira / Linear", "spec to workitem", "dry-run work items", or wants to translate a manifest into an external backlog. Commands — \`/spec-to-workitem sprint N\`, \`/spec-to-workitem sprint N adapter=github-issues\`, \`/spec-to-workitem sprint N dry-run\`. Auth is always per-adapter via environment variables — never hardcoded.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; tracker-agnostic adapter pattern
 ---
@@ -15606,7 +15603,7 @@ description (markdown): |
 ",
   ".claude/skills/sprint-manifest/SKILL.md": "---
 name: sprint-manifest
-description: Step 3 of the NONoise architectural workflow. Promotes \`validated\` PRDs from \`docs/prd/<area>/\` to \`docs/sprints/Sprint-N/<area>/\` and produces **one aggregated Sprint Manifest** at \`docs/sprints/Sprint-N/sprint-manifest.md\` that lists all promoted PRDs, derives user stories, breaks work into **macro functional tasks (vertical slices)**, assigns confidence CL1/CL2/CL3, flags CL1 tasks requiring a decision record, and computes cross-area dependencies. Also handles impact analysis when a new PRD is added to an already-open sprint. USE WHEN the user wants to promote one or more validated PRDs to a sprint, talks about "sprint manifest", "sprint plan", "promotion to sprint", "task breakdown macro", "impact analysis on sprint", or "update sprint with new PRD". Triggers — \`sprint-manifest area <area> sprint <N>\`, \`sprint-manifest sprint <N>\` (all validated areas), \`sprint-manifest sprint <N> update\` (impact analysis). Also triggers without explicit mention when the user says "promote <area> to sprint <N>" or "create sprint <N> plan".
+description: Step 3 of the NONoise architectural workflow. Promotes \`validated\` PRDs from \`docs/prd/<area>/\` to \`docs/sprints/Sprint-N/<area>/\` and produces one aggregated Sprint Manifest at \`docs/sprints/Sprint-N/sprint-manifest.md\` listing all promoted PRDs, derived user stories, macro functional tasks (vertical slices) with confidence CL1/CL2/CL3, CL1 tasks flagged for decision records, and cross-area dependencies. Also handles impact analysis when a new PRD is added to an already-open sprint. USE when the user wants to promote validated PRDs to a sprint, talks about "sprint manifest", "sprint plan", "promotion to sprint", "task breakdown macro", "impact analysis on sprint", or "update sprint with new PRD". Triggers — \`sprint-manifest area <area> sprint <N>\`, \`sprint-manifest sprint <N>\`, \`sprint-manifest sprint <N> update\`. Also triggers without explicit mention on "promote <area> to sprint <N>" or "create sprint <N> plan".
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; one aggregated manifest per sprint
 ---
