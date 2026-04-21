@@ -108,7 +108,7 @@ If both checks fail, tell the user:
 
 > Graphify is not installed. This skill uses it to index the subject's code and supporting documents.
 >
-> To install: `pip install graphifyy` (note: the package name ends in double‑y — `graphifyy`, not `graphify`).
+> To install: `uv tool install "graphifyy>=0.4.23"` (note: the package name ends in double‑y — `graphifyy`, not `graphify`). If `uv` is not available, see the `graphify-setup` skill for bootstrap instructions and the documented pip escape hatch.
 >
 > For the full setup (hooks, always-on, per-tool rules) see the [`graphify-setup`](../graphify-setup/SKILL.md) skill.
 >
