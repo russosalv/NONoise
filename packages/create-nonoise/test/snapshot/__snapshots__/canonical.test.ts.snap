@@ -4796,12 +4796,27 @@ Remember: Claude is capable of extraordinary creative work. Don't hold back, sho
 ",
   ".claude/skills/graphify-setup/SKILL.md": "---
 name: graphify-setup
-description: Installs the graphify knowledge-graph tool and wires its usage rules into the project. Use when the user asks to "install graphify", "set up graphify", "add graphify rules", or when graphify is listed in the installed skills but \`graphify-out/\` is missing. Does not build the first graph — that is left to the orchestrator skill or the user.
+description: Installs the graphify knowledge-graph tool and wires its usage rules into the project. Use when the user asks to "install graphify", "set up graphify", "add graphify rules", or when graphify is listed in the installed skills but \`graphify-out/\` is missing. Optionally bootstraps the first graph when invoked with \`mode=reverse-engineering\` or \`mode=brownfield\` — in that case, after install/rules, runs an explicit indexing proposal with strong warning (skippable). Without \`mode\`, does NOT build the first graph — that is left to the orchestrator skill or the user.
 ---
 
 # graphify-setup
 
 Installs the [graphify](https://github.com/safishamsi/graphify) tool and registers its usage rules in every AI-tool context file present in the project. The first graph is **not** built: in a greenfield project there is nothing to graph yet, and in a brownfield project the decision to run \`graphify .\` belongs to a higher-level orchestrator (or to the user).
+
+## Inputs (optional, from Polly handoff args)
+
+Parse the caller's args string per \`polly/references/handoff-protocol.md\` §
+"Skill arguments convention". Recognized keys:
+
+| Key | Values | Behavior |
+|---|---|---|
+| \`mode\` | \`reverse-engineering\` | Enables Step 5 (indexing proposal) with RE-flavored warning. |
+| \`mode\` | \`brownfield\` | Enables Step 5 with softer "strongly recommended" wording. |
+| \`mode\` | any other | Log \`unknown mode <value>, treating as absent\` and continue as default. |
+| \`source_path\` | any path | Default target for Step 5 when \`mode\` is set. If the path doesn't exist, the skill asks the user for a correction in Step 5.1. |
+
+When \`mode\` is absent, Steps 1–4 run exactly as before and Step 5 is
+skipped. No warning, no prompt — fully backwards compatible.
 
 ## What this skill does
 
@@ -4859,9 +4874,86 @@ Installs the [graphify](https://github.com/safishamsi/graphify) tool and registe
 
    If the file does not exist, create it containing only this block.
 
+## Step 5 — Initial indexing proposal (only when \`mode\` is set)
+
+Fires after Steps 1–4 complete successfully. Skipped when \`mode\` is absent
+or unrecognized.
+
+### 5.1 — Resolve target path
+
+Priority:
+
+1. If the caller passed \`source_path=<path>\`, use it directly.
+2. Else, if \`nonoise.config.json\` has a top-level \`reverse.source_path\`,
+   propose it as default (show it in the prompt).
+3. Else, propose \`.\` (the project root) as default.
+
+Prompt (adapt to user locale; English template):
+
+> **Indexing target**: I'm about to index \`<path>\` so the reverse-engineering
+> flow has a knowledge graph to work with.
+>
+> Accept this path, or give me a different one (e.g. external legacy repo)?
+
+If the user provides a different path, validate it exists (\`test -d <path>\`)
+and loop back if missing.
+
+### 5.2 — Existing-graph check
+
+For the resolved \`<path>\`:
+
+\`\`\`bash
+test -f "<path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
+\`\`\`
+
+- \`MISSING\` → propose \`graphify "<path>"\` (initial full build).
+- \`EXISTS\` → propose \`graphify "<path>" --update\` (incremental). Mention
+  that a full rebuild is available on request.
+
+### 5.3 — Strong-warning prompt
+
+Shown before executing anything. \`mode=reverse-engineering\` variant:
+
+> ⚠️ **Indexing is essential for a useful reverse-engineering result.**
+> Without a graphify graph, downstream skills (\`reverse-engineering\`,
+> \`arch-brainstorm\`, ad-hoc code Q&A) have no god-node map, no
+> communities, no semantic lookup. Chapters that depend on source
+> become stubs with open points.
+>
+> Proposed command: \`graphify "<path>"\` (MISSING) or
+> \`graphify "<path>" --update\` (EXISTS).
+> Can take several minutes on large codebases.
+>
+> Proceed? (\`yes\` / \`different-path\` / \`skip\`)
+>
+> - \`yes\` → run now.
+> - \`different-path\` → loops back to 5.1.
+> - \`skip\` → explicit opt-out. Logged in the final report; reverse-engineering
+>   / architecture answers will have degraded quality until you come back.
+
+\`mode=brownfield\` variant: same structure, softer wording —
+"strongly recommended" instead of "essential", "may have reduced
+quality" instead of "chapters become stubs".
+
+### 5.4 — Execution
+
+- \`yes\` → run the chosen graphify command. Capture stdout/stderr. Parse
+  nodes/edges/communities from \`graphify-out/GRAPH_REPORT.md\` if present,
+  else from the command's summary. Store the counts for the final report.
+- \`different-path\` → back to 5.1.
+- \`skip\` → no command run, record the skip for the report.
+
+### 5.5 — Failure handling
+
+- \`graphify\` command missing from PATH (despite Step 1 reporting install
+  success) → abort Step 5 with a clear error; do NOT undo Steps 1–4.
+- Target path does not exist → ask the user to correct it in 5.1.
+- \`graphify\` exit ≠ 0 → show stderr, ask the user: retry / skip / abort.
+  Do NOT treat a non-zero exit as a silent skip.
+
 ## What this skill does NOT do
 
-- **Does not run \`graphify .\`** — the first graph is not built automatically. This is the explicit design decision: projects scaffolded from NONoise start empty, so there is nothing to graph. For brownfield adoption, a future orchestrator skill will decide when/how to trigger the first build.
+- **Does not run \`graphify .\` unless \`mode\` is set** — in greenfield invocations (no \`mode\` arg) the first graph is not built, because projects scaffolded from NONoise start empty. When Polly hands off with \`mode=reverse-engineering\` or \`mode=brownfield\`, Step 5 proposes the first build explicitly and the user can accept or skip.
 - **Does not invoke \`graphify hook install\`** — git hooks are opt‑in and belong to the orchestrator.
 - **Does not modify per‑directory \`.gitignore\`** — only the root one.
 
@@ -4872,6 +4964,10 @@ After each run, report to the user:
 - Whether \`graphifyy\` was installed (or already present).
 - Whether \`graphify install\` succeeded.
 - For each context file touched: \`+\` (block added), \`=\` (block already present), or \`~\` (block replaced).
+- **Only when \`mode\` was set (Step 5 ran)**:
+  - If indexing ran: \`📊 Initial graph built at <path>/graphify-out/ — N nodes, M edges, K communities\`.
+  - If the user skipped: \`⚠️ Initial indexing skipped (user explicit opt-out). Reverse-engineering / architecture answers will have degraded quality. Re-run graphify-setup or invoke /graphify <path> when ready.\`
+  - If Step 5 failed: \`❌ Initial indexing attempted but failed: <error>. Install/rules are OK; graph is not built.\`
 
 ## Failure modes
 
@@ -9594,12 +9690,64 @@ If the code is inside the scaffold (same repo), check that \`.git\` exists so
 ## Brownfield — Step 3.2 — Graphify setup     \`[pair]\`
 
 Prompt:
-> I'll engage \`graphify-setup\` first — it verifies Python is installed and
-> \`graphify\` is on PATH. Then we'll run \`graphify .\` in your code path to
-> index the repo. That's the raw material for the reverse-engineering pass.
+> I'll engage \`graphify-setup\` first — it verifies Python is installed,
+> installs \`graphify\` if needed, wires the usage rules into every selected
+> AI-tool context file, and — because we're in a reverse-engineering flow —
+> it will also propose indexing your code path right away (with a clear
+> warning that indexing is essential for a good reverse result, but you can
+> skip if you have a reason to).
+
+Pass the args string to the handoff:
+
+\`\`\`
+Skill(skill: "graphify-setup", args: "mode=reverse-engineering source_path=<Step 3.1 answer>")
+\`\`\`
+
+If the user provided no explicit source_path in Step 3.1 (or said "inside
+this repo"), omit \`source_path\` — graphify-setup falls back to \`.\` or
+\`nonoise.config.json → reverse.source_path\`.
 
 If \`graphify-setup\` reports Python missing, show the install instructions
 and offer the user the chance to install manually, then retry.
+
+**Return fingerprint**: \`graphify-out/GRAPH_REPORT.md\` (at the indexing
+target path, not necessarily the project root).
+
+If the user skipped indexing at Step 5 of graphify-setup, the fingerprint
+is absent — Polly sees \`scan\` phase as NOT done on the next reconcile and
+will re-propose indexing before engaging \`reverse-engineering\` (see
+§ "Reverse-engineering intent gate" below).
+
+## Reverse-engineering intent gate
+
+When the user's intent matches any of the reverse-engineering triggers
+listed in \`reverse-engineering/SKILL.md\` (e.g. "reverse-engineer X",
+"document legacy Y", "build a dossier on vendor Z's API", Italian/French
+/Spanish equivalents, or a path mention under \`docs/support/reverse/\`),
+Polly MUST check the graphify state before engaging \`reverse-engineering\`:
+
+\`\`\`
+graphify CLI available AND graph exists at the proposed source path?
+│
+├─ NO (either side)
+│    → engage graphify-setup with args="mode=reverse-engineering [source_path=<path>]"
+│    → on return, re-check the fingerprint
+│         - satisfied → proceed to reverse-engineering
+│         - absent (user skipped Step 5) → ASK THE USER:
+│             "Indexing was skipped. Reverse-engineering without a
+│              subject graph produces a source-less, partial dossier.
+│              Three options:
+│              a) Run indexing now (engage graphify-setup again)
+│              b) Proceed source-less (confirm you understand it's partial)
+│              c) Pause"
+│           Wait for explicit choice. Never auto-pick (a) or (b).
+│
+└─ YES → engage reverse-engineering directly.
+         Its Q4 freshness check handles the stale-graph case internally.
+\`\`\`
+
+This gate applies both to the brownfield path (Step 3.2 + 3.3) and to
+orthogonal entry points where the user invokes RE outside the main tree.
 
 ## Brownfield — Step 3.3 — Reverse engineering     \`[pair]\`
 
@@ -10006,6 +10154,27 @@ for phase in phases:
   \`bmad-agent-analyst\`; \`docs/superpowers/specs/*.md\` →
   \`superpowers:brainstorming\`.
 - Otherwise use the first skill in the per-skill table.
+
+## Decision signals (not phase-tied)
+
+These are filesystem signals Polly reads to adjust *routing decisions*,
+but they are NOT phase fingerprints — they do not update \`phases[*]\` and
+do not count toward completion. Use them to pick the right next skill
+and the right args to pass.
+
+| Signal | Check | Used by |
+|---|---|---|
+| \`graphify_installed_no_graph_RE_intent\` | \`command -v graphify\` succeeds AND \`<proposed_source_path>/graphify-out/graph.json\` does NOT exist AND user intent is RE | \`decision-tree.md\` § "Reverse-engineering intent gate" → invoke \`graphify-setup\` with \`args="mode=reverse-engineering source_path=<path>"\` |
+| \`stale_source_graph\` | \`<source_path>/graphify-out/graph.json\` exists AND (\`manifest.json\` \`indexed_at\` OR file mtime) is older than \`nonoise.config.json → reverse.graph_freshness_days\` (default 30 days) | \`reverse-engineering\` Q4 freshness check (internal; Polly doesn't branch on this — the skill handles it) |
+
+Rules:
+
+- Decision signals are **cheap checks**, not phases. Run them at decision
+  time, don't cache them in \`polly-state.json\`.
+- If a decision signal conflicts with a phase fingerprint (e.g. \`scan\`
+  phase is marked done but \`graphify_installed_no_graph_RE_intent\` is
+  true for a different source path), trust the decision signal — the
+  phase fingerprint may refer to a prior subject.
 ",
   ".claude/skills/polly/references/handoff-protocol.md": "# Polly handoff & return protocol
 
@@ -10271,6 +10440,61 @@ should benefit from the accumulated state.
 - If you can't parse the file (corrupted JSON), rename it to
   \`polly-state.corrupt-<timestamp>.json\` and bootstrap a fresh one, log a
   \`reset\` event mentioning the rename. Tell the user.
+
+---
+
+## Skill arguments convention
+
+Some skills accept optional arguments from Polly that adjust their behavior
+without changing the default flow for unorchestrated callers. The format
+is deliberately minimal.
+
+### Format
+
+A single string of \`key=value\` pairs separated by spaces. Values that
+contain spaces MUST be wrapped in double quotes.
+
+\`\`\`
+mode=reverse-engineering source_path="C:/legacy/billing system"
+\`\`\`
+
+When invoking through the \`Skill\` tool in Claude Code, pass this string
+as the \`args\` parameter:
+
+\`\`\`
+Skill(skill: "graphify-setup", args: "mode=reverse-engineering source_path=./legacy")
+\`\`\`
+
+When invoking in Copilot (or any environment without a native \`Skill\`
+tool), prepend the args string to the skill's opening prompt as a line:
+
+\`\`\`
+args: mode=reverse-engineering source_path=./legacy
+\`\`\`
+
+### Rules
+
+1. **Missing args = default behavior.** A skill invoked without args must
+   behave exactly as it did before this convention existed.
+2. **Unknown keys are ignored.** Forward compatibility — Polly may pass
+   keys that an older skill version doesn't recognize. The skill must
+   neither error nor warn.
+3. **Unknown values are logged and ignored.** If a skill defines a
+   fixed set of values for a key (e.g. \`mode ∈ {reverse-engineering,
+   brownfield}\`), any other value is treated as absent and noted in
+   the skill's output.
+4. **Best-effort parsing.** Skills do their own parsing inline — no shared
+   library. A crude \`grep\`/split on \` \` + \`=\` is enough. Do not invest in
+   a parser.
+
+### Known keys (registered here as skills adopt them)
+
+| Key | Used by | Valid values | Purpose |
+|---|---|---|---|
+| \`mode\` | \`graphify-setup\` | \`reverse-engineering\`, \`brownfield\` | Enables Step 5 indexing proposal |
+| \`source_path\` | \`graphify-setup\` | any path | Default target for Step 5 indexing |
+
+Add a row when your skill introduces a new key.
 ",
   ".claude/skills/polly/references/menu.md": "# Polly — menu command
 
@@ -10733,10 +10957,16 @@ the framework, and the phrase Polly uses to hand off.
 
 ## Brownfield-specific
 
-| Skill | State | Phrase to use |
-|---|---|---|
-| \`graphify-setup\` | Installed | "I'll engage graphify-setup to verify the graph tooling." |
-| \`reverse-engineering\` | Installed | "I'll engage reverse-engineering — we'll explore the legacy code together before writing anything." |
+| Skill | State | Handoff args | Phrase to use |
+|---|---|---|---|
+| \`graphify-setup\` | Installed | \`mode=reverse-engineering [source_path=<path>]\` when triggered from an RE flow; empty otherwise | "I'll engage graphify-setup — it installs graphify, wires the usage rules, and (in RE flow) proposes indexing your code right away." |
+| \`reverse-engineering\` | Installed | none | "I'll engage reverse-engineering — we'll explore the legacy code together before writing anything. It prerequires a graphify graph for the subject; Polly handles that via graphify-setup first." |
+
+Args are parsed per \`handoff-protocol.md\` § "Skill arguments convention".
+When Polly routes RE intent and no graph exists for the proposed source
+path, it invokes \`graphify-setup\` with \`mode=reverse-engineering\` first
+(see \`decision-tree.md\` § "Reverse-engineering intent gate"), then
+\`reverse-engineering\`.
 
 ## Orthogonal / on-demand
 
@@ -13756,22 +13986,56 @@ Ask:
 > - legacy repo: \`C:\\...\\legacy-billing\`
 > - a folder inside this repo: \`services/payments\`
 > - a vendor-api spec folder: \`docs/support/vendor-stripe-api/openapi\`
-> - leave empty to skip source indexing (document-only reverse)
+>
+> ⚠️ **Source indexing is essential for this skill.** A document-only reverse produces source-less chapters for everything touching internals, data model, and main flows — those become stubs with open points instead of analysis.
+>
+> If you truly have no source (pure vendor-spec case), type exactly \`skip-no-source\`. I'll ask for explicit confirmation before accepting.
 
-If a path is provided, store/update it under \`.reverse-engineering.local.json → subjects.<slug>.source_path\` and validate it exists.
+If the user provides a path, store/update it under \`.reverse-engineering.local.json → subjects.<slug>.source_path\` and validate it exists.
+
+If the user types \`skip-no-source\`, ask the confirmation prompt immediately:
+
+> You chose **document-only mode**. The dossier will be partial: internals-, data-model-, and main-flow-style chapters will be stubs flagged as "source not indexed". This is appropriate only when no source exists (pure vendor/spec reverse).
+>
+> Confirm? Type \`yes\` to proceed without source. Anything else returns to Q3.
+
+Only a literal \`yes\` (case-insensitive) moves forward. Any other response (including empty) returns to Q3. When the user confirms, set the in-run flag \`source_less_run = true\` (used later in Step 2.4 and Step 6).
 
 **Q4 — Reuse or re-index the subject's graph?**
 
-If the subject source graph already exists:
+If the user already confirmed \`source_less_run\` at Q3, skip Q4 entirely — there's nothing to reuse or reindex.
+
+Otherwise check graph presence:
+
 \`\`\`bash
 test -f "<source_path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
 \`\`\`
 
-If \`EXISTS\`, default = **reuse**:
-> **Q4**: The subject graph is already present at \`<source_path>/graphify-out/\`. Reuse it as-is, or re-index to pick up any changes? Default: **reuse**. Type \`reindex\` to force.
+**Freshness check** (when \`EXISTS\`): read \`indexed_at\` from
+\`<source_path>/graphify-out/manifest.json\` if present, else fall back to
+the file mtime of \`graph.json\`. Compute age in days. Read
+\`reverse.graph_freshness_days\` from \`nonoise.config.json\`; default \`30\`.
 
-If \`MISSING\`, default = **re-index** (ask confirmation because it can take minutes on large codebases):
-> **Q4**: No existing graph at \`<source_path>/graphify-out/\`. I need to index the subject from scratch — this can take several minutes on large codebases. Proceed? (yes/no)
+**Case EXISTS, fresh** (age ≤ threshold):
+> **Q4**: The subject graph at \`<source_path>/graphify-out/\` is fresh — indexed N days ago. Reuse it as-is, or re-index to pick up any changes? Default: **reuse**. Type \`reindex\` to force.
+
+**Case EXISTS, stale** (age > threshold):
+> **Q4**: The subject graph at \`<source_path>/graphify-out/\` was last indexed **N days ago** (threshold: T days). If the codebase has moved since, a stale graph can mislead the reverse.
+>
+> **Recommended: reindex.** Press Enter (or type \`reindex\`) to rebuild, or type \`reuse\` to keep the old graph anyway.
+
+Default flips from \`reuse\` to \`reindex\` in this case — empty input = reindex.
+
+**Case MISSING** (first time for this subject):
+> **Q4**: No existing graph at \`<source_path>/graphify-out/\`. **Indexing is essential** — without it, chapters that depend on source become source-less stubs.
+>
+> Proceed? (\`yes\` / \`skip-no-source\`) — indexing can take several minutes on large codebases.
+
+If the user types \`skip-no-source\` here, run the same explicit confirmation prompt used in Q3:
+
+> You chose **document-only mode**. Confirm? Type \`yes\` to proceed without source. Anything else returns to Q4.
+
+Only \`yes\` sets \`source_less_run = true\` and moves on.
 
 **Pre-indexing summary**
 
@@ -13877,9 +14141,15 @@ After successful indexing, write/refresh \`docs/support/reverse/<slug>/.meta/gra
     { "path": "<q2-path-2>/graphify-out", "indexed_at": "<iso>" }
   ],
   "source_graph": { "path": "<source_path>/graphify-out", "indexed_at": "<iso>" },
+  "source_less_run": false,
   "updated_at": "<iso>"
 }
 \`\`\`
+
+When the in-run flag \`source_less_run\` (set by Q3 or Q4 confirmation) is
+\`true\`, write \`"source_graph": null\` and \`"source_less_run": true\`. This
+file is read by Step 6 on save to decide whether to emit the overview
+banner and the CHANGELOG warning.
 
 This file is the only one the skill may create before a save trigger. It's metadata, not content — no chapter ever lives in \`.meta/\`. Add \`.meta/\` to a project \`.gitignore\` if the user prefers local-only graphs; the decision is the user's.
 
@@ -14032,6 +14302,19 @@ of the dossier, currently at version v<current>, moving to v<next>.
 3. **Other chapters of this dossier** (cross-reference, read-only):
    \`docs/support/reverse/<slug>/\` (all \`NN-*.md\`)
 
+## Source availability
+
+<source_less = true | false>
+
+- \`false\` → full source graph available; produce an analytic chapter that
+  draws directly from code structure, god nodes, and main flows.
+- \`true\` → this is a source-less run. The chapter must be a stub:
+  - State clearly at the top that internals-, data-model-, and
+    main-flow-level claims are not validated against source.
+  - Where a section would need source, write "⚠️ source not indexed
+    — to be validated in a future version with subject indexing".
+  - Keep document-derived content (requirements, calls, specs) intact.
+
 ## Instructions
 
 1. Read the current chapter in full.
@@ -14060,10 +14343,16 @@ of the dossier, currently at version v<current>, moving to v<next>.
 
 ## Output
 
-Report back:
-- path of the updated file
-- 2-3-sentence summary of what changed
-- any warning / validation request to propagate to the CHANGELOG
+Report back as a JSON block for the parent skill to parse:
+
+    {
+      "path": "docs/support/reverse/<slug>/<NN-file.md>",
+      "summary": "2-3 sentences on what changed",
+      "warnings": ["any warning / validation request to propagate to the CHANGELOG"],
+      "source_less": true | false
+    }
+
+The \`source_less\` field MUST be set. If missing, the parent skill treats it as \`true\` (worst-case assumption) and lists the chapter in the CHANGELOG source-less block.
 \`\`\`
 
 **Parallelism**: if you have more than ~3 chapters, dispatch sub-agents **in parallel** (multiple tool calls in the same message). Chapters are independent (cross-refs are static titles, not dynamic bodies) — parallel is safe.
@@ -14106,6 +14395,20 @@ In \`docs/support/reverse/<slug>/00-overview.md\`, update:
 2. \`**Date**: <previous date>\` → today, in the dossier's language (e.g. \`15 April 2026\`, \`15 aprile 2026\`)
 3. If new chapters were added in 5.3, update the chapter list / table of contents if the overview includes one.
 
+**Source-less banner** (depends on \`source_less_run\` from \`.meta/graphify-index.json\`):
+
+- If the CURRENT run is source-less → insert (or replace if already present) this managed block immediately after the H1 title:
+
+  \`\`\`markdown
+  <!-- >>> source-less-warning (managed by reverse-engineering skill) -->
+  > ⚠️ **Partial reverse**: this dossier version was produced without subject-source indexing. Chapters covering internals, data model, and main flows are document-derived only. Re-index via \`/graphify <source_path>\` and run a new save to upgrade.
+  <!-- <<< source-less-warning -->
+  \`\`\`
+
+- If the current run IS source-indexed AND a managed block with these markers already exists in the file (leftover from a previous source-less run) → remove it. This makes the banner self-clearing on the first save that restores source indexing.
+
+- Marker-delimited — replay-safe; never duplicate.
+
 **Only** \`00-overview.md\` is touched here. Other chapters' headers are updated by the sub-agents of 5.2/5.3, not by this step.
 
 **6.2 — Update \`CHANGELOG.md\`**
@@ -14134,6 +14437,13 @@ Then **prepend** (above any existing entries) a new entry using the template at 
 - **Unchanged chapters**: count
 - **Warnings / open points**: propagated from sub-agents, or "none"
 - **Sources consulted**: top-level references the sub-agents used
+
+**Source-less run tracking**: when \`source_less_run = true\` (read from
+\`.meta/graphify-index.json\`), the CHANGELOG entry MUST include the
+source-less block from the template. Populate the chapter list from the
+sub-agents' \`source_less: true\` return values — one entry per chapter
+that could not be analyzed due to missing source indexing. When
+\`source_less_run = false\`, omit the block entirely.
 
 **6.3 — Update \`.reverse-engineering.local.json\`**
 
@@ -14275,6 +14585,15 @@ for easy review.
 <!-- If any sub-agent surfaced warnings (contradictions with existing chapters,
      open points that need business validation, missing sources), list them here.
      Otherwise write "none". -->
+
+{{SOURCE_LESS_BLOCK_OR_EMPTY}}
+<!-- ONLY present when source_less_run = true for this version. Omit the whole
+     block (including this comment) if the run had source indexing. Format:
+
+- ⚠️ Executed WITHOUT source indexing (user explicitly skipped at Q3/Q4).
+  Source-less chapters: NN, NN, NN.
+  Re-run with source indexing to upgrade.
+-->
 
 **Sources consulted**:
 
@@ -24395,6 +24714,10 @@ support/
     "codex": true,
     "cursor": true,
     "geminiCli": true
+  },
+  "reverse": {
+    "source_path": ".",
+    "graph_freshness_days": 30
   },
   "skills": [
     "graphify-setup",
