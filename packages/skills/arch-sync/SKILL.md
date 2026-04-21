@@ -78,7 +78,7 @@ Group parsed entries by target file. For each file, classify the operation:
 |------|-----------|
 | File exists, verb is `Add` or `Append` | **Append** at the end of the file (or under the matching section heading if one already exists — e.g. `Append: pattern …` goes under a `## Patterns` heading) |
 | File doesn't exist | **Create** with a minimal stub (frontmatter `kind: architecture`, H1 title from the basename, an empty body) and write the new entries |
-| File exists, verb is `Mark`, `Remove`, or `Update` | **Patch**: locate the relevant block by heuristic (first heading or table row matching the entity name); ASK the architect to confirm the location before patching |
+| File exists, verb is `Mark`, `Remove`, or `Update` | **Patch**: locate the relevant block deterministically — case-insensitive substring match against H2/H3 heading text first, then against the first column of any markdown table; scan top-to-bottom; if more than one match, list ALL matches with their line numbers and ask the architect to pick by index. Never pick implicitly. |
 
 ### Step 3 — DIFF PREVIEW
 
@@ -93,10 +93,10 @@ Also list:
 
 ### Step 4 — APPLY (interactive)
 
-Prompt the architect:
+Prompt the architect (the bracketed numbers below are an *example* — show whichever diff numbers Step 3 produced):
 
 ```
-Apply diff [1, 2, 4]? (specify numbers, "all", "none", or "skip N"):
+Apply which diffs? (e.g. "1,2,4", "all", "none", "skip 3"):
 ```
 
 Honor the architect's choice. Apply only the approved diffs. Rejected
@@ -163,7 +163,7 @@ Then print to the architect:
 | `05-decision.md` `human_verdict` is `reject` or `go-back` | Stop. The architect did not approve this decision. |
 | `05-decision.md` missing the `## Impact on docs/architecture/` section | Stop. Instruct the architect to re-run `arch-decision` Phase 6 (or to manually append the section). |
 | Target file is git-dirty (uncommitted local changes) | Warn before showing the diff. The architect can still proceed. |
-| A target file already contains the exact text being added (idempotency) | Skip silently — note in the sync report under "no-op (already present)". |
+| A target file already contains the same text being added (idempotency) | Skip silently — note in the sync report under "no-op (already present)". **Comparison rule**: trim trailing whitespace per line, collapse runs of blank lines to one, normalize markdown list markers (`*` → `-`); case-sensitive otherwise. Anything else counts as a real diff. |
 | Step 4 architect input doesn't parse | Re-prompt. Never interpret silence as "all" — always require explicit input. |
 
 ## Anti-patterns
@@ -203,6 +203,12 @@ Both modes are valid; the choice is per-project.
 The first time the skill runs in a project, it creates
 `docs/architecture/sync-reports/`. The reports are part of the
 architectural trace and SHOULD be committed to git.
+
+**Gitignore safety check**: before writing the first sync report, run
+`git check-ignore <report-path>` on the target. If the path is ignored
+(some projects gitignore parts of `docs/`), warn the architect prominently
+— the report would be invisible to git, defeating its purpose as a trace.
+The architect can either un-ignore the path or accept the risk explicitly.
 
 ## References
 
