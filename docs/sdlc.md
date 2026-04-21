@@ -62,6 +62,7 @@ This is the phase where NONoise's opinion is loudest (see [`philosophy.md`](phil
 - `arch-decision` — `[pair]` — formal Quint FPF validation of the draft PRD. Updates the frontmatter to `validated` (ship it) or `rejected` (back to brainstorm). This is where exotic deviations are audited.
 - `quint-fpf` — `[pair]` — First Principles Framework. Six phases: `q0-init` → `q1-hypothesize` / `q1-add` → `q2-verify` → `q3-validate` → `q4-audit` → `q5-decide`. Structured reasoning with audit trail and bias checks. Each phase emits a dedicated markdown file (`00-context.md` … `05-decision.md`) under a single per-cycle folder — `docs/fpf/<slug>/` for standalone runs, `docs/prd/<area>/audit/NN-<study>-fpf/` when invoked by `arch-decision` — so the whole reasoning trail is reviewable in git and removable with `rm -rf`. Support commands: `q-actualize` (reconcile with repo state), `q-decay` (evidence freshness), `q-query` (search KB), `q-reset` (reset cycle), `q-status` (show status).
 - `c4-doc-writer` — `[solo]` — after `arch-decision` returns PASS, updates `docs/architecture/c4/workspace.dsl` (Structurizr DSL) and regenerates Context / Container / Component views. Keeps living C4 diagrams in sync with validated decisions.
+- `arch-sync` — `[solo]` — optional projection of the validated PRD into `docs/architecture/`. Suggested by Polly right after `arch-decision` PASS (never automatic). Parses the strict `[file: NN.md]` checklist from `05-decision.md`, shows a unified diff per file, applies only the diffs the architect approves, writes a sync report.
 
 **Phase output:** a `validated` PRD under `docs/prd/<area>/` plus updated `docs/architecture/` (including C4 views). The sprint phase takes this as input.
 
@@ -135,8 +136,9 @@ Step  Phase                            Mode     Skill(s)
  5    Requirements elicitation         [pair]   bmad-agent-analyst (+ bmad-advanced-elicitation, + bmad-req-validator)
  6    Feature / product design         [pair]   superpowers:brainstorming (+ bmad-agent-ux-designer, + frontend-design)
  7    Architecture options             [pair]   arch-brainstorm (if non-trivial)
- 8    Architecture decision            [pair]   arch-decision (+ quint-fpf)
+ 8    Architecture decision            [pair]   arch-decision (+ quint-fpf, + Phase 5.5 human gate)
  8b   Living C4 diagrams               [solo]   c4-doc-writer (after arch-decision PASS)
+ 8c   Arch source-of-truth sync        [solo]   arch-sync (after arch-decision PASS, optional)
  9    Sprint breakdown                 [pair]   sprint-manifest (+ spec-to-workitem)
 10    Implementation — per task        [solo]   superpowers:writing-plans
                                                   → executing-plans
