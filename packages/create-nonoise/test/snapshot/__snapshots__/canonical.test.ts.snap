@@ -4801,12 +4801,16 @@ description: Installs the graphify knowledge-graph tool and wires its usage rule
 
 # graphify-setup
 
-Installs the [graphify](https://github.com/safishamsi/graphify) tool and registers its usage rules in every AI-tool context file present in the project. The first graph is **not** built: in a greenfield project there is nothing to graph yet, and in a brownfield project the decision to run \`graphify .\` belongs to a higher-level orchestrator (or to the user).
+Installs the [graphify](https://github.com/safishamsi/graphify) tool and registers its usage rules in every AI-tool context file present in the project. By default (no \`mode\` arg) the first graph is **not** built — greenfield projects have nothing to graph yet, and brownfield builds belong to a higher-level orchestrator. When the caller passes \`mode=reverse-engineering\` or \`mode=brownfield\` (typically Polly during a reverse-engineering flow), Step 5 below proposes the first build explicitly with a strong "essential but skippable" warning.
 
-## Inputs (optional, from Polly handoff args)
+## Inputs (optional, from caller)
 
-Parse the caller's args string per \`polly/references/handoff-protocol.md\` §
-"Skill arguments convention". Recognized keys:
+Two equivalent ways to pass arguments depending on the host tool:
+
+- **Claude Code**: Polly invokes this skill via the \`Skill\` tool with an \`args\` string parsed per \`polly/references/handoff-protocol.md\` § "Skill arguments convention".
+- **GitHub Copilot / Cursor / Gemini / Codex / any other tool without a native skill harness**: there is no \`args\` channel. Look for the same \`key=value\` tokens directly in the user's message that triggered this skill (e.g. "run graphify-setup mode=reverse-engineering source_path=./legacy"). If the tokens are absent, behave as if \`mode\` is unset (default flow, no Step 5).
+
+Recognized keys:
 
 | Key | Values | Behavior |
 |---|---|---|
@@ -10164,7 +10168,7 @@ and the right args to pass.
 
 | Signal | Check | Used by |
 |---|---|---|
-| \`graphify_installed_no_graph_RE_intent\` | \`command -v graphify\` succeeds AND \`<proposed_source_path>/graphify-out/graph.json\` does NOT exist AND user intent is RE | \`decision-tree.md\` § "Reverse-engineering intent gate" → invoke \`graphify-setup\` with \`args="mode=reverse-engineering source_path=<path>"\` |
+| \`graphify_unavailable_or_no_graph_RE_intent\` | (\`command -v graphify\` fails OR \`<proposed_source_path>/graphify-out/graph.json\` does NOT exist) AND user intent is RE | \`decision-tree.md\` § "Reverse-engineering intent gate" → invoke \`graphify-setup\` with \`args="mode=reverse-engineering source_path=<path>"\` |
 | \`stale_source_graph\` | \`<source_path>/graphify-out/graph.json\` exists AND (\`manifest.json\` \`indexed_at\` OR file mtime) is older than \`nonoise.config.json → reverse.graph_freshness_days\` (default 30 days) | \`reverse-engineering\` Q4 freshness check (internal; Polly doesn't branch on this — the skill handles it) |
 
 Rules:
@@ -24714,10 +24718,6 @@ support/
     "codex": true,
     "cursor": true,
     "geminiCli": true
-  },
-  "reverse": {
-    "source_path": ".",
-    "graph_freshness_days": 30
   },
   "skills": [
     "graphify-setup",
