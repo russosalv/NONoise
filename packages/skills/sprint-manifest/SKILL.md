@@ -189,7 +189,7 @@ Before touching any file:
 
 3. **Check area consistency**: the `area` slug in the PRD frontmatter must match the folder name under `docs/prd/`. If there is a mismatch, flag it.
 
-4. **Check audit report**: for every `validated` PRD there should be a matching audit report at `docs/prd/<area>/audit/NN-<study>-fpf.md`. If missing, flag as warning but continue (non-blocking).
+4. **Check audit folder**: for every `validated` PRD there should be a matching audit folder at `docs/prd/<area>/audit/NN-<study>-fpf/` containing `05-decision.md` (the DRR). If the folder or `05-decision.md` is missing, flag as warning but continue (non-blocking).
 
 If any check fails and is not recoverable, **stop** and ask the user how to proceed.
 
@@ -208,9 +208,11 @@ For every `validated` PRD to process:
    docs/prd/<area>/NN-<study>-diagrams.md
    → docs/sprints/Sprint-N/<area>/NN-<study>-diagrams.md
 
-   docs/prd/<area>/audit/NN-<study>-fpf.md
-   → docs/sprints/Sprint-N/<area>/audit/NN-<study>-fpf.md
+   docs/prd/<area>/audit/NN-<study>-fpf/
+   → docs/sprints/Sprint-N/<area>/audit/NN-<study>-fpf/
    ```
+
+   The audit is a folder, not a single file — move the entire folder (all 6 per-phase files) as a unit.
 
 2. **Copy `00-area-brief.md`** into the sprint area folder on first promotion of that area, annotated with "Promoted to Sprint N in YYYY-MM-DD".
 

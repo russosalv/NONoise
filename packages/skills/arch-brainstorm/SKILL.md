@@ -277,7 +277,7 @@ See [`references/folder-conventions.md`](./references/folder-conventions.md) for
 - **Area folder**: `docs/prd/<area-slug>/`
 - **Study files**: `NN-<study-slug>.md` + `NN-<study-slug>-diagrams.md`
 - **Area brief**: `00-area-brief.md` (always present)
-- **Audit reports**: `audit/NN-<study-slug>-fpf.md` (created by `arch-decision`, not here)
+- **Audit folders**: `audit/NN-<study-slug>-fpf/` (one folder per validated study, contains `00-context.md` through `05-decision.md` — created by `arch-decision`, not here)
 
 Mandatory PRD frontmatter:
 

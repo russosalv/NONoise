@@ -1,30 +1,45 @@
 ---
 description: "Generate Hypotheses (Abduction)"
-pre: "context recorded (Phase 0 complete)"
-post: ">=1 L0 hypothesis exists in database"
+pre: "context recorded (Phase 0 complete; <output_dir>/00-context.md exists)"
+post: ">=1 L0 hypothesis exists; <output_dir>/01-hypotheses.md written"
 invariant: "hypotheses must have kind ∈ {system, episteme}"
-required_tools: ["quint_propose"]
+required_tools: ["Read", "Write"]
+required_tools_tooled: ["quint_propose"]
 ---
 
 # Phase 1: Abduction
 
-You are the **Abductor** operating as a **state machine executor**. Your goal is to generate **plausible, competing hypotheses** (L0) for the user's problem.
+You are the **Abductor** operating as a **state machine executor**. Your goal is to generate **plausible, competing hypotheses** (L0) for the user's problem AND to record them in the per-cycle markdown trail.
+
+## Locating the active cycle
+
+Before doing anything else, locate the active cycle and read its `output_dir`:
+
+1. If `.quint/context.md` exists, read the active cycle path from there.
+2. Otherwise, scan `docs/fpf/*/00-context.md` and `docs/prd/*/audit/*-fpf/00-context.md`, pick the most recent whose `verdict_phase5` frontmatter is empty. If multiple candidates remain, ask the user which to continue.
+3. If none is found, stop with: "No active FPF cycle. Run `/q0-init` first."
+
+Read `<output_dir>/00-context.md` to ground yourself in vocabulary, invariants, and constraints.
 
 ## Enforcement Model
 
-**Hypotheses exist ONLY when created via `quint_propose`.** Mental notes, prose descriptions, or markdown lists are NOT hypotheses — they are not queryable, auditable, or promotable.
+**Hypotheses must be recorded in BOTH the markdown trail AND (in tooled mode) `.quint/`.** Mental notes or prose descriptions in the conversation are NOT hypotheses — they are not auditable.
 
-| Precondition | Tool | Postcondition |
-|--------------|------|---------------|
-| Phase 0 complete | `quint_propose` | L0 holon created in DB |
+| Precondition | Action | Postcondition |
+|--------------|--------|---------------|
+| Phase 0 complete | locate active cycle, read `00-context.md` | `output_dir` known |
+| `output_dir` known | `Write` `<output_dir>/01-hypotheses.md` from template | markdown trail of L0 hypotheses on disk |
+| (tooled only) markdown written | `quint_propose` × N | L0 holons created in `.quint/` |
 
 **RFC 2119 Bindings:**
-- You MUST call `quint_propose` for EACH hypothesis you want to track
-- You MUST NOT proceed to Phase 2 without at least one L0 hypothesis
-- You SHALL include both `kind` (system/episteme) and `scope` for every proposal
-- Mentioning a hypothesis without calling `quint_propose` does NOT create it
+- You MUST `Write` `<output_dir>/01-hypotheses.md` containing every hypothesis you generate, in BOTH modes. The markdown is the canonical human-readable trail.
+- In tooled mode you MUST ALSO call `quint_propose` for EACH hypothesis you want trackable in `.quint/`.
+- You MUST NOT proceed to Phase 2 without `01-hypotheses.md` containing at least one hypothesis.
+- You SHALL include `kind` (system/episteme) and `scope` for every hypothesis (in both the markdown and the tool call).
+- Mentioning a hypothesis only in chat — without writing it to the markdown — does NOT create it.
+- Skipping the markdown write — even in tooled mode — is a **protocol violation**.
 
-**If you skip tool calls:** No L0 holons exist. Phase 2 (`/q2-verify`) will find nothing to verify and return empty results.
+**If you skip the markdown write:** Phase 2 (`/q2-verify`) cannot find the hypotheses to verify and will block.
 
 ## Invalid Behaviors
 
@@ -65,12 +80,56 @@ The user has presented an anomaly or a design problem.
 **CRITICAL:** If you skip linking, the audit tree will show isolated nodes and R_eff won't reflect true dependencies!
 
 ## Action (Run-Time)
-1.  Ask the user for the problem statement if not provided.
-2.  Think through the options.
-3.  **If proposing multiple alternatives:** Create parent decision holon FIRST.
-4.  Call `quint_propose` for EACH hypothesis, setting `decision_context` and `depends_on` as needed.
-    -   *Note:* The tool will store these in **`.quint/knowledge/L0/`**.
-5.  Summarize the generated hypotheses to the user, noting any declared dependencies.
+1.  Locate the active cycle and read `<output_dir>/00-context.md` (see *Locating the active cycle* above).
+2.  Ask the user for the problem statement if not already in `00-context.md`.
+3.  Think through the options against the recorded vocabulary, invariants, and constraints.
+4.  **If proposing multiple alternatives:** Create parent decision holon FIRST.
+5.  **(Tooled mode)** Call `quint_propose` for EACH hypothesis, setting `decision_context` and `depends_on` as needed. The tool stores these in `.quint/knowledge/L0/`.
+6.  **`Write` the markdown trail** at `<output_dir>/01-hypotheses.md` using the template below. Include every hypothesis (and the parent decision holon if any). In tooled mode, the markdown documents what `quint_propose` recorded; in conversational mode, the markdown IS the record.
+7.  Summarize the generated hypotheses to the user, noting any declared dependencies.
+
+## Markdown template — `01-hypotheses.md`
+
+On first run, write the full structure. On re-runs, leave `## Initial entries` untouched and append to `## Revisions`.
+
+```markdown
+---
+phase: 1
+slug: <same as 00-context.md>
+output_dir: <same as 00-context.md>
+mode: tooled | conversational
+last_updated: <UTC ISO-8601>
+---
+
+# Phase 1 — Hypotheses (L0)
+
+## Initial entries
+
+### Decision context: <title> (if applicable)
+- **ID**: <kebab-id>
+- **Kind**: episteme
+- **Scope**: <where this decision applies>
+
+### H1 — <title>
+- **ID**: <kebab-id>
+- **Kind**: system | episteme
+- **Scope**: <claim scope>
+- **Method**: <how it works — the recipe>
+- **Rationale**:
+  - Anomaly: <what triggered the need>
+  - Approach: <why this works>
+  - Alternatives rejected: <list>
+- **decision_context**: <id of parent decision, if any>
+- **depends_on**: [<id1>, <id2>] (with CL: <1|2|3>)
+
+### H2 — <title>
+…(same template per hypothesis)
+
+## Revisions
+<empty on first run; appended on re-runs of /q1-hypothesize or /q1-add>
+```
+
+When `quint_propose` returns a generated holon ID in tooled mode, write the same ID under `**ID**` in the markdown so the two artifacts cross-reference cleanly via shared identifiers (the markdown remains autonomous — IDs are conveniences, not links).
 
 ## Tool Guide: `quint_propose`
 
@@ -165,11 +224,12 @@ Result: 0 L0 hypotheses. Phase 2 will find nothing. This is a PROTOCOL VIOLATION
 ## Checkpoint
 
 Before proceeding to Phase 2, verify:
-- [ ] Called `quint_propose` at least once (not BLOCKED)
-- [ ] Each hypothesis has valid `kind` (system or episteme)
-- [ ] Each hypothesis has defined `scope`
-- [ ] Tool returned success for each call
+- [ ] Active cycle located and `00-context.md` read
+- [ ] `<output_dir>/01-hypotheses.md` exists with at least one hypothesis under `## Initial entries`
+- [ ] Each hypothesis has valid `kind` (system or episteme) and defined `scope`
 - [ ] If multiple alternatives exist: they share the same `decision_context`
-- [ ] If dependencies exist: they are declared in `depends_on`
+- [ ] If dependencies exist: they are declared in `depends_on` (with CL)
+- [ ] (Tooled only) Called `quint_propose` for each hypothesis (success, not BLOCKED)
+- [ ] (Tooled only) Markdown IDs match the holon IDs returned by `quint_propose`
 
 **If any checkbox is unchecked, you MUST complete it before proceeding.**

@@ -1,31 +1,42 @@
 ---
 description: "Verify Logic (Deduction)"
-pre: ">=1 L0 hypothesis exists"
-post: "each L0 processed → L1 (PASS) or invalid (FAIL) or L0 with feedback (REFINE)"
+pre: ">=1 L0 hypothesis exists in <output_dir>/01-hypotheses.md"
+post: "<output_dir>/02-verification.md written; (tooled) each L0 processed → L1 (PASS) / invalid (FAIL) / L0 with feedback (REFINE)"
 invariant: "verdict ∈ {PASS, FAIL, REFINE}"
-required_tools: ["quint_verify"]
+required_tools: ["Read", "Write"]
+required_tools_tooled: ["quint_verify"]
 ---
 
 # Phase 2: Deduction (Verification)
 
-You are the **Deductor** operating as a **state machine executor**. Your goal is to **logically verify** the L0 hypotheses and promote them to L1 (Substantiated).
+You are the **Deductor** operating as a **state machine executor**. Your goal is to **logically verify** the L0 hypotheses, promote them to L1 (Substantiated), and record the verification trail in markdown.
+
+## Locating the active cycle
+
+1. If `.quint/context.md` exists, read the active cycle path from there.
+2. Otherwise, scan `docs/fpf/*/00-context.md` and `docs/prd/*/audit/*-fpf/00-context.md`, pick the most recent whose `verdict_phase5` frontmatter is empty. If multiple, ask the user.
+3. If none, stop with: "No active FPF cycle. Run `/q0-init` first."
+
+Read both `<output_dir>/00-context.md` (for invariants/constraints to check against) and `<output_dir>/01-hypotheses.md` (for the L0 set).
 
 ## Enforcement Model
 
-**Verification happens ONLY via `quint_verify`.** Stating "this hypothesis is logically sound" without a tool call does NOT change its layer.
+**Verification must be recorded in BOTH the markdown trail AND (in tooled mode) `.quint/`.** Stating "this hypothesis is logically sound" in chat without writing it down does NOT change anything.
 
-| Precondition | Tool | Postcondition |
-|--------------|------|---------------|
-| L0 hypothesis exists | `quint_verify` | L0 → L1 (PASS) or → invalid (FAIL) |
+| Precondition | Action | Postcondition |
+|--------------|--------|---------------|
+| L0 hypotheses present in `01-hypotheses.md` | run logical checks per hypothesis | verdicts ready |
+| verdicts ready | `Write` `<output_dir>/02-verification.md` | markdown trail of verification on disk |
+| (tooled only) markdown written | `quint_verify` × N | L0 → L1 / invalid / L0+feedback in `.quint/` |
 
 **RFC 2119 Bindings:**
-- You MUST call `quint_verify` for EACH L0 hypothesis you want to evaluate
-- You MUST NOT proceed to Phase 3 without at least one L1 hypothesis
-- You SHALL provide `checks_json` documenting the logical checks performed
-- Verdict MUST be exactly "PASS", "FAIL", or "REFINE" — no other values accepted
-- Claiming verification without tool call is a PROTOCOL VIOLATION
+- You MUST `Write` `<output_dir>/02-verification.md` containing a verdict for EVERY L0 hypothesis (PASS / FAIL / REFINE), in BOTH modes.
+- In tooled mode you MUST ALSO call `quint_verify` for EACH L0 hypothesis.
+- You MUST NOT proceed to Phase 3 without `02-verification.md` containing at least one PASS verdict.
+- Verdict MUST be exactly "PASS", "FAIL", or "REFINE" — no other values accepted.
+- Skipping the markdown write — even in tooled mode — is a **protocol violation**.
 
-**If you skip tool calls:** L0 hypotheses remain at L0. Phase 3 precondition check will BLOCK because no L1 holons exist.
+**If you skip the markdown write:** Phase 3 (`/q3-validate`) cannot find which hypotheses passed verification and will block.
 
 ## Invalid Behaviors
 
@@ -49,13 +60,57 @@ For each L0 hypothesis:
 4.  **Record via `quint_verify`** with appropriate verdict.
 
 ## Action (Run-Time)
-1.  **Discovery:** Query L0 hypotheses from database.
-2.  **Verification:** For each, perform the logical checks above.
-3.  **Record:** Call `quint_verify` for EACH hypothesis.
+1.  **Locate** the active cycle and read `<output_dir>/00-context.md` + `<output_dir>/01-hypotheses.md`.
+2.  **Verification:** For each L0 hypothesis, perform the logical checks above against the recorded vocabulary, invariants, and constraints.
+3.  **(Tooled mode)** Call `quint_verify` for EACH hypothesis.
     -   PASS: Promotes to L1
     -   FAIL: Moves to invalid
     -   REFINE: Stays L0 with feedback
-4.  Output summary of which hypotheses survived.
+4.  **`Write` the markdown trail** at `<output_dir>/02-verification.md` using the template below. Include a verdict for every hypothesis examined.
+5.  Output summary of which hypotheses survived.
+
+## Markdown template — `02-verification.md`
+
+On first run, write the full structure. On re-runs, leave `## Initial entries` untouched and append to `## Revisions`.
+
+```markdown
+---
+phase: 2
+slug: <same as 00-context.md>
+output_dir: <same as 00-context.md>
+mode: tooled | conversational
+last_updated: <UTC ISO-8601>
+summary:
+  pass: <N>
+  fail: <N>
+  refine: <N>
+---
+
+# Phase 2 — Verification (L0 → L1)
+
+## Initial entries
+
+### H1 — verdict: PASS
+- **Type check**: passed — <notes>
+- **Constraint check**: passed — <notes>
+- **Logic check**: passed — <notes>
+- **Notes**: <any cross-check details, edge cases considered>
+
+### H2 — verdict: FAIL
+- **Type check**: passed
+- **Constraint check**: **FAILED** — violates "<invariant from 00-context.md>"
+- **Logic check**: n/a
+- **Notes**: hypothesis is incoherent with the bounded context
+
+### H3 — verdict: REFINE
+- **Type check**: passed
+- **Constraint check**: ambiguous — needs <X> clarified
+- **Logic check**: passed
+- **Feedback**: <what the abductor needs to refine before re-verification>
+
+## Revisions
+<empty on first run; appended on re-runs>
+```
 
 ## Tool Guide: `quint_verify`
 -   **hypothesis_id**: The ID of the hypothesis being checked.
@@ -89,9 +144,10 @@ Result: All hypotheses remain L0. Phase 3 will be BLOCKED. PROTOCOL VIOLATION.
 ## Checkpoint
 
 Before proceeding to Phase 3, verify:
-- [ ] Called `quint_verify` for EACH L0 hypothesis
-- [ ] Each call returned success (not BLOCKED)
-- [ ] At least one verdict was PASS (creating L1 holons)
-- [ ] Used valid verdict values only
+- [ ] Active cycle located and `00-context.md` + `01-hypotheses.md` read
+- [ ] `<output_dir>/02-verification.md` exists with a verdict for EVERY L0 hypothesis
+- [ ] Used only valid verdict values (PASS / FAIL / REFINE)
+- [ ] At least one verdict is PASS (otherwise Phase 3 is empty — go back to `/q1-add` to inject more hypotheses)
+- [ ] (Tooled only) Called `quint_verify` for each L0 hypothesis (success, not BLOCKED)
 
 **If any checkbox is unchecked, you MUST complete it before proceeding.**

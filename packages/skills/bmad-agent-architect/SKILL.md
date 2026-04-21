@@ -109,7 +109,7 @@ setup lsp
 ## Artifacts & output locations
 
 - Architecture options brainstorm → `docs/prd/<area>/NN-<study>.md` (handoff output from `arch-brainstorm`)
-- FPF audit of a validated PRD → `docs/prd/<area>/audit/NN-<study>-fpf.md` (from `arch-decision`)
+- FPF audit of a validated PRD → `docs/prd/<area>/audit/NN-<study>-fpf/` (folder with one file per FPF phase, from `arch-decision`)
 - Source-of-truth architecture → `docs/architecture/` (edited manually by Alex via DOC capability, after `arch-decision` PASS)
 - Readiness check report → `docs/review/<date>-implementation-readiness.md`
 

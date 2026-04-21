@@ -1,9 +1,9 @@
 ---
 name: quint-fpf
-description: Quint First Principles Framework — structured reasoning methodology with 6 phases (Initialize → Abduct → Deduce → Induce → Audit → Decide), R_eff via WLNK, and Congruence Level tracking. Use when you need to formally validate an architectural decision, a PRD, or any non-trivial claim. Invokable standalone or delegated from other skills (e.g. `arch-decision`). Has two modes — tooled (quint MCP server for state persistence + audit tree) and conversational (markdown-only fallback when MCP is absent).
+description: Quint First Principles Framework — structured reasoning methodology with 6 phases (Initialize → Abduct → Deduce → Induce → Audit → Decide), R_eff via WLNK, and Congruence Level tracking. Use when you need to formally validate an architectural decision, a PRD, or any non-trivial claim. Invokable standalone or delegated from other skills (e.g. `arch-decision`). Every phase emits a dedicated markdown file under a single per-cycle folder so the entire reasoning trail is human-readable, git-diffable, and removable in one `rm -rf`. Has two execution modes — tooled (quint MCP server enforces holon state in `.quint/`) and conversational (markdown-only) — but the document trail is produced in both.
 source: Quint FPF (First Principles Framework) — methodology developed in NONoise reference-project
 variant: nonoise-bmad 2 adjacent; standalone reusable skill
-customization: extracted from arch-decision; bundled with q-* slash commands; dual-mode execution
+customization: extracted from arch-decision; bundled with q-* slash commands; dual-mode execution; per-phase markdown emission
 ---
 
 # quint-fpf
@@ -17,39 +17,76 @@ A formal reasoning methodology that turns opaque decisions into auditable chains
 - **Evidence-based claims** — when writing an ADR, a compliance assessment, a post-mortem
 - **Stand-alone** — via slash commands `/q0-init` through `/q5-decide` when the user wants a full FPF cycle
 
-## Two modes of execution
+## Universal output contract
+
+Every phase emits a dedicated markdown file under a single per-cycle folder. This trail is the canonical human-readable record — what gets reviewed, diffed in git, and removed in one operation when a cycle is abandoned. The folder layout is identical regardless of mode; only the auxiliary state in `.quint/` differs.
+
+### Output folder resolution
+
+`/q0-init` resolves the output directory in this order:
+
+1. **Caller-supplied path** — if invoked from a parent skill that passes `--target <path>` (e.g. `arch-decision` passes `docs/prd/<area>/audit/NN-<study>-fpf/`), use that path verbatim.
+2. **Manual override** — if the user passes `--slug <slug>`, use `docs/fpf/<slug>/`.
+3. **Auto-derived** — otherwise, derive a kebab-case slug from the user's problem statement (2–3 keywords), use `docs/fpf/<slug>/`. If the problem statement is too vague to derive a slug, ask the user once.
+
+The resolved path is recorded in `00-context.md` frontmatter as `output_dir:` so subsequent phases locate it without re-deriving. Subsequent `qN-*` commands find the active cycle by:
+
+1. If `.quint/context.md` exists (tooled mode), read the active cycle path from there.
+2. Otherwise, scan `**/00-context.md` files matching `docs/fpf/*/` and `docs/prd/*/audit/*-fpf/`, pick the most recent whose `verdict_phase5` frontmatter is empty (cycle not closed). If multiple candidates remain, ask the user which to continue.
+3. If none is found, return: "No active FPF cycle. Run `/q0-init` first."
+
+### File-per-phase layout
+
+```
+<output_dir>/
+├── 00-context.md       ← /q0-init
+├── 01-hypotheses.md    ← /q1-hypothesize, /q1-add (append)
+├── 02-verification.md  ← /q2-verify
+├── 03-validation.md    ← /q3-validate
+├── 04-audit.md         ← /q4-audit
+└── 05-decision.md      ← /q5-decide  (DRR — final verdict)
+```
+
+Each file uses a rigid template defined in its corresponding command file under `commands/`. On re-runs, new entries are appended under a `## Revisions` section with a UTC ISO-8601 timestamp; **initial entries are never overwritten** — the audit trail preserves history.
+
+## Two execution modes
+
+The two modes differ only in **auxiliary state**, not in document output:
 
 ### 🟢 Tooled mode (preferred)
-If the **quint MCP server** is installed and exposes `quint_*` tools (`quint_init`, `quint_propose`, `quint_verify`, `quint_validate`, `quint_audit`, `quint_decide`, `quint_record_context`, `quint_query`, …), delegate to the 12 bundled slash commands in `.claude/commands/`:
 
-| Phase | Command | MCP tool | Output |
+If the **quint MCP server** is installed and exposes `quint_*` tools, delegate to the bundled slash commands. The tools persist holon state in `.quint/` (queryable, with R_eff computed via WLNK). The markdown trail in `<output_dir>/` is written **in parallel** with the tool calls.
+
+| Phase | Command | MCP tool (tooled) | Markdown file |
 |---|---|---|---|
-| 0. Initialize | `/q0-init` | `quint_init`, `quint_record_context` | `.quint/context.md` with Bounded Context |
-| 1. Abduct (hypothesize) | `/q1-hypothesize` | `quint_propose` | L0 holons in `.quint/knowledge/L0/` |
-| 1. Add single | `/q1-add` | `quint_propose` | append a single L0 holon |
-| 2. Deduce (verify) | `/q2-verify` | `quint_verify` | L0 → L1 (PASS) or invalid (FAIL) / REFINE |
-| 3. Induce (validate) | `/q3-validate` | `quint_validate` | L1 → L2 with empirical evidence |
-| 4. Audit | `/q4-audit` | `quint_audit` | R_eff computed via WLNK over the dependency tree |
-| 5. Decide | `/q5-decide` | `quint_decide` | Final decision holon with rationale |
-| Support: query | `/q-query` | `quint_query` | search `.quint/` knowledge base |
-| Support: status | `/q-status` | — | show current FPF cycle state |
-| Support: decay | `/q-decay` | `quint_decay` | evidence freshness management |
-| Support: actualize | `/q-actualize` | `quint_actualize` | reconcile FPF state with repo changes |
-| Support: reset | `/q-reset` | `quint_reset` | clear cycle state |
+| 0. Initialize | `/q0-init` | `quint_init`, `quint_record_context` | `00-context.md` |
+| 1. Abduct | `/q1-hypothesize` | `quint_propose` | `01-hypotheses.md` |
+| 1. Add single | `/q1-add` | `quint_propose` | `01-hypotheses.md` (append) |
+| 2. Deduce | `/q2-verify` | `quint_verify` | `02-verification.md` |
+| 3. Induce | `/q3-validate` | `quint_test` | `03-validation.md` |
+| 4. Audit | `/q4-audit` | `quint_calculate_r`, `quint_audit_tree`, `quint_audit` | `04-audit.md` |
+| 5. Decide | `/q5-decide` | `quint_decide` | `05-decision.md` |
+| Support: query | `/q-query` | `quint_query` | — |
+| Support: status | `/q-status` | — | — |
+| Support: decay | `/q-decay` | `quint_decay` | — |
+| Support: actualize | `/q-actualize` | `quint_actualize` | — |
+| Support: reset | `/q-reset` | `quint_reset` | — |
 
-In tooled mode, the methodology is **enforced by the tools**: hypotheses that are only discussed in prose are not promotable, verdicts must be exactly `PASS|FAIL|REFINE`, dependencies are traced in the audit tree.
+In tooled mode, methodology discipline is **enforced by the tools**: hypotheses only discussed in prose are not promotable in `.quint/`; verdicts must be exactly `PASS|FAIL|REFINE`. The markdown documents what the tools recorded — it does not replace tool calls.
 
-### 🟡 Conversational mode (fallback)
-When the quint MCP server is **not** installed, apply the methodology conversationally and produce a markdown artifact in `docs/fpf/<slug>.md` with the same 6 phases. You lose:
-- Persistent state (must re-derive on each session)
-- Automatic R_eff computation (you must reason about reliability manually)
-- Audit tree across dependencies (must note dependencies in prose)
+### 🟡 Conversational mode
 
-But you keep:
-- Same discipline: abduction → deduction → induction → audit → decide
-- Same output structure (can be upgraded to tooled mode later by running `quint_init` + replaying the markdown)
+When the quint MCP server is **not** installed, the slash commands apply the same methodology purely against the markdown files. You lose:
+- Programmatic R_eff via WLNK (you reason about reliability manually following the same rules)
+- Queryable holon state (you re-read `01-hypotheses.md` etc.)
+- Cross-dependency audit tree (you note dependencies inline in prose)
 
-Detect mode with a quick probe: if `/q-status` works or a `.quint/` directory exists, you're in tooled mode.
+You keep:
+- **Identical document trail and rigid file templates** — the markdown is the same in both modes
+- Same 6-phase discipline and same checkpoints
+- Migratability — the markdown can be replayed into tooled mode later by running `quint_init` + the corresponding tool calls
+
+Detect mode with a quick probe: if `/q-status` works or `.quint/` exists in the repo root, you're in tooled mode.
 
 ## Core concepts (both modes)
 
@@ -124,16 +161,17 @@ Computed at Phase 4 via **WLNK** (Weighted Log-Normalized Knowledge). Properties
 An invoking skill (e.g. `arch-decision`) passes:
 
 - **Input PRD path** — the document to validate (produced by `arch-brainstorm` or equivalent)
+- **Target output folder** via `--target <path>` — where the per-phase markdown trail lives (e.g. `arch-decision` passes `docs/prd/<area>/audit/NN-<study>-fpf/`)
 - **Scope** — subset of the PRD to validate (optional; default: whole PRD)
 - **Mode** — `tooled` | `conversational` | `auto` (default: `auto`)
 
 quint-fpf then:
-1. Runs Phase 0 seeded from PRD intro + any `_bmad/_config` / `nonoise.config.json`
-2. Extracts claims from the PRD as Phase 1 L0 hypotheses
-3. Runs Phase 2–4
-4. Returns a decision artifact (path to `.quint/decisions/<slug>.md` or `docs/fpf/<slug>.md`)
+1. Runs Phase 0 (`/q0-init --target <path>`) seeded from PRD intro + any `_bmad/_config` / `nonoise.config.json`
+2. Extracts claims from the PRD as Phase 1 L0 hypotheses (`/q1-hypothesize` writes `01-hypotheses.md`)
+3. Runs Phases 2–4 (each writes its `0N-*.md` file in `<target>/`)
+4. Returns a decision artifact at `<target>/05-decision.md` (the DRR). In tooled mode, also persisted in `.quint/decisions/`.
 
-Invoking skill is responsible for reading the returned decision and acting on it (e.g. `arch-decision` sets the PRD frontmatter to `validated` or `rejected` based on the decision).
+The invoking skill is responsible for reading `05-decision.md` and acting on it (e.g. `arch-decision` sets the PRD frontmatter to `validated` or `rejected` based on the `verdict` field of the DRR frontmatter).
 
 ## Slash commands (bundled)
 
@@ -141,11 +179,12 @@ The 12 command files in `commands/` are copied to the project's `.claude/command
 
 ## Rules
 
-- **Tool calls are mandatory in tooled mode**. Mental notes or prose do NOT change holon state. Claiming "I verified the hypothesis" without calling `quint_verify` is a **protocol violation**.
+- **Document trail is mandatory in BOTH modes**. After every phase, the corresponding markdown file under `<output_dir>/` MUST exist (or be appended to). This trail is the canonical human-readable record of the cycle. Skipping it — even when running in tooled mode and recording state in `.quint/` — is a **protocol violation**.
+- **Tool calls are mandatory in tooled mode**. Mental notes or prose do NOT change holon state. Claiming "I verified the hypothesis" without calling `quint_verify` is a **protocol violation**. The markdown trail records what the tools recorded; it never substitutes for them in tooled mode.
 - **Verdicts are exact strings** — `PASS`, `FAIL`, `REFINE`. No paraphrasing.
 - **Levels don't skip** — you cannot promote a holon from L0 to L2 directly. Always go through L1.
 - **WLNK respects CL** — if you link dependencies, specify CL honestly; inflating CL masks real risk.
-- **Conversational mode must still produce the artifact** — a markdown file with the 6 phase sections and an explicit note "mode: conversational (no quint MCP available)".
+- **Initial entries are immutable** — re-runs append under `## Revisions ### <UTC timestamp>`; never overwrite the original entries.
 
 ## MCP server installation note
 

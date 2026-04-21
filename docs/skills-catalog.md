@@ -115,19 +115,19 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 ### `arch-decision`
 - **SKILL.md:** [`packages/skills/arch-decision/SKILL.md`](../packages/skills/arch-decision/SKILL.md)
 - **Provenance:** custom NONoise.
-- **Purpose:** Step 2 of the architecture workflow — formal Quint FPF validation of a draft PRD. Runs the six-phase structured-reasoning cycle to audit the decision; updates the PRD frontmatter to `status: validated` (ship it) or `status: rejected` (back to brainstorm). Produces an ADR at `docs/architecture/decisions/<ADR-N>.md`.
+- **Purpose:** Step 2 of the architecture workflow — formal Quint FPF validation of a draft PRD. Runs the six-phase structured-reasoning cycle to audit the decision; updates the PRD frontmatter to `status: validated` (ship it) or `status: rejected` (back to brainstorm). Produces a per-phase audit folder at `docs/prd/<area>/audit/NN-<study>-fpf/` (co-located with the PRD, deletable in one `rm -rf`), whose `05-decision.md` is the Design Rationale Record. Produces an ADR at `docs/architecture/decisions/<ADR-N>.md`.
 - **Triggers:** Polly's Step 7; manual "validate this PRD".
-- **Reads:** `docs/prd/<area>/<feature>.md` (draft).
-- **Writes:** same PRD (status update), `docs/architecture/decisions/`.
+- **Reads:** `docs/prd/<area>/<feature>.md` (draft); `docs/architecture/01-constraints.md`; sibling `audit/NN-<study>-fpf/00-context.md` when resuming a partial cycle.
+- **Writes:** same PRD (status update), `docs/prd/<area>/audit/NN-<study>-fpf/` (six per-phase markdown files), `docs/architecture/decisions/`.
 - **Phase:** Architecture.
 
 ### `quint-fpf`
 - **SKILL.md:** [`packages/skills/quint-fpf/SKILL.md`](../packages/skills/quint-fpf/SKILL.md)
 - **Provenance:** custom NONoise.
-- **Purpose:** First Principles Framework. A six-phase structured reasoning cycle with an audit trail and bias checks. Six main commands (`q0-init`, `q1-hypothesize`, `q1-add`, `q2-verify`, `q3-validate`, `q4-audit`, `q5-decide`) plus support commands (`q-actualize`, `q-decay`, `q-query`, `q-reset`, `q-status`). Invoked by `arch-decision` but also usable standalone for any "I need to think from first principles about X" situation.
-- **Triggers:** `arch-decision` invokes it; manual `/q0-init` to start a fresh cycle.
-- **Reads:** whatever the cycle hypothesises about (a PRD, a requirement, a decision).
-- **Writes:** FPF artefacts under `docs/support/quint/` (or an equivalent location configured per cycle).
+- **Purpose:** First Principles Framework. A six-phase structured reasoning cycle with an audit trail and bias checks. Six main commands (`q0-init`, `q1-hypothesize`, `q1-add`, `q2-verify`, `q3-validate`, `q4-audit`, `q5-decide`) plus support commands (`q-actualize`, `q-decay`, `q-query`, `q-reset`, `q-status`). Every phase writes a dedicated markdown file (`00-context.md` … `05-decision.md`) under a single per-cycle folder, in both tooled (quint MCP present) and conversational modes. Invoked by `arch-decision` but also usable standalone for any "I need to think from first principles about X" situation.
+- **Triggers:** `arch-decision` invokes it (passing `--target docs/prd/<area>/audit/NN-<study>-fpf/`); manual `/q0-init` to start a fresh cycle (auto-derives a slug → `docs/fpf/<slug>/`).
+- **Reads:** whatever the cycle hypothesises about (a PRD, a requirement, a decision); the active cycle's `00-context.md` to locate the output folder across phases.
+- **Writes:** per-phase markdown trail under `docs/fpf/<slug>/` (standalone) or the caller-supplied `--target` folder (e.g. `docs/prd/<area>/audit/NN-<study>-fpf/`). In tooled mode, also `.quint/knowledge/`, `.quint/decisions/` via MCP.
 - **Phase:** Architecture (primary) / ad-hoc reasoning (secondary).
 
 ### `bmad-agent-architect`

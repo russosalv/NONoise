@@ -1,34 +1,41 @@
 ---
 description: "Audit Evidence (Trust Calculus)"
-pre: ">=1 L2 hypothesis exists"
-post: "R_eff computed and risks recorded for each L2"
+pre: ">=1 PASS verdict in <output_dir>/03-validation.md (L2 hypothesis exists)"
+post: "<output_dir>/04-audit.md written with R_eff per L2 hypothesis; (tooled) quint audit tools called"
 invariant: "R_eff = min(evidence_scores) via WLNK principle"
-required_tools: ["quint_calculate_r", "quint_audit_tree", "quint_audit"]
+required_tools: ["Read", "Write"]
+required_tools_tooled: ["quint_calculate_r", "quint_audit_tree", "quint_audit"]
 ---
 
 # Phase 4: Audit
 
-You are the **Auditor** operating as a **state machine executor**. Your goal is to compute the **Effective Reliability (R_eff)** of the L2 hypotheses.
+You are the **Auditor** operating as a **state machine executor**. Your goal is to compute the **Effective Reliability (R_eff)** of the L2 hypotheses and record the audit trail in markdown.
+
+## Locating the active cycle
+
+1. If `.quint/context.md` exists, read the active cycle path from there.
+2. Otherwise, scan `docs/fpf/*/00-context.md` and `docs/prd/*/audit/*-fpf/00-context.md`, pick the most recent whose `verdict_phase5` frontmatter is empty. If multiple, ask the user.
+3. If none, stop with: "No active FPF cycle. Run `/q0-init` first."
+
+Read `<output_dir>/03-validation.md` to find which hypotheses are at L2 (PASS in Phase 3) and what evidence they have.
 
 ## Enforcement Model
 
-**Trust scores exist ONLY when computed via tools.** Claiming "this has high confidence" without `quint_calculate_r` is meaningless — R_eff must be computed, not asserted.
+**Trust scores must be recorded in BOTH the markdown trail AND (in tooled mode) `.quint/`.** Claiming "this has high confidence" without computing R_eff is meaningless.
 
-| Precondition | Tool | Postcondition |
-|--------------|------|---------------|
-| L2 hypothesis exists | `quint_calculate_r` | R_eff computed with breakdown |
-| R_eff computed | `quint_audit_tree` | Dependency visualization generated |
-| Audit complete | `quint_audit` | Risk analysis persisted |
+| Precondition | Action | Postcondition |
+|--------------|--------|---------------|
+| ≥1 PASS in `03-validation.md` | (tooled) `quint_calculate_r` × N; (conv) compute R_eff manually using the formula in this file | R_eff per L2 known |
+| R_eff known | (tooled) `quint_audit_tree`; (conv) reason about dependencies inline | dep tree understood |
+| audit complete | `Write` `<output_dir>/04-audit.md` | markdown trail of audit on disk |
+| (tooled only) markdown written | `quint_audit` × N | risk analysis persisted in `.quint/` |
 
 **RFC 2119 Bindings:**
-- You MUST have at least one L2 hypothesis before auditing
-- You MUST call `quint_calculate_r` for EACH L2 hypothesis
-- You SHOULD call `quint_audit_tree` to visualize dependencies
-- You MUST call `quint_audit` to persist the risk analysis
-- You SHALL NOT proceed to Phase 5 without recorded audit results
-- R_eff is COMPUTED, not estimated — "I think it's about 0.8" is invalid
-
-**If precondition fails:** Tools will return errors because holon doesn't exist at L2.
+- You MUST `Write` `<output_dir>/04-audit.md` containing R_eff for EVERY L2 hypothesis, in BOTH modes.
+- In tooled mode you MUST ALSO call `quint_calculate_r`, `quint_audit_tree`, and `quint_audit` for EACH L2 hypothesis.
+- In conversational mode you MUST compute R_eff manually using the formula below — no hand-waving ("I think it's about 0.8" is invalid).
+- You MUST NOT proceed to Phase 5 without `04-audit.md` containing the R_eff comparison table.
+- Skipping the markdown write — even in tooled mode — is a **protocol violation**.
 
 ## Invalid Behaviors
 
@@ -52,11 +59,73 @@ For each L2 hypothesis:
 5.  **Record:** Call `quint_audit` to persist findings.
 
 ## Action (Run-Time)
-1.  **For each L2 hypothesis:**
-    a.  Call `quint_calculate_r` with `holon_id`.
-    b.  Call `quint_audit_tree` with `holon_id`.
-2.  **Record findings:** Call `quint_audit` for each.
-3.  Present **Comparison Table** to user with R_eff scores.
+1.  **Locate** the active cycle and read `03-validation.md` to find L2 hypotheses and their evidence.
+2.  **For each L2 hypothesis:**
+    a.  **(Tooled mode)** Call `quint_calculate_r` with `holon_id`.
+    b.  **(Tooled mode)** Call `quint_audit_tree` with `holon_id`.
+    c.  **(Conversational mode)** Apply the WLNK formula manually:
+        - Per evidence: base score (PASS strong = 0.9–1.0, PASS = 0.7–0.9, INCONCLUSIVE = 0.4–0.6, FAIL = 0.0–0.3)
+        - Multiply by CL multiplier (CL3 ×1.0, CL2 ×0.9, CL1 ×0.7)
+        - R_eff(hypothesis) = MIN(adjusted scores across all evidence)
+3.  **Run bias check** for each hypothesis (Anchoring, Confirmation, Sunk cost, Authority).
+4.  **(Tooled mode)** Call `quint_audit` for each to persist the risk analysis.
+5.  **`Write` the markdown trail** at `<output_dir>/04-audit.md` using the template below — including the comparison table that Phase 5 will consume.
+
+## Markdown template — `04-audit.md`
+
+```markdown
+---
+phase: 4
+slug: <same as 00-context.md>
+output_dir: <same as 00-context.md>
+mode: tooled | conversational
+last_updated: <UTC ISO-8601>
+r_eff_min: <minimum R_eff across all L2 hypotheses>
+r_eff_max: <maximum R_eff across all L2 hypotheses>
+---
+
+# Phase 4 — Audit (R_eff via WLNK)
+
+## Comparison table
+
+| Hypothesis | R_eff | Weakest link | Bias check |
+|------------|-------|--------------|------------|
+| H1 | 0.81 | E2 (CL1 external docs) | none |
+| H2 | 0.72 | E1 (FAIL on edge case) | confirmation risk |
+| H3 | 0.40 | E1 (CL1 only, weak result) | anchoring |
+
+## Per-hypothesis breakdown
+
+### H1 — R_eff: 0.81
+- **Evidence and adjusted scores** (base × CL multiplier):
+  - E1: auth-service pattern in prod — base 0.90 × CL2 (0.9) = 0.81
+  - E2: Platform docs — base 0.75 × CL1 (0.7) = 0.53
+- **WLNK**: min(0.81, 0.53) = **0.53** ← WAIT, recompute below
+- **Computed R_eff**: 0.53
+- **Weakest link**: E2 (external docs, CL1)
+- **Bias check**:
+  - Anchoring: low — H1 was not the first generated
+  - Confirmation: low — actively sought disconfirming evidence
+  - Sunk cost: n/a
+  - Authority: medium — vendor docs cited; weighted down via CL1
+- **Risks**: external docs may be outdated; recommend a CL3 PoC before final decision
+
+### H2 — R_eff: 0.72
+…(same template)
+
+## R_eff thresholds (project-default)
+
+| R_eff | Meaning | Action |
+|-------|---------|--------|
+| ≥ 0.7 | Strong | Proceed to decision |
+| 0.5–0.7 | Sufficient | Proceed with documented residual risk |
+| < 0.5 | Weak | FAIL — return to `/q3-validate` for stronger evidence |
+
+## Revisions
+<empty on first run; appended on re-runs>
+```
+
+**Note:** in the example above I deliberately showed the common mistake of writing R_eff = max instead of min. Always re-state the WLNK rule and verify with arithmetic. The template's `## Comparison table` row should always reflect the computed minimum.
 
 ## Tool Guide
 
@@ -115,9 +184,11 @@ PROTOCOL VIOLATION.
 ## Checkpoint
 
 Before proceeding to Phase 5, verify:
-- [ ] Called `quint_calculate_r` for EACH L2 hypothesis
-- [ ] Called `quint_audit` to record risk analysis
-- [ ] Identified weakest link for each hypothesis
+- [ ] Active cycle located and `03-validation.md` read
+- [ ] `<output_dir>/04-audit.md` exists with R_eff for EVERY L2 hypothesis
+- [ ] Comparison table present and frontmatter `r_eff_min`/`r_eff_max` populated
+- [ ] Weakest link and bias check recorded per hypothesis
 - [ ] Presented comparison table to user
+- [ ] (Tooled only) Called `quint_calculate_r` and `quint_audit` for each L2 hypothesis (success, not BLOCKED)
 
 **If any checkbox is unchecked, you MUST complete it before proceeding.**

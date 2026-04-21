@@ -11,7 +11,8 @@ The principle (see [`philosophy.md`](philosophy.md) §4): if an AI can't read a 
 | [`docs/architecture/`](#docsarchitecture) | Architect, manually | Target architecture, class hierarchies, conventions, ADRs, C4 DSL | `arch-brainstorm`, `arch-decision`, `c4-doc-writer`, every implementer's plan |
 | [`docs/requirements/`](#docsrequirements) | `requirements-ingest`, analyst | Structured requirements per domain / feature | `bmad-agent-analyst`, `bmad-req-validator`, `arch-brainstorm` |
 | [`docs/calls/`](#docscalls) | `requirements-ingest` (parking) | Raw meeting / call transcripts, cross-referenced | `requirements-ingest` |
-| [`docs/support/`](#docssupport) | `reverse-engineering`, ad-hoc | Reverse-engineering dossiers, third-party refs, Quint FPF artefacts, incident reports | `reverse-engineering`, `quint-fpf`, `observability-debug` |
+| [`docs/support/`](#docssupport) | `reverse-engineering`, ad-hoc | Reverse-engineering dossiers, third-party refs, incident reports | `reverse-engineering`, `observability-debug` |
+| [`docs/fpf/<slug>/`](#docsfpfslug) | `quint-fpf` (standalone) | Per-phase markdown trail of a standalone FPF cycle (`00-context.md` … `05-decision.md`) | `quint-fpf` slash commands |
 | [`docs/prd/<area>/`](#docsprdarea) | `arch-brainstorm` → `arch-decision` | Architectural PRDs, `draft` / `validated` / `rejected` | `sprint-manifest` |
 | [`docs/sprints/Sprint-N/`](#docssprintssprint-n) | `sprint-manifest`, `atr` | Per-sprint manifest, macro tasks, acceptance reports | every implementer, `atr`, `spec-to-workitem` |
 
@@ -109,9 +110,9 @@ docs/calls/
 
 ## `docs/support/`
 
-**Owner.** Multiple. `reverse-engineering` writes under `support/reverse/`; `quint-fpf` writes under `support/quint/`; `observability-debug` writes under `support/incidents/`; ad-hoc reference material goes directly under `support/`.
+**Owner.** Multiple. `reverse-engineering` writes under `support/reverse/`; `observability-debug` writes under `support/incidents/`; ad-hoc reference material goes directly under `support/`.
 
-**Purpose.** Anything that supports the project but isn't a requirement, a PRD, a sprint, or authoritative architecture. Third-party API reference dumps. Reverse-engineering dossiers on legacy systems. Quint FPF cycle artefacts. Incident post-mortems. Protocol specs vendored for offline reading.
+**Purpose.** Anything that supports the project but isn't a requirement, a PRD, a sprint, or authoritative architecture. Third-party API reference dumps. Reverse-engineering dossiers on legacy systems. Incident post-mortems. Protocol specs vendored for offline reading.
 
 **Structure:**
 
@@ -122,14 +123,39 @@ docs/support/
 │       ├── README.md
 │       ├── chapters/
 │       └── changelog.md
-├── quint/                     # quint-fpf skill writes here
-│   └── <cycle-id>/
 ├── incidents/                 # observability-debug writes here
 │   └── <date>-<id>.md
 └── <ad-hoc-reference>/        # Hand-deposited
 ```
 
 **Editorial rule.** Additive. Nothing in `docs/support/` is deleted except by explicit decision — these are the project's long-term memory.
+
+> **Where did `support/quint/` go?** Quint FPF cycles now produce a per-phase markdown folder. Standalone cycles write to [`docs/fpf/<slug>/`](#docsfpfslug); cycles invoked by `arch-decision` co-locate with the PRD under [`docs/prd/<area>/audit/NN-<study>-fpf/`](#docsprdarea). Both layouts are deletable as a unit.
+
+## `docs/fpf/<slug>/`
+
+**Owner.** `quint-fpf` when invoked standalone (i.e. `/q0-init` without a caller-supplied `--target`). When `arch-decision` runs quint-fpf it passes `--target docs/prd/<area>/audit/NN-<study>-fpf/` instead, so the audit lives next to the PRD (see [`docs/prd/<area>/`](#docsprdarea)).
+
+**Purpose.** One folder per reasoning cycle. The six markdown files are the canonical human-readable trail of the cycle — reviewable in git, removable with a single `rm -rf`.
+
+**Structure:**
+
+```
+docs/fpf/
+└── <slug>/                          # auto-derived kebab-case from the problem statement
+    ├── 00-context.md                # Phase 0 — Bounded Context (vocabulary, invariants, constraints)
+    ├── 01-hypotheses.md             # Phase 1 — L0 hypotheses (abduction)
+    ├── 02-verification.md           # Phase 2 — L0 → L1 verdicts (deduction)
+    ├── 03-validation.md             # Phase 3 — L1 → L2 with evidence (induction)
+    ├── 04-audit.md                  # Phase 4 — R_eff via WLNK (Trust Calculus)
+    └── 05-decision.md               # Phase 5 — final DRR
+```
+
+Each file carries phase-specific frontmatter. The cycle is closed when `05-decision.md` exists and `00-context.md` frontmatter `verdict_phase5` is set to `PASS | FAIL | NEEDS-REVISION`. On re-runs of a phase, new entries are appended under a `## Revisions` section with a UTC timestamp; initial entries are immutable.
+
+**Tooled vs conversational.** If the Quint MCP server is installed, `.quint/` mirrors the markdown in queryable holon state (verdicts enforced by tools, R_eff computed by WLNK). The markdown trail is produced in both modes — skipping it is a protocol violation.
+
+**Editorial rule.** Do not hand-edit the per-phase files mid-cycle — re-run the corresponding `/qN-*` command so the append-only trail stays truthful. Delete a whole cycle by removing its folder.
 
 ## `docs/prd/<area>/`
 
@@ -159,11 +185,13 @@ area: <area-slug>
 status: draft | validated | rejected
 authors: [Alex, Marco]
 requirements: [docs/requirements/<feature>.md]
-adr: [docs/architecture/decisions/<ADR-N>.md]     # only after validation
-quint_cycle: docs/support/quint/<cycle-id>/       # audit trail reference
+adr: [docs/architecture/decisions/<ADR-N>.md]             # only after validation
+quint_cycle: audit/NN-<study>-fpf/                        # per-phase FPF trail (sibling of this PRD)
 decided_at: 2026-04-18
 ---
 ```
+
+**Audit folder (`docs/prd/<area>/audit/NN-<study>-fpf/`).** When `arch-decision` validates a PRD, quint-fpf writes one markdown file per FPF phase directly next to the PRD: `00-context.md`, `01-hypotheses.md`, `02-verification.md`, `03-validation.md`, `04-audit.md`, `05-decision.md`. The final `05-decision.md` is the Design Rationale Record — its frontmatter (`verdict`, `r_eff_min`) is what `sprint-manifest` and downstream skills consume. Delete the whole pre-validation trail in one `rm -rf`.
 
 **Editorial rule.** The PRD captures *why* the architectural choice was made, not just *what*. Future implementers read this to understand the constraint landscape that led to the decision. `arch-decision` refuses to validate PRDs lacking rationale.
 
@@ -207,8 +235,8 @@ A cross-reference of which skill reads / writes which folder (condensed from [`s
 | `bmad-advanced-elicitation` | `docs/requirements/` | `docs/requirements/` (annotations) |
 | `bmad-req-validator` | `docs/requirements/` | `docs/requirements/` (frontmatter) |
 | `arch-brainstorm` | `docs/requirements/`, `docs/architecture/`, `docs/prd/` | `docs/prd/<area>/<feature>.md` (draft) |
-| `arch-decision` | draft PRD | PRD (status update), `docs/architecture/decisions/` |
-| `quint-fpf` | the hypothesis target | `docs/support/quint/<cycle-id>/` |
+| `arch-decision` | draft PRD | PRD (status update), `docs/prd/<area>/audit/NN-<study>-fpf/` (per-phase FPF trail), `docs/architecture/decisions/` |
+| `quint-fpf` | the hypothesis target + the active cycle's `00-context.md` | `docs/fpf/<slug>/` (standalone) or `<caller-supplied --target>` (e.g. `docs/prd/<area>/audit/NN-<study>-fpf/` when invoked by `arch-decision`) — six markdown files, one per phase |
 | `c4-doc-writer` | ADRs, `docs/architecture/c4/` | `docs/architecture/c4/workspace.dsl`, `c4/views/` |
 | `sprint-manifest` | validated PRDs | `docs/sprints/Sprint-N/manifest.md` |
 | `atr` | sprint manifest, acceptance criteria | `docs/sprints/Sprint-N/acceptance/` |

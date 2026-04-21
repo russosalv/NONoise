@@ -21,7 +21,7 @@ Each subfolder has its own `README.md` that documents contents and conventions.
 | Skill | Reads | Writes |
 |---|---|---|
 | `arch-brainstorm` | `architecture/`, `requirements/`, `calls/`, `support/`, existing `prd/<area>/` | `prd/<area>/NN-<study>.md`, `prd/<area>/00-area-brief.md`, `prd/<area>/NN-<study>-diagrams.md` |
-| `arch-decision` (via `quint-fpf`) | `prd/<area>/NN-<study>.md`, `architecture/` | `prd/<area>/audit/NN-<study>-fpf.md`, updates PRD frontmatter |
+| `arch-decision` (via `quint-fpf`) | `prd/<area>/NN-<study>.md`, `architecture/` | `prd/<area>/audit/NN-<study>-fpf/` (six per-phase markdown files: `00-context.md` … `05-decision.md`), updates PRD frontmatter |
 | `sprint-manifest` | `prd/<area>/` (validated PRDs) | `sprints/Sprint-XX/<area>/prd|manifest/` |
 | `atr` | `requirements/`, `sprints/` | acceptance test reports |
 | `arch-brainstorm`/`arch-decision` | `calls/` (context for dialog) | — |

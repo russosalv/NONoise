@@ -14,7 +14,7 @@ sprints/
     │   ├── NN-<study-slug>.md          ← PRDs moved from docs/prd/<area>/
     │   ├── NN-<study-slug>-diagrams.md
     │   └── audit/
-    │       └── NN-<study-slug>-fpf.md  ← FPF audits carried over from docs/prd/<area>/audit/
+    │       └── NN-<study-slug>-fpf/    ← FPF audit folder carried over (6 per-phase files) from docs/prd/<area>/audit/
     ├── acceptance/                     ← ATR workspace (output of the `atr` skill)
     │   ├── testbook.yml                ← generated test definitions
     │   ├── testbook-plan.md            ← stakeholder-friendly plan (optional)
