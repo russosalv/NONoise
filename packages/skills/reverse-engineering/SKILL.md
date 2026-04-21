@@ -518,6 +518,19 @@ of the dossier, currently at version v<current>, moving to v<next>.
 3. **Other chapters of this dossier** (cross-reference, read-only):
    `docs/support/reverse/<slug>/` (all `NN-*.md`)
 
+## Source availability
+
+<source_less = true | false>
+
+- `false` → full source graph available; produce an analytic chapter that
+  draws directly from code structure, god nodes, and main flows.
+- `true` → this is a source-less run. The chapter must be a stub:
+  - State clearly at the top that internals-, data-model-, and
+    main-flow-level claims are not validated against source.
+  - Where a section would need source, write "⚠️ source not indexed
+    — to be validated in a future version with subject indexing".
+  - Keep document-derived content (requirements, calls, specs) intact.
+
 ## Instructions
 
 1. Read the current chapter in full.
@@ -546,10 +559,16 @@ of the dossier, currently at version v<current>, moving to v<next>.
 
 ## Output
 
-Report back:
-- path of the updated file
-- 2-3-sentence summary of what changed
-- any warning / validation request to propagate to the CHANGELOG
+Report back as a JSON block for the parent skill to parse:
+
+    {
+      "path": "docs/support/reverse/<slug>/<NN-file.md>",
+      "summary": "2-3 sentences on what changed",
+      "warnings": ["any warning / validation request to propagate to the CHANGELOG"],
+      "source_less": true | false
+    }
+
+The `source_less` field MUST be set. If missing, the parent skill treats it as `true` (worst-case assumption) and lists the chapter in the CHANGELOG source-less block.
 ```
 
 **Parallelism**: if you have more than ~3 chapters, dispatch sub-agents **in parallel** (multiple tool calls in the same message). Chapters are independent (cross-refs are static titles, not dynamic bodies) — parallel is safe.
@@ -592,6 +611,20 @@ In `docs/support/reverse/<slug>/00-overview.md`, update:
 2. `**Date**: <previous date>` → today, in the dossier's language (e.g. `15 April 2026`, `15 aprile 2026`)
 3. If new chapters were added in 5.3, update the chapter list / table of contents if the overview includes one.
 
+**Source-less banner** (depends on `source_less_run` from `.meta/graphify-index.json`):
+
+- If the CURRENT run is source-less → insert (or replace if already present) this managed block immediately after the H1 title:
+
+  ```markdown
+  <!-- >>> source-less-warning (managed by reverse-engineering skill) -->
+  > ⚠️ **Partial reverse**: this dossier version was produced without subject-source indexing. Chapters covering internals, data model, and main flows are document-derived only. Re-index via `/graphify <source_path>` and run a new save to upgrade.
+  <!-- <<< source-less-warning -->
+  ```
+
+- If the current run IS source-indexed AND a managed block with these markers already exists in the file (leftover from a previous source-less run) → remove it. This makes the banner self-clearing on the first save that restores source indexing.
+
+- Marker-delimited — replay-safe; never duplicate.
+
 **Only** `00-overview.md` is touched here. Other chapters' headers are updated by the sub-agents of 5.2/5.3, not by this step.
 
 **6.2 — Update `CHANGELOG.md`**
@@ -620,6 +653,13 @@ Then **prepend** (above any existing entries) a new entry using the template at 
 - **Unchanged chapters**: count
 - **Warnings / open points**: propagated from sub-agents, or "none"
 - **Sources consulted**: top-level references the sub-agents used
+
+**Source-less run tracking**: when `source_less_run = true` (read from
+`.meta/graphify-index.json`), the CHANGELOG entry MUST include the
+source-less block from the template. Populate the chapter list from the
+sub-agents' `source_less: true` return values — one entry per chapter
+that could not be analyzed due to missing source indexing. When
+`source_less_run = false`, omit the block entirely.
 
 **6.3 — Update `.reverse-engineering.local.json`**
 

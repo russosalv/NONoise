@@ -56,6 +56,15 @@ for easy review.
      open points that need business validation, missing sources), list them here.
      Otherwise write "none". -->
 
+{{SOURCE_LESS_BLOCK_OR_EMPTY}}
+<!-- ONLY present when source_less_run = true for this version. Omit the whole
+     block (including this comment) if the run had source indexing. Format:
+
+- ⚠️ Executed WITHOUT source indexing (user explicitly skipped at Q3/Q4).
+  Source-less chapters: NN, NN, NN.
+  Re-run with source indexing to upgrade.
+-->
+
 **Sources consulted**:
 
 {{SOURCES_LIST}}
