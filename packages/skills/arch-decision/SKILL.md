@@ -581,17 +581,14 @@ r_eff_avg: <average across H1 hypotheses>
 
 3. **Update `00-context.md`** frontmatter — set `verdict_phase5: PASS | FAIL | NEEDS-REVISION` so subsequent `qN-*` commands recognise the cycle as closed.
 
-3. **Ask user confirmation** before finalizing (Phase 6). The user can:
-   - Accept the verdict → proceed to finalization
-   - Contest the verdict → discuss, possibly revise the audit
-   - Request going back to a previous phase → execute
+The algorithmic verdict is now computed and recorded. The human gate happens next in Phase 5.5; Phase 5 itself does not solicit user confirmation.
 
 ### Phase 5 checkpoint
 
 - [ ] Global verdict computed
 - [ ] Rationale documented
 - [ ] Residual risks identified
-- [ ] User approved the verdict
+- [ ] Verdict written to `00-context.md` frontmatter
 
 ---
 
@@ -610,7 +607,8 @@ the skill stops and waits.
 ### Post-conditions
 
 - The audit report contains a `human_verdict` field in
-  `{ approve, reject, go-back, force-validated, edit-then-decide }`.
+  `{ approve, reject, go-back, force-validated }`. (Action 5 "Edit audit"
+  is a process loop, not a terminal verdict — see Action handlers below.)
 - If the human action diverges from the algorithmic verdict (action 4 —
   force-validated), the audit also has `validated_by: human-override`
   with a free-text motivation captured at the gate.
