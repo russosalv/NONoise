@@ -87,7 +87,7 @@ claude           # Claude Code CLI
 > **GitHub Release fallback.** If the npm registry is temporarily unavailable for this package, you can install the exact same tarball directly from the GitHub Release attached to each tag:
 >
 > ```bash
-> npx https://github.com/russosalv/NONoise/releases/download/v0.24.6/create-nonoise-0.24.6.tgz my-project
+> npx https://github.com/russosalv/NONoise/releases/download/v0.24.7/create-nonoise-0.24.7.tgz my-project
 > ```
 
 On first session the AI detects `.nonoise/POLLY_START.md` and invokes Polly automatically. If you missed the trigger, start Polly manually:

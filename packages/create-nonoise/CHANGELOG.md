@@ -1,5 +1,12 @@
 # create-nonoise
 
+## 0.24.7
+
+### Patch Changes
+
+- Update graphify integration to v4 (graphifyy >= 0.4.23): switch installer from pip to `uv tool install`, adopt upstream's richer rules block (`graphify update .` + cross-module `query`/`path`/`explain` guidance), wire `graphify copilot install` when Copilot is selected, vendor upstream as reference-only for future bumps.
+- 6564c20: `quint-fpf` now emits a per-phase markdown trail in a single per-cycle folder, in both tooled and conversational modes. Each of the six FPF commands (`/q0-init`, `/q1-hypothesize`, `/q1-add`, `/q2-verify`, `/q3-validate`, `/q4-audit`, `/q5-decide`) writes its dedicated file (`00-context.md` … `05-decision.md`) so the entire reasoning trail is reviewable in git and removable with a single `rm -rf`. The folder is resolved at Phase 0: standalone runs go to `docs/fpf/<slug>/` (slug auto-derived from the problem statement); `arch-decision` passes `--target docs/prd/<area>/audit/NN-<study>-fpf/` so the FPF artifacts co-locate with the PRD they validate. Re-runs of a phase append under `## Revisions` with a UTC timestamp — initial entries are immutable. `arch-decision`'s audit location changes from a single file `audit/NN-<study>-fpf.md` to the folder `audit/NN-<study>-fpf/`; `sprint-manifest` now moves the whole folder on promotion. Fingerprints in `polly/references/fingerprints.md` updated for the new layout. Canonical scaffold snapshot regenerated. Docs updated: `docs-hierarchy.md` adds `docs/fpf/<slug>/`, removes `docs/support/quint/`, and documents the PRD-co-located audit folder; `sdlc.md` and `skills-catalog.md` entries for `arch-decision` and `quint-fpf` describe the new per-phase emission contract.
+
 ## 0.24.6
 
 ### Patch Changes
