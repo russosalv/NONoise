@@ -1216,7 +1216,7 @@ If even one of these checks fails, **do not save**. Fix first.
 ",
   ".claude/skills/arch-decision/SKILL.md": "---
 name: arch-decision
-description: Step 2 of the NONoise architectural workflow — formally validates an existing PRD (produced by \`arch-brainstorm\`) using the Quint FPF methodology via the \`quint-fpf\` sub-skill. Reads a PRD in \`draft\` status, extracts architectural hypotheses, runs abduction → deduction → induction, computes R_eff via WLNK, produces a per-phase audit folder co-located with the PRD at \`docs/prd/<area>/audit/NN-<study>-fpf/\` (one markdown file per FPF phase, deletable in one \`rm -rf\`), and updates the PRD frontmatter to \`validated\` or \`rejected\`. On PASS reminds the architect to update \`docs/architecture/\` manually — NONoise does not auto-sync. Input is a path to a \`draft\` PRD. Does not create PRDs from scratch (that is \`arch-brainstorm\`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
+description: Step 2 of the NONoise architectural workflow — validates a \`draft\` PRD (from \`arch-brainstorm\`) using Quint FPF via the \`quint-fpf\` sub-skill. Extracts hypotheses, computes R_eff, writes a per-phase audit folder at \`docs/prd/<area>/audit/NN-<study>-fpf/\`, presents a mandatory Phase 5.5 human review/approve gate (with override), then updates the PRD frontmatter to \`validated\` or \`rejected\`. On PASS, Polly offers \`arch-sync\` to project the decision into \`docs/architecture/\` with diff preview — never automatically. Does not create PRDs from scratch (that is \`arch-brainstorm\`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; delegates methodology to quint-fpf
 ---
@@ -1797,17 +1797,14 @@ r_eff_avg: <average across H1 hypotheses>
 
 3. **Update \`00-context.md\`** frontmatter — set \`verdict_phase5: PASS | FAIL | NEEDS-REVISION\` so subsequent \`qN-*\` commands recognise the cycle as closed.
 
-3. **Ask user confirmation** before finalizing (Phase 6). The user can:
-   - Accept the verdict → proceed to finalization
-   - Contest the verdict → discuss, possibly revise the audit
-   - Request going back to a previous phase → execute
+The algorithmic verdict is now computed and recorded. The human gate happens next in Phase 5.5; Phase 5 itself does not solicit user confirmation.
 
 ### Phase 5 checkpoint
 
 - [ ] Global verdict computed
 - [ ] Rationale documented
 - [ ] Residual risks identified
-- [ ] User approved the verdict
+- [ ] Verdict written to \`00-context.md\` frontmatter
 
 ---
 
@@ -1825,11 +1822,13 @@ the skill stops and waits.
 
 ### Post-conditions
 
-- The audit report contains a \`human_verdict\` field in
-  \`{ approve, reject, go-back, force-validated, edit-then-decide }\`.
+- \`05-decision.md\` (the audit's DRR file) contains a \`human_verdict\` field
+  in \`{ approve, reject, go-back, force-validated }\`. (Action 5 "Edit audit"
+  is a process loop, not a terminal verdict — see Action handlers below.)
 - If the human action diverges from the algorithmic verdict (action 4 —
-  force-validated), the audit also has \`validated_by: human-override\`
-  with a free-text motivation captured at the gate.
+  force-validated), \`05-decision.md\` also has
+  \`validated_by: human-override\` with a free-text motivation captured
+  at the gate.
 
 ### Action — present the recap block
 
@@ -1874,10 +1873,10 @@ Cosa vuoi fare? (scegli esplicitamente — nessun default)
 
 | # | Action | Effect |
 |---|--------|--------|
-| 1 | Approve | Algorithmic verdict honored. Set \`human_verdict: approve\` in the audit. Proceed to Phase 6 with the verdict from Phase 5. |
-| 2 | Reject | Set \`human_verdict: reject\` in the audit + capture motivation (mandatory free-text). PRD frontmatter set to \`status: rejected\` regardless of the algorithmic verdict. Skill exits — Polly resumes. |
+| 1 | Approve | Algorithmic verdict honored. Set \`human_verdict: approve\` in \`05-decision.md\` (the audit's DRR file). Proceed to Phase 6 with the verdict from Phase 5. |
+| 2 | Reject | Set \`human_verdict: reject\` in \`05-decision.md\` (the audit's DRR file) + capture motivation (mandatory free-text). PRD frontmatter set to \`status: rejected\` regardless of the algorithmic verdict. Skill exits — Polly resumes. |
 | 3 | Go back | Ask which phase (1-4). Mark prior contents for later phases as \`superseded\` in the audit (do NOT erase — keep the trace). Re-enter that phase. |
-| 4 | Force validated | Used when the algorithmic verdict is FAIL / NEEDS-REVISION / CONDITIONAL but the human accepts the risk. Capture motivation (mandatory free-text — "why are you overriding?"). Set \`human_verdict: force-validated\` and \`validated_by: human-override\` in the audit. Proceed to Phase 6 with \`status: validated\`. |
+| 4 | Force validated | Used when the algorithmic verdict is FAIL / NEEDS-REVISION / CONDITIONAL but the human accepts the risk. Capture motivation (mandatory free-text — "why are you overriding?"). Set \`human_verdict: force-validated\` and \`validated_by: human-override\` in \`05-decision.md\` (the audit's DRR file). Proceed to Phase 6 with \`status: validated\`. |
 | 5 | Edit audit | Pause Phase 5.5. Ask the user what to change in the audit. Apply edits (in conversation, not by spawning an editor). Recompute R_eff if any evidence/CL changed. Re-display the recap block with updated numbers. Loop until the user chooses 1, 2, 3, or 4. |
 
 ### Phase 5.5 checkpoint
@@ -1907,11 +1906,26 @@ Cosa vuoi fare? (scegli esplicitamente — nessun default)
 
 1. **Update the PRD frontmatter** (\`docs/prd/<area>/NN-<study>.md\`):
 
+**Pick the variant matching Phase 5.5's \`human_verdict\`** (read it from \`05-decision.md\` — see Phase 5.5 post-conditions for the canonical location of this field):
+
+If \`human_verdict: approve\` (algorithmic verdict honored):
+
 \`\`\`yaml
 ---
 status: validated
 validated_at: YYYY-MM-DD          # today
 validated_by: "arch-decision (Quint FPF run <timestamp>)"
+# other fields unchanged
+---
+\`\`\`
+
+If \`human_verdict: force-validated\` (human override applied):
+
+\`\`\`yaml
+---
+status: validated
+validated_at: YYYY-MM-DD          # today
+validated_by: "arch-decision (Quint FPF run <timestamp>, human-override)"
 # other fields unchanged
 ---
 \`\`\`
@@ -1931,16 +1945,31 @@ validated_by: "arch-decision (Quint FPF run <timestamp>)"
 **Audit folder**: \`docs/prd/<area>/audit/NN-<study>-fpf/\`
 **DRR**: \`docs/prd/<area>/audit/NN-<study>-fpf/05-decision.md\`
 
-**Impact on docs/architecture/** (update manually):
-- <list concrete changes the architect should write: new constraint / new pattern / new component in 04-components.md / etc.>
+**Impact on docs/architecture/** (use the strict format below — \`arch-sync\` parses it):
+
+- [file: 01-constraints.md] Add constraint: <one-line text>
+- [file: 03-patterns.md] Append pattern: <pattern-name> — <one-line description>
+- [file: 04-components.md] Add draft component: <component-name> — <role>
+- [file: 04-components.md] Mark: component <name> deprecated — <reason>
+- [file: 12-system-interactions.md] Add topic: <topic-name> publisher=<X> subscribers=<Y,Z>
+
+> Format rules: one bullet per impact. Each bullet starts with \`[file: <basename>]\` (basename only — file path is \`docs/architecture/<basename>\`). After the tag: an action verb in \`{Add, Append, Mark, Remove, Update}\` followed by \`: <payload>\`. Bullets that don't match the format are ignored by \`arch-sync\` (safe to mix in freeform notes).
+
+> **Canonical location**: this block is what the architect *sees in chat*. The same checklist (verbatim) MUST also be appended into \`05-decision.md\` under a new \`## Impact on docs/architecture/\` heading — that file is the authoritative source \`arch-sync\` reads. The chat block is a courtesy mirror; if the two diverge, \`05-decision.md\` wins.
 
 **Next step**:
-- Review and apply the impacts above to \`docs/architecture/\` (manual — NONoise does not auto-sync)
+- Review and apply the impacts above to \`docs/architecture/\` — either manually, or by invoking \`arch-sync\` (Polly will offer this option on return)
 - When ready to promote the PRD to a sprint, invoke: \`sprint-manifest area <area> sprint <N>\`
 - If you have more studies to add to the area, invoke \`arch-brainstorm\` again.
 \`\`\`
 
-Populate the "Impact on docs/architecture/" section with actual concrete changes extracted from the validated PRD — e.g. "Add to \`04-components.md\` a new \`draft\` entry for \`notifications-worker\`", "Add constraint to \`01-constraints.md\`: always acknowledge events within 5s", "Append new pattern to \`03-patterns.md\`: outbox-table for cross-component writes". Be specific — this list is the architect's work checklist.
+Populate the "Impact on docs/architecture/" section with concrete impacts extracted from the validated PRD, using the strict \`[file: NN.md]\` format. Examples:
+
+- \`[file: 04-components.md] Add draft component: notifications-worker — handles fan-out for email/SMS\`
+- \`[file: 01-constraints.md] Add constraint: always acknowledge events within 5s\`
+- \`[file: 03-patterns.md] Append pattern: outbox-table — for transactional cross-component writes\`
+
+Also append the same checklist (verbatim) into \`05-decision.md\` under a new \`## Impact on docs/architecture/\` heading at the end of the file. This is the canonical persisted location that \`arch-sync\` reads.
 
 ### Actions for FAIL or NEEDS-REVISION verdict
 
@@ -1989,7 +2018,8 @@ last_audit_verdict: NEEDS-REVISION
 - [ ] PRD frontmatter updated (validated | rejected | draft)
 - [ ] Audit folder \`docs/prd/<area>/audit/NN-<study>-fpf/\` contains all 6 files (\`00-context.md\` through \`05-decision.md\`)
 - [ ] \`00-context.md\` frontmatter \`verdict_phase5\` set (cycle marked closed)
-- [ ] On PASS: concrete "Impact on docs/architecture/" checklist produced for the architect
+- [ ] On PASS: concrete "Impact on docs/architecture/" checklist produced in the strict \`[file: NN.md]\` format (parsable by \`arch-sync\`), AND appended verbatim to \`05-decision.md\` under \`## Impact on docs/architecture/\`
+- [ ] On PASS with \`human_verdict: force-validated\`: PRD \`validated_by\` includes the \`human-override\` marker
 - [ ] Architect informed of next steps with explicit paths to the audit folder and DRR
 
 ---
@@ -2013,7 +2043,7 @@ If a partial audit folder already exists at \`audit/NN-<study>-fpf/\`:
 3. **Weak evidence treated as strong proof** — CL1 does not beat CL3
 4. **Validating by inertia** — if evidence is insufficient, it is OK to say "FAIL, more analysis needed"
 5. **Over-engineering the audit** — small decisions do not need 6 phases. If the PRD covers a local choice, tell the architect "Quint FPF is overkill for this" and skip
-6. **Writing directly to \`docs/architecture/\`** — not this skill's job. The architect applies the "Impact on docs/architecture/" checklist produced at Phase 6 manually, in a separate commit. Keep audit and source-of-truth changes decoupled.
+6. **Writing directly to \`docs/architecture/\`** — not this skill's job. The architect either applies the "Impact on docs/architecture/" checklist manually or invokes \`arch-sync\` (a sibling skill) to project it with diff preview. Keep audit and source-of-truth changes decoupled — they go in separate commits.
 7. **Creating drafts from scratch** — not this skill's job; delegate to \`arch-brainstorm\`
 
 ## When NOT to use
@@ -2031,6 +2061,227 @@ If a partial audit folder already exists at \`audit/NN-<study>-fpf/\`:
 - Sibling skill [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — step 1 (produces the PRD this skill validates)
 - Sibling skill \`sprint-manifest\` — step 3 (promotion to sprint)
 - Project source of truth: \`docs/architecture/\` (maintained manually by the architect)
+",
+  ".claude/skills/arch-sync/SKILL.md": "---
+name: arch-sync
+description: 'Generic projector of a validated PRD''s "Impact on docs/architecture/" checklist into the actual files. Reads the validated PRD plus its \`arch-decision\` audit folder (specifically \`05-decision.md\`), parses the strict \`[file: NN.md]\` format from the appended \`## Impact on docs/architecture/\` section, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under \`docs/architecture/sync-reports/\`. Stack-neutral — knows no target constraints, never validates anything, never reads source code. Triggers — invoked by Polly after \`arch-decision\` PASS (the architect chooses "Sì — invoco arch-sync" at the post-finalize menu); also invokable manually with phrases like "arch-sync <prd-path>", "project the validated PRD into docs/architecture/", "sync architecture from <prd-path>", "recepisci il PRD validato <path>".'
+source: NONoise (generic distillation of the project-locked Andreani \`andreani-arch-docs\` mode M)
+variant: nonoise generic; stack-neutral; markdown-only
+---
+
+# arch-sync — project a validated PRD into \`docs/architecture/\`
+
+A *writer assistant* that turns the \`## Impact on docs/architecture/\` checklist
+(produced by \`arch-decision\` Phase 6 inside \`05-decision.md\`) into actual file
+writes, with diff preview and per-file confirmation. Stack-neutral by design:
+it does not know what constitutes a valid constraint, pattern, or component
+for your project. That knowledge belongs in the human's head and, optionally,
+in a project-locked skill the architect builds with \`skill-finder\` /
+\`ops-skill-builder\`.
+
+## Position in the workflow
+
+\`\`\`
+arch-brainstorm  →  arch-decision  →  [arch-sync]  →  sprint-manifest
+                                       ↑
+                                       optional, opt-in,
+                                       offered by Polly
+\`\`\`
+
+\`arch-sync\` is **never** invoked automatically by \`arch-decision\`. The
+architect chooses to run it (via Polly's post-finalize menu, or manually).
+This preserves the "the source of truth is governed by the human" design
+principle of \`arch-decision\`.
+
+## Inputs
+
+The skill expects two paths:
+
+- \`prdPath\` — absolute or repo-relative path to a PRD with frontmatter
+  \`status: validated\`
+- \`auditFolder\` — absolute or repo-relative path to the per-cycle audit
+  folder produced by \`arch-decision\` (e.g. \`docs/prd/<area>/audit/NN-<study>-fpf/\`).
+  Must contain \`05-decision.md\` (the DRR) with frontmatter
+  \`verdict: PASS\` AND a \`human_verdict\` field in \`{ approve, force-validated }\`.
+
+When invoked by Polly, both paths are passed in the handoff. When invoked
+manually, the skill first asks the architect for them — defaulting to the
+most recent files matching \`docs/prd/*/NN-*.md\` with \`status: validated\`.
+
+If either precondition fails (PRD not validated, \`human_verdict: reject\`,
+or \`human_verdict: go-back\`), **stop** and instruct the architect to use the
+correct flow (\`arch-decision\` first; rejected or in-progress decisions are
+not synced).
+
+## Five-step flow
+
+### Step 1 — READ
+
+1. Open the PRD at \`prdPath\`. Verify frontmatter \`status: validated\`.
+2. Open \`<auditFolder>/05-decision.md\`. Verify frontmatter \`verdict: PASS\`
+   and \`human_verdict ∈ { approve, force-validated }\`.
+3. Find the section \`## Impact on docs/architecture/\` inside \`05-decision.md\`
+   (Phase 6 of \`arch-decision\` appends it there).
+4. Parse the strict-format bullets:
+
+   \`\`\`
+   - [file: <basename>] <Verb>: <payload>
+   \`\`\`
+
+   where \`<Verb>\` ∈ \`{ Add, Append, Mark, Remove, Update }\`.
+
+5. Bullets that don't match the format (missing \`[file:]\` tag, unknown
+   verb, missing colon after verb) are collected into a \`skipped\` list and
+   shown to the architect in Step 3 for manual handling.
+
+### Step 2 — PLAN
+
+Group parsed entries by target file. For each file, classify the operation:
+
+| Case | Operation |
+|------|-----------|
+| File exists, verb is \`Add\` or \`Append\` | **Append** at the end of the file (or under the matching section heading if one already exists — e.g. \`Append: pattern …\` goes under a \`## Patterns\` heading) |
+| File doesn't exist | **Create** with a minimal stub (frontmatter \`kind: architecture\`, H1 title from the basename, an empty body) and write the new entries |
+| File exists, verb is \`Mark\`, \`Remove\`, or \`Update\` | **Patch**: locate the relevant block deterministically — case-insensitive substring match against H2/H3 heading text first, then against the first column of any markdown table; scan top-to-bottom; if more than one match, list ALL matches with their line numbers and ask the architect to pick by index. Never pick implicitly. |
+
+### Step 3 — DIFF PREVIEW
+
+For every target file the plan touches, render a unified diff
+(\`--- old / +++ new\`). Number each diff block.
+
+Also list:
+
+- The \`skipped\` bullets from Step 1, with a one-line reason each
+  (\`"missing [file:] tag"\`, \`"unknown verb 'Foo'"\`, etc.) so the
+  architect can apply them by hand.
+
+### Step 4 — APPLY (interactive)
+
+Prompt the architect (the bracketed numbers below are an *example* — show whichever diff numbers Step 3 produced):
+
+\`\`\`
+Apply which diffs? (e.g. "1,2,4", "all", "none", "skip 3"):
+\`\`\`
+
+Honor the architect's choice. Apply only the approved diffs. Rejected
+diffs are kept in the sync report (Step 5) so they're recoverable.
+
+### Step 5 — SYNC REPORT
+
+Write \`docs/architecture/sync-reports/YYYY-MM-DD-<area>-<study>.md\` with
+this frontmatter:
+
+\`\`\`yaml
+---
+title: "Sync report — <area>/<study>"
+kind: sync-report
+prd_source: <prdPath>
+audit_folder: <auditFolder>
+synced_at: YYYY-MM-DD
+triggered_by: polly | manual
+r_eff: <X>
+verdict: PASS
+human_verdict: approve | force-validated
+---
+\`\`\`
+
+Body sections:
+
+- **Source PRD** — path, area, study, validated_at, R_eff, human_verdict
+- **Diffs applied** — per file, the unified diff that was written
+- **Diffs rejected** — per file, the diff and the architect's reason if supplied
+- **Skipped bullets** — bullets from Step 1 that didn't match the strict
+  format, with their parse-failure reason
+- **Files touched** — flat list, suitable for \`git add\`
+
+Then print to the architect:
+
+\`\`\`
+✅ Sync done.
+- Files touched: <N>
+- Diffs applied: <N>
+- Diffs rejected: <N>
+- Skipped bullets (manual handling): <N>
+- Report: <path>
+\`\`\`
+
+## Out of scope (explicit)
+
+- Reading source code
+- Validating against absolute target constraints (NONoise has none —
+  that role belongs to project-locked skills like \`andreani-arch-docs\`)
+- Regenerating component registries or technical-debt analyses
+- Calling other skills
+- Writing anywhere outside \`docs/architecture/\`
+- Auto-applying diffs without architect approval (every diff is per-file
+  opt-in)
+- Re-validating the PRD or the audit (those are \`arch-decision\`'s job)
+
+## Failure modes & guardrails
+
+| Condition | Action |
+|-----------|--------|
+| \`prdPath\` frontmatter \`status\` is not \`validated\` | Stop. Instruct the architect to run \`arch-decision\` first. |
+| \`<auditFolder>/05-decision.md\` missing | Stop. Instruct the architect to re-run \`arch-decision\` Phase 5+. |
+| \`05-decision.md\` frontmatter \`verdict\` is not \`PASS\` | Stop. The decision was rejected or is incomplete; nothing to sync. |
+| \`05-decision.md\` \`human_verdict\` is \`reject\` or \`go-back\` | Stop. The architect did not approve this decision. |
+| \`05-decision.md\` missing the \`## Impact on docs/architecture/\` section | Stop. Instruct the architect to re-run \`arch-decision\` Phase 6 (or to manually append the section). |
+| Target file is git-dirty (uncommitted local changes) | Warn before showing the diff. The architect can still proceed. |
+| A target file already contains the same text being added (idempotency) | Skip silently — note in the sync report under "no-op (already present)". **Comparison rule**: trim trailing whitespace per line, collapse runs of blank lines to one, normalize markdown list markers (\`*\` → \`-\`); case-sensitive otherwise. Anything else counts as a real diff. |
+| Step 4 architect input doesn't parse | Re-prompt. Never interpret silence as "all" — always require explicit input. |
+
+## Anti-patterns
+
+- **Validating decisions** — \`arch-sync\` is a writer, not a reviewer.
+  If the architect's checklist contains a controversial change,
+  \`arch-sync\` writes it as instructed. The review happened at
+  \`arch-decision\` Phase 5.5.
+- **Inferring the target file from the bullet content** — the \`[file: …]\`
+  tag is the only source of truth. If a bullet says "this is a
+  constraint" but the tag points to \`04-components.md\`, the file is
+  \`04-components.md\`. Don't second-guess.
+- **Silent failures** — if a file can't be written (permission denied,
+  read-only filesystem), surface the error and stop the sync. Do not
+  pretend partial success.
+- **Editing \`05-decision.md\`** — the audit is immutable history.
+  \`arch-sync\` reads from it; never writes to it.
+
+## Relationship with project-locked sync skills
+
+Some projects ship their own architecture sync skill that knows the
+target constraints, the component registry, and the technical-debt
+taxonomy (the canonical example is \`andreani-arch-docs\`, mode M, in the
+Andreani / RISKO project). \`arch-sync\` does NOT replace those — it's the
+generic spine. A project-locked sync skill can:
+
+- Run after \`arch-sync\` to enrich the writes (registry update, debt
+  register entries, conformance checks)
+- Or replace \`arch-sync\` entirely by claiming the same Polly trigger
+  point — the architect simply chooses the project-specific skill
+  instead
+
+Both modes are valid; the choice is per-project.
+
+## Sync report directory
+
+The first time the skill runs in a project, it creates
+\`docs/architecture/sync-reports/\`. The reports are part of the
+architectural trace and SHOULD be committed to git.
+
+**Gitignore safety check**: before writing the first sync report, run
+\`git check-ignore <report-path>\` on the target. If the path is ignored
+(some projects gitignore parts of \`docs/\`), warn the architect prominently
+— the report would be invisible to git, defeating its purpose as a trace.
+The architect can either un-ignore the path or accept the risk explicitly.
+
+## References
+
+- Sibling skill [\`arch-decision\`](../arch-decision/SKILL.md) — produces
+  the validated PRD + \`05-decision.md\` audit that \`arch-sync\` consumes
+- Sibling skill [\`quint-fpf\`](../quint-fpf/SKILL.md) — the FPF
+  methodology that \`arch-decision\` runs to produce the audit
+- Sibling skill [\`c4-doc-writer\`](../c4-doc-writer/SKILL.md) — orthogonal
+  consumer of the same validated PRD; updates Structurizr DSL
 ",
   ".claude/skills/atr/SKILL.md": "---
 name: atr
@@ -9351,7 +9602,7 @@ playwright-cli video-stop recordings/checkout-test-run-42.webm
 ",
   ".claude/skills/polly/SKILL.md": "---
 name: polly
-description: NONoise SDLC orchestrator — decides which skill to run next based on project state. Use whenever the user types \`/polly\`, says "start polly" / "avvia polly" / "run polly" / "orchestrate this project", asks "what skill should I use next?", is lost in a freshly scaffolded NONoise repo, or right after \`create-nonoise\` finishes (marker at \`.nonoise/POLLY_START.md\`). Polly does not write code itself — it asks the right questions, decides greenfield vs brownfield, and engages the right NONoise skill in the correct order (requirements-ingest, bmad-agent-analyst, arch-brainstorm, arch-decision, sprint-manifest, atr for greenfield; graphify + reverse-engineering + same pipeline for brownfield). Trigger aggressively when the user seems lost in a NONoise project even without explicit mention — most users won't know Polly exists until it introduces itself.
+description: NONoise SDLC orchestrator — decides which skill to run next based on project state. Use whenever the user types \`/polly\`, says "start polly" / "avvia polly" / "run polly" / "orchestrate this project", asks "what skill should I use next?", is lost in a freshly scaffolded NONoise repo, or right after \`create-nonoise\` finishes (marker at \`.nonoise/POLLY_START.md\`). Polly does not write code itself — it asks the right questions, decides greenfield vs brownfield, and engages the right NONoise skill in the correct order (requirements-ingest, bmad-agent-analyst, arch-brainstorm, arch-decision, arch-sync (optional, post-decision), sprint-manifest, atr for greenfield; graphify + reverse-engineering + same pipeline for brownfield). Trigger aggressively when the user seems lost in a NONoise project even without explicit mention — most users won't know Polly exists until it introduces itself.
 ---
 
 # Polly — NONoise Orchestrator
@@ -9519,6 +9770,7 @@ completed the skill, skipped it, or pausato.
 4. Feature / product design                [pair]  → superpowers:brainstorming
 5. Architecture options (if non-trivial)   [pair]  → arch-brainstorm
 6. Architecture decision                   [pair]  → arch-decision (+ quint-fpf)
+6b. Arch source-of-truth sync (optional)   [solo]  → arch-sync (Polly suggests, never auto)
 7. Sprint breakdown                        [pair]  → sprint-manifest
 8. Implementation loop — per task          [solo]  → see "Dev trio" below
 \`\`\`
@@ -9536,6 +9788,10 @@ dump the whole plan on the user — walk step by step. See
 - **Architectural study with no clear feature yet** → skip step 4, start
   at step 5 with an area-slug.
 - **Brownfield**: see Step 3.
+- **\`arch-sync\` is always optional**. Polly offers it after every
+  \`arch-decision\` PASS but never invokes it without the architect's
+  explicit choice. Skipping it is a valid completion of the
+  architectural workflow.
 
 ### Dev trio (implementation loop, step 8)
 
@@ -9901,6 +10157,40 @@ auto-sync to \`docs/architecture/\` — Alex does that manually with the DOC
 capability.
 
 After \`arch-decision\` PASS, engage \`c4-doc-writer\` to update \`docs/architecture/c4/workspace.dsl\`. This keeps the architectural diagrams in sync with the validated decision — one Structurizr DSL source, many regenerated views (Context / Container / Component). The skill is advisory on CLI install (never auto-installs Structurizr) and appends a dated entry to \`docs/architecture/c4/CHANGELOG.md\` noting which ADR triggered the refresh.
+
+## Step 8b — arch-sync suggestion (between arch-decision and sprint-manifest)
+
+**Pre-condition**: \`arch-decision\` has just completed Phase 6 (PRD has
+\`status: validated\`, audit folder exists with \`05-decision.md\` carrying
+the strict-format \`## Impact on docs/architecture/\` checklist). On Polly's
+resume, the \`archDecision\` handoff fingerprint is satisfied and
+\`archSyncOffered\` is \`null\` (or \`false\` from a previous postpone).
+
+**Action**: Polly does NOT advance to \`sprint-manifest\`. Instead it
+presents:
+
+\`\`\`
+✅ Architettura validata — PRD <path>, R_eff <X>.
+
+Prima di passare allo sprint, vuoi proiettare la decisione in
+\`docs/architecture/\`?
+
+  [1] Sì — invoco arch-sync (legge PRD+05-decision.md, scrive in architettura con diff)
+  [2] No, lo faccio a mano — vado a sprint-manifest
+  [3] Dopo — fermati qui, ti chiamo io quando voglio
+\`\`\`
+
+**Choice handlers**:
+
+| # | Effect on state | Next Polly action |
+|---|-----------------|-------------------|
+| 1 | \`archSyncOffered = true\` | Standard handoff to \`arch-sync\` (pass \`prdPath\` + \`auditFolder\` in handoff args). After it returns, advance to \`sprint-manifest\`. |
+| 2 | \`archSyncOffered = true\` | Advance to \`sprint-manifest\`. The suggestion is not re-offered for this decision. |
+| 3 | \`archSyncOffered = false\` | Stop. On the next \`/polly\` invocation, this menu re-appears (because \`archSyncOffered === false\` and \`archDecision\` fingerprint still satisfies). |
+
+**Reset rule**: when a new PRD validation occurs (new \`archDecision\`
+fingerprint), reset \`archSyncOffered\` to \`null\` so the menu fires again
+for the new decision.
 
 ## Greenfield — Step 2.7 — Sprint breakdown     \`[pair]\`
 
@@ -10345,6 +10635,7 @@ and is NOT inspected for Polly fingerprints.
 | \`implementation\` | dev trio (\`superpowers:writing-plans\` → \`executing-plans\`) | any \`docs/sprints/Sprint-*/plans/*.md\` OR — pragmatic v1 — presence of \`docs/sprints/Sprint-*/acceptance/testbook.yml\` implies implementation ran |
 | \`acceptance\` | \`atr\` | any \`docs/sprints/Sprint-*/acceptance/testbook.yml\` |
 | \`c4\` | \`c4-doc-writer\` | \`docs/architecture/c4/workspace.dsl\` OR any \`docs/support/reverse/*/c4/workspace.dsl\` (reverse-mode output) |
+| \`archSync\` | \`arch-sync\` | any file matching \`docs/architecture/sync-reports/*.md\` newer than the most recent PRD's \`validated_at\` |
 | \`workitemExport\` | \`spec-to-workitem\` | any \`docs/sprints/Sprint-*/export/spec-to-workitem-*.md\` |
 
 ## Per-skill handoff fingerprint
@@ -10366,6 +10657,7 @@ on return is the one that maps to that skill's primary output:
 | \`sprint-manifest\` | \`docs/sprints/Sprint-*/sprint-manifest.md\` | \`sprint\` |
 | \`atr\` | \`docs/sprints/Sprint-*/acceptance/testbook.yml\` | \`acceptance\` |
 | \`c4-doc-writer\` | \`docs/architecture/c4/workspace.dsl\` OR any \`docs/support/reverse/*/c4/workspace.dsl\` | \`c4\` |
+| \`arch-sync\` | any \`docs/architecture/sync-reports/*.md\` newer than the PRD path it was invoked with | \`archSync\` |
 | \`spec-to-workitem\` | \`docs/sprints/Sprint-*/export/spec-to-workitem-*.md\` | \`workitemExport\` |
 
 ## Glob semantics
@@ -11223,6 +11515,7 @@ the framework, and the phrase Polly uses to hand off.
 | \`arch-brainstorm\` | Installed | "I'll engage arch-brainstorm — it proposes architectures against the constraints." |
 | \`quint-fpf\` | Installed | Engaged automatically by \`arch-decision\`. Polly does not invoke it directly. |
 | \`arch-decision\` | Installed | "I'll engage arch-decision — it picks one architecture and writes the ADR." |
+| \`arch-sync\` | Installed | "I'll engage arch-sync — it projects the validated PRD into \`docs/architecture/\` with a diff preview per file." |
 | \`sprint-manifest\` | Installed | "I'll engage sprint-manifest — it produces the aggregated manifest for the sprint." |
 | \`atr\` | Installed | "I'll engage atr for this item — acceptance, test, implementation." |
 
@@ -11341,6 +11634,7 @@ no published URL. Re-scaffolding refreshes it; do not edit by hand.
   "createdAt": "2026-04-19T20:00:00Z",
   "updatedAt": "2026-04-19T20:15:00Z",
   "voiceHintShown": false,
+  "archSyncOffered": null,
 
   "session": {
     "kind": "greenfield|brownfield|refactor|arch-study|unknown",
@@ -11385,6 +11679,23 @@ no published URL. Re-scaffolding refreshes it; do not edit by hand.
 | \`createdAt\` | ISO date | Written by scaffold; immutable. |
 | \`updatedAt\` | ISO date | Polly updates on every write. |
 | \`voiceHintShown\` | boolean | Step 0 flips to \`true\` after showing the voice-tools hint. Prevents re-spam across sessions. |
+
+### \`archSyncOffered\`
+
+\`boolean | null\` — tracks whether Polly has already presented the
+\`arch-sync\` suggestion menu after the most recent \`arch-decision\`
+completion.
+
+| Value | Meaning |
+|-------|---------|
+| \`null\` | Never offered (initial state, or no \`arch-decision\` PASS yet) |
+| \`true\` | Offered AND the architect made a final choice (1 = invoked arch-sync, 2 = chose to skip). The menu is NOT re-offered. |
+| \`false\` | Offered but the architect chose 3 (postpone). The menu re-appears on the next \`/polly\` invocation. |
+
+**Reset trigger**: when a new PRD reaches \`status: validated\` (i.e. a new
+\`archDecision\` fingerprint appears that wasn't there before), reset
+\`archSyncOffered\` to \`null\` so the suggestion fires again for the new
+decision.
 
 ### \`session\`
 
@@ -11836,6 +12147,8 @@ quint-fpf then:
 4. Returns a decision artifact at \`<target>/05-decision.md\` (the DRR). In tooled mode, also persisted in \`.quint/decisions/\`.
 
 The invoking skill is responsible for reading \`05-decision.md\` and acting on it (e.g. \`arch-decision\` sets the PRD frontmatter to \`validated\` or \`rejected\` based on the \`verdict\` field of the DRR frontmatter).
+
+> **Note on opinionated wrappers**: when invoked by \`arch-decision\`, the generic Phase 5 (DECIDE) is followed by \`arch-decision\`'s own Phase 5.5 (REVIEW & APPROVE) — a human gate with override capability that writes a \`human_verdict\` field into \`05-decision.md\`. \`quint-fpf\` itself stays generic and does not enforce the gate; the opinionated UX is owned by the wrapper.
 
 ## Slash commands (bundled)
 
@@ -26462,6 +26775,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/arch-brainstorm/references/folder-conventions.md",
   ".claude/skills/arch-brainstorm/references/prd-template.md",
   ".claude/skills/arch-decision/SKILL.md",
+  ".claude/skills/arch-sync/SKILL.md",
   ".claude/skills/atr/SKILL.md",
   ".claude/skills/atr/references/templates.md",
   ".claude/skills/atr/references/vibekanban.md",
