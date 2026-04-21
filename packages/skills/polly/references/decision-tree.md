@@ -202,6 +202,40 @@ capability.
 
 After `arch-decision` PASS, engage `c4-doc-writer` to update `docs/architecture/c4/workspace.dsl`. This keeps the architectural diagrams in sync with the validated decision — one Structurizr DSL source, many regenerated views (Context / Container / Component). The skill is advisory on CLI install (never auto-installs Structurizr) and appends a dated entry to `docs/architecture/c4/CHANGELOG.md` noting which ADR triggered the refresh.
 
+## Step 8b — arch-sync suggestion (between arch-decision and sprint-manifest)
+
+**Pre-condition**: `arch-decision` has just completed Phase 6 (PRD has
+`status: validated`, audit folder exists with `05-decision.md` carrying
+the strict-format `## Impact on docs/architecture/` checklist). On Polly's
+resume, the `archDecision` handoff fingerprint is satisfied and
+`archSyncOffered` is `null` (or `false` from a previous postpone).
+
+**Action**: Polly does NOT advance to `sprint-manifest`. Instead it
+presents:
+
+```
+✅ Architettura validata — PRD <path>, R_eff <X>.
+
+Prima di passare allo sprint, vuoi proiettare la decisione in
+`docs/architecture/`?
+
+  [1] Sì — invoco arch-sync (legge PRD+05-decision.md, scrive in architettura con diff)
+  [2] No, lo faccio a mano — vado a sprint-manifest
+  [3] Dopo — fermati qui, ti chiamo io quando voglio
+```
+
+**Choice handlers**:
+
+| # | Effect on state | Next Polly action |
+|---|-----------------|-------------------|
+| 1 | `archSyncOffered = true` | Standard handoff to `arch-sync` (pass `prdPath` + `auditFolder` in handoff args). After it returns, advance to `sprint-manifest`. |
+| 2 | `archSyncOffered = true` | Advance to `sprint-manifest`. The suggestion is not re-offered for this decision. |
+| 3 | `archSyncOffered = false` | Stop. On the next `/polly` invocation, this menu re-appears (because `archSyncOffered === false` and `archDecision` fingerprint still satisfies). |
+
+**Reset rule**: when a new PRD validation occurs (new `archDecision`
+fingerprint), reset `archSyncOffered` to `null` so the menu fires again
+for the new decision.
+
 ## Greenfield — Step 2.7 — Sprint breakdown     `[pair]`
 
 Prompt:
