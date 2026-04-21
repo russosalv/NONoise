@@ -1,6 +1,6 @@
 ---
 name: polly
-description: NONoise SDLC orchestrator — decides which skill to run next based on project state. Use whenever the user types `/polly`, says "start polly" / "avvia polly" / "run polly" / "orchestrate this project", asks "what skill should I use next?", is lost in a freshly scaffolded NONoise repo, or right after `create-nonoise` finishes (marker at `.nonoise/POLLY_START.md`). Polly does not write code itself — it asks the right questions, decides greenfield vs brownfield, and engages the right NONoise skill in the correct order (requirements-ingest, bmad-agent-analyst, arch-brainstorm, arch-decision, sprint-manifest, atr for greenfield; graphify + reverse-engineering + same pipeline for brownfield). Trigger aggressively when the user seems lost in a NONoise project even without explicit mention — most users won't know Polly exists until it introduces itself.
+description: NONoise SDLC orchestrator — decides which skill to run next based on project state. Use whenever the user types `/polly`, says "start polly" / "avvia polly" / "run polly" / "orchestrate this project", asks "what skill should I use next?", is lost in a freshly scaffolded NONoise repo, or right after `create-nonoise` finishes (marker at `.nonoise/POLLY_START.md`). Polly does not write code itself — it asks the right questions, decides greenfield vs brownfield, and engages the right NONoise skill in the correct order (requirements-ingest, bmad-agent-analyst, arch-brainstorm, arch-decision, arch-sync (optional, post-decision), sprint-manifest, atr for greenfield; graphify + reverse-engineering + same pipeline for brownfield). Trigger aggressively when the user seems lost in a NONoise project even without explicit mention — most users won't know Polly exists until it introduces itself.
 ---
 
 # Polly — NONoise Orchestrator
@@ -168,6 +168,7 @@ completed the skill, skipped it, or pausato.
 4. Feature / product design                [pair]  → superpowers:brainstorming
 5. Architecture options (if non-trivial)   [pair]  → arch-brainstorm
 6. Architecture decision                   [pair]  → arch-decision (+ quint-fpf)
+6b. Arch source-of-truth sync (optional)   [solo]  → arch-sync (Polly suggests, never auto)
 7. Sprint breakdown                        [pair]  → sprint-manifest
 8. Implementation loop — per task          [solo]  → see "Dev trio" below
 ```
@@ -185,6 +186,10 @@ dump the whole plan on the user — walk step by step. See
 - **Architectural study with no clear feature yet** → skip step 4, start
   at step 5 with an area-slug.
 - **Brownfield**: see Step 3.
+- **`arch-sync` is always optional**. Polly offers it after every
+  `arch-decision` PASS but never invokes it without the architect's
+  explicit choice. Skipping it is a valid completion of the
+  architectural workflow.
 
 ### Dev trio (implementation loop, step 8)
 
