@@ -693,7 +693,11 @@ Cosa vuoi fare? (scegli esplicitamente — nessun default)
 ---
 status: validated
 validated_at: YYYY-MM-DD          # today
+# Read Phase 5.5's `human_verdict` field from `05-decision.md` (or from `00-context.md` if recorded there).
+# If `human_verdict: approve` (algorithmic verdict honored):
 validated_by: "arch-decision (Quint FPF run <timestamp>)"
+# If `human_verdict: force-validated` (human override applied):
+# validated_by: "arch-decision (Quint FPF run <timestamp>, human-override)"
 # other fields unchanged
 ---
 ```
@@ -713,16 +717,29 @@ validated_by: "arch-decision (Quint FPF run <timestamp>)"
 **Audit folder**: `docs/prd/<area>/audit/NN-<study>-fpf/`
 **DRR**: `docs/prd/<area>/audit/NN-<study>-fpf/05-decision.md`
 
-**Impact on docs/architecture/** (update manually):
-- <list concrete changes the architect should write: new constraint / new pattern / new component in 04-components.md / etc.>
+**Impact on docs/architecture/** (use the strict format below — `arch-sync` parses it):
+
+- [file: 01-constraints.md] Add constraint: <one-line text>
+- [file: 03-patterns.md] Append pattern: <pattern-name> — <one-line description>
+- [file: 04-components.md] Add draft component: <component-name> — <role>
+- [file: 04-components.md] Mark component <name> as deprecated — <reason>
+- [file: 12-system-interactions.md] Add topic: <topic-name> publisher=<X> subscribers=<Y,Z>
+
+> Format rules: one bullet per impact. Each bullet starts with `[file: <basename>]` (basename only — file path is `docs/architecture/<basename>`). After the tag: an action verb in `{Add, Append, Mark, Remove, Update}` followed by `: <payload>`. Bullets that don't match the format are ignored by `arch-sync` (safe to mix in freeform notes).
 
 **Next step**:
-- Review and apply the impacts above to `docs/architecture/` (manual — NONoise does not auto-sync)
+- Review and apply the impacts above to `docs/architecture/` — either manually, or by invoking `arch-sync` (Polly will offer this option on return)
 - When ready to promote the PRD to a sprint, invoke: `sprint-manifest area <area> sprint <N>`
 - If you have more studies to add to the area, invoke `arch-brainstorm` again.
 ```
 
-Populate the "Impact on docs/architecture/" section with actual concrete changes extracted from the validated PRD — e.g. "Add to `04-components.md` a new `draft` entry for `notifications-worker`", "Add constraint to `01-constraints.md`: always acknowledge events within 5s", "Append new pattern to `03-patterns.md`: outbox-table for cross-component writes". Be specific — this list is the architect's work checklist.
+Populate the "Impact on docs/architecture/" section with concrete impacts extracted from the validated PRD, using the strict `[file: NN.md]` format. Examples:
+
+- `[file: 04-components.md] Add draft component: notifications-worker — handles fan-out for email/SMS`
+- `[file: 01-constraints.md] Add constraint: always acknowledge events within 5s`
+- `[file: 03-patterns.md] Append pattern: outbox-table — for transactional cross-component writes`
+
+Also append the same checklist (verbatim) into `05-decision.md` under a new `## Impact on docs/architecture/` heading at the end of the file. This is the canonical persisted location that `arch-sync` reads.
 
 ### Actions for FAIL or NEEDS-REVISION verdict
 
@@ -771,7 +788,8 @@ last_audit_verdict: NEEDS-REVISION
 - [ ] PRD frontmatter updated (validated | rejected | draft)
 - [ ] Audit folder `docs/prd/<area>/audit/NN-<study>-fpf/` contains all 6 files (`00-context.md` through `05-decision.md`)
 - [ ] `00-context.md` frontmatter `verdict_phase5` set (cycle marked closed)
-- [ ] On PASS: concrete "Impact on docs/architecture/" checklist produced for the architect
+- [ ] On PASS: concrete "Impact on docs/architecture/" checklist produced in the strict `[file: NN.md]` format (parsable by `arch-sync`), AND appended verbatim to `05-decision.md` under `## Impact on docs/architecture/`
+- [ ] On PASS with `human_verdict: force-validated`: PRD `validated_by` includes the `human-override` marker
 - [ ] Architect informed of next steps with explicit paths to the audit folder and DRR
 
 ---
@@ -795,7 +813,7 @@ If a partial audit folder already exists at `audit/NN-<study>-fpf/`:
 3. **Weak evidence treated as strong proof** — CL1 does not beat CL3
 4. **Validating by inertia** — if evidence is insufficient, it is OK to say "FAIL, more analysis needed"
 5. **Over-engineering the audit** — small decisions do not need 6 phases. If the PRD covers a local choice, tell the architect "Quint FPF is overkill for this" and skip
-6. **Writing directly to `docs/architecture/`** — not this skill's job. The architect applies the "Impact on docs/architecture/" checklist produced at Phase 6 manually, in a separate commit. Keep audit and source-of-truth changes decoupled.
+6. **Writing directly to `docs/architecture/`** — not this skill's job. The architect either applies the "Impact on docs/architecture/" checklist manually or invokes `arch-sync` (a sibling skill) to project it with diff preview. Keep audit and source-of-truth changes decoupled — they go in separate commits.
 7. **Creating drafts from scratch** — not this skill's job; delegate to `arch-brainstorm`
 
 ## When NOT to use
