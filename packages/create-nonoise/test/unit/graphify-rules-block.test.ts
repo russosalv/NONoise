@@ -5,45 +5,38 @@ import { describe, expect, it } from 'vitest';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const monoRoot = resolve(here, '..', '..', '..', '..');
+const canonicalPath = resolve(
+  monoRoot,
+  'packages/create-nonoise/src/assets/graphify-rules-block.md',
+);
 
 describe('graphify rules block', () => {
-  it('SKILL.md inlines the canonical block from references/rules-block.md', async () => {
-    const reference = await readFile(
-      resolve(monoRoot, 'packages/skills/graphify-setup/references/rules-block.md'),
-      'utf8',
-    );
-    const skill = await readFile(
-      resolve(monoRoot, 'packages/skills/graphify-setup/SKILL.md'),
-      'utf8',
-    );
-
-    const referenceBody = reference.replace(/\r\n/g, '\n').trim();
-    const normalizedSkill = skill.replace(/\r\n/g, '\n');
-
-    // The block appears inside an indented code fence in SKILL.md. Normalize
-    // by stripping the 3-space indent prefix from each candidate region.
-    const dedented = normalizedSkill
+  it('all Handlebars templates contain the canonical rules body', async () => {
+    const canonical = (await readFile(canonicalPath, 'utf8')).replace(/\r\n/g, '\n').trim();
+    const canonicalBullets = canonical
       .split('\n')
-      .map((line) => (line.startsWith('   ') ? line.slice(3) : line))
-      .join('\n');
+      .filter((l) => l.startsWith('- '));
+    expect(canonicalBullets.length).toBeGreaterThan(0);
 
-    expect(dedented).toContain(referenceBody);
-  });
-
-  it('all 10 Handlebars templates contain the new query/path/explain rule', async () => {
     const fg = await import('fast-glob');
-    const files = await fg.default('packages/templates/**/*.hbs', { cwd: monoRoot, absolute: true });
+    const files = await fg.default('packages/templates/**/*.hbs', {
+      cwd: monoRoot,
+      absolute: true,
+    });
+
     const offenders: string[] = [];
     for (const f of files) {
-      const txt = await readFile(f, 'utf8');
+      const txt = (await readFile(f, 'utf8')).replace(/\r\n/g, '\n');
       if (!txt.includes('## graphify')) continue;
-      if (!txt.includes('For cross-module "how does X relate to Y"')) {
-        offenders.push(f);
+      for (const bullet of canonicalBullets) {
+        if (!txt.includes(bullet)) {
+          offenders.push(`${f} missing: ${bullet.slice(0, 60)}…`);
+        }
       }
       if (txt.includes('_rebuild_code')) {
         offenders.push(`${f} (still references deprecated _rebuild_code)`);
       }
     }
-    expect(offenders, `Templates out of sync: ${offenders.join(', ')}`).toEqual([]);
+    expect(offenders, `Templates out of sync:\n${offenders.join('\n')}`).toEqual([]);
   });
 });
