@@ -33,6 +33,7 @@ no published URL. Re-scaffolding refreshes it; do not edit by hand.
   "createdAt": "2026-04-19T20:00:00Z",
   "updatedAt": "2026-04-19T20:15:00Z",
   "voiceHintShown": false,
+  "archSyncOffered": null,
 
   "session": {
     "kind": "greenfield|brownfield|refactor|arch-study|unknown",
@@ -77,6 +78,23 @@ no published URL. Re-scaffolding refreshes it; do not edit by hand.
 | `createdAt` | ISO date | Written by scaffold; immutable. |
 | `updatedAt` | ISO date | Polly updates on every write. |
 | `voiceHintShown` | boolean | Step 0 flips to `true` after showing the voice-tools hint. Prevents re-spam across sessions. |
+
+### `archSyncOffered`
+
+`boolean | null` — tracks whether Polly has already presented the
+`arch-sync` suggestion menu after the most recent `arch-decision`
+completion.
+
+| Value | Meaning |
+|-------|---------|
+| `null` | Never offered (initial state, or no `arch-decision` PASS yet) |
+| `true` | Offered AND the architect made a final choice (1 = invoked arch-sync, 2 = chose to skip). The menu is NOT re-offered. |
+| `false` | Offered but the architect chose 3 (postpone). The menu re-appears on the next `/polly` invocation. |
+
+**Reset trigger**: when a new PRD reaches `status: validated` (i.e. a new
+`archDecision` fingerprint appears that wasn't there before), reset
+`archSyncOffered` to `null` so the suggestion fires again for the new
+decision.
 
 ### `session`
 
