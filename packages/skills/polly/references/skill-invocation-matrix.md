@@ -26,6 +26,7 @@ the framework, and the phrase Polly uses to hand off.
 | `arch-brainstorm` | Installed | "I'll engage arch-brainstorm — it proposes architectures against the constraints." |
 | `quint-fpf` | Installed | Engaged automatically by `arch-decision`. Polly does not invoke it directly. |
 | `arch-decision` | Installed | "I'll engage arch-decision — it picks one architecture and writes the ADR." |
+| `arch-sync` | Installed | "I'll engage arch-sync — it projects the validated PRD into `docs/architecture/` with a diff preview per file." |
 | `sprint-manifest` | Installed | "I'll engage sprint-manifest — it produces the aggregated manifest for the sprint." |
 | `atr` | Installed | "I'll engage atr for this item — acceptance, test, implementation." |
 
