@@ -114,9 +114,29 @@ For the resolved `<path>`:
 test -f "<path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
 ```
 
-- `MISSING` → propose `graphify "<path>"` (initial full build).
-- `EXISTS` → propose `graphify "<path>" --update` (incremental). Mention
-  that a full rebuild is available on request.
+- `MISSING` → propose the full `/graphify <path>` pipeline (AST extraction + LLM semantic pass + community detection + HTML/JSON/GRAPH_REPORT.md).
+- `EXISTS` → propose `/graphify <path> --update` (the skill's incremental mode, which re-extracts only changed files and reuses cached semantic results).
+
+### 5.2.1 — How to invoke the pipeline (tool-dependent)
+
+The `graphify` binary CLI does NOT have a `graphify <path>` command — running it directly fails with "unknown command". The full pipeline (AST + **semantic extraction via LLM** + clustering) is orchestrated by the **graphify skill** at `~/.claude/skills/graphify/SKILL.md` (installed by Step 2 above), not by the CLI alone.
+
+Invocation depends on the host tool:
+
+- **Claude Code**: type `/graphify <path>` — the slash command is registered by `graphify install` (Step 2) and triggers the skill. Or, equivalently, invoke `Skill(skill: "graphify", args: "<path>")`.
+- **GitHub Copilot / Cursor / Gemini / Codex / any tool without slash commands**: open `~/.claude/skills/graphify/SKILL.md` (or the platform-specific path under `.copilot/skills/`, `.cursor/rules/`, etc.) and follow its step-by-step instructions, which call `graphify.detect`, `graphify.extract`, `graphify.cluster` directly via Python. Pass the target `<path>` as the input.
+- **Flag variants** available at the skill level:
+  - `--update` → incremental (no LLM for unchanged files — cache reuse)
+  - `--mode deep` → richer INFERRED edges
+  - `--cluster-only` → rerun clustering on existing `graph.json` (no re-extraction)
+  - `--no-viz` → skip HTML, just JSON + GRAPH_REPORT.md
+  - `--wiki` → also build the navigable wiki under `graphify-out/wiki/`
+
+**The CLI `graphify` binary is useful ONLY for these narrower operations** (do NOT use them for the initial full build):
+
+- `graphify update <path>` — re-extract AST only (**no LLM**) when you've changed code and just need to refresh structural edges
+- `graphify cluster-only <path>` — rerun community detection on an existing graph
+- `graphify query "..."`, `graphify path "A" "B"`, `graphify explain "X"` — read-side operations on an existing graph
 
 ### 5.3 — Strong-warning prompt
 
@@ -128,9 +148,15 @@ Shown before executing anything. `mode=reverse-engineering` variant:
 > communities, no semantic lookup. Chapters that depend on source
 > become stubs with open points.
 >
-> Proposed command: `graphify "<path>"` (MISSING) or
-> `graphify "<path>" --update` (EXISTS).
-> Can take several minutes on large codebases.
+> I will run the full `/graphify <path>` pipeline — that is AST
+> extraction + semantic extraction via LLM + community detection. The
+> LLM pass is what produces the "surprising connections", god-node
+> labels, and community names; without it the report is near-empty.
+> Expect a few minutes and real LLM tokens on the first run. Re-runs
+> reuse cached results and are nearly free.
+>
+> Proposed command: `/graphify <path>` (MISSING) or
+> `/graphify <path> --update` (EXISTS).
 >
 > Proceed? (`yes` / `different-path` / `skip`)
 >
@@ -145,19 +171,17 @@ quality" instead of "chapters become stubs".
 
 ### 5.4 — Execution
 
-- `yes` → run the chosen graphify command. Capture stdout/stderr. Parse
-  nodes/edges/communities from `graphify-out/GRAPH_REPORT.md` if present,
-  else from the command's summary. Store the counts for the final report.
+- `yes` → invoke the graphify skill per §5.2.1 for the host tool. Wait for completion. Parse nodes/edges/communities from `graphify-out/GRAPH_REPORT.md` for the final report. Verify the "Token cost" line in the report is non-zero on a MISSING (initial) run — if it reports `0 input · 0 output` on an initial build, the semantic pass did not actually run (likely no LLM credentials configured, or `--no-semantic` flag slipped in); surface this as a warning.
 - `different-path` → back to 5.1.
 - `skip` → no command run, record the skip for the report.
 
 ### 5.5 — Failure handling
 
-- `graphify` command missing from PATH (despite Step 1 reporting install
+- `graphify` Python package not importable (despite Step 1 reporting install
   success) → abort Step 5 with a clear error; do NOT undo Steps 1–4.
 - Target path does not exist → ask the user to correct it in 5.1.
-- `graphify` exit ≠ 0 → show stderr, ask the user: retry / skip / abort.
-  Do NOT treat a non-zero exit as a silent skip.
+- Semantic pass fails (LLM credentials missing, network error) → surface the error and ask: retry, proceed with AST-only (`graphify update <path>` — degraded output, explicitly logged), skip, or abort. Do NOT treat a silent semantic failure as success.
+- Graph builds but `GRAPH_REPORT.md` reports 0-token extraction on an initial run → warn the user: the semantic pass was skipped for some reason, and the resulting report will lack community names and cross-concept connections.
 
 ## What this skill does NOT do
 

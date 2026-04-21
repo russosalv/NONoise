@@ -323,17 +323,23 @@ For each path:
 test -f "<path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
 ```
 
-- `EXISTS` → `graphify <path> --update` (incremental) if the intent suggests new material ("new", "added", "update", "changed"); else **reuse**.
-- `MISSING` → `graphify <path>` full build.
+- `EXISTS` → `/graphify "<path>" --update` (incremental, semantic cache reuse) if the intent suggests new material ("new", "added", "update", "changed"); else **reuse**.
+- `MISSING` → `/graphify "<path>"` full build.
 
 Quote paths — they can contain spaces. graphify writes to `./graphify-out/` relative to CWD; move under `<path>/graphify-out/` if needed for consistency and future incremental runs.
+
+**Invocation note** — `/graphify <path>` is a **slash command / skill invocation**, not the `graphify` binary CLI. The CLI does not have a `graphify <path>` command; running it directly fails with "unknown command". The full pipeline (AST + **semantic extraction via LLM** + community detection) is orchestrated by the graphify skill at `~/.claude/skills/graphify/SKILL.md`. In Claude Code invoke `/graphify <path>` or `Skill(skill: "graphify", args: "<path>")`. In Copilot / Cursor / Gemini / Codex / any tool without slash commands, open that skill file and follow its step-by-step instructions (which call `graphify.detect`, `graphify.extract`, `graphify.cluster` directly via Python). The CLI is useful only for `graphify update <path>` (AST-only, no LLM), `graphify cluster-only <path>`, and read-side `graphify query`/`path`/`explain`. For a reverse dossier we need the semantic pass — always use the skill, never the bare CLI for indexing.
 
 **2.2 — Subject source** (from Q3/Q4)
 
 - `reuse` → nothing to do.
-- `reindex` → `graphify "<source_path>" --update` if graph exists, else `graphify "<source_path>"`.
-- `initial` → `graphify "<source_path>"`.
+- `reindex` → `/graphify "<source_path>" --update` if graph exists, else `/graphify "<source_path>"` (full pipeline).
+- `initial` → `/graphify "<source_path>"` (full pipeline — AST + semantic + clustering).
 - skipped → no source graph (some chapters will be source-less; warn the user).
+
+Same invocation note as 2.1 applies — `/graphify` is the skill, not the bare CLI.
+
+After completion, verify the semantic pass actually ran by checking `graphify-out/GRAPH_REPORT.md` — on an initial build, the "Token cost" line should be non-zero. If it reports `0 input · 0 output` on a brand-new build, the LLM extraction was skipped (likely credentials missing, or `--no-semantic` slipped in). Surface this to the user — the report will be near-empty without semantic edges.
 
 Large codebases can take minutes — show progress if available.
 
