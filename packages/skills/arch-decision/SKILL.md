@@ -606,12 +606,13 @@ the skill stops and waits.
 
 ### Post-conditions
 
-- The audit report contains a `human_verdict` field in
-  `{ approve, reject, go-back, force-validated }`. (Action 5 "Edit audit"
+- `05-decision.md` (the audit's DRR file) contains a `human_verdict` field
+  in `{ approve, reject, go-back, force-validated }`. (Action 5 "Edit audit"
   is a process loop, not a terminal verdict — see Action handlers below.)
 - If the human action diverges from the algorithmic verdict (action 4 —
-  force-validated), the audit also has `validated_by: human-override`
-  with a free-text motivation captured at the gate.
+  force-validated), `05-decision.md` also has
+  `validated_by: human-override` with a free-text motivation captured
+  at the gate.
 
 ### Action — present the recap block
 
@@ -656,10 +657,10 @@ Cosa vuoi fare? (scegli esplicitamente — nessun default)
 
 | # | Action | Effect |
 |---|--------|--------|
-| 1 | Approve | Algorithmic verdict honored. Set `human_verdict: approve` in the audit. Proceed to Phase 6 with the verdict from Phase 5. |
-| 2 | Reject | Set `human_verdict: reject` in the audit + capture motivation (mandatory free-text). PRD frontmatter set to `status: rejected` regardless of the algorithmic verdict. Skill exits — Polly resumes. |
+| 1 | Approve | Algorithmic verdict honored. Set `human_verdict: approve` in `05-decision.md` (the audit's DRR file). Proceed to Phase 6 with the verdict from Phase 5. |
+| 2 | Reject | Set `human_verdict: reject` in `05-decision.md` (the audit's DRR file) + capture motivation (mandatory free-text). PRD frontmatter set to `status: rejected` regardless of the algorithmic verdict. Skill exits — Polly resumes. |
 | 3 | Go back | Ask which phase (1-4). Mark prior contents for later phases as `superseded` in the audit (do NOT erase — keep the trace). Re-enter that phase. |
-| 4 | Force validated | Used when the algorithmic verdict is FAIL / NEEDS-REVISION / CONDITIONAL but the human accepts the risk. Capture motivation (mandatory free-text — "why are you overriding?"). Set `human_verdict: force-validated` and `validated_by: human-override` in the audit. Proceed to Phase 6 with `status: validated`. |
+| 4 | Force validated | Used when the algorithmic verdict is FAIL / NEEDS-REVISION / CONDITIONAL but the human accepts the risk. Capture motivation (mandatory free-text — "why are you overriding?"). Set `human_verdict: force-validated` and `validated_by: human-override` in `05-decision.md` (the audit's DRR file). Proceed to Phase 6 with `status: validated`. |
 | 5 | Edit audit | Pause Phase 5.5. Ask the user what to change in the audit. Apply edits (in conversation, not by spawning an editor). Recompute R_eff if any evidence/CL changed. Re-display the recap block with updated numbers. Loop until the user chooses 1, 2, 3, or 4. |
 
 ### Phase 5.5 checkpoint
@@ -689,15 +690,26 @@ Cosa vuoi fare? (scegli esplicitamente — nessun default)
 
 1. **Update the PRD frontmatter** (`docs/prd/<area>/NN-<study>.md`):
 
+**Pick the variant matching Phase 5.5's `human_verdict`** (read from `05-decision.md` — see Issue 4 below for canonical location):
+
+If `human_verdict: approve` (algorithmic verdict honored):
+
 ```yaml
 ---
 status: validated
 validated_at: YYYY-MM-DD          # today
-# Read Phase 5.5's `human_verdict` field from `05-decision.md` (or from `00-context.md` if recorded there).
-# If `human_verdict: approve` (algorithmic verdict honored):
 validated_by: "arch-decision (Quint FPF run <timestamp>)"
-# If `human_verdict: force-validated` (human override applied):
-# validated_by: "arch-decision (Quint FPF run <timestamp>, human-override)"
+# other fields unchanged
+---
+```
+
+If `human_verdict: force-validated` (human override applied):
+
+```yaml
+---
+status: validated
+validated_at: YYYY-MM-DD          # today
+validated_by: "arch-decision (Quint FPF run <timestamp>, human-override)"
 # other fields unchanged
 ---
 ```
@@ -722,10 +734,12 @@ validated_by: "arch-decision (Quint FPF run <timestamp>)"
 - [file: 01-constraints.md] Add constraint: <one-line text>
 - [file: 03-patterns.md] Append pattern: <pattern-name> — <one-line description>
 - [file: 04-components.md] Add draft component: <component-name> — <role>
-- [file: 04-components.md] Mark component <name> as deprecated — <reason>
+- [file: 04-components.md] Mark: component <name> deprecated — <reason>
 - [file: 12-system-interactions.md] Add topic: <topic-name> publisher=<X> subscribers=<Y,Z>
 
 > Format rules: one bullet per impact. Each bullet starts with `[file: <basename>]` (basename only — file path is `docs/architecture/<basename>`). After the tag: an action verb in `{Add, Append, Mark, Remove, Update}` followed by `: <payload>`. Bullets that don't match the format are ignored by `arch-sync` (safe to mix in freeform notes).
+
+> **Canonical location**: this block is what the architect *sees in chat*. The same checklist (verbatim) MUST also be appended into `05-decision.md` under a new `## Impact on docs/architecture/` heading — that file is the authoritative source `arch-sync` reads. The chat block is a courtesy mirror; if the two diverge, `05-decision.md` wins.
 
 **Next step**:
 - Review and apply the impacts above to `docs/architecture/` — either manually, or by invoking `arch-sync` (Polly will offer this option on return)
