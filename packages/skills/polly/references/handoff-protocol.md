@@ -262,3 +262,58 @@ should benefit from the accumulated state.
 - If you can't parse the file (corrupted JSON), rename it to
   `polly-state.corrupt-<timestamp>.json` and bootstrap a fresh one, log a
   `reset` event mentioning the rename. Tell the user.
+
+---
+
+## Skill arguments convention
+
+Some skills accept optional arguments from Polly that adjust their behavior
+without changing the default flow for unorchestrated callers. The format
+is deliberately minimal.
+
+### Format
+
+A single string of `key=value` pairs separated by spaces. Values that
+contain spaces MUST be wrapped in double quotes.
+
+```
+mode=reverse-engineering source_path="C:/legacy/billing system"
+```
+
+When invoking through the `Skill` tool in Claude Code, pass this string
+as the `args` parameter:
+
+```
+Skill(skill: "graphify-setup", args: "mode=reverse-engineering source_path=./legacy")
+```
+
+When invoking in Copilot (or any environment without a native `Skill`
+tool), prepend the args string to the skill's opening prompt as a line:
+
+```
+args: mode=reverse-engineering source_path=./legacy
+```
+
+### Rules
+
+1. **Missing args = default behavior.** A skill invoked without args must
+   behave exactly as it did before this convention existed.
+2. **Unknown keys are ignored.** Forward compatibility — Polly may pass
+   keys that an older skill version doesn't recognize. The skill must
+   neither error nor warn.
+3. **Unknown values are logged and ignored.** If a skill defines a
+   fixed set of values for a key (e.g. `mode ∈ {reverse-engineering,
+   brownfield}`), any other value is treated as absent and noted in
+   the skill's output.
+4. **Best-effort parsing.** Skills do their own parsing inline — no shared
+   library. A crude `grep`/split on ` ` + `=` is enough. Do not invest in
+   a parser.
+
+### Known keys (registered here as skills adopt them)
+
+| Key | Used by | Valid values | Purpose |
+|---|---|---|---|
+| `mode` | `graphify-setup` | `reverse-engineering`, `brownfield` | Enables Step 5 indexing proposal |
+| `source_path` | `graphify-setup` | any path | Default target for Step 5 indexing |
+
+Add a row when your skill introduces a new key.
