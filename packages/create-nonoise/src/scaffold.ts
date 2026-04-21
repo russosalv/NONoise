@@ -38,6 +38,7 @@ const MVP_SKILL_BUNDLE = [
   'quint-fpf',
   'arch-brainstorm',
   'arch-decision',
+  'arch-sync',
   'sprint-manifest',
   'atr',
   'reverse-engineering',
