@@ -1,5 +1,11 @@
 # create-nonoise
 
+## 0.24.5
+
+### Patch Changes
+
+- Reverse-engineering flow: new `/polly` routing through `graphify-setup` in `mode=reverse-engineering`, with graph-freshness signal and a Step 5 indexing proposal. Reverse-engineering skill hardens Q3/Q4 with a `source_less_run` tracker, a sub-agent `source_less` flag, and an overview banner + CHANGELOG step. Scaffold gains a `--reverse` flag (and matching prompt) that adds an optional `reverse.{source_path, graph_freshness_days}` block to `nonoise.config.json`. Polly invocation matrix documents the args convention for brownfield skill handoffs. Skill prose readability improved for Copilot and the reverse-engineering fingerprint signal tightened. Canonical scaffold snapshots regenerated.
+
 ## 0.24.4
 
 ### Patch Changes
