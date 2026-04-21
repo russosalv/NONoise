@@ -7,6 +7,7 @@ import type { ProjectContext, HandlebarsRenderContext, RepoEntry } from './types
 import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills, installVendor } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
+import { installGraphify, formatReport } from './graphify-install.js';
 
 function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
   return (
@@ -117,7 +118,8 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   }
 
   if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
-    runGraphifyInstall();
+    const report = installGraphify({ copilot: ctx.aiTools.copilot });
+    console.log('\n[graphify] install summary:\n' + formatReport(report) + '\n');
   }
 
   if (ctx.gitInit) {
@@ -492,50 +494,6 @@ function nativePath(p: string): string {
   return p.split(posix.sep).join(sep);
 }
 
-function runGraphifyInstall(): void {
-  const pythonCmd = detectPython();
-  if (!pythonCmd) {
-    console.log(
-      '\n[graphify] Python >= 3.10 not found — skipping install. Run manually:\n  pip install graphifyy && graphify install\n',
-    );
-    return;
-  }
-
-  const pipInstall = `${pythonCmd} -m pip install --upgrade graphifyy`;
-  try {
-    execSync(pipInstall, { stdio: 'ignore' });
-  } catch {
-    console.log(
-      `\n[graphify] "${pipInstall}" failed — skipping. Run manually when ready.\n`,
-    );
-    return;
-  }
-
-  try {
-    execSync('graphify install', { stdio: 'ignore' });
-  } catch {
-    console.log(
-      '\n[graphify] "graphify install" failed — skipping. Run manually when ready.\n',
-    );
-  }
-}
-
-function detectPython(): string | null {
-  for (const cmd of ['python3', 'python']) {
-    try {
-      const out = execSync(`${cmd} --version`, { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString()
-        .trim();
-      const m = out.match(/Python\s+(\d+)\.(\d+)/);
-      if (m && (Number(m[1]) > 3 || (Number(m[1]) === 3 && Number(m[2]) >= 10))) {
-        return cmd;
-      }
-    } catch {
-      // try next
-    }
-  }
-  return null;
-}
 
 function cloneRequestedRepos(workspaceRoot: string, repos: RepoEntry[]): void {
   for (const r of repos) {
