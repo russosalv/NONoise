@@ -8,6 +8,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Local pack artifacts (published to GitHub Release, not committed)
+*.tgz
+
 # Test
 coverage/
 .nyc_output/
