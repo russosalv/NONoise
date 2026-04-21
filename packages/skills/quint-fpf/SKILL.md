@@ -173,6 +173,8 @@ quint-fpf then:
 
 The invoking skill is responsible for reading `05-decision.md` and acting on it (e.g. `arch-decision` sets the PRD frontmatter to `validated` or `rejected` based on the `verdict` field of the DRR frontmatter).
 
+> **Note on opinionated wrappers**: when invoked by `arch-decision`, the generic Phase 5 (DECIDE) is followed by `arch-decision`'s own Phase 5.5 (REVIEW & APPROVE) — a human gate with override capability that writes a `human_verdict` field into `05-decision.md`. `quint-fpf` itself stays generic and does not enforce the gate; the opinionated UX is owned by the wrapper.
+
 ## Slash commands (bundled)
 
 The 12 command files in `commands/` are copied to the project's `.claude/commands/` during scaffold. They exist to make FPF usable directly via `/qN-phase` by a human user, not only as a sub-skill invocation.
