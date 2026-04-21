@@ -202,7 +202,9 @@ capability.
 
 After `arch-decision` PASS, engage `c4-doc-writer` to update `docs/architecture/c4/workspace.dsl`. This keeps the architectural diagrams in sync with the validated decision — one Structurizr DSL source, many regenerated views (Context / Container / Component). The skill is advisory on CLI install (never auto-installs Structurizr) and appends a dated entry to `docs/architecture/c4/CHANGELOG.md` noting which ADR triggered the refresh.
 
-## Step 8b — arch-sync suggestion (between arch-decision and sprint-manifest)
+## Step 6b — arch-sync suggestion (between arch-decision and sprint-manifest)
+
+> **Step numbering note**: this section is labelled `6b` to align with `polly/SKILL.md` greenfield path (`6` = arch-decision → `6b` = arch-sync → `7` = sprint). The user-facing docs use longer numbering schemes — `docs/polly.md` Step `7c` and `docs/sdlc.md` Step `8c` reference the same logical operation.
 
 **Pre-condition**: `arch-decision` has just completed Phase 6 (PRD has
 `status: validated`, audit folder exists with `05-decision.md` carrying

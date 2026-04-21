@@ -150,6 +150,7 @@ async function writePollyInitialState(projectPath: string): Promise<void> {
     createdAt: now,
     updatedAt: now,
     voiceHintShown: false,
+    archSyncOffered: null,
     session: {
       kind: 'unknown',
       scope: null,
@@ -170,6 +171,7 @@ async function writePollyInitialState(projectPath: string): Promise<void> {
       archBrainstorm: { done: false },
       archDecision:   { done: false },
       fpfAudit:       { done: false },
+      archSync:       { done: false },
       sprint:         { done: false },
       implementation: { done: false },
       acceptance:     { done: false },
@@ -204,6 +206,11 @@ async function writePollyStateSchema(projectPath: string): Promise<void> {
       createdAt: { type: 'string', format: 'date-time' },
       updatedAt: { type: 'string', format: 'date-time' },
       voiceHintShown: { type: 'boolean' },
+      archSyncOffered: {
+        oneOf: [{ type: 'null' }, { type: 'boolean' }],
+        description:
+          'null = never offered, true = decided (invoked or skipped), false = postponed (re-offer next /polly).',
+      },
       session: {
         type: 'object',
         required: ['kind', 'currentStep', 'mode'],
@@ -263,6 +270,7 @@ async function writePollyStateSchema(projectPath: string): Promise<void> {
           archBrainstorm: { $ref: '#/$defs/phase' },
           archDecision: { $ref: '#/$defs/phase' },
           fpfAudit: { $ref: '#/$defs/phase' },
+          archSync: { $ref: '#/$defs/phase' },
           sprint: { $ref: '#/$defs/phase' },
           implementation: { $ref: '#/$defs/phase' },
           acceptance: { $ref: '#/$defs/phase' },
@@ -339,6 +347,7 @@ function initialState() {
     createdAt: now,
     updatedAt: now,
     voiceHintShown: false,
+    archSyncOffered: null,
     session: {
       kind: 'unknown', scope: null, currentStep: 'intro', mode: 'unknown',
       stack: null, activeArea: null, activeSprint: null,
@@ -349,9 +358,10 @@ function initialState() {
       scan: { done: false }, reverse: { done: false },
       requirements: { done: false }, featureDesign: { done: false },
       archBrainstorm: { done: false }, archDecision: { done: false },
-      fpfAudit: { done: false }, sprint: { done: false },
-      implementation: { done: false }, acceptance: { done: false },
-      c4: { done: false }, workitemExport: { done: false },
+      fpfAudit: { done: false }, archSync: { done: false },
+      sprint: { done: false }, implementation: { done: false },
+      acceptance: { done: false }, c4: { done: false },
+      workitemExport: { done: false },
     },
     events: [{ at: now, action: 'bootstrap', note: 'reset via polly-state.mjs --reset' }],
   };

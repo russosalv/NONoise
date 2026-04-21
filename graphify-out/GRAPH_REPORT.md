@@ -1,100 +1,100 @@
-# Graph Report - .  (2026-04-19)
+# Graph Report - NONoise-frmw  (2026-04-22)
 
 ## Corpus Check
-- Large corpus: 532 files · ~1,051,184 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder, or use --no-semantic to run AST-only.
+- 202 files · ~1,366,162 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1145 nodes · 1798 edges · 62 communities detected
-- Extraction: 86% EXTRACTED · 14% INFERRED · 0% AMBIGUOUS · INFERRED: 258 edges (avg confidence: 0.8)
+- 2629 nodes · 5277 edges · 61 communities detected
+- Extraction: 71% EXTRACTED · 29% INFERRED · 0% AMBIGUOUS · INFERRED: 1532 edges (avg confidence: 0.75)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_BMAD Personas & Core Principles|BMAD Personas & Core Principles]]
-- [[_COMMUNITY_Superpowers Skills & Reviewers|Superpowers Skills & Reviewers]]
-- [[_COMMUNITY_Azure DevOps & Work-Item Adapters|Azure DevOps & Work-Item Adapters]]
-- [[_COMMUNITY_Schema Validator Internals|Schema Validator Internals]]
-- [[_COMMUNITY_CLI Build & Print Helpers|CLI Build & Print Helpers]]
-- [[_COMMUNITY_DevOps Push Handlers|DevOps Push Handlers]]
-- [[_COMMUNITY_Skill-Creator Eval Agents|Skill-Creator Eval Agents]]
-- [[_COMMUNITY_PairSolo Dev-Trio Workflow|Pair/Solo Dev-Trio Workflow]]
-- [[_COMMUNITY_Shared Access Model (authMCP)|Shared Access Model (auth/MCP)]]
-- [[_COMMUNITY_Quality Attributes & ATAM-Lite|Quality Attributes & ATAM-Lite]]
-- [[_COMMUNITY_Architecture Brainstorm Flow|Architecture Brainstorm Flow]]
-- [[_COMMUNITY_HTML Report Generator|HTML Report Generator]]
-- [[_COMMUNITY_Six-Folder Docs Hierarchy|Six-Folder Docs Hierarchy]]
-- [[_COMMUNITY_Architecture Decisions (DRR)|Architecture Decisions (DRR)]]
-- [[_COMMUNITY_Eval Runs HTTP Server|Eval Runs HTTP Server]]
-- [[_COMMUNITY_DOCX Element Manipulation|DOCX Element Manipulation]]
-- [[_COMMUNITY_Impeccable Design Principles|Impeccable Design Principles]]
-- [[_COMMUNITY_Skill-Finder Fetchers|Skill-Finder Fetchers]]
-- [[_COMMUNITY_LibreOffice Thumbnail Helper|LibreOffice Thumbnail Helper]]
-- [[_COMMUNITY_Observability Log Adapters|Observability Log Adapters]]
-- [[_COMMUNITY_Benchmark Aggregator|Benchmark Aggregator]]
-- [[_COMMUNITY_DOCX Tracked Changes|DOCX Tracked Changes]]
-- [[_COMMUNITY_Requirements Ingest Flow|Requirements Ingest Flow]]
-- [[_COMMUNITY_SDLC Flow & Mode Diagram|SDLC Flow & Mode Diagram]]
-- [[_COMMUNITY_Vendor Sync Script|Vendor Sync Script]]
-- [[_COMMUNITY_PPTX File Cleanup|PPTX File Cleanup]]
-- [[_COMMUNITY_Playwright Request Mocking|Playwright Request Mocking]]
-- [[_COMMUNITY_Skill Packaging (.skill)|Skill Packaging (.skill)]]
-- [[_COMMUNITY_PPTX Slide Operations|PPTX Slide Operations]]
-- [[_COMMUNITY_Giulia — UX Designer Persona|Giulia — UX Designer Persona]]
-- [[_COMMUNITY_Ops Skill Builder Examples|Ops Skill Builder Examples]]
-- [[_COMMUNITY_PPTX Authoring Guidance|PPTX Authoring Guidance]]
-- [[_COMMUNITY_Pull-All PowerShell Script|Pull-All PowerShell Script]]
-- [[_COMMUNITY_Switch-Branch PowerShell Script|Switch-Branch PowerShell Script]]
-- [[_COMMUNITY_Clone-All PowerShell Script|Clone-All PowerShell Script]]
-- [[_COMMUNITY_Skill Directory Utilities|Skill Directory Utilities]]
-- [[_COMMUNITY_Using-Superpowers Meta-Rules|Using-Superpowers Meta-Rules]]
-- [[_COMMUNITY_NONoise White Logo|NONoise White Logo]]
-- [[_COMMUNITY_Graph Rendering (Graphviz)|Graph Rendering (Graphviz)]]
-- [[_COMMUNITY_Playwright CLI References|Playwright CLI References]]
-- [[_COMMUNITY_Office Unpack Utility|Office Unpack Utility]]
-- [[_COMMUNITY_Multi-Repo Workspace Workflow|Multi-Repo Workspace Workflow]]
-- [[_COMMUNITY_Markdown Extract Helper|Markdown Extract Helper]]
-- [[_COMMUNITY_Condition-Based Waiting Pattern|Condition-Based Waiting Pattern]]
-- [[_COMMUNITY_FPF Status & Decay Tools|FPF Status & Decay Tools]]
-- [[_COMMUNITY_DevOps Push CLI Glue|DevOps Push CLI Glue]]
-- [[_COMMUNITY_Pilu Mascot|Pilu Mascot]]
-- [[_COMMUNITY_NONoise Black Logo|NONoise Black Logo]]
-- [[_COMMUNITY_Test Helper|Test Helper]]
-- [[_COMMUNITY_VS Code Config Generator|VS Code Config Generator]]
-- [[_COMMUNITY_Daniel — Tech Writer Persona|Daniel — Tech Writer Persona]]
-- [[_COMMUNITY_BMAD Personas & Elicitation|BMAD Personas & Elicitation]]
-- [[_COMMUNITY_NONoise Cat Mascot Image|NONoise Cat Mascot Image]]
-- [[_COMMUNITY_Bundle-Assets Script|Bundle-Assets Script]]
-- [[_COMMUNITY_Python Package Init (a)|Python Package Init (a)]]
-- [[_COMMUNITY_Python Package Init (b)|Python Package Init (b)]]
-- [[_COMMUNITY_Python Package Init (c)|Python Package Init (c)]]
-- [[_COMMUNITY_Vitest Config|Vitest Config]]
-- [[_COMMUNITY_CLI Integration Test|CLI Integration Test]]
-- [[_COMMUNITY_Skill Manifest Test|Skill Manifest Test]]
-- [[_COMMUNITY_create-nonoise CLI Entry|create-nonoise CLI Entry]]
-- [[_COMMUNITY_License & Attribution|License & Attribution]]
+- [[_COMMUNITY_Community 0|Community 0]]
+- [[_COMMUNITY_Community 1|Community 1]]
+- [[_COMMUNITY_Community 2|Community 2]]
+- [[_COMMUNITY_Community 3|Community 3]]
+- [[_COMMUNITY_Community 4|Community 4]]
+- [[_COMMUNITY_Community 5|Community 5]]
+- [[_COMMUNITY_Community 6|Community 6]]
+- [[_COMMUNITY_Community 7|Community 7]]
+- [[_COMMUNITY_Community 8|Community 8]]
+- [[_COMMUNITY_Community 9|Community 9]]
+- [[_COMMUNITY_Community 10|Community 10]]
+- [[_COMMUNITY_Community 11|Community 11]]
+- [[_COMMUNITY_Community 12|Community 12]]
+- [[_COMMUNITY_Community 13|Community 13]]
+- [[_COMMUNITY_Community 14|Community 14]]
+- [[_COMMUNITY_Community 15|Community 15]]
+- [[_COMMUNITY_Community 16|Community 16]]
+- [[_COMMUNITY_Community 17|Community 17]]
+- [[_COMMUNITY_Community 18|Community 18]]
+- [[_COMMUNITY_Community 19|Community 19]]
+- [[_COMMUNITY_Community 20|Community 20]]
+- [[_COMMUNITY_Community 21|Community 21]]
+- [[_COMMUNITY_Community 22|Community 22]]
+- [[_COMMUNITY_Community 23|Community 23]]
+- [[_COMMUNITY_Community 24|Community 24]]
+- [[_COMMUNITY_Community 25|Community 25]]
+- [[_COMMUNITY_Community 26|Community 26]]
+- [[_COMMUNITY_Community 27|Community 27]]
+- [[_COMMUNITY_Community 28|Community 28]]
+- [[_COMMUNITY_Community 29|Community 29]]
+- [[_COMMUNITY_Community 30|Community 30]]
+- [[_COMMUNITY_Community 31|Community 31]]
+- [[_COMMUNITY_Community 32|Community 32]]
+- [[_COMMUNITY_Community 33|Community 33]]
+- [[_COMMUNITY_Community 34|Community 34]]
+- [[_COMMUNITY_Community 35|Community 35]]
+- [[_COMMUNITY_Community 36|Community 36]]
+- [[_COMMUNITY_Community 37|Community 37]]
+- [[_COMMUNITY_Community 38|Community 38]]
+- [[_COMMUNITY_Community 39|Community 39]]
+- [[_COMMUNITY_Community 40|Community 40]]
+- [[_COMMUNITY_Community 41|Community 41]]
+- [[_COMMUNITY_Community 42|Community 42]]
+- [[_COMMUNITY_Community 43|Community 43]]
+- [[_COMMUNITY_Community 44|Community 44]]
+- [[_COMMUNITY_Community 45|Community 45]]
+- [[_COMMUNITY_Community 46|Community 46]]
+- [[_COMMUNITY_Community 47|Community 47]]
+- [[_COMMUNITY_Community 48|Community 48]]
+- [[_COMMUNITY_Community 49|Community 49]]
+- [[_COMMUNITY_Community 50|Community 50]]
+- [[_COMMUNITY_Community 52|Community 52]]
+- [[_COMMUNITY_Community 53|Community 53]]
+- [[_COMMUNITY_Community 54|Community 54]]
+- [[_COMMUNITY_Community 55|Community 55]]
+- [[_COMMUNITY_Community 56|Community 56]]
+- [[_COMMUNITY_Community 58|Community 58]]
+- [[_COMMUNITY_Community 59|Community 59]]
+- [[_COMMUNITY_Community 60|Community 60]]
+- [[_COMMUNITY_Community 61|Community 61]]
+- [[_COMMUNITY_Community 76|Community 76]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `Skill catalog document` - 35 edges
-2. `log()` - 32 edges
-3. `BaseSchemaValidator` - 26 edges
-4. `Polly — NONoise Orchestrator` - 21 edges
-5. `DOCXSchemaValidator` - 18 edges
-6. `scaffold()` - 18 edges
-7. `External tools document (advisor-only)` - 18 edges
-8. `handlePushStepByStep()` - 17 edges
-9. `bmad-req-validator Skill` - 16 edges
-10. `quint-fpf Skill (First Principles Framework)` - 16 edges
+1. `Response` - 47 edges
+2. `Request` - 43 edges
+3. `build_from_json()` - 42 edges
+4. `cluster()` - 37 edges
+5. `main()` - 35 edges
+6. `Skill catalog document` - 35 edges
+7. `log()` - 34 edges
+8. `_labels()` - 34 edges
+9. `detect()` - 31 edges
+10. `_make_id()` - 30 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `test_make_id_strips_dots_and_underscores()` --calls--> `_make_id()`  [INFERRED]
+  packages\skills\vendor\graphify\tests\test_extract.py → packages\skills\vendor\graphify\graphify\extract.py
+- `test_make_id_no_leading_trailing_underscores()` --calls--> `_make_id()`  [INFERRED]
+  packages\skills\vendor\graphify\tests\test_extract.py → packages\skills\vendor\graphify\graphify\extract.py
 - `CLI scaffold pipeline` --semantically_similar_to--> `Repository layout reference`  [INFERRED] [semantically similar]
   CLAUDE.md → docs/installation.md
+- `Dev trio implementation loop` --rationale_for--> `Pair vs Solo Workflow Principle`  [INFERRED]
+  docs/polly.md → packages/skills/polly/SKILL.md
 - `printHelp()` --calls--> `log()`  [INFERRED]
-  scripts/sync-vendor.mjs → packages/templates/multi-repo/_always/tools/devops-push/src/devops-api.js
-- `syncOne()` --calls--> `log()`  [INFERRED]
-  scripts/sync-vendor.mjs → packages/templates/multi-repo/_always/tools/devops-push/src/devops-api.js
-- `init()` --calls--> `log()`  [INFERRED]
-  scripts/sync-vendor.mjs → packages/templates/multi-repo/_always/tools/devops-push/src/devops-api.js
-- `main()` --calls--> `log()`  [INFERRED]
-  scripts/sync-vendor.mjs → packages/templates/multi-repo/_always/tools/devops-push/src/devops-api.js
+  NONoise-frmw\packages\skills\skill-finder\scripts\fetch-registry.mjs → NONoise-frmw\packages\templates\single-project\_always\tools\devops-push\src\devops-api.js
 
 ## Hyperedges (group relationships)
 - **Pair-mode SDLC phases (discovery/architecture/sprint)** — sdlc_phase1_requirements, sdlc_phase3_architecture, sdlc_phase4_sprint, concept_pair_solo [EXTRACTED 0.95]
@@ -133,290 +133,276 @@
 
 ## Communities
 
-### Community 0 - "BMAD Personas & Core Principles"
+### Community 0 - "Community 0"
 Cohesion: 0.02
-Nodes (151): Isa Capabilities (BP/MR/DR/TR/CB/WB/DP/EL/RV), Isa — Business Analyst Persona, Canonical Architectures Principle, LSP Advisor (never auto-install), Alex — System Architect Persona, bundle-assets.mjs build step, CLI scaffold pipeline, graphify usage block (+143 more)
+Nodes (224): _cross_community_surprises(), _cross_file_surprises(), _file_category(), god_nodes(), graph_diff(), _is_concept_node(), _is_file_node(), _node_community_map() (+216 more)
 
-### Community 1 - "Superpowers Skills & Reviewers"
+### Community 1 - "Community 1"
+Cohesion: 0.03
+Nodes (102): Auth, BasicAuth, BearerAuth, DigestAuth, NetRCAuth, Authentication handlers. Auth objects are callables that modify a request befor, Load credentials from ~/.netrc based on the request host., Base class for all authentication handlers. (+94 more)
+
+### Community 2 - "Community 2"
+Cohesion: 0.03
+Nodes (162): _csharp_extra_walk(), extract_blade(), extract_c(), extract_cpp(), extract_csharp(), extract_elixir(), _extract_generic(), extract_java() (+154 more)
+
+### Community 3 - "Community 3"
+Cohesion: 0.02
+Nodes (160): Isa Capabilities (BP/MR/DR/TR/CB/WB/DP/EL/RV), Isa — Business Analyst Persona, Canonical Architectures Principle, LSP Advisor (never auto-install), Alex — System Architect Persona, bundle-assets.mjs build step, CLI scaffold pipeline, graphify usage block (+152 more)
+
+### Community 4 - "Community 4"
+Cohesion: 0.03
+Nodes (125): _git_root(), _hooks_dir(), install(), _install_hook(), Walk up to find .git directory., Return the git hooks directory, respecting core.hooksPath if set (e.g. Husky)., Install a single git hook, appending if an existing hook is present., Remove graphify section from a git hook using start/end markers. (+117 more)
+
+### Community 5 - "Community 5"
+Cohesion: 0.03
+Nodes (100): _detect_url_type(), _download_binary(), _fetch_arxiv(), _fetch_html(), _fetch_tweet(), _fetch_webpage(), _html_to_markdown(), ingest() (+92 more)
+
+### Community 6 - "Community 6"
+Cohesion: 0.04
+Nodes (84): aggregate_results(), calculate_stats(), generate_benchmark(), generate_markdown(), load_run_results(), main(), Aggregate run results into summary statistics.      Returns run_summary with sta, Generate complete benchmark.json from run results. (+76 more)
+
+### Community 7 - "Community 7"
+Cohesion: 0.05
+Nodes (31): BaseSchemaValidator, Base validator with common validation logic for document files., BaseSchemaValidator, clean_unused_files(), get_referenced_files(), get_slide_referenced_files(), get_slides_in_sldidlst(), Remove unreferenced files from an unpacked PPTX directory.  Usage: python clean. (+23 more)
+
+### Community 8 - "Community 8"
 Cohesion: 0.03
 Nodes (87): Superpowers Code Reviewer Agent, Brainstorm companion frame template (HTML/CSS), brainstorm command (deprecated), execute-plan command (deprecated), write-plan command (deprecated), 3+ failed fixes = architectural problem, not failed hypothesis, Authority principle (imperative language, no exceptions), Bite-sized tasks: each step one action, 2-5 minutes, TDD rhythm (+79 more)
 
-### Community 2 - "Azure DevOps & Work-Item Adapters"
+### Community 9 - "Community 9"
+Cohesion: 0.04
+Nodes (64): Base, Server, LinearAlgebra, area(), Analyzer, compute_score(), normalize(), Fixture: functions and methods that call each other - for call-graph extraction (+56 more)
+
+### Community 10 - "Community 10"
 Cohesion: 0.03
-Nodes (69): Azure DevOps adapter (implemented), AZURE_DEVOPS_PAT auth, System.LinkTypes.Dependency-Forward/Reverse, WIQL queries + iteration path, dry-run adapter (safety-net default), No authentication / no network, GitHub Issues adapter (default live v1), gh CLI or GH_TOKEN auth (+61 more)
+Nodes (83): Azure DevOps adapter (implemented), AZURE_DEVOPS_PAT auth, System.LinkTypes.Dependency-Forward/Reverse, WIQL queries + iteration path, dry-run adapter (safety-net default), No authentication / no network, GitHub Issues adapter (default live v1), gh CLI or GH_TOKEN auth (+75 more)
 
-### Community 3 - "Schema Validator Internals"
-Cohesion: 0.06
-Nodes (16): BaseSchemaValidator, Base validator with common validation logic for document files., BaseSchemaValidator, DOCXSchemaValidator, Validator for Word document XML files against XSD schemas., Validation modules for Word document processing., _condense_xml(), pack() (+8 more)
+### Community 11 - "Community 11"
+Cohesion: 0.09
+Nodes (56): checkEnvInteractive(), handlePushAll(), handlePushOne(), handlePushStepByStep(), handleSummary(), handleValidateAll(), handleValidateOne(), main() (+48 more)
 
-### Community 4 - "CLI Build & Print Helpers"
-Cohesion: 0.06
-Nodes (48): paint(), printBanner(), toPascalCase(), toSnakeCase(), main(), parseArgv(), printHelp(), readVersion() (+40 more)
+### Community 12 - "Community 12"
+Cohesion: 0.03
+Nodes (82): Post-hoc Analyzer Agent, Blind Comparator Agent, Grader Agent, Eval Review HTML Template, Eval Viewer HTML, 60fps Performance Target, AI Slop Anti-Patterns, With-skill vs Baseline Comparison (+74 more)
 
-### Community 5 - "DevOps Push Handlers"
-Cohesion: 0.1
-Nodes (46): checkEnvInteractive(), handlePushAll(), handlePushOne(), handlePushStepByStep(), handleSummary(), handleValidateAll(), handleValidateOne(), main() (+38 more)
+### Community 13 - "Community 13"
+Cohesion: 0.03
+Nodes (78): Browser-MCP pin per AI tool (Playwright), Env-var auth convention (TOOL_TOKEN, TOOL_API_KEY), Never-silent-login rule, OIDC federation for CI (GH Actions -> Azure/AWS/GCP), Cheap read-only probe pattern, Shared access-first reference, Access tiers: CLI > API > Web, Auth-model summary for crystallized skills (+70 more)
 
-### Community 6 - "Skill-Creator Eval Agents"
+### Community 14 - "Community 14"
 Cohesion: 0.05
-Nodes (57): Post-hoc Analyzer Agent, Blind Comparator Agent, Grader Agent, Eval Review HTML Template, Eval Viewer HTML, AI Slop Anti-Patterns, With-skill vs Baseline Comparison, Blind A/B Comparison (de-biased judgment) (+49 more)
+Nodes (70): classify_file(), convert_office_file(), count_words(), detect(), detect_incremental(), docx_to_markdown(), extract_pdf_text(), FileType (+62 more)
 
-### Community 7 - "Pair/Solo Dev-Trio Workflow"
+### Community 15 - "Community 15"
+Cohesion: 0.04
+Nodes (65): handle_delete(), handle_enrich(), handle_get(), handle_list(), handle_search(), handle_upload(), API module - exposes the document pipeline over HTTP. Thin layer over parser, v, Accept a list of file paths, run the full pipeline on each,     and return a su (+57 more)
+
+### Community 16 - "Community 16"
 Cohesion: 0.06
-Nodes (50): Dev trio (writing-plans + executing-plans + atr + finishing), Pair vs Solo Workflow Principle, Phase Fingerprinting via Filesystem, design-md-generator, Stitch 9-Section DESIGN.md Format, Absolute Bans (side-stripes, gradient text), impeccable:adapt (responsive), AI Slop Test (+42 more)
+Nodes (51): paint(), printBanner(), toPascalCase(), toSnakeCase(), main(), parseArgv(), printHelp(), readVersion() (+43 more)
 
-### Community 8 - "Shared Access Model (auth/MCP)"
+### Community 17 - "Community 17"
+Cohesion: 0.04
+Nodes (60): Quality Attribute Scenario (QAS), Six Quality Attributes (Perf/Scale/Sec/Avail/Maint/Interop), Quality Attribute Tradeoffs, ATAM-Lite Validator, Isa Capability RV (handoff-only), Phase 1 Classification, Phase 2 Methodology Recommendation, Phase 4 Gap Aggregation (dedup) (+52 more)
+
+### Community 18 - "Community 18"
 Cohesion: 0.05
-Nodes (46): Browser-MCP pin per AI tool (Playwright), Env-var auth convention (TOOL_TOKEN, TOOL_API_KEY), Never-silent-login rule, OIDC federation for CI (GH Actions -> Azure/AWS/GCP), Cheap read-only probe pattern, Shared access-first reference, Access tiers: CLI > API > Web, Auth-model summary for crystallized skills (+38 more)
+Nodes (52): _body_content(), cache_dir(), cached_files(), check_semantic_cache(), clear_cache(), file_hash(), load_cached(), Return set of file paths that have a valid cache entry (hash still matches). (+44 more)
 
-### Community 9 - "Quality Attributes & ATAM-Lite"
+### Community 19 - "Community 19"
+Cohesion: 0.05
+Nodes (56): Pair vs Solo Workflow Principle, Phase Fingerprinting via Filesystem, Risk Annotation (non-destructive/reversible/destructive), design-md-generator, Stitch 9-Section DESIGN.md Format, AWS EKS Rollout Example, Azure AKS Deploy Example, Five-Phase Ops Flow (+48 more)
+
+### Community 20 - "Community 20"
 Cohesion: 0.07
-Nodes (36): Quality Attribute Scenario (QAS), Six Quality Attributes (Perf/Scale/Sec/Avail/Maint/Interop), Quality Attribute Tradeoffs, ATAM-Lite Validator, Isa Capability RV (handoff-only), Phase 1 Classification, Phase 2 Methodology Recommendation, Phase 4 Gap Aggregation (dedup) (+28 more)
+Nodes (26): CacheManager, createProcessor(), DataProcessor, Get-Data(), GraphifyDemo, IProcessor, Loggable, NetworkError (+18 more)
 
-### Community 10 - "Architecture Brainstorm Flow"
+### Community 21 - "Community 21"
+Cohesion: 0.08
+Nodes (42): _check_tree_sitter_version(), extract(), extract_go(), extract_js(), extract_rust(), Extract classes, functions, arrow functions, and imports from a .js/.ts/.tsx fil, Extract functions, methods, type declarations, and imports from a .go file., Extract functions, structs, enums, traits, impl methods, and use declarations fr (+34 more)
+
+### Community 22 - "Community 22"
 Cohesion: 0.07
-Nodes (32): 4-phase flow: DISCOVER/DIALOGUE/WRITE/HANDOFF, Narrative PRD under docs/prd/<area>/, arch-brainstorm skill (step 1), arch-decision (step 2 validator), Workflow: brainstorm -> arch-decision -> sprint-manifest, Commands: generate/run/doc/push, Mandatory delegation of report writing, playwright-cli sibling skill (+24 more)
+Nodes (22): _build_user_message(), _chunk_files(), estimate_cost(), _extract_claude(), extract_corpus_parallel(), extract_files_direct(), _extract_openai_compat(), _parse_response() (+14 more)
 
-### Community 11 - "HTML Report Generator"
+### Community 23 - "Community 23"
 Cohesion: 0.1
 Nodes (23): generate_html(), main(), Generate HTML report from loop output data. If auto_refresh is True, adds a meta, _call_claude(), improve_description(), main(), Run `claude -p` with the prompt on stdin and return the text response.      Prom, Call Claude to improve the description based on eval results. (+15 more)
 
-### Community 12 - "Six-Folder Docs Hierarchy"
+### Community 24 - "Community 24"
+Cohesion: 0.09
+Nodes (31): claude_install(), claude_uninstall(), Write the graphify section to the local CLAUDE.md., Remove graphify PreToolUse hook from .claude/settings.json., Remove the graphify section from the local CLAUDE.md., _uninstall_claude_hook(), Tests for graphify claude install / uninstall commands., claude_install also writes .claude/settings.json with PreToolUse hook. (+23 more)
+
+### Community 25 - "Community 25"
+Cohesion: 0.15
+Nodes (27): _make_graph(), Tests for graphify.wiki — Wikipedia-style article generation., God node with bad ID should not crash., Communities with more than 25 nodes show a truncation notice., test_article_navigation_footer(), test_community_article_has_audit_trail(), test_community_article_has_cross_links(), test_community_article_shows_cohesion() (+19 more)
+
+### Community 26 - "Community 26"
+Cohesion: 0.16
+Nodes (15): fetchAwesomeList(), fetchGithubRepoTree(), fetchJson(), fetchMarketplaceJson(), fetchSource(), fetchText(), ghHeaders(), loadCustomSources() (+7 more)
+
+### Community 27 - "Community 27"
 Cohesion: 0.15
 Nodes (27): Six-folder docs hierarchy scaffold (calls, sprints, requirements, architecture, prd, support), docs/architecture/ — single source of truth (multi-repo), 00-index.md — architecture index stub (multi-repo), 01-constraints.md — absolute architectural constraints stub (multi-repo), docs/calls/ — cross-domain meeting notes (multi-repo), docs/prd/ — PRD drafts, arch-brainstorm output (multi-repo), docs/ knowledge base (multi-repo), docs/requirements/ — functional and business requirements (multi-repo) (+19 more)
 
-### Community 13 - "Architecture Decisions (DRR)"
-Cohesion: 0.12
-Nodes (24): decision_context (MemberOf grouping), depends_on dependency modeling, Deprecate Decision Action, DRR (Design Rationale Record), Bounded Context (Phase 0), Congruence Level (CL 1-3), Conversational Mode (markdown fallback), Holon (unit of reasoning) (+16 more)
+### Community 28 - "Community 28"
+Cohesion: 0.19
+Nodes (22): _estimate_tokens(), print_benchmark(), _query_subgraph_tokens(), Token-reduction benchmark - measures how much context graphify saves vs naive fu, Print a human-readable benchmark report., Run BFS from best-matching nodes and return estimated tokens in the subgraph con, Measure token reduction: corpus tokens vs graphify query tokens.      Args:, run_benchmark() (+14 more)
 
-### Community 14 - "Eval Runs HTTP Server"
-Cohesion: 0.13
-Nodes (18): BaseHTTPRequestHandler, build_run(), embed_file(), find_runs(), _find_runs_recursive(), generate_html(), get_mime_type(), _kill_port() (+10 more)
-
-### Community 15 - "DOCX Element Manipulation"
-Cohesion: 0.25
+### Community 29 - "Community 29"
+Cohesion: 0.33
 Nodes (16): _can_merge(), _consolidate_text(), _find_elements(), _first_child_run(), _get_child(), _get_children(), _is_adjacent(), _is_run() (+8 more)
 
-### Community 16 - "Impeccable Design Principles"
-Cohesion: 0.14
-Nodes (16): 60fps Performance Target, 60/30/10 Color Hierarchy Rule, Impeccable Context Gathering Protocol, OKLCH Perceptually Uniform Color, prefers-reduced-motion Accessibility, Progressive Enhancement (graceful fallbacks), Propose Before Building (multi-direction), Semantic Color (success/error/warning/info) (+8 more)
+### Community 30 - "Community 30"
+Cohesion: 0.21
+Nodes (15): test_assert_valid_passes_silently(), test_assert_valid_raises_on_errors(), test_dangling_edge_source(), test_dangling_edge_target(), test_invalid_confidence(), test_invalid_file_type(), test_missing_edges_key(), test_missing_node_field() (+7 more)
 
-### Community 17 - "Skill-Finder Fetchers"
-Cohesion: 0.29
-Nodes (13): fetchAwesomeList(), fetchGithubRepoTree(), fetchJson(), fetchMarketplaceJson(), fetchSource(), fetchText(), ghHeaders(), loadCustomSources() (+5 more)
-
-### Community 18 - "LibreOffice Thumbnail Helper"
-Cohesion: 0.22
-Nodes (13): _ensure_shim(), get_soffice_env(), _needs_shim(), Helper for running LibreOffice (soffice) in environments where AF_UNIX sockets m, run_soffice(), build_slide_list(), convert_to_images(), create_grid() (+5 more)
-
-### Community 19 - "Observability Log Adapters"
-Cohesion: 0.19
-Nodes (14): CloudWatch adapter (AWS Logs Insights + X-Ray), AWS SSO/IAM/role-based auth, Datadog adapter (Logs + APM spans + Events), DD_API_KEY + DD_APP_KEY + DD_SITE auth, LogQL query language, Grafana Loki adapter (+Tempo for traces), 6 phases: elicit→adapter→access→query→correlate→fix, Access-first philosophy (shared access-model.md) (+6 more)
-
-### Community 20 - "Benchmark Aggregator"
-Cohesion: 0.24
-Nodes (11): aggregate_results(), calculate_stats(), generate_benchmark(), generate_markdown(), load_run_results(), main(), Aggregate run results into summary statistics.      Returns run_summary with sta, Generate complete benchmark.json from run results. (+3 more)
-
-### Community 21 - "DOCX Tracked Changes"
-Cohesion: 0.29
-Nodes (11): _can_merge_tracked(), _find_elements(), _get_author(), _get_authors_from_docx(), get_tracked_change_authors(), infer_author(), _is_element(), _merge_tracked_changes_in() (+3 more)
-
-### Community 22 - "Requirements Ingest Flow"
+### Community 31 - "Community 31"
 Cohesion: 0.2
 Nodes (12): Requirement file is input contract to arch-brainstorm, Extracted Markdown (sibling of PDF) is canonical indexed source, Do not invent acceptance criteria; flag as open points, docs/requirements/<domain>/<feature>.md folder convention, 5-phase flow: COLLECT, EXTRACT, STRUCTURE, WRITE, HANDOFF, 5 signal types: functional, business-rule, UI/UX, out-of-scope, open-question, Source document parking under <domain>/sources/ with dated filenames, Ingestion heuristics (signal taxonomy, dedup, conflict resolution) (+4 more)
 
-### Community 23 - "SDLC Flow & Mode Diagram"
+### Community 32 - "Community 32"
 Cohesion: 0.33
 Nodes (12): NONoise SDLC Flow Diagram, Codebase Context, Documentation Hierarchy, File of Contents IA, Mode [Pair] - Large Models for Architecture, Mode [Solo] - Small Models for Implementation, Polly: The Conductor, Instant Scaffolding (create-nonoise) (+4 more)
 
-### Community 24 - "Vendor Sync Script"
-Cohesion: 0.38
-Nodes (10): cloneShallow(), init(), listVendors(), main(), parseArgs(), printHelp(), readManifest(), sh() (+2 more)
+### Community 33 - "Community 33"
+Cohesion: 0.25
+Nodes (7): main(), package_skill(), Check if a path should be excluded from packaging., Package a skill folder into a .skill file.      Args:         skill_path: Path t, should_exclude(), Basic validation of a skill, validate_skill()
 
-### Community 25 - "PPTX File Cleanup"
-Cohesion: 0.33
-Nodes (10): clean_unused_files(), get_referenced_files(), get_slide_referenced_files(), get_slides_in_sldidlst(), Remove unreferenced files from an unpacked PPTX directory.  Usage: python clean., remove_orphaned_files(), remove_orphaned_rels_files(), remove_orphaned_slides() (+2 more)
-
-### Community 26 - "Playwright Request Mocking"
+### Community 34 - "Community 34"
 Cohesion: 0.2
 Nodes (11): Conditional Response via run-code, Playwright CLI Request Mocking, Simulate Network Failures (abort), playwright-cli route command, URL Patterns (glob), A/B Testing Sessions Pattern, Concurrent Scraping Pattern, Session Isolation (cookies, storage, cache) (+3 more)
 
-### Community 27 - "Skill Packaging (.skill)"
-Cohesion: 0.28
-Nodes (7): main(), package_skill(), Check if a path should be excluded from packaging., Package a skill folder into a .skill file.      Args:         skill_path: Path t, should_exclude(), Basic validation of a skill, validate_skill()
+### Community 35 - "Community 35"
+Cohesion: 0.53
+Nodes (8): _add_to_content_types(), _add_to_presentation_rels(), create_slide_from_layout(), duplicate_slide(), _get_next_slide_id(), get_next_slide_number(), parse_source(), Add a new slide to an unpacked PPTX directory.  Usage: python add_slide.py <unpa
 
-### Community 28 - "PPTX Slide Operations"
-Cohesion: 0.44
-Nodes (7): _add_to_content_types(), _add_to_presentation_rels(), create_slide_from_layout(), duplicate_slide(), _get_next_slide_id(), get_next_slide_number(), Add a new slide to an unpacked PPTX directory.  Usage: python add_slide.py <unpa
+### Community 36 - "Community 36"
+Cohesion: 0.58
+Nodes (7): buildTargetNames(), cleanSkillsLock(), cleanup(), findProjectRoot(), findSkillsDirs(), isImpeccableSkill(), removeDeprecatedSkills()
 
-### Community 29 - "Giulia — UX Designer Persona"
+### Community 37 - "Community 37"
+Cohesion: 0.53
+Nodes (7): Clone-Repository(), Get-RepositoryConfiguration(), Write-Err(), Write-Header(), Write-Info(), Write-Success(), Write-Warn()
+
+### Community 38 - "Community 38"
+Cohesion: 0.53
+Nodes (7): Get-RepositoryConfiguration(), Pull-Repository(), Write-Err(), Write-Header(), Write-Info(), Write-Success(), Write-Warn()
+
+### Community 39 - "Community 39"
+Cohesion: 0.53
+Nodes (7): Get-RepositoryConfiguration(), Switch-RepositoryBranch(), Write-Err(), Write-Header(), Write-Info(), Write-Success(), Write-Warn()
+
+### Community 40 - "Community 40"
 Cohesion: 0.22
 Nodes (9): Capabilities: UX/DES/UI/CRT/POL/ADA/DLT/ANM/AUD/EL, bmad-agent-ux-designer (Giulia), Giulia — UX Designer + UI Specialist, Integration with Polly (greenfield flow), design-md-generator skill, Bold aesthetic direction (no AI-slop), frontend-design skill, impeccable/* skills (critique/polish/adapt/delight/animate/audit) (+1 more)
 
-### Community 30 - "Ops Skill Builder Examples"
-Cohesion: 0.31
-Nodes (9): Risk Annotation (non-destructive/reversible/destructive), AWS EKS Rollout Example, Azure AKS Deploy Example, Five-Phase Ops Flow, GCP Cloud Run Pipeline Example, Ops Skill Builder Examples, Canonical Ops Skill Template, deploy-payments-api-dev Sample Skill (+1 more)
-
-### Community 31 - "PPTX Authoring Guidance"
-Cohesion: 0.25
-Nodes (9): Commit to a Visual Motif, Varied Slide Layouts (avoid monotony), Visual QA via Subagents (fresh eyes), PPTX Editing Workflow (unpack/pack), PptxGenJS Tutorial, PPTX Skill, markitdown (PPTX text extraction), pptxgenjs (Node PPTX generation) (+1 more)
-
-### Community 32 - "Pull-All PowerShell Script"
-Cohesion: 0.43
-Nodes (6): Get-RepositoryConfiguration(), Pull-Repository(), Write-Err(), Write-Info(), Write-Success(), Write-Warn()
-
-### Community 33 - "Switch-Branch PowerShell Script"
-Cohesion: 0.43
-Nodes (6): Get-RepositoryConfiguration(), Switch-RepositoryBranch(), Write-Err(), Write-Info(), Write-Success(), Write-Warn()
-
-### Community 34 - "Clone-All PowerShell Script"
-Cohesion: 0.43
-Nodes (6): Clone-Repository(), Get-RepositoryConfiguration(), Write-Err(), Write-Info(), Write-Success(), Write-Warn()
-
-### Community 35 - "Skill Directory Utilities"
-Cohesion: 0.5
-Nodes (7): buildTargetNames(), cleanSkillsLock(), cleanup(), findProjectRoot(), findSkillsDirs(), isImpeccableSkill(), removeDeprecatedSkills()
-
-### Community 36 - "Using-Superpowers Meta-Rules"
+### Community 41 - "Community 41"
 Cohesion: 0.43
 Nodes (8): 1% rule: if any chance a skill applies, invoke it, Instruction priority: user > superpowers > default system, Cross-platform tool name mapping (Read/Write/Edit/Bash/Task -> native), Skill priority order: process skills (brainstorm/debug) before implementation skills, Codex tool mapping reference, Copilot CLI tool mapping reference, Gemini CLI tool mapping reference, Using Superpowers (meta-skill)
 
-### Community 37 - "NONoise White Logo"
+### Community 42 - "Community 42"
+Cohesion: 0.43
+Nodes (6): EventServiceProvider, NotifyAdmins, OrderPlaced, SendWelcomeEmail, ShipOrder, UserRegistered
+
+### Community 43 - "Community 43"
 Cohesion: 0.29
 Nodes (7): Grumpy orange Persian cat mascot, Black over-ear headphones with green signal LED, Palette: white background, orange cat, black headphones, green accent, dark gray text, Flat vector mascot illustration style, Tagline 'pure signal', Wordmark 'NONoise' with 'NO' bold, NONoise Logo (white)
 
-### Community 38 - "Graph Rendering (Graphviz)"
-Cohesion: 0.53
-Nodes (4): combineGraphs(), extractDotBlocks(), main(), renderToSvg()
-
-### Community 39 - "Playwright CLI References"
-Cohesion: 0.4
-Nodes (6): playwright-cli Running Code reference, playwright-cli SKILL.md, playwright-cli Storage State reference, playwright-cli Test Generation reference, playwright-cli Tracing reference, playwright-cli Video Recording reference
-
-### Community 40 - "Office Unpack Utility"
-Cohesion: 0.6
+### Community 44 - "Community 44"
+Cohesion: 0.67
 Nodes (4): _escape_smart_quotes(), _pretty_print_xml(), Unpack Office files (DOCX, PPTX, XLSX) for editing.  Extracts the ZIP archive, p, unpack()
 
-### Community 41 - "Multi-Repo Workspace Workflow"
+### Community 45 - "Community 45"
+Cohesion: 0.53
+Nodes (2): prompt(), stripQuotes()
+
+### Community 46 - "Community 46"
+Cohesion: 0.33
+Nodes (5): Animal, -initWithName, -speak, Dog, -fetch
+
+### Community 47 - "Community 47"
+Cohesion: 0.67
+Nodes (4): AppServiceProvider, CashierGateway, PaymentGateway, StripeGateway
+
+### Community 48 - "Community 48"
+Cohesion: 0.6
+Nodes (2): ColorResolver, DefaultPalette
+
+### Community 49 - "Community 49"
+Cohesion: 0.6
+Nodes (3): waitForEvent(), waitForEventCount(), waitForEventMatch()
+
+### Community 50 - "Community 50"
 Cohesion: 0.6
 Nodes (5): NONoise multi-repo workspace workflow (clone/switch/pull across repos), repositories.json workspace config (active/inactive sub-repos), clone-all.ps1 (clone every active sub-repo from repositories.json), pull-all.ps1 (fast-forward pull every active sub-repo), switch-branch.ps1 (checkout/create branch across sub-repos)
 
-### Community 42 - "Markdown Extract Helper"
-Cohesion: 0.67
-Nodes (2): prompt(), stripQuotes()
-
-### Community 43 - "Condition-Based Waiting Pattern"
+### Community 52 - "Community 52"
 Cohesion: 0.5
-Nodes (0): 
+Nodes (1): Transformer
 
-### Community 44 - "FPF Status & Decay Tools"
+### Community 53 - "Community 53"
 Cohesion: 0.5
 Nodes (4): q-status — Show FPF status, Hypothesis layers L0/L1/L2, quint_check_decay tool, quint_status tool
 
-### Community 45 - "DevOps Push CLI Glue"
+### Community 54 - "Community 54"
 Cohesion: 0.5
 Nodes (4): Dry-run default + idempotent work item push via back-written IDs, Feature > User Story > Task hierarchy in Azure DevOps push, Skill: spec-to-workitem (tracker-agnostic bridge, referenced), @nonoise/devops-push (Azure DevOps work item push CLI)
 
-### Community 46 - "Pilu Mascot"
+### Community 55 - "Community 55"
 Cohesion: 0.67
 Nodes (4): Headphones Motif, NONoise, Pilu, Cat Mascot with Headphones
 
-### Community 47 - "NONoise Black Logo"
+### Community 56 - "Community 56"
 Cohesion: 0.5
 Nodes (4): Headphones Motif, NONoise Logo (black), Grumpy Orange Cat Mascot, Tagline: pure signal
 
-### Community 48 - "Test Helper"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 49 - "VS Code Config Generator"
+### Community 58 - "Community 58"
 Cohesion: 0.67
 Nodes (3): Merge-preserve-hand-written-entries behavior, vscode-config-generator skill, Stack detection (Node/.NET/Python)
 
-### Community 50 - "Daniel — Tech Writer Persona"
+### Community 59 - "Community 59"
 Cohesion: 0.67
 Nodes (3): Capabilities DP/SYN/REA/WD/MG/VD/EC/PLN/EL, Daniel — Technical Writer persona, bmad-agent-tech-writer (Daniel persona)
 
-### Community 51 - "BMAD Personas & Elicitation"
+### Community 60 - "Community 60"
 Cohesion: 0.67
 Nodes (3): NONoise BMAD personas (Isa, Alex, Daniel, Giulia), Method registry (CSV) of elicitation techniques, Skill: bmad-advanced-elicitation (structured elicitation methods)
 
-### Community 52 - "NONoise Cat Mascot Image"
+### Community 61 - "Community 61"
 Cohesion: 0.67
 Nodes (3): Grumpy Orange Cat Wearing Headphones, Noise Cancellation Theme, NONoise Cat Mascot
 
-### Community 53 - "Bundle-Assets Script"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 54 - "Python Package Init (a)"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 55 - "Python Package Init (b)"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 56 - "Python Package Init (c)"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 57 - "Vitest Config"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 58 - "CLI Integration Test"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 59 - "Skill Manifest Test"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 60 - "create-nonoise CLI Entry"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 61 - "License & Attribution"
+### Community 76 - "Community 76"
 Cohesion: 1.0
 Nodes (1): License and attribution (MIT + attribution)
 
 ## Knowledge Gaps
-- **349 isolated node(s):** `Recursively find directories that contain an outputs/ subdirectory.`, `Build a run dict with prompt, outputs, and grading data.`, `Read a file and return an embedded representation.`, `Load previous iteration's feedback and outputs.      Returns a map of run_id ->`, `Generate the complete standalone HTML page with embedded data.` (+344 more)
+- **679 isolated node(s):** `Recursively find directories that contain an outputs/ subdirectory.`, `Build a run dict with prompt, outputs, and grading data.`, `Read a file and return an embedded representation.`, `Load previous iteration's feedback and outputs.      Returns a map of run_id ->`, `Generate the complete standalone HTML page with embedded data.` (+674 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Bundle-Assets Script`** (2 nodes): `listChildDirs()`, `bundle-assets.mjs`
+- **Thin community `Community 45`** (6 nodes): `extract.js`, `extract.js`, `prompt()`, `stripQuotes()`, `extract.js`, `extract.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Python Package Init (a)`** (1 nodes): `__init__.py`
+- **Thin community `Community 48`** (5 nodes): `sample_php_static_prop.php`, `ColorResolver`, `.accent()`, `.primary()`, `DefaultPalette`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Python Package Init (b)`** (1 nodes): `__init__.py`
+- **Thin community `Community 52`** (4 nodes): `sample.py`, `Transformer`, `.forward()`, `.__init__()`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Python Package Init (c)`** (1 nodes): `__init__.py`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Vitest Config`** (1 nodes): `vitest.config.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `CLI Integration Test`** (1 nodes): `cli.test.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Skill Manifest Test`** (1 nodes): `skill-manifest.test.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `create-nonoise CLI Entry`** (1 nodes): `create-nonoise.mjs`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `License & Attribution`** (1 nodes): `License and attribution (MIT + attribution)`
+- **Thin community `Community 76`** (1 nodes): `License and attribution (MIT + attribution)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `log()` connect `DevOps Push Handlers` to `Vendor Sync Script`, `Skill-Finder Fetchers`, `CLI Build & Print Helpers`, `Graph Rendering (Graphviz)`?**
-  _High betweenness centrality (0.026) - this node is a cross-community bridge._
-- **Why does `getTempDir()` connect `DevOps Push Handlers` to `LibreOffice Thumbnail Helper`, `HTML Report Generator`?**
-  _High betweenness centrality (0.013) - this node is a cross-community bridge._
-- **Are the 25 inferred relationships involving `log()` (e.g. with `printHelp()` and `syncOne()`) actually correct?**
-  _`log()` has 25 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 5 inferred relationships involving `BaseSchemaValidator` (e.g. with `DOCXSchemaValidator` and `Validator for Word document XML files against XSD schemas.`) actually correct?**
-  _`BaseSchemaValidator` has 5 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 4 inferred relationships involving `DOCXSchemaValidator` (e.g. with `BaseSchemaValidator` and `Validation modules for Word document processing.`) actually correct?**
-  _`DOCXSchemaValidator` has 4 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `Recursively find directories that contain an outputs/ subdirectory.`, `Build a run dict with prompt, outputs, and grading data.`, `Read a file and return an embedded representation.` to the rest of the system?**
-  _349 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `BMAD Personas & Core Principles` be split into smaller, more focused modules?**
-  _Cohesion score 0.02 - nodes in this community are weakly interconnected._
+- **Why does `Cookies` connect `Community 1` to `Community 0`, `Community 23`, `Community 6`, `Community 7`?**
+  _High betweenness centrality (0.036) - this node is a cross-community bridge._
+- **Why does `find()` connect `Community 18` to `Community 16`, `Community 11`, `Community 6`?**
+  _High betweenness centrality (0.035) - this node is a cross-community bridge._
+- **Why does `detect()` connect `Community 14` to `Community 0`, `Community 1`, `Community 7`?**
+  _High betweenness centrality (0.033) - this node is a cross-community bridge._
+- **Are the 121 inferred relationships involving `str` (e.g. with `get_slides_in_sldidlst()` and `remove_orphaned_slides()`) actually correct?**
+  _`str` has 121 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 41 inferred relationships involving `Response` (e.g. with `Auth` and `BasicAuth`) actually correct?**
+  _`Response` has 41 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 40 inferred relationships involving `Request` (e.g. with `Auth` and `BasicAuth`) actually correct?**
+  _`Request` has 40 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 37 inferred relationships involving `build_from_json()` (e.g. with `validate_extraction()` and `Graph`) actually correct?**
+  _`build_from_json()` has 37 INFERRED edges - model-reasoned connections that need verification._
