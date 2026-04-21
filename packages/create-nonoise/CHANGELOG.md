@@ -1,5 +1,11 @@
 # create-nonoise
 
+## 0.24.6
+
+### Patch Changes
+
+- `graphify-setup` and `reverse-engineering` bundled skills now invoke indexing through the `/graphify <path>` slash command (which runs the skill's full AST + LLM semantic extraction + community detection pipeline) instead of a bare `graphify <path>` CLI call — that subcommand does not exist in graphify v0.4.23. Step 5.2/5.3/5.5 of `graphify-setup` uses `/graphify <path>` for MISSING and `/graphify <path> --update` for EXISTS (incremental with semantic cache reuse), with a tool-dependent invocation note covering slash-command vs prose-following and a post-run validation that GRAPH_REPORT.md Token cost is non-zero on initial builds. `reverse-engineering` Step 2.1/2.2 gets the same routing + 0-token warning. Canonical scaffold snapshot regenerated. Docs: root README + package README now document the GitHub Release tarball as an npm-registry fallback; CLAUDE.md release checklist requires the fallback URL to be bumped in the same commit as the version.
+
 ## 0.24.5
 
 ### Patch Changes
