@@ -36,6 +36,7 @@ export type ProjectContext = {
   repos?: RepoEntry[];
   multiRepoConfigured?: boolean;
   user?: UserConfig;
+  reverseEngineering?: boolean;
 };
 
 export type HandlebarsRenderContext = ProjectContext & {

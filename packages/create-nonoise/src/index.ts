@@ -66,6 +66,8 @@ function parseArgv(args: string[]): ParsedFlags {
       out.workspaceKind = raw as WorkspaceKind;
     }
     else if (a === '--ai') out.ai = args[++i];
+    else if (a === '--reverse') out.reverseEngineering = true;
+    else if (a === '--no-reverse') out.reverseEngineering = false;
     else if (a === '--user-name') out.userName = args[++i];
     else if (a === '--user-locale') out.userLocale = args[++i];
     else if (!a.startsWith('-') && !out.positionalDir) out.positionalDir = a;
@@ -93,6 +95,7 @@ Options:
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
   --user-name <name>  Developer name (used by AI to address you; default: git user.name)
   --user-locale <iso> Language for the AI to reply in (ISO 639-1; default: OS locale)
+  --reverse / --no-reverse  Enable/disable reverse-engineering config block (asked interactively if omitted; default: true for existing repos, false for new)
   --no-git            Skip git init
   --yes, -y           Use defaults, non-interactive
   --version, -v       Print version

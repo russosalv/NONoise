@@ -21,6 +21,7 @@ export type CliFlags = {
   yes?: boolean;
   userName?: string;
   userLocale?: string;      // ISO 639-1
+  reverseEngineering?: boolean;
 };
 
 const DEFAULT_AI_TOOLS: AiTools = {
@@ -53,6 +54,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
 
   const gitInit = await askGitInit(flags, workspaceKind, repos);
   const user = await askUser(flags, aiTools);
+  const reverseEngineering = await askReverseEngineering(flags, workspaceKind);
 
   return {
     projectName: name,
@@ -65,6 +67,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
     repos,
     multiRepoConfigured,
     user,
+    reverseEngineering,
   };
 }
 
@@ -451,6 +454,18 @@ async function askUser(flags: CliFlags, aiTools: AiTools): Promise<UserConfig | 
     locale,
     localeLabel: labelForLocale(locale),
   };
+}
+
+async function askReverseEngineering(flags: CliFlags, workspaceKind: WorkspaceKind): Promise<boolean> {
+  if (flags.reverseEngineering !== undefined) return flags.reverseEngineering;
+  if (flags.yes) return workspaceKind !== 'new';
+
+  const answer = await confirm({
+    message: 'Will this project use reverse-engineering? (legacy code analysis, vendor API documentation, internal-library audit, anything that needs a graphify knowledge graph)',
+    initialValue: workspaceKind !== 'new',
+  });
+  abortIfCancel(answer);
+  return answer as boolean;
 }
 
 function abortIfCancel(value: unknown): void {

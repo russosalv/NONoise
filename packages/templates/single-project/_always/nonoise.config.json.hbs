@@ -13,11 +13,11 @@
   "user": {
     {{#if user.name}}"name": "{{user.name}}",
     {{/if}}"locale": "{{user.locale}}"
-  },{{/if}}
+  },{{/if}}{{#if reverseEngineering}}
   "reverse": {
     "source_path": ".",
     "graph_freshness_days": 30
-  },
+  },{{/if}}
   "skills": [
     "graphify-setup",
     "vscode-config-generator",
