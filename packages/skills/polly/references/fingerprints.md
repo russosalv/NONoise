@@ -114,7 +114,7 @@ and the right args to pass.
 
 | Signal | Check | Used by |
 |---|---|---|
-| `graphify_installed_no_graph_RE_intent` | `command -v graphify` succeeds AND `<proposed_source_path>/graphify-out/graph.json` does NOT exist AND user intent is RE | `decision-tree.md` § "Reverse-engineering intent gate" → invoke `graphify-setup` with `args="mode=reverse-engineering source_path=<path>"` |
+| `graphify_unavailable_or_no_graph_RE_intent` | (`command -v graphify` fails OR `<proposed_source_path>/graphify-out/graph.json` does NOT exist) AND user intent is RE | `decision-tree.md` § "Reverse-engineering intent gate" → invoke `graphify-setup` with `args="mode=reverse-engineering source_path=<path>"` |
 | `stale_source_graph` | `<source_path>/graphify-out/graph.json` exists AND (`manifest.json` `indexed_at` OR file mtime) is older than `nonoise.config.json → reverse.graph_freshness_days` (default 30 days) | `reverse-engineering` Q4 freshness check (internal; Polly doesn't branch on this — the skill handles it) |
 
 Rules:
