@@ -105,8 +105,9 @@ Step 5   Feature / product design               [pair]  → superpowers:brainsto
                                                          (+ bmad-agent-ux-designer)
                                                          (+ frontend-design)
 Step 6   Architecture options (if non-trivial)  [pair]  → arch-brainstorm
-Step 7   Architecture decision                  [pair]  → arch-decision (+ quint-fpf)
+Step 7   Architecture decision                  [pair]  → arch-decision (+ quint-fpf, + Phase 5.5 gate)
 Step 7b  Living C4 diagrams                     [solo]  → c4-doc-writer
+Step 7c  Arch source-of-truth sync (optional)   [solo]  → arch-sync (Polly suggests after PASS)
 Step 8   Sprint breakdown                       [pair]  → sprint-manifest
                                                          (+ spec-to-workitem)
 Step 9   Implementation loop — per task         [solo]  → dev trio (see §Dev trio)
@@ -173,6 +174,7 @@ Polly applies these without being asked:
 
 - **Pure refactor, no new feature** → skip Step 5 (feature design). Enter at Step 6 (arch options) if the refactor touches architecture, else go straight to Step 8 (sprint breakdown) with a refactor task.
 - **Simple feature on a known architecture** → skip Steps 6 and 7 (no new ADR needed; `sprint-manifest` reads existing design docs directly). Enter at Step 8.
+- **Step 7c is always optional** — Polly offers `arch-sync` after every `arch-decision` PASS but never invokes it without the architect's explicit choice. Skipping it is a valid completion.
 - **Architectural study with no concrete feature yet** → skip Step 5. Enter at Step 6 with an area-slug; Step 8 waits until a feature materialises.
 - **Bug fix with clear reproduction** → skip Steps 4-8 entirely. Enter at Step 9; use `superpowers:systematic-debugging` inside the dev trio.
 - **Brownfield (first entry)** → run B1-B5, then apply the three-way resume routing table.
