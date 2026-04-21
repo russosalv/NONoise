@@ -31,10 +31,16 @@ the framework, and the phrase Polly uses to hand off.
 
 ## Brownfield-specific
 
-| Skill | State | Phrase to use |
-|---|---|---|
-| `graphify-setup` | Installed | "I'll engage graphify-setup to verify the graph tooling." |
-| `reverse-engineering` | Installed | "I'll engage reverse-engineering — we'll explore the legacy code together before writing anything." |
+| Skill | State | Handoff args | Phrase to use |
+|---|---|---|---|
+| `graphify-setup` | Installed | `mode=reverse-engineering [source_path=<path>]` when triggered from an RE flow; empty otherwise | "I'll engage graphify-setup — it installs graphify, wires the usage rules, and (in RE flow) proposes indexing your code right away." |
+| `reverse-engineering` | Installed | none | "I'll engage reverse-engineering — we'll explore the legacy code together before writing anything. It prerequires a graphify graph for the subject; Polly handles that via graphify-setup first." |
+
+Args are parsed per `handoff-protocol.md` § "Skill arguments convention".
+When Polly routes RE intent and no graph exists for the proposed source
+path, it invokes `graphify-setup` with `mode=reverse-engineering` first
+(see `decision-tree.md` § "Reverse-engineering intent gate"), then
+`reverse-engineering`.
 
 ## Orthogonal / on-demand
 
