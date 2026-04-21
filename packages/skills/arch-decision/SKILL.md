@@ -1,6 +1,6 @@
 ---
 name: arch-decision
-description: Step 2 of the NONoise architectural workflow — formally validates an existing PRD (produced by `arch-brainstorm`) using the Quint FPF methodology via the `quint-fpf` sub-skill. Reads a PRD in `draft` status, extracts architectural hypotheses, runs abduction → deduction → induction, computes R_eff via WLNK, produces an audit report, and updates frontmatter to `validated` or `rejected`. On PASS reminds the architect to update `docs/architecture/` manually — NONoise does not auto-sync. Input is a path to a `draft` PRD. Does not create PRDs from scratch (that is `arch-brainstorm`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
+description: Step 2 of the NONoise architectural workflow — formally validates an existing PRD (produced by `arch-brainstorm`) using the Quint FPF methodology via the `quint-fpf` sub-skill. Reads a PRD in `draft` status, extracts architectural hypotheses, runs abduction → deduction → induction, computes R_eff via WLNK, produces a per-phase audit folder co-located with the PRD at `docs/prd/<area>/audit/NN-<study>-fpf/` (one markdown file per FPF phase, deletable in one `rm -rf`), and updates the PRD frontmatter to `validated` or `rejected`. On PASS reminds the architect to update `docs/architecture/` manually — NONoise does not auto-sync. Input is a path to a `draft` PRD. Does not create PRDs from scratch (that is `arch-brainstorm`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; delegates methodology to quint-fpf
 ---
@@ -30,7 +30,7 @@ After a PRD reaches `validated` state, **the architect updates `docs/architectur
 - **Input**: a PRD in `draft` state created by `arch-brainstorm` at `docs/prd/<area>/NN-<study>.md`
 - **Delegates methodology to**: `quint-fpf` — the generic First Principles Framework sub-skill. `arch-decision` is the opinionated wrapper that adapts the 6-phase FPF cycle to a PRD validation use-case.
 - **Output**:
-  - Audit report at `docs/prd/<area>/audit/NN-<study>-fpf.md`
+  - Audit folder at `docs/prd/<area>/audit/NN-<study>-fpf/` containing one markdown file per FPF phase (`00-context.md` through `05-decision.md`) — co-located with the PRD so a single `rm -rf <folder>` removes the entire pre-validation trail
   - PRD frontmatter updated with `status: validated | rejected`, `validated_at`, `validated_by`
   - Reminder message to the architect to update `docs/architecture/` manually on PASS
 - **Does NOT**:
@@ -73,7 +73,7 @@ If any of these is missing, **stop** and ask the architect to produce a valid PR
 
 ## Flow — 6 phases
 
-Each phase is a checkpoint: **ask for user confirmation before moving on**. The user can re-enter at any phase (resume from where they left off if a partial audit report already exists).
+Each phase is a checkpoint: **ask for user confirmation before moving on**. The user can re-enter at any phase (resume from where they left off if a partial audit folder already exists).
 
 | # | Phase | Output | quint-fpf correspondence |
 |---|---|---|---|
@@ -82,9 +82,30 @@ Each phase is a checkpoint: **ask for user confirmation before moving on**. The 
 | 3 | VALIDATE (Induction) | Evidence with Congruence Level (CL1–CL3) | `quint_validate` (Phase 3) |
 | 4 | AUDIT (Trust Calculus) | R_eff per hypothesis, bias check, audit tree | `quint_audit` (Phase 4) |
 | 5 | DECIDE | Global PRD verdict (PASS/FAIL) | `quint_decide` (Phase 5) |
-| 6 | FINALIZE | Frontmatter updated + audit report + sync trigger | post-FPF projection |
+| 6 | FINALIZE | PRD frontmatter updated + audit folder closed + sync trigger | post-FPF projection |
 
-In **tooled mode** (Quint MCP server available), phases 1–5 are backed by `quint_*` tool calls — see `quint-fpf/SKILL.md` for exact signatures. In **conversational mode**, the same discipline is applied producing the audit report purely in markdown.
+In **tooled mode** (Quint MCP server available), phases 1–5 are backed by `quint_*` tool calls — see `quint-fpf/SKILL.md` for exact signatures. In **conversational mode**, the same discipline is applied producing the markdown trail only. **In both modes, every phase writes its own file under `docs/prd/<area>/audit/NN-<study>-fpf/`** — see the file-per-phase layout below; this folder is the audit trail.
+
+### Audit folder layout
+
+```
+docs/prd/<area>/
+├── NN-<study>.md                       ← the PRD being validated
+└── audit/
+    └── NN-<study>-fpf/                 ← created by arch-decision (this skill)
+        ├── 00-context.md               ← Phase 0: Bounded Context seeded from the PRD
+        ├── 01-hypotheses.md            ← Phase 1: hypotheses extracted from the PRD
+        ├── 02-verification.md          ← Phase 2: logical verification
+        ├── 03-validation.md            ← Phase 3: empirical evidence
+        ├── 04-audit.md                 ← Phase 4: R_eff per hypothesis (WLNK)
+        └── 05-decision.md              ← Phase 5: global PRD verdict (DRR)
+```
+
+**Implementation note:** the per-phase content described in each phase below maps 1:1 to the corresponding bundled `quint-fpf` slash command. You may either:
+- **(a) Inline** — write the per-phase content directly using the templates in this file (this skill's responsibility).
+- **(b) Delegate** — invoke the bundled commands `/q0-init --target docs/prd/<area>/audit/NN-<study>-fpf/`, then `/q1-hypothesize`, `/q2-verify`, `/q3-validate`, `/q4-audit`, `/q5-decide` in sequence. They produce the same files; this is preferred when you want consistency with users running quint-fpf standalone.
+
+Either way, the folder layout above is the contract.
 
 ---
 
@@ -114,27 +135,62 @@ In **tooled mode** (Quint MCP server available), phases 1–5 are backed by `qui
 
 4. **If obvious alternatives are missing**: add them yourself as an auditor would. Document that they were added at audit time (they were not in the original PRD). Example: a PRD choosing "short-lived tokens" without considering "encrypted long-lived tokens in DB" — add that alternative.
 
-5. **Write the partial audit file** at `docs/prd/<area>/audit/NN-<study>-fpf.md`:
+5. **Create the audit folder** at `docs/prd/<area>/audit/NN-<study>-fpf/` (parent dirs as needed).
+
+6. **Write `00-context.md`** — the Bounded Context seeded from the PRD:
 
 ```markdown
 ---
-title: "FPF audit — <study title>"
-area: <area-slug>
-study: <study-slug>
-kind: audit
-related_prd: ../NN-<study>.md
-quint_fpf_run: <timestamp>
-verdict: IN_PROGRESS
-r_eff: null
-audited_at: <today>
+phase: 0
+slug: <area-slug>-<study-slug>
+output_dir: docs/prd/<area>/audit/NN-<study>-fpf/
+mode: tooled | conversational
+related_prd: ../../NN-<study>.md
+problem_statement: <one-sentence summary of the architectural decision under review>
+created_at: <UTC ISO-8601>
+verdict_phase5:
 ---
 
-# FPF audit — <study title>
+# Phase 0 — Bounded Context (seeded from PRD)
 
-> Validated PRD: [`../NN-<study>.md`](../NN-<study>.md)
-> Audit date: YYYY-MM-DD
+## Problem statement
+<the architectural question or anomaly the PRD addresses>
 
-## Phase 1 — HYPOTHESIZE (extraction)
+## Vocabulary
+- (extracted from PRD §1 / glossary)
+
+## Invariants
+- (extracted from `docs/architecture/01-constraints.md` and the PRD)
+
+## Constraints
+- (project stack, perf budgets, compliance — from `docs/architecture/` and `CLAUDE.md`)
+
+## Tools detected
+- quint MCP: present (vN.M) | absent — running in conversational mode
+
+## Sources scanned
+- `<path to PRD>`
+- `docs/architecture/01-constraints.md`
+- `CLAUDE.md` / `AGENTS.md`
+
+## Revisions
+```
+
+7. **Write `01-hypotheses.md`** — the extracted hypotheses:
+
+```markdown
+---
+phase: 1
+slug: <same as 00-context.md>
+output_dir: <same as 00-context.md>
+mode: tooled | conversational
+related_prd: ../../NN-<study>.md
+last_updated: <UTC ISO-8601>
+---
+
+# Phase 1 — Hypotheses (L0) — extracted from PRD
+
+## Initial entries
 
 ### Decision group 1: <key decision title>
 
@@ -144,18 +200,24 @@ audited_at: <today>
 | H2 | <alternative 1> | PRD § 2.2 (rejected) | Rejected in story |
 | H3 | <alternative 2> | Added at audit | Not present in PRD |
 
+#### H1 — <title>
+- **Kind**: system | episteme
+- **Scope**: <claim scope>
+- **Method**: <how it works>
+- **Rationale**:
+  - Anomaly: <what triggered the need>
+  - Approach: <why this works>
+  - Alternatives rejected: <list>
+- **Origin**: PRD § 2.2 (chosen by PRD)
+- **decision_context**: <id of parent decision>
+- **depends_on**: [<id1>, …]
+
+#### H2 — <title>
+…(same template)
+
 ### Decision group 2: ...
-```
 
-6. **Add a cumulative hypotheses table** to the audit report:
-
-```markdown
-## Hypotheses table (current state)
-
-| ID | Hypothesis | Phase | Verdict | CL | Notes |
-|----|------------|-------|---------|-----|-------|
-| H1 | <short text> | HYPOTHESIZE | — | — | Chosen by the PRD |
-| H2 | <short text> | HYPOTHESIZE | — | — | |
+## Revisions
 ```
 
 ### Phase 1 checkpoint
@@ -163,8 +225,9 @@ audited_at: <today>
 - [ ] PRD fully read (frontmatter + §1–§2 at least)
 - [ ] Hypotheses extracted from each key decision (groups)
 - [ ] NQD diversity verified
-- [ ] Initial audit report created
-- [ ] Hypotheses table populated
+- [ ] Audit folder created at `docs/prd/<area>/audit/NN-<study>-fpf/`
+- [ ] `00-context.md` written (Bounded Context seeded from PRD)
+- [ ] `01-hypotheses.md` written with all decision groups and per-hypothesis details
 - [ ] User confirmed to proceed to verification
 
 **Ask**: "I extracted {N} hypotheses from the PRD ({M} added by me during audit). Do you want to confirm the list or add/change anything before verification?"
@@ -198,39 +261,53 @@ audited_at: <today>
    - `CLAUDE.md`, `AGENTS.md`, `nonoise.config.json` at repo root
    - Any project-specific arch skill installed via `skill-finder` (rare)
 
-2. **For each hypothesis**, run the 4 checks and document them in the report:
+2. **For each hypothesis**, run the 4 checks and write `02-verification.md`:
 
 ```markdown
-## Phase 2 — VERIFY
+---
+phase: 2
+slug: <same as 00-context.md>
+output_dir: <same as 00-context.md>
+mode: tooled | conversational
+related_prd: ../../NN-<study>.md
+last_updated: <UTC ISO-8601>
+summary:
+  pass: <N>
+  fail: <N>
+  refine: <N>
+---
 
-### H1 — <text>
+# Phase 2 — Verification (L0 → L1)
+
+## Initial entries
+
+### H1 — verdict: PASS
 
 | Check | Result | Notes |
 |-------|--------|-------|
 | Type check | PASS | DTOs compatible with shared contracts |
-| Constraint check | PASS | No violated constraints |
+| Constraint check | PASS | No violated constraints from `docs/architecture/01-constraints.md` |
 | Consistency check | PASS | No race conditions |
 | Compatibility check | PASS | Coherent with bounded context |
 
-**Verdict**: PASS
+### H2 — verdict: FAIL
+- Type check: PASS
+- Constraint check: **FAILED** — violates "<absolute constraint>"
+- Consistency check: n/a
+- Compatibility check: n/a
+- Notes: <reason>
 
-### H2 — <text>
-...
+## Revisions
 ```
 
-3. **Update the Hypotheses table** with verdicts:
-
-```markdown
-| H1 | ... | VERIFY | PASS | — | |
-| H2 | ... | VERIFY | FAIL | — | Network overhead unacceptable |
-```
+3. **No separate cumulative table is needed**: each phase file (`02-verification.md`, `03-validation.md`, `04-audit.md`) already states the per-hypothesis verdict for that phase. The final consolidated comparison lives in `04-audit.md` (R_eff comparison table).
 
 ### Phase 2 checkpoint
 
 - [ ] Every hypothesis checked against the 4 checks
 - [ ] At least one PASS per decision group
 - [ ] FAILs documented with motivation
-- [ ] Hypotheses table updated
+- [ ] `02-verification.md` written with all hypotheses and verdicts
 
 **Ask**: "Verification done: {N} PASS, {M} FAIL, {K} REFINE. Detail: {summary}. Proceed to gather evidence?"
 
@@ -264,12 +341,27 @@ For each PASS hypothesis (not FAIL):
 
 1. **Pick the best available strategy**
 2. **Gather evidence** with Grep/Glob/Bash/Explore agent if codebase checks are needed
-3. **Document** in the audit report:
+3. **Write `03-validation.md`**:
 
 ```markdown
-## Phase 3 — VALIDATE
+---
+phase: 3
+slug: <same as 00-context.md>
+output_dir: <same as 00-context.md>
+mode: tooled | conversational
+related_prd: ../../NN-<study>.md
+last_updated: <UTC ISO-8601>
+summary:
+  pass: <N>
+  fail: <N>
+  refine: <N>
+---
 
-### H1 — <text>
+# Phase 3 — Validation (L1 → L2)
+
+## Initial entries
+
+### H1 — verdict: PASS (max CL reached: CL2)
 
 **E1**: Pub/sub self-sub pattern already exists in `auth-service`
 - **CL**: 2 (Codebase analysis)
@@ -283,23 +375,18 @@ For each PASS hypothesis (not FAIL):
 - **Result**: Recommended pattern, built-in retry
 - **Verdict**: PASS
 
-### H2 — Outbox table + worker
+### H2 — Outbox table + worker — verdict: PASS
 
 **E1**: ...
-```
 
-4. Update the Hypotheses table with the max CL reached:
-
-```markdown
-| H1 | ... | VALIDATE | PASS | CL2 | Pattern in auth-service in prod |
-| H3 | ... | VALIDATE | PASS | CL1 | Only external research |
+## Revisions
 ```
 
 ### Phase 3 checkpoint
 
 - [ ] Every PASS hypothesis has at least one piece of evidence
 - [ ] Evidence documented with CL and source
-- [ ] Hypotheses table updated
+- [ ] `03-validation.md` written with all hypotheses and evidence
 
 **Ask**: "Evidence gathered. {H1} has CL{X}, {H3} has CL{Y}. Deepen any with a CL3 PoC or proceed to audit?"
 
@@ -355,31 +442,56 @@ Verify these common biases before proceeding:
 
 1. **Compute R_eff** per hypothesis using the formula above
 2. **Run the bias check** — answer every row honestly
-3. **Build the audit tree** in the report:
+3. **Write `04-audit.md`**:
 
 ```markdown
-## Phase 4 — AUDIT
+---
+phase: 4
+slug: <same as 00-context.md>
+output_dir: <same as 00-context.md>
+mode: tooled | conversational
+related_prd: ../../NN-<study>.md
+last_updated: <UTC ISO-8601>
+r_eff_min: <minimum across all hypotheses>
+r_eff_max: <maximum>
+---
 
-### Audit tree
+# Phase 4 — Audit (Trust Calculus, R_eff via WLNK)
 
-| Hypothesis | Evidence | Base score | CL | Adj score | WLNK |
-|------------|----------|------------|-----|-----------|------|
-| H1 | E1: auth-service pattern | 0.90 | CL2 (×0.9) | 0.81 | |
-| H1 | E2: Platform docs | 0.75 | CL1 (×0.7) | 0.53 | |
-| **H1** | | | | **R_eff** | **0.53** |
-| H2 | E1: ... | ... | ... | ... | |
+## Comparison table (consolidated across all decision groups)
 
-### Bias check
+| Hypothesis | R_eff | Weakest link | Bias check |
+|------------|-------|--------------|------------|
+| H1 | 0.53 | E2 (CL1 external docs) | none |
+| H2 | 0.72 | E1 (FAIL on edge case) | confirmation risk |
+| H3 | 0.40 | E1 (CL1 only, weak result) | anchoring |
 
+## Per-hypothesis breakdown
+
+### H1 — R_eff: 0.53
+
+| Evidence | Base score | CL | Adj score |
+|----------|------------|-----|-----------|
+| E1: auth-service pattern | 0.90 | CL2 (×0.9) | 0.81 |
+| E2: Platform docs | 0.75 | CL1 (×0.7) | 0.53 |
+
+**WLNK**: min(0.81, 0.53) = **0.53**
+**Weakest link**: E2 (external docs, CL1)
+**Bias check**:
 - Anchoring: <analysis>
 - Confirmation: <analysis>
 - Sunk cost: N/A
 - Authority: <analysis>
 
-### Pre-decision recommendation
+### H2 — R_eff: …
+…(same template)
+
+## Pre-decision recommendation
 
 <If R_eff is low across all hypotheses, suggest gathering more CL3 evidence
 before deciding. If there is a clear winner, indicate it.>
+
+## Revisions
 ```
 
 ### R_eff thresholds
@@ -394,7 +506,7 @@ before deciding. If there is a clear winner, indicate it.>
 
 - [ ] R_eff computed per hypothesis
 - [ ] Bias check completed
-- [ ] Audit tree documented
+- [ ] `04-audit.md` written with comparison table, per-hypothesis breakdown, and pre-decision recommendation
 
 **Ask**: "Audit complete. H1 R_eff={R1}, … {recommendation}. Proceed to global decision?"
 
@@ -424,33 +536,50 @@ The PRD needs revision (`needs-revision`, returns to `draft`) if:
 
 1. **Compute the global verdict**
 
-2. **Write the verdict in the report**:
+2. **Write `05-decision.md`** (the DRR — final artifact of the cycle):
 
 ```markdown
-## Phase 5 — DECIDE
+---
+phase: 5
+slug: <same as 00-context.md>
+output_dir: <same as 00-context.md>
+mode: tooled | conversational
+related_prd: ../../NN-<study>.md
+decided_at: <UTC ISO-8601>
+verdict: PASS | FAIL | NEEDS-REVISION
+r_eff_min: <minimum across H1 hypotheses>
+r_eff_avg: <average across H1 hypotheses>
+---
 
-### Global verdict
+# Phase 5 — Decision (DRR)
 
+## Global verdict
 **Status**: PASS | FAIL | NEEDS-REVISION
+**Minimum R_eff (across H1 hypotheses)**: <number>
 **Average R_eff**: <number>
-**Minimum R_eff**: <number>
-**Date**: YYYY-MM-DD
 
-### Rationale
+## Rationale
+<Specific: why this verdict, with references to the decision groups in 04-audit.md.>
 
-<Specific: why this verdict, with references to the decision groups.>
-
-### Residual risks (if PASS)
-
+## Residual risks (if PASS)
 - <R_eff pulled down by X — medium risk, mitigation suggested>
 - <Other risk>: <mitigation>
 
-### Proposed revisions (if FAIL or NEEDS-REVISION)
-
+## Proposed revisions (if FAIL or NEEDS-REVISION)
 - <What to revise in the PRD>
 - <Hypothesis to reconsider>
 - <CL3 evidence to produce>
+
+## Audit trail
+- Phase 0 (context): `00-context.md`
+- Phase 1 (hypotheses): `01-hypotheses.md`
+- Phase 2 (verification): `02-verification.md`
+- Phase 3 (validation): `03-validation.md`
+- Phase 4 (audit): `04-audit.md`
+- Validated PRD: `../../NN-<study>.md`
 ```
+
+3. **Update `00-context.md`** frontmatter — set `verdict_phase5: PASS | FAIL | NEEDS-REVISION` so subsequent `qN-*` commands recognise the cycle as closed.
 
 3. **Ask user confirmation** before finalizing (Phase 6). The user can:
    - Accept the verdict → proceed to finalization
@@ -463,6 +592,94 @@ The PRD needs revision (`needs-revision`, returns to `draft`) if:
 - [ ] Rationale documented
 - [ ] Residual risks identified
 - [ ] User approved the verdict
+
+---
+
+## Phase 5.5: REVIEW & APPROVE — human gate (mandatory)
+
+**Goal**: separate "computer proposes" (Phase 5 algorithmic verdict) from
+"human disposes" (this phase). The architect must explicitly choose one of
+five actions before the PRD frontmatter is touched. There is no default —
+the skill stops and waits.
+
+### Pre-conditions
+
+- Phase 5 has produced a global verdict (PASS / FAIL / NEEDS-REVISION),
+  R_eff_min, R_eff_avg, and a rationale recorded in the audit report.
+
+### Post-conditions
+
+- The audit report contains a `human_verdict` field in
+  `{ approve, reject, go-back, force-validated, edit-then-decide }`.
+- If the human action diverges from the algorithmic verdict (action 4 —
+  force-validated), the audit also has `validated_by: human-override`
+  with a free-text motivation captured at the gate.
+
+### Action — present the recap block
+
+Render this block to the architect (substitute `<...>` placeholders from
+the audit produced in Phase 4 / Phase 5):
+
+```
+═══════════════════════════════════════════════
+QUINT FPF — Recap prima della validazione
+═══════════════════════════════════════════════
+
+📋 Ipotesi raccolte (<N> gruppi)
+
+GRUPPO 1: <decision title>
+  H1 ★ <text>      R_eff <X>   <verdict>   ← scelta nel PRD
+  H2   <text>      R_eff <X>   <verdict>
+  H3   <text>      R_eff <X>   <verdict>
+
+GRUPPO 2: <decision title>
+  H1 ★ <text>      R_eff <X>   <verdict>   ← scelta nel PRD
+  H2   <text>      R_eff <X>   <verdict>
+
+📊 Verdetto algoritmico: <PASS | FAIL | CONDITIONAL PASS | NEEDS-REVISION>
+   R_eff_min = <X>
+   R_eff_avg = <X>
+
+⚠️  <weak-link warning if any: which H, which CL, why it matters>
+    <suggested mitigation, e.g. "PoC to lift CL1 → CL3">
+
+═══════════════════════════════════════════════
+
+Cosa vuoi fare? (scegli esplicitamente — nessun default)
+  [1] ✅ Valido        — accetto il verdetto, procedi a Phase 6
+  [2] ⛔ Rigetto       — segna `rejected`, riapro il PRD
+  [3] 🔁 Torna a Phase X (1-4) per revisionare
+  [4] 🛠️ Forza 'validated' (override umano)
+       → l'audit registra `validated_by: human-override` + motivazione
+  [5] 📝 Modifica l'audit prima del finalize
+```
+
+### Action handlers
+
+| # | Action | Effect |
+|---|--------|--------|
+| 1 | Approve | Algorithmic verdict honored. Set `human_verdict: approve` in the audit. Proceed to Phase 6 with the verdict from Phase 5. |
+| 2 | Reject | Set `human_verdict: reject` in the audit + capture motivation (mandatory free-text). PRD frontmatter set to `status: rejected` regardless of the algorithmic verdict. Skill exits — Polly resumes. |
+| 3 | Go back | Ask which phase (1-4). Mark prior contents for later phases as `superseded` in the audit (do NOT erase — keep the trace). Re-enter that phase. |
+| 4 | Force validated | Used when the algorithmic verdict is FAIL / NEEDS-REVISION / CONDITIONAL but the human accepts the risk. Capture motivation (mandatory free-text — "why are you overriding?"). Set `human_verdict: force-validated` and `validated_by: human-override` in the audit. Proceed to Phase 6 with `status: validated`. |
+| 5 | Edit audit | Pause Phase 5.5. Ask the user what to change in the audit. Apply edits (in conversation, not by spawning an editor). Recompute R_eff if any evidence/CL changed. Re-display the recap block with updated numbers. Loop until the user chooses 1, 2, 3, or 4. |
+
+### Phase 5.5 checkpoint
+
+- [ ] Recap block rendered with all decision groups + R_eff figures
+- [ ] User has explicitly chosen action 1, 2, 3, or 4 (no default firing)
+- [ ] If action 2 or 4: motivation captured and stored in `human_verdict_motivation`
+- [ ] Audit report updated with `human_verdict` (and `validated_by` if action 4)
+
+### Anti-patterns
+
+- **Skipping the recap and asking only "approve?"** — defeats the purpose
+  of the gate. The recap is the artifact that gives the human enough
+  context to disagree.
+- **Treating action 4 as exotic** — it is a first-class capability.
+  Present it neutrally, not as "going against the recommendation".
+- **Auto-firing action 1 because PASS is "obvious"** — there is no default
+  in this phase. PASS still requires an explicit click.
 
 ---
 
@@ -483,26 +700,20 @@ validated_by: "arch-decision (Quint FPF run <timestamp>)"
 ---
 ```
 
-2. **Finalize the audit report** (`docs/prd/<area>/audit/NN-<study>-fpf.md`):
-
-```yaml
----
-verdict: PASS
-r_eff: <minimum of H1 values>
-audited_at: YYYY-MM-DD
----
-```
-
-Make sure the report contains all 5 phases filled in.
+2. **Finalize the audit folder** (`docs/prd/<area>/audit/NN-<study>-fpf/`):
+   - `05-decision.md` already carries `verdict: PASS` and `r_eff_min` (written in Phase 5)
+   - `00-context.md` frontmatter `verdict_phase5: PASS` (set in Phase 5) marks the cycle as closed
+   - Make sure all 6 files (`00-context.md` through `05-decision.md`) exist with the expected sections; if any is missing, go back and complete it before finalising
 
 3. **Inform the architect** of the result, the impact on the source of truth, and next steps:
 
 ```
 ✅ PRD successfully validated.
 
-**R_eff**: <number>
+**R_eff (min across H1 hypotheses)**: <number>
 **Verdict**: PASS
-**Audit report**: <path>
+**Audit folder**: `docs/prd/<area>/audit/NN-<study>-fpf/`
+**DRR**: `docs/prd/<area>/audit/NN-<study>-fpf/05-decision.md`
 
 **Impact on docs/architecture/** (update manually):
 - <list concrete changes the architect should write: new constraint / new pattern / new component in 04-components.md / etc.>
@@ -534,7 +745,7 @@ last_audit_verdict: NEEDS-REVISION
 ---
 ```
 
-2. **Finalize the audit report** with `verdict: FAIL | NEEDS-REVISION` and the detailed list of proposed revisions.
+2. **Finalize the audit folder** — `05-decision.md` already carries `verdict: FAIL | NEEDS-REVISION` and the detailed list of proposed revisions; `00-context.md` frontmatter `verdict_phase5` is set accordingly.
 
 3. **DO NOT suggest updates to `docs/architecture/`** — the source of truth must not be updated with rejected decisions.
 
@@ -545,7 +756,8 @@ last_audit_verdict: NEEDS-REVISION
 
 **Minimum R_eff**: <number>
 **Verdict**: FAIL / NEEDS-REVISION
-**Audit report**: <path>
+**Audit folder**: `docs/prd/<area>/audit/NN-<study>-fpf/`
+**DRR**: `docs/prd/<area>/audit/NN-<study>-fpf/05-decision.md`
 
 **Proposed revisions**:
 - <list>
@@ -559,21 +771,22 @@ last_audit_verdict: NEEDS-REVISION
 ### Phase 6 checkpoint
 
 - [ ] PRD frontmatter updated (validated | rejected | draft)
-- [ ] Audit report finalized with all 5 phases
+- [ ] Audit folder `docs/prd/<area>/audit/NN-<study>-fpf/` contains all 6 files (`00-context.md` through `05-decision.md`)
+- [ ] `00-context.md` frontmatter `verdict_phase5` set (cycle marked closed)
 - [ ] On PASS: concrete "Impact on docs/architecture/" checklist produced for the architect
-- [ ] Architect informed of next steps
+- [ ] Architect informed of next steps with explicit paths to the audit folder and DRR
 
 ---
 
 ## Resuming mid-flow
 
-If a partial audit report already exists at `audit/NN-<study>-fpf.md`:
+If a partial audit folder already exists at `audit/NN-<study>-fpf/`:
 
-1. Read the existing report
-2. Identify the last completed phase (frontmatter `verdict: IN_PROGRESS` + content)
+1. Read `00-context.md` first; if `verdict_phase5` is non-empty, the cycle is closed — confirm with the user before restarting
+2. Otherwise, identify the last completed phase by which `NN-*.md` files exist (the highest `NN` is the last finished phase)
 3. Summarize state to the user and ask:
    - Continue from the next phase
-   - Restart from scratch (if the PRD's foundations have changed)
+   - Restart from scratch (if the PRD's foundations have changed) — `rm -rf` the folder and re-run from Phase 1
 
 ---
 
