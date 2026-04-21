@@ -26,6 +26,16 @@ pnpm changeset && pnpm version && pnpm release           # release flow (Changes
 
 There is no lint step (`pnpm lint` is a stub). There is no top-level test script that runs everything — use `pnpm -r run test` or filter to `create-nonoise`.
 
+### Release checklist (when bumping `create-nonoise`)
+
+Every version bump must also update the **GitHub Release tarball URL** embedded in `README.md` and `packages/create-nonoise/README.md` (the "GitHub Release fallback" block under Quickstart). The version appears twice in each URL:
+
+```
+https://github.com/russosalv/NONoise/releases/download/v<NEW>/create-nonoise-<NEW>.tgz
+```
+
+Do it in the same commit as the `package.json` / `CHANGELOG.md` bump produced by `pnpm version`. Otherwise the fallback link points at a non-existent release until the next doc change.
+
 ## Architecture — the big picture
 
 ### Monorepo shape
