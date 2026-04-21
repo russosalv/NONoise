@@ -10,6 +10,7 @@ export type InstallReport = {
   graphifyy: 'installed' | 'already-present' | 'upgraded' | 'install-failed' | 'skipped';
   claudeHook: 'ok' | 'failed' | 'skipped';
   copilotHook: 'ok' | 'failed' | 'skipped';
+  hints: string[];
 };
 
 const GRAPHIFYY_PIN = 'graphifyy>=0.4.23';
@@ -59,22 +60,34 @@ function runQuiet(cmd: string): void {
 }
 
 function installOrUpgradeGraphifyy(): InstallReport['graphifyy'] {
+  const before = probeGraphifyBinary();
   try {
     runQuiet(`uv tool install "${GRAPHIFYY_PIN}"`);
-    // After install, check whether an older binary was shadowed.
-    const after = probeGraphifyBinary();
-    if (after.found && after.version && olderThan(after.version, '0.4.23')) {
-      try {
-        runQuiet('uv tool upgrade graphifyy');
-      } catch {
-        runQuiet(`uv tool install --reinstall "${GRAPHIFYY_PIN}"`);
-      }
-      return 'upgraded';
-    }
-    return after.found ? 'already-present' : 'installed';
   } catch {
     return 'install-failed';
   }
+  const after = probeGraphifyBinary();
+
+  // Upgrade path: binary was present but older than pin, or still older after install.
+  if (after.found && after.version && olderThan(after.version, '0.4.23')) {
+    try {
+      runQuiet('uv tool upgrade graphifyy');
+    } catch {
+      try {
+        runQuiet(`uv tool install --reinstall "${GRAPHIFYY_PIN}"`);
+      } catch {
+        return 'install-failed';
+      }
+    }
+    return 'upgraded';
+  }
+
+  if (!after.found) {
+    // install reported success but binary not detectable — treat as failed
+    return 'install-failed';
+  }
+
+  return before.found ? 'already-present' : 'installed';
 }
 
 function olderThan(version: string, target: string): boolean {
@@ -106,11 +119,13 @@ function wireCopilotHook(): InstallReport['copilotHook'] {
 }
 
 export function installGraphify(ctx: GraphifyInstallContext): InstallReport {
+  const hints: string[] = [];
+
   const python = probePython();
   if (!python.found) {
-    console.log(
-      '\n[graphify] Python >= 3.10 not found — skipping install. ' +
-      'Install Python 3.10+ and re-run. See https://python.org/downloads.\n',
+    hints.push(
+      '[graphify] Python >= 3.10 not found — skipping install. ' +
+      'Install Python 3.10+ and re-run. See https://python.org/downloads.',
     );
     return {
       python,
@@ -118,16 +133,17 @@ export function installGraphify(ctx: GraphifyInstallContext): InstallReport {
       graphifyy: 'skipped',
       claudeHook: 'skipped',
       copilotHook: 'skipped',
+      hints,
     };
   }
 
   const uv = probeUv();
   if (!uv.found) {
-    console.log(
-      '\n[graphify] `uv` not found — skipping install. Bootstrap with:\n' +
+    hints.push(
+      '[graphify] `uv` not found — skipping install. Bootstrap with:\n' +
       '  macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh\n' +
       '  Windows:     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"\n' +
-      `Then run: uv tool install "${GRAPHIFYY_PIN}" && graphify install\n`,
+      `Then run: uv tool install "${GRAPHIFYY_PIN}" && graphify install`,
     );
     return {
       python,
@@ -135,14 +151,15 @@ export function installGraphify(ctx: GraphifyInstallContext): InstallReport {
       graphifyy: 'skipped',
       claudeHook: 'skipped',
       copilotHook: 'skipped',
+      hints,
     };
   }
 
   const graphifyy = installOrUpgradeGraphifyy();
   if (graphifyy === 'install-failed') {
-    console.log(
-      `\n[graphify] "uv tool install ${GRAPHIFYY_PIN}" failed. ` +
-      `Escape hatch (opt-in): pip install --user "${GRAPHIFYY_PIN}".\n`,
+    hints.push(
+      `[graphify] "uv tool install ${GRAPHIFYY_PIN}" failed. ` +
+      `Escape hatch (opt-in): pip install --user "${GRAPHIFYY_PIN}".`,
     );
     return {
       python,
@@ -150,13 +167,14 @@ export function installGraphify(ctx: GraphifyInstallContext): InstallReport {
       graphifyy,
       claudeHook: 'skipped',
       copilotHook: 'skipped',
+      hints,
     };
   }
 
   const claudeHook = wireClaudeHook();
   const copilotHook = ctx.copilot ? wireCopilotHook() : 'skipped';
 
-  return { python, uv, graphifyy, claudeHook, copilotHook };
+  return { python, uv, graphifyy, claudeHook, copilotHook, hints };
 }
 
 export function formatReport(r: InstallReport): string {
@@ -167,5 +185,8 @@ export function formatReport(r: InstallReport): string {
     `  graphify install: ${r.claudeHook}`,
     `  graphify copilot: ${r.copilotHook}`,
   ];
+  if (r.hints.length > 0) {
+    lines.push('', ...r.hints);
+  }
   return lines.join('\n');
 }
