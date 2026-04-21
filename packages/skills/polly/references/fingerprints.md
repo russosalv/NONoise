@@ -24,6 +24,7 @@ and is NOT inspected for Polly fingerprints.
 | `implementation` | dev trio (`superpowers:writing-plans` → `executing-plans`) | any `docs/sprints/Sprint-*/plans/*.md` OR — pragmatic v1 — presence of `docs/sprints/Sprint-*/acceptance/testbook.yml` implies implementation ran |
 | `acceptance` | `atr` | any `docs/sprints/Sprint-*/acceptance/testbook.yml` |
 | `c4` | `c4-doc-writer` | `docs/architecture/c4/workspace.dsl` OR any `docs/support/reverse/*/c4/workspace.dsl` (reverse-mode output) |
+| `archSync` | `arch-sync` | any file matching `docs/architecture/sync-reports/*.md` newer than the most recent PRD's `validated_at` |
 | `workitemExport` | `spec-to-workitem` | any `docs/sprints/Sprint-*/export/spec-to-workitem-*.md` |
 
 ## Per-skill handoff fingerprint
@@ -45,6 +46,7 @@ on return is the one that maps to that skill's primary output:
 | `sprint-manifest` | `docs/sprints/Sprint-*/sprint-manifest.md` | `sprint` |
 | `atr` | `docs/sprints/Sprint-*/acceptance/testbook.yml` | `acceptance` |
 | `c4-doc-writer` | `docs/architecture/c4/workspace.dsl` OR any `docs/support/reverse/*/c4/workspace.dsl` | `c4` |
+| `arch-sync` | any `docs/architecture/sync-reports/*.md` newer than the PRD path it was invoked with | `archSync` |
 | `spec-to-workitem` | `docs/sprints/Sprint-*/export/spec-to-workitem-*.md` | `workitemExport` |
 
 ## Glob semantics
