@@ -690,7 +690,7 @@ Cosa vuoi fare? (scegli esplicitamente — nessun default)
 
 1. **Update the PRD frontmatter** (`docs/prd/<area>/NN-<study>.md`):
 
-**Pick the variant matching Phase 5.5's `human_verdict`** (read from `05-decision.md` — see Issue 4 below for canonical location):
+**Pick the variant matching Phase 5.5's `human_verdict`** (read it from `05-decision.md` — see Phase 5.5 post-conditions for the canonical location of this field):
 
 If `human_verdict: approve` (algorithmic verdict honored):
 
