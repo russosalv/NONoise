@@ -28,14 +28,21 @@ skipped. No warning, no prompt — fully backwards compatible.
 
 ## What this skill does
 
-1. **Package install** (idempotent)
-   - Checks that Python ≥ 3.10 is available (`python --version` or `python3 --version`).
-   - If missing: prints the install command and stops gracefully (does not fail the scaffold).
-   - Else: runs `pip install graphifyy` (or `pipx install graphifyy` if pipx is available and preferred).
+1. **Package install** (idempotent, uv‑based)
+   - **Preflight A — Python**: checks that Python ≥ 3.10 is available (`python --version` or `python3 --version`). If missing, prints the install command and stops gracefully (does not fail the scaffold).
+   - **Preflight B — uv**: probes `uv --version`. If missing, prints the one‑line bootstrap and stops gracefully (non‑fatal):
+     - macOS / Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+     - Windows: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+   - **Install**: runs `uv tool install "graphifyy>=0.4.23"`. Idempotent — a no‑op if the tool is already present at the requested version.
+   - **Upgrade path** (when the binary is on `PATH` but older than 0.4.23): runs `uv tool upgrade graphifyy`; if that reports nothing to do, falls back to `uv tool install --reinstall "graphifyy>=0.4.23"`.
+   - **Documented escape hatch** (printed only if uv cannot be installed and the user opts out of bootstrapping it): `pip install --user "graphifyy>=0.4.23"`. The skill does NOT silently fall back to pip — uv is the new contract.
    - The PyPI package is `graphifyy` (double‑y). `graphify` tout court is a different, unaffiliated package — do not install it.
 
-2. **Global wiring** (idempotent)
-   - Runs `graphify install`, which writes the per‑user skill in `~/.claude/skills/graphify/SKILL.md` and updates `~/.claude/CLAUDE.md`.
+2. **Global wiring** (idempotent, per AI tool selected at scaffold time)
+   - Always: runs `graphify install`, which writes the per‑user skill in `~/.claude/skills/graphify/SKILL.md` and updates `~/.claude/CLAUDE.md`. (This is required even for non‑Claude scaffolds — other tools' installers below also rely on it being present.)
+   - **If Copilot was selected**: runs `graphify copilot install`, which writes `~/.copilot/skills/graphify/SKILL.md` (idempotent — re‑runs are safe). Failure is non‑fatal: warn and continue.
+   - The active AI‑tool set is read the same way Step 3 selects which context files to write. In Claude Code: from the skill's `args` channel (parsed per `polly/references/handoff-protocol.md`). In other hosts: from `key=value` tokens in the triggering message, falling back to inspecting which context files exist in the project.
+   - Other tools (Gemini, Cursor, Codex, Kiro, VSCode) are intentionally NOT wired here — Step 3 covers their needs via the project‑level rules block.
 
 3. **Project‑level rules** for every selected AI tool. Writes the same 3 rules in each tool's context file. **Claude and Copilot are always covered; Cursor / Gemini / Codex only if selected.**
 
@@ -51,13 +58,16 @@ skipped. No warning, no prompt — fully backwards compatible.
    ```markdown
    ## graphify
 
-   This project has a graphify knowledge graph at `graphify-out/`.
+   This project has a graphify knowledge graph at graphify-out/.
 
    Rules:
-   - Before answering architecture or codebase questions, read `graphify-out/GRAPH_REPORT.md` for god nodes and community structure.
-   - If `graphify-out/wiki/index.md` exists, navigate it instead of reading raw files.
-   - After modifying code files in this session, run `python3 -c "from graphify.watch import _rebuild_code; from pathlib import Path; _rebuild_code(Path('.'))"` to keep the graph current.
+   - Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
+   - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
+   - For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+   - After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
    ```
+
+   The canonical text lives in `references/rules-block.md` and is verified by a unit test (Task 8) — keep both in sync when upstream changes.
 
    Idempotence: the block is delimited by HTML‑comment markers so it can be re‑applied without duplication:
 
@@ -124,7 +134,7 @@ The `graphify` binary CLI does NOT have a `graphify <path>` command — running 
 Invocation depends on the host tool:
 
 - **Claude Code**: type `/graphify <path>` — the slash command is registered by `graphify install` (Step 2) and triggers the skill. Or, equivalently, invoke `Skill(skill: "graphify", args: "<path>")`.
-- **GitHub Copilot / Cursor / Gemini / Codex / any tool without slash commands**: open `~/.claude/skills/graphify/SKILL.md` (or the platform-specific path under `.copilot/skills/`, `.cursor/rules/`, etc.) and follow its step-by-step instructions, which call `graphify.detect`, `graphify.extract`, `graphify.cluster` directly via Python. Pass the target `<path>` as the input.
+- **GitHub Copilot / Cursor / Gemini / Codex / any tool without slash commands**: open `~/.claude/skills/graphify/SKILL.md` (or the platform-specific path under `.copilot/skills/`, `.cursor/rules/`, etc.) and follow its step-by-step instructions, which call `graphify.detect`, `graphify.extract`, `graphify.cluster` directly via Python. Pass the target `<path>` as the input. For Copilot specifically, Step 2 of this skill installs the per‑user `graphify` skill at `~/.copilot/skills/graphify/SKILL.md` via `graphify copilot install` — open that file (not the Claude one) and follow it.
 - **Flag variants** available at the skill level:
   - `--update` → incremental (no LLM for unchanged files — cache reuse)
   - `--mode deep` → richer INFERRED edges
@@ -193,8 +203,10 @@ quality" instead of "chapters become stubs".
 
 After each run, report to the user:
 - Whether Python was found (version).
-- Whether `graphifyy` was installed (or already present).
-- Whether `graphify install` succeeded.
+- Whether `uv` was found (version), or skipped because it could not be installed.
+- Whether `graphifyy` was installed (or already present), and via which path: `uv tool install` (default) or the printed pip escape hatch.
+- Whether `graphify install` succeeded (Claude Code).
+- Whether `graphify copilot install` succeeded (only when Copilot was selected).
 - For each context file touched: `+` (block added), `=` (block already present), or `~` (block replaced).
 - **Only when `mode` was set (Step 5 ran)**:
   - If indexing ran: `📊 Initial graph built at <path>/graphify-out/ — N nodes, M edges, K communities`.
@@ -203,6 +215,8 @@ After each run, report to the user:
 
 ## Failure modes
 
-- Python missing → print `pip install graphifyy && graphify install` and continue (non‑fatal).
-- `pip install graphifyy` fails → print the error and the manual command, continue.
+- Python missing → print the OS install command for Python ≥ 3.10 and continue (non‑fatal). Do NOT attempt anything else — uv would also fail.
+- `uv` missing → print the one‑liner bootstrap (`astral.sh/uv/install.{sh,ps1}`) and continue (non‑fatal). Do NOT auto‑run it without user consent.
+- `uv tool install "graphifyy>=0.4.23"` fails → print the error, the equivalent retry, and the documented `pip install --user "graphifyy>=0.4.23"` escape hatch. Continue.
+- `graphify copilot install` fails (e.g. `graphifyy` somehow at a version older than 0.4.15 that lacks the subcommand) → warn and continue. The project‑level rules block (Step 3) already covers Copilot's needs.
 - Everything else (writing `.gitignore`, context files) is local file I/O and must succeed.
