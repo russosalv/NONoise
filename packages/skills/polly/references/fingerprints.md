@@ -104,3 +104,24 @@ for phase in phases:
   `bmad-agent-analyst`; `docs/superpowers/specs/*.md` →
   `superpowers:brainstorming`.
 - Otherwise use the first skill in the per-skill table.
+
+## Decision signals (not phase-tied)
+
+These are filesystem signals Polly reads to adjust *routing decisions*,
+but they are NOT phase fingerprints — they do not update `phases[*]` and
+do not count toward completion. Use them to pick the right next skill
+and the right args to pass.
+
+| Signal | Check | Used by |
+|---|---|---|
+| `graphify_installed_no_graph_RE_intent` | `command -v graphify` succeeds AND `<proposed_source_path>/graphify-out/graph.json` does NOT exist AND user intent is RE | `decision-tree.md` § "Reverse-engineering intent gate" → invoke `graphify-setup` with `args="mode=reverse-engineering source_path=<path>"` |
+| `stale_source_graph` | `<source_path>/graphify-out/graph.json` exists AND (`manifest.json` `indexed_at` OR file mtime) is older than `nonoise.config.json → reverse.graph_freshness_days` (default 30 days) | `reverse-engineering` Q4 freshness check (internal; Polly doesn't branch on this — the skill handles it) |
+
+Rules:
+
+- Decision signals are **cheap checks**, not phases. Run them at decision
+  time, don't cache them in `polly-state.json`.
+- If a decision signal conflicts with a phase fingerprint (e.g. `scan`
+  phase is marked done but `graphify_installed_no_graph_RE_intent` is
+  true for a different source path), trust the decision signal — the
+  phase fingerprint may refer to a prior subject.
