@@ -202,22 +202,56 @@ Ask:
 > - legacy repo: `C:\...\legacy-billing`
 > - a folder inside this repo: `services/payments`
 > - a vendor-api spec folder: `docs/support/vendor-stripe-api/openapi`
-> - leave empty to skip source indexing (document-only reverse)
+>
+> ⚠️ **Source indexing is essential for this skill.** A document-only reverse produces source-less chapters for everything touching internals, data model, and main flows — those become stubs with open points instead of analysis.
+>
+> If you truly have no source (pure vendor-spec case), type exactly `skip-no-source`. I'll ask for explicit confirmation before accepting.
 
-If a path is provided, store/update it under `.reverse-engineering.local.json → subjects.<slug>.source_path` and validate it exists.
+If the user provides a path, store/update it under `.reverse-engineering.local.json → subjects.<slug>.source_path` and validate it exists.
+
+If the user types `skip-no-source`, ask the confirmation prompt immediately:
+
+> You chose **document-only mode**. The dossier will be partial: internals-, data-model-, and main-flow-style chapters will be stubs flagged as "source not indexed". This is appropriate only when no source exists (pure vendor/spec reverse).
+>
+> Confirm? Type `yes` to proceed without source. Anything else returns to Q3.
+
+Only a literal `yes` (case-insensitive) moves forward. Any other response (including empty) returns to Q3. When the user confirms, set the in-run flag `source_less_run = true` (used later in Step 2.4 and Step 6).
 
 **Q4 — Reuse or re-index the subject's graph?**
 
-If the subject source graph already exists:
+If the user already confirmed `source_less_run` at Q3, skip Q4 entirely — there's nothing to reuse or reindex.
+
+Otherwise check graph presence:
+
 ```bash
 test -f "<source_path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
 ```
 
-If `EXISTS`, default = **reuse**:
-> **Q4**: The subject graph is already present at `<source_path>/graphify-out/`. Reuse it as-is, or re-index to pick up any changes? Default: **reuse**. Type `reindex` to force.
+**Freshness check** (when `EXISTS`): read `indexed_at` from
+`<source_path>/graphify-out/manifest.json` if present, else fall back to
+the file mtime of `graph.json`. Compute age in days. Read
+`reverse.graph_freshness_days` from `nonoise.config.json`; default `30`.
 
-If `MISSING`, default = **re-index** (ask confirmation because it can take minutes on large codebases):
-> **Q4**: No existing graph at `<source_path>/graphify-out/`. I need to index the subject from scratch — this can take several minutes on large codebases. Proceed? (yes/no)
+**Case EXISTS, fresh** (age ≤ threshold):
+> **Q4**: The subject graph at `<source_path>/graphify-out/` is fresh — indexed N days ago. Reuse it as-is, or re-index to pick up any changes? Default: **reuse**. Type `reindex` to force.
+
+**Case EXISTS, stale** (age > threshold):
+> **Q4**: The subject graph at `<source_path>/graphify-out/` was last indexed **N days ago** (threshold: T days). If the codebase has moved since, a stale graph can mislead the reverse.
+>
+> **Recommended: reindex.** Press Enter (or type `reindex`) to rebuild, or type `reuse` to keep the old graph anyway.
+
+Default flips from `reuse` to `reindex` in this case — empty input = reindex.
+
+**Case MISSING** (first time for this subject):
+> **Q4**: No existing graph at `<source_path>/graphify-out/`. **Indexing is essential** — without it, chapters that depend on source become source-less stubs.
+>
+> Proceed? (`yes` / `skip-no-source`) — indexing can take several minutes on large codebases.
+
+If the user types `skip-no-source` here, run the same explicit confirmation prompt used in Q3:
+
+> You chose **document-only mode**. Confirm? Type `yes` to proceed without source. Anything else returns to Q4.
+
+Only `yes` sets `source_less_run = true` and moves on.
 
 **Pre-indexing summary**
 
@@ -323,9 +357,15 @@ After successful indexing, write/refresh `docs/support/reverse/<slug>/.meta/grap
     { "path": "<q2-path-2>/graphify-out", "indexed_at": "<iso>" }
   ],
   "source_graph": { "path": "<source_path>/graphify-out", "indexed_at": "<iso>" },
+  "source_less_run": false,
   "updated_at": "<iso>"
 }
 ```
+
+When the in-run flag `source_less_run` (set by Q3 or Q4 confirmation) is
+`true`, write `"source_graph": null` and `"source_less_run": true`. This
+file is read by Step 6 on save to decide whether to emit the overview
+banner and the CHANGELOG warning.
 
 This file is the only one the skill may create before a save trigger. It's metadata, not content — no chapter ever lives in `.meta/`. Add `.meta/` to a project `.gitignore` if the user prefers local-only graphs; the decision is the user's.
 
