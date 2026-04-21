@@ -120,6 +120,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **Reads:** `docs/prd/<area>/<feature>.md` (draft); `docs/architecture/01-constraints.md`; sibling `audit/NN-<study>-fpf/00-context.md` when resuming a partial cycle.
 - **Writes:** same PRD (status update), `docs/prd/<area>/audit/NN-<study>-fpf/` (six per-phase markdown files), `docs/architecture/decisions/`.
 - **Phase:** Architecture.
+- **Phase 5.5 gate:** between the algorithmic verdict (Phase 5) and the frontmatter write (Phase 6), the skill presents a mandatory recap + 4-action choice (approve / reject / go-back / force-validated). Action 5 "Edit audit" is a process loop. Action 4 (force-validated) records `validated_by: human-override` in `05-decision.md` and propagates the marker into the PRD's `validated_by` field.
 
 ### `quint-fpf`
 - **SKILL.md:** [`packages/skills/quint-fpf/SKILL.md`](../packages/skills/quint-fpf/SKILL.md)
@@ -147,6 +148,15 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **Writes:** same DSL file + rendered views under `docs/architecture/c4/views/`.
 - **Phase:** Architecture (post-validation).
 - **References:** `references/structurizr-dsl-cheatsheet.md`, `references/c4-levels-primer.md`, `references/install-structurizr.md`.
+
+### `arch-sync`
+
+- **SKILL.md:** [`packages/skills/arch-sync/SKILL.md`](../packages/skills/arch-sync/SKILL.md)
+- **Triggers:** suggested by Polly after `arch-decision` PASS (the architect picks "Sì — invoco arch-sync" at the post-finalize menu); manual phrases like "arch-sync `<prd-path>`", "project the validated PRD into docs/architecture/", "sync architecture from `<prd-path>`", "recepisci il PRD validato `<path>`".
+- **Purpose:** Generic, opt-in projector of the Phase 6 "Impact on `docs/architecture/`" checklist into actual file writes. Reads the validated PRD plus the FPF audit folder (specifically `05-decision.md`), parses bullets in the strict `[file: NN.md]` format, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under `docs/architecture/sync-reports/`. Stack-neutral — knows no target constraints, never validates anything, never reads source code.
+- **Reads:** the validated PRD (`docs/prd/<area>/NN-*.md` with `status: validated`); the FPF audit folder (`docs/prd/<area>/audit/NN-*-fpf/`), specifically `05-decision.md` with `verdict: PASS` AND `human_verdict ∈ { approve, force-validated }`.
+- **Writes:** files under `docs/architecture/` (per the parsed checklist, with per-file confirmation); a sync report at `docs/architecture/sync-reports/YYYY-MM-DD-<area>-<study>.md`.
+- **Provenance:** custom NONoise — generic distillation of the Andreani `andreani-arch-docs` mode M (sync-from-validated-prd), stack-neutral and content-agnostic. Project-locked sync skills (with target constraints / registries / debt registers) coexist alongside it.
 
 ---
 
@@ -370,7 +380,7 @@ Per `todo.txt` feedback, the future scaffold will install only a **core** pack b
 
 | Pack | Contents |
 |---|---|
-| **Core** (always) | `polly`, `requirements-ingest`, `bmad-agent-analyst`, `arch-brainstorm`, `arch-decision`, `quint-fpf`, `sprint-manifest`, `atr`, dev trio (superpowers:*). Context files. 3-5 generator skills. |
+| **Core** (always) | `polly`, `requirements-ingest`, `bmad-agent-analyst`, `arch-brainstorm`, `arch-decision`, `arch-sync`, `quint-fpf`, `sprint-manifest`, `atr`, dev trio (superpowers:*). Context files. 3-5 generator skills. |
 | **Frontend pack** | `frontend-design`, `playwright-cli`, Impeccable skills, `bmad-agent-ux-designer`, `design-md-generator`. |
 | **Docs/Analysis pack** | `docs-md-generator`, `requirements-ingest` extras, `reverse-engineering`, `graphify-setup`, `bmad-advanced-elicitation`, `bmad-req-validator`. |
 | **Ops/Observability pack** | `observability-debug`, `ops-skill-builder`, `skill-creator`. |
