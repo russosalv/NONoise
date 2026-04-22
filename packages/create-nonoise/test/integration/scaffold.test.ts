@@ -70,7 +70,6 @@ describe('scaffold() integration', () => {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
     const expected = [
-      'graphify-setup',
       'vscode-config-generator',
       'docs-md-generator',
       'playwright-cli',
@@ -109,10 +108,10 @@ describe('scaffold() integration', () => {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
     const g = await readFile(
-      join(projectPath, '.claude', 'skills', 'graphify-setup', 'SKILL.md'),
+      join(projectPath, '.claude', 'skills', 'vscode-config-generator', 'SKILL.md'),
       'utf8',
     );
-    expect(g).toContain('graphify-setup');
+    expect(g).toContain('vscode-config-generator');
   });
 
   it('does NOT install skills when zero AI tools are selected', async () => {
@@ -120,7 +119,7 @@ describe('scaffold() integration', () => {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
     await expect(
-      stat(join(projectPath, '.claude', 'skills', 'graphify-setup')),
+      stat(join(projectPath, '.claude', 'skills', 'vscode-config-generator')),
     ).rejects.toThrow();
   });
 
