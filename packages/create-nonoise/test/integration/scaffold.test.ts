@@ -263,6 +263,10 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     });
     const claude = await readFile(join(projectPath, 'CLAUDE.md'), 'utf8');
     expect(claude).toContain('<!-- >>> polly (managed by polly skill) -->');
+    // NOTE: scaffold.ts no longer writes .nonoise/POLLY_START.md (Task 1 in the
+    // Polly advisor redesign), but the context-file templates still reference it.
+    // The template cleanup lands in Task 3 of that plan; these assertions track
+    // current behaviour until then.
     expect(claude).toContain('.nonoise/POLLY_START.md');
   });
 
@@ -298,13 +302,15 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     ).rejects.toThrow();
   });
 
-  it('does not write Polly state-machinery files (POLLY_START.md, polly-state.json, polly-state.schema.json, polly-state.mjs)', async () => {
+  it('does not write Polly state-machinery files (POLLY_START.md, polly-state.json, polly-state.mjs, or schemas/)', async () => {
     const ctx = buildCtx({ aiTools: buildAi({ claudeCode: true, copilot: true }) });
     await scaffold(ctx, { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
-    for (const f of ['POLLY_START.md', 'polly-state.json', 'polly-state.schema.json', 'polly-state.mjs']) {
+    for (const f of ['POLLY_START.md', 'polly-state.json', 'polly-state.mjs']) {
       const p = join(projectPath, '.nonoise', f);
       expect(existsSync(p), `${f} should not exist after scaffold`).toBe(false);
     }
+    const schemasDir = join(projectPath, '.nonoise', 'schemas');
+    expect(existsSync(schemasDir), 'schemas/ dir should not exist after scaffold').toBe(false);
   });
 
   it('installs polly SKILL when only Copilot is selected (cross-tool)', async () => {
