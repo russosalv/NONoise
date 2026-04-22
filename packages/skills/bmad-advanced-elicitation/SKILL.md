@@ -6,6 +6,8 @@ variant: nonoise-bmad 2
 customization: technique retained verbatim; BMAD framework config references removed; adapted for NONoise persona set (Isa/Alex/Daniel/Giulia)
 ---
 
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
+
 # Advanced Elicitation
 
 **Goal:** Push the LLM to reconsider, refine, and improve its recent output by applying structured elicitation methods on specific content.

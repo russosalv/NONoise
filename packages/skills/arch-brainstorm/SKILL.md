@@ -5,6 +5,8 @@ source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral
 ---
 
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
+
 # arch-brainstorm — Architectural dialog and narrative PRD
 
 This skill is **step 1** of the NONoise architectural workflow. It turns an idea or an area name into a narrative PRD that is complete, self-contained, and ready for formal validation via `arch-decision` (which delegates to `quint-fpf`).

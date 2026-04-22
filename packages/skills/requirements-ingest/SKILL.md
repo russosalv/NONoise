@@ -5,6 +5,8 @@ source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral
 ---
 
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
+
 # requirements-ingest — From raw input to structured requirements
 
 This skill is the **pre-architectural ingestion step** of NONoise. It takes raw, unstructured business material (PDFs, DOCX, markdown notes, email text, stakeholder call transcripts, meeting summaries) and turns it into a clean set of requirement files under `docs/requirements/<domain>/<feature>.md` — each with a stable structure (who / what / why / acceptance criteria / out-of-scope) and explicit cross-references back to the source documents.

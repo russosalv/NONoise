@@ -151,6 +151,8 @@ source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral
 ---
 
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
+
 # arch-brainstorm — Architectural dialog and narrative PRD
 
 This skill is **step 1** of the NONoise architectural workflow. It turns an idea or an area name into a narrative PRD that is complete, self-contained, and ready for formal validation via \`arch-decision\` (which delegates to \`quint-fpf\`).
@@ -1220,6 +1222,8 @@ description: Step 2 of the NONoise architectural workflow — validates a \`draf
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; delegates methodology to quint-fpf
 ---
+
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
 
 # arch-decision — Formal Quint FPF validation of an existing PRD
 
@@ -3240,6 +3244,8 @@ variant: nonoise-bmad 2
 customization: technique retained verbatim; BMAD framework config references removed; adapted for NONoise persona set (Isa/Alex/Daniel/Giulia)
 ---
 
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
+
 # Advanced Elicitation
 
 **Goal:** Push the LLM to reconsider, refine, and improve its recent output by applying structured elicitation methods on specific content.
@@ -3381,6 +3387,8 @@ displayName: Isa
 role: Business Analyst
 icon: 🔎
 ---
+
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
 
 # Isa
 
@@ -16847,6 +16855,8 @@ source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral
 ---
 
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
+
 # requirements-ingest — From raw input to structured requirements
 
 This skill is the **pre-architectural ingestion step** of NONoise. It takes raw, unstructured business material (PDFs, DOCX, markdown notes, email text, stakeholder call transcripts, meeting summaries) and turns it into a clean set of requirement files under \`docs/requirements/<domain>/<feature>.md\` — each with a stable structure (who / what / why / acceptance criteria / out-of-scope) and explicit cross-references back to the source documents.
@@ -20054,6 +20064,8 @@ description: Step 3 of the NONoise architectural workflow. Promotes \`validated\
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; one aggregated manifest per sprint
 ---
+
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
 
 # sprint-manifest — Sprint Manifest + PRD promotion
 

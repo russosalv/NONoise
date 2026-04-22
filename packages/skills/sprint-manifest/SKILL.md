@@ -5,6 +5,8 @@ source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; one aggregated manifest per sprint
 ---
 
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
+
 # sprint-manifest — Sprint Manifest + PRD promotion
 
 This skill is **step 3** of the NONoise architectural workflow. It takes `validated` PRDs (output of `arch-decision`) and promotes them into a specific sprint, producing **one aggregated Sprint Manifest** per sprint that coordinates execution and defines the **macro functional tasks** developers will implement.

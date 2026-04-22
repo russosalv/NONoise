@@ -5,6 +5,8 @@ source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; delegates methodology to quint-fpf
 ---
 
+> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
+
 # arch-decision — Formal Quint FPF validation of an existing PRD
 
 This skill is **step 2** of the NONoise architectural workflow. It applies the **First Principles Framework (Quint FPF)** — fully documented in the sibling skill `quint-fpf` — to a narrative PRD already written by `arch-brainstorm`, producing a reliability audit and updating the PRD lifecycle state.
