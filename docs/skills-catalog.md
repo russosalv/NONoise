@@ -19,7 +19,7 @@ Every skill under `packages/skills/` falls into one of three provenance tiers. T
 
 | Tier | Meaning | Count |
 |---|---|---:|
-| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 23 |
+| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 22 |
 | **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. The `graphify` tool is installed directly by `create-nonoise` at scaffold time (not a skill wrapper). | 2 |
 | **vendored** | Installed under a namespace, pinned by commit, refreshed via `scripts/sync-vendor.mjs`. Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
 
