@@ -1,6 +1,8 @@
-# SDLC — the full lifecycle NONoise walks you through
+# SDLC — the full lifecycle NONoise supports
 
-NONoise covers the entire software development lifecycle, from raw stakeholder input to merged pull request. The lifecycle is **orchestrated by Polly** (see [`polly.md`](polly.md) for the decision tree); this document describes the *flow itself* — every phase, every skill, every handoff, skip rules, and the brownfield prefix.
+NONoise covers the entire software development lifecycle, from raw stakeholder input to merged pull request. Skills are the primary engagement path; **Polly** is the opt-in advisor that reads where you are in the flow and points at the next skill when intent is ambiguous (see [`polly.md`](polly.md) for details). This document describes the *flow itself* — every phase, every skill, every handoff, skip rules, and the brownfield prefix.
+
+Every scaffolded project ships with `.nonoise/sdlc-flow.md`, an editable version of this flow that Polly reads at runtime.
 
 ## Overview
 
@@ -129,18 +131,17 @@ This is the baseline path, applied when `docs/` is empty:
 ```
 Step  Phase                            Mode     Skill(s)
 ────  ─────                            ────     ────────
- 1    Voice-input hint (once)          —        — (Polly Step 0)
- 2    Greenfield or brownfield?        [pair]   — (Polly Step 1)
- 3    Stack question                   [pair]   —
- 4    Existing source material?        [pair]   requirements-ingest
- 5    Requirements elicitation         [pair]   bmad-agent-analyst (+ bmad-advanced-elicitation, + bmad-req-validator)
- 6    Feature / product design         [pair]   superpowers:brainstorming (+ bmad-agent-ux-designer, + frontend-design)
- 7    Architecture options             [pair]   arch-brainstorm (if non-trivial)
- 8    Architecture decision            [pair]   arch-decision (+ quint-fpf, + Phase 5.5 human gate)
- 8b   Living C4 diagrams               [solo]   c4-doc-writer (after arch-decision PASS)
- 8c   Arch source-of-truth sync        [solo]   arch-sync (after arch-decision PASS, optional)
- 9    Sprint breakdown                 [pair]   sprint-manifest (+ spec-to-workitem)
-10    Implementation — per task        [solo]   superpowers:writing-plans
+ 1    Greenfield or brownfield?        [pair]   — (ask Polly if unsure)
+ 2    Stack question                   [pair]   —
+ 3    Existing source material?        [pair]   requirements-ingest
+ 4    Requirements elicitation         [pair]   bmad-agent-analyst (+ bmad-advanced-elicitation, + bmad-req-validator)
+ 5    Feature / product design         [pair]   superpowers:brainstorming (+ bmad-agent-ux-designer, + frontend-design)
+ 6    Architecture options             [pair]   arch-brainstorm (if non-trivial)
+ 7    Architecture decision            [pair]   arch-decision (+ quint-fpf, + Phase 5.5 human gate)
+ 7b   Living C4 diagrams               [solo]   c4-doc-writer (after arch-decision PASS)
+ 7c   Arch source-of-truth sync        [solo]   arch-sync (after arch-decision PASS, optional)
+ 8    Sprint breakdown                 [pair]   sprint-manifest (+ spec-to-workitem)
+ 9    Implementation — per task        [solo]   superpowers:writing-plans
                                                   → executing-plans
                                                     → test-driven-development
                                                     → dispatching-parallel-agents (where applicable)
@@ -159,7 +160,7 @@ B1    Path of the existing code        [pair]   —
 B2    Index the codebase               [pair]   reverse-engineering (full pipeline)
 B3    Understand what's there          [pair]   reverse-engineering (interactive Q&A, versioned dossier)
 B4    Existing source material         [pair]   requirements-ingest
-B5    Re-enter greenfield at step 6    —        (new feature) or step 7 (architectural change)
+B5    Re-enter greenfield at step 5    —        (new feature) or step 6 (architectural change)
 ```
 
 **Graphify.** The `create-nonoise` CLI installs the knowledge-graph tool (`graphifyy`) at scaffold time; `/graphify <path>` produces `graphify-out/GRAPH_REPORT.md` + a JSON/HTML graph. The report lists god-nodes (most connected — the system's core abstractions), community hubs (semantic clusters), surprising connections, and knowledge gaps (isolated nodes = possible doc gaps). **Read `GRAPH_REPORT.md` before diving into raw files** — a pre-tool hook reminds you to do so.
@@ -168,7 +169,7 @@ B5    Re-enter greenfield at step 6    —        (new feature) or step 7 (archi
 
 ## Skip rules
 
-Not every task walks every phase. Polly applies these skip rules:
+Not every task walks every phase. These skip rules describe when phases can be elided. Run `/polly` if you want Polly to read `.nonoise/sdlc-flow.md` and tell you which rule applies to your current situation:
 
 | Task shape | Skip | Enter at |
 |---|---|---|
@@ -179,23 +180,23 @@ Not every task walks every phase. Polly applies these skip rules:
 | **Brownfield (first entry)** | — | Brownfield prefix B1–B5, then re-enter |
 | **Brownfield (subsequent entry)**, previous dossier current | B1, B2, B3 | B4 (or phase 1, depending on what changed) |
 
-Polly announces which rule applies and why, so the team can disagree if the rule misjudged.
+When you run `/polly`, she reads `.nonoise/sdlc-flow.md`, tells you where you are and which rule applies, and suggests the next skill — so the team can push back if the rule misjudged.
 
-## Auto-trigger mechanics
+## Engaging Polly
 
-The SDLC starts before you ask for it, on the very first session of a freshly-scaffolded project:
+Polly is an opt-in advisor, not an auto-trigger. To engage her:
 
-1. `create-nonoise` writes `.nonoise/POLLY_START.md` to the project root.
-2. The scaffold-generated `CLAUDE.md` includes an instruction block: *"if `.nonoise/POLLY_START.md` exists, your first action this session is to invoke Polly, then delete the file."*
-3. `.github/copilot-instructions.md` has the equivalent block for Copilot.
-4. Cursor / Gemini CLI / Codex receive the block in their respective entry files (`.cursor/rules.md`, `GEMINI.md`, `AGENTS.md`) but with a phrased trigger rather than a slash command.
-5. Polly deletes the marker after the first run. Subsequent sessions require manual `/polly` or "start polly" to re-engage.
+- **Claude Code:** `/polly`
+- **GitHub Copilot:** type "start polly" or "avvia polly"
+- **Cursor / Gemini CLI / Codex:** use the equivalent phrased trigger in their respective entry files
 
-See [`polly.md`](polly.md) §Triggers for details.
+Polly reads `.nonoise/sdlc-flow.md` at runtime to determine where the project is in the flow, then tells you where you are and what to run next. There is no state file and no auto-start on first session — you invoke her when you want navigation help.
+
+See [`polly.md`](polly.md) for the full advisor spec and trigger surface.
 
 ## Multi-repo workspace mode
 
-NONoise has a multi-repo template variant (roadmap item — `repositories.json` + `./scripts/clone-all.sh` + `./scripts/switch-branch.sh` + `./scripts/pull-all.sh`). When Polly detects a multi-repo workspace, she announces:
+NONoise has a multi-repo template variant (roadmap item — `repositories.json` + `./scripts/clone-all.sh` + `./scripts/switch-branch.sh` + `./scripts/pull-all.sh`). In a multi-repo workspace, Polly will note when relevant:
 
 - Skills live at workspace root (not inside sub-repos).
 - Sub-repos clone under `repos/<path>` via `clone-all`.
