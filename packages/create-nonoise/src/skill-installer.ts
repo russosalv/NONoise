@@ -1,4 +1,5 @@
-import { cp, stat, mkdir, readdir } from 'node:fs/promises';
+import { access, cp, stat, mkdir, readdir } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
 import { join } from 'node:path';
 
 export type InstallSkillsOptions = {
@@ -38,17 +39,18 @@ export type InstallVendorOptions = {
 export async function installVendor(opts: InstallVendorOptions): Promise<void> {
   const { vendorSourcePath, projectPath, namespace, installClaudeSpecific } = opts;
 
-  const skillsSrc = join(vendorSourcePath, 'skills');
-  if (await dirExists(skillsSrc)) {
-    const skillsDest = join(projectPath, '.claude', 'skills', namespace);
-    await mkdir(skillsDest, { recursive: true });
-    for (const name of await readdir(skillsSrc)) {
-      await cp(join(skillsSrc, name), join(skillsDest, name), {
-        recursive: true,
-        force: false,
-        errorOnExist: false,
-      });
-    }
+  const nestedSkillsSrc = join(vendorSourcePath, 'skills');
+  const skillsSrc = (await dirExists(nestedSkillsSrc)) ? nestedSkillsSrc : vendorSourcePath;
+  const skillsDest = join(projectPath, '.claude', 'skills', namespace);
+  await mkdir(skillsDest, { recursive: true });
+  for (const name of await readdir(skillsSrc)) {
+    const candidate = join(skillsSrc, name);
+    if (!(await isSkillDir(candidate))) continue;
+    await cp(candidate, join(skillsDest, name), {
+      recursive: true,
+      force: false,
+      errorOnExist: false,
+    });
   }
 
   if (!installClaudeSpecific) return;
@@ -75,5 +77,16 @@ async function dirExists(path: string): Promise<boolean> {
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
     throw err;
+  }
+}
+
+async function isSkillDir(path: string): Promise<boolean> {
+  try {
+    const s = await stat(path);
+    if (!s.isDirectory()) return false;
+    await access(join(path, 'SKILL.md'), fsConstants.F_OK);
+    return true;
+  } catch {
+    return false;
   }
 }

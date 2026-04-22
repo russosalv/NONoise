@@ -100,6 +100,12 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
       namespace: 'superpowers',
       installClaudeSpecific: ctx.aiTools.claudeCode,
     });
+    await installVendor({
+      vendorSourcePath: join(paths.skillsRoot, 'vendor', 'impeccable'),
+      projectPath: ctx.projectPath,
+      namespace: 'impeccable',
+      installClaudeSpecific: ctx.aiTools.claudeCode,
+    });
   }
 
   await rewriteNonoiseConfig(ctx, paths, renderCtx);
