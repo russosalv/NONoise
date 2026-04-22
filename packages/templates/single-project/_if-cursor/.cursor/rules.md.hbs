@@ -5,6 +5,14 @@ Project rules for Cursor. For cross-tool context see `AGENTS.md`.
 - Follow existing code style.
 - Run tests before committing.
 
+## Working with skills
+
+This project ships a curated set of skills under `.claude/skills/`. When the user describes a task, your default path is to **engage a skill directly** based on the intent — do not route through Polly unless the user is explicitly lost ("where do I start?", "what's next?", "sono perso"). Examples: "I need to reverse engineer this codebase" → engage `reverse-engineering`; "draft requirements for X" → engage `bmad-agent-analyst`; "sprint breakdown for the ADR" → engage `sprint-manifest`.
+
+**When you engage any SDLC skill, your first action is to ask the user for the full scope in one go — who, what, why, constraints, success criteria.** Use the skill's internal structure as a schema to fill, not as a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers (missing critical information you cannot infer). This applies to every SDLC skill — native, bundled, or vendored (superpowers/impeccable/skill-creator).
+
+If the user is unsure which skill to use, they can invoke `/polly` (Claude Code), say "avvia polly" / "start polly" (Copilot and others), or you can offer Polly proactively as a fallback — never as the default.
+
 ## Available skills (cross-tool)
 
 This project contains a library of AI skills in `.claude/skills/`. The skills are plain markdown and apply to every AI tool, including Cursor. When the user's task matches a skill's description, read the corresponding `SKILL.md` and follow its instructions.

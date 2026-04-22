@@ -263,11 +263,7 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     });
     const claude = await readFile(join(projectPath, 'CLAUDE.md'), 'utf8');
     expect(claude).toContain('<!-- >>> polly (managed by polly skill) -->');
-    // NOTE: scaffold.ts no longer writes .nonoise/POLLY_START.md (Task 1 in the
-    // Polly advisor redesign), but the context-file templates still reference it.
-    // The template cleanup lands in Task 3 of that plan; these assertions track
-    // current behaviour until then.
-    expect(claude).toContain('.nonoise/POLLY_START.md');
+    expect(claude).not.toContain('.nonoise/POLLY_START.md');
   });
 
   it('injects the polly block into .github/copilot-instructions.md when Copilot is selected', async () => {
@@ -279,7 +275,7 @@ describe('scaffold() — Polly & superpowers wiring', () => {
       'utf8',
     );
     expect(copilot).toContain('<!-- >>> polly (managed by polly skill) -->');
-    expect(copilot).toContain('.nonoise/POLLY_START.md');
+    expect(copilot).not.toContain('.nonoise/POLLY_START.md');
   });
 
   it('creates .claude/commands/polly.md when Claude is selected', async () => {

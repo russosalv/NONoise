@@ -29440,6 +29440,14 @@ Project rules for Cursor. For cross-tool context see \`AGENTS.md\`.
 - Follow existing code style.
 - Run tests before committing.
 
+## Working with skills
+
+This project ships a curated set of skills under \`.claude/skills/\`. When the user describes a task, your default path is to **engage a skill directly** based on the intent — do not route through Polly unless the user is explicitly lost ("where do I start?", "what's next?", "sono perso"). Examples: "I need to reverse engineer this codebase" → engage \`reverse-engineering\`; "draft requirements for X" → engage \`bmad-agent-analyst\`; "sprint breakdown for the ADR" → engage \`sprint-manifest\`.
+
+**When you engage any SDLC skill, your first action is to ask the user for the full scope in one go — who, what, why, constraints, success criteria.** Use the skill's internal structure as a schema to fill, not as a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers (missing critical information you cannot infer). This applies to every SDLC skill — native, bundled, or vendored (superpowers/impeccable/skill-creator).
+
+If the user is unsure which skill to use, they can invoke \`/polly\` (Claude Code), say "avvia polly" / "start polly" (Copilot and others), or you can offer Polly proactively as a fallback — never as the default.
+
 ## Available skills (cross-tool)
 
 This project contains a library of AI skills in \`.claude/skills/\`. The skills are plain markdown and apply to every AI tool, including Cursor. When the user's task matches a skill's description, read the corresponding \`SKILL.md\` and follow its instructions.
@@ -29475,12 +29483,17 @@ Project-scoped rules for Copilot. For cross-tool context see \`AGENTS.md\`.
 
 ## Entry point — Polly
 
-This project ships with **Polly**, the NONoise SDLC orchestrator. Whenever the developer
-is unsure what to do next, or asks "start polly" / "avvia polly" / "orchestrate this
-project", read \`.claude/skills/polly/SKILL.md\` and follow its decision tree.
+This project ships with **Polly**, the NONoise SDLC advisor. When the developer is unsure
+which skill to use, or asks "start polly" / "avvia polly" / "orchestrate this project",
+read \`.claude/skills/polly/SKILL.md\` and follow its decision tree.
 
-If the file \`.nonoise/POLLY_START.md\` exists in the project root, your FIRST action this
-session is to invoke Polly, then delete \`.nonoise/POLLY_START.md\` so it doesn't re-trigger.
+## Working with skills
+
+This project ships a curated set of skills under \`.claude/skills/\`. When the user describes a task, your default path is to **engage a skill directly** based on the intent — do not route through Polly unless the user is explicitly lost ("where do I start?", "what's next?", "sono perso"). Examples: "I need to reverse engineer this codebase" → engage \`reverse-engineering\`; "draft requirements for X" → engage \`bmad-agent-analyst\`; "sprint breakdown for the ADR" → engage \`sprint-manifest\`.
+
+**When you engage any SDLC skill, your first action is to ask the user for the full scope in one go — who, what, why, constraints, success criteria.** Use the skill's internal structure as a schema to fill, not as a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers (missing critical information you cannot infer). This applies to every SDLC skill — native, bundled, or vendored (superpowers/impeccable/skill-creator).
+
+If the user is unsure which skill to use, they can invoke \`/polly\` (Claude Code), say "avvia polly" / "start polly" (Copilot and others), or you can offer Polly proactively as a fallback — never as the default.
 
 ## Conventions
 
@@ -29535,14 +29548,10 @@ live at \`.claude/skills/superpowers/<name>/SKILL.md\`. Open each folder's
 <!-- >>> polly (managed by polly skill) -->
 ## polly
 
-If the file \`.nonoise/POLLY_START.md\` exists, your FIRST action this session is to
-invoke Polly — read \`.claude/skills/polly/SKILL.md\` and follow its decision tree fully —
-then delete \`.nonoise/POLLY_START.md\` so the next session does not re-trigger.
-
-Otherwise, invoke Polly when the user says "start polly" / "avvia polly" / "run polly" /
+Invoke Polly when the user says "start polly" / "avvia polly" / "run polly" /
 "orchestrate this project", or when they seem lost ("where do I start?", "which skill
-for X?", "what's next?"). Polly is the conductor across the SDLC — it decides which
-specialist skill to engage next.
+for X?", "what's next?"). Polly is an advisor — suggests the right skill when you're
+unsure, not the default entry point for every task.
 <!-- <<< polly -->
 
 <!-- >>> graphify (managed by create-nonoise) -->
@@ -29807,6 +29816,14 @@ See \`CLAUDE.md\` for Claude Code-specific conventions.
 See \`.github/copilot-instructions.md\` for GitHub Copilot rules.
 See \`GEMINI.md\` for Gemini CLI rules.
 
+## Working with skills
+
+This project ships a curated set of skills under \`.claude/skills/\`. When the user describes a task, your default path is to **engage a skill directly** based on the intent — do not route through Polly unless the user is explicitly lost ("where do I start?", "what's next?", "sono perso"). Examples: "I need to reverse engineer this codebase" → engage \`reverse-engineering\`; "draft requirements for X" → engage \`bmad-agent-analyst\`; "sprint breakdown for the ADR" → engage \`sprint-manifest\`.
+
+**When you engage any SDLC skill, your first action is to ask the user for the full scope in one go — who, what, why, constraints, success criteria.** Use the skill's internal structure as a schema to fill, not as a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers (missing critical information you cannot infer). This applies to every SDLC skill — native, bundled, or vendored (superpowers/impeccable/skill-creator).
+
+If the user is unsure which skill to use, they can invoke \`/polly\` (Claude Code), say "avvia polly" / "start polly" (Copilot and others), or you can offer Polly proactively as a fallback — never as the default.
+
 ## Project structure
 
 - \`src/\` — application code
@@ -29839,15 +29856,19 @@ Claude Code-specific conventions for this project. For cross-tool context see \`
 
 ## Entry point — Polly
 
-This project ships with **Polly**, the NONoise SDLC orchestrator. Start there whenever you
-(or the developer) don't know what to do next:
+This project ships with **Polly**, the NONoise SDLC advisor. When the developer is unsure
+which skill to use, invoke Polly:
 
 - Type \`/polly\` to launch
 - Or say "start polly" / "avvia polly" / "orchestrate this project"
-- Or, if \`.nonoise/POLLY_START.md\` exists, Polly auto-triggers on the next session
 
-Polly will ask whether the project is greenfield or brownfield, then engage the right bundled
-skill for each SDLC step.
+## Working with skills
+
+This project ships a curated set of skills under \`.claude/skills/\`. When the user describes a task, your default path is to **engage a skill directly** based on the intent — do not route through Polly unless the user is explicitly lost ("where do I start?", "what's next?", "sono perso"). Examples: "I need to reverse engineer this codebase" → engage \`reverse-engineering\`; "draft requirements for X" → engage \`bmad-agent-analyst\`; "sprint breakdown for the ADR" → engage \`sprint-manifest\`.
+
+**When you engage any SDLC skill, your first action is to ask the user for the full scope in one go — who, what, why, constraints, success criteria.** Use the skill's internal structure as a schema to fill, not as a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers (missing critical information you cannot infer). This applies to every SDLC skill — native, bundled, or vendored (superpowers/impeccable/skill-creator).
+
+If the user is unsure which skill to use, they can invoke \`/polly\` (Claude Code), say "avvia polly" / "start polly" (Copilot and others), or you can offer Polly proactively as a fallback — never as the default.
 
 ## Installed skills
 
@@ -29895,13 +29916,10 @@ the full trigger list. Slash commands for superpowers live in
 <!-- >>> polly (managed by polly skill) -->
 ## polly
 
-If the file \`.nonoise/POLLY_START.md\` exists, your FIRST action this session is to
-invoke the \`polly\` skill in full, and then delete \`.nonoise/POLLY_START.md\`. The file
-is a one-shot marker — deleting it prevents repeated auto-triggers.
-
-Otherwise, invoke Polly when the user types \`/polly\`, says "start polly" / "avvia polly" /
+Invoke Polly when the user types \`/polly\`, says "start polly" / "avvia polly" /
 "run polly" / "orchestrate this project", or when they seem lost ("where do I start?",
-"which skill for X?", "what's next?").
+"which skill for X?", "what's next?"). Polly is an advisor — suggest the right skill
+when you're unsure, not the default entry point for every task.
 <!-- <<< polly -->
 
 <!-- >>> graphify (managed by create-nonoise) -->
@@ -29923,6 +29941,14 @@ Generated by create-nonoise v0.0.0-snapshot.
   "GEMINI.md": "# snap-proj — Gemini CLI context
 
 Project context for Gemini CLI. For cross-tool context see \`AGENTS.md\`.
+
+## Working with skills
+
+This project ships a curated set of skills under \`.claude/skills/\`. When the user describes a task, your default path is to **engage a skill directly** based on the intent — do not route through Polly unless the user is explicitly lost ("where do I start?", "what's next?", "sono perso"). Examples: "I need to reverse engineer this codebase" → engage \`reverse-engineering\`; "draft requirements for X" → engage \`bmad-agent-analyst\`; "sprint breakdown for the ADR" → engage \`sprint-manifest\`.
+
+**When you engage any SDLC skill, your first action is to ask the user for the full scope in one go — who, what, why, constraints, success criteria.** Use the skill's internal structure as a schema to fill, not as a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers (missing critical information you cannot infer). This applies to every SDLC skill — native, bundled, or vendored (superpowers/impeccable/skill-creator).
+
+If the user is unsure which skill to use, they can invoke \`/polly\` (Claude Code), say "avvia polly" / "start polly" (Copilot and others), or you can offer Polly proactively as a fallback — never as the default.
 
 ## Available skills (cross-tool)
 
