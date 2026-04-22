@@ -14727,415 +14727,6 @@ mechanics happen underneath.
 - \`references/project-tools.md\` — bundled executables in the scaffolded project (\`tools/md-extractor\`, \`tools/devops-push\`, multi-repo scripts): what they do, when to cite them, which skills invoke them
 - \`references/menu.md\` — Step −0.5 menu: trigger phrases, what to render, how to read back state to the user
 ",
-  ".claude/skills/polly/references/decision-tree.md": "# Polly — decision tree in full
-
-This file expands the decision tree sketched in \`SKILL.md\` into concrete
-prompts. Read when Polly needs the exact phrasing for a step, or when a step
-needs adaptation.
-
-## Global rule — never auto-advance between steps
-
-Every step-to-step transition is gated. After answering the current
-question (or returning from a skill), Polly STOPS and presents options
-before moving on: typically **procedi / pausa / menu / salta a una fase
-diversa**. The user must pick one explicitly. This overrides the
-apparent linear flow below — the numbering is a *map*, not a conveyor
-belt. See \`handoff-protocol.md\` § "Non-negotiable: every phase
-transition is gated" for the full rule and \`menu.md\` for the overview
-the user gets when they ask.
-
-If the user's latest message contains \`menu\`, \`mostra menu\`, \`cosa puoi
-fare\`, \`show menu\`, \`overview\`, \`opzioni\`, \`panoramica\`, or \`/polly
-menu\` — render \`menu.md\` instead of continuing the tree.
-
-## Step 0 — Voice input hint
-
-See \`voice-tools.md\`. Fire once per session, before any other prompt.
-
-## Step 1 — Greenfield or brownfield
-
-Exact prompt (EN):
-> Is this a **greenfield** project (something new, starting from scratch) or
-> **brownfield** (an existing codebase we need to analyze or extend)?
-
-Adaptation (IT):
-> Questo è un progetto **greenfield** (nuovo, da zero) o **brownfield**
-> (codice esistente da analizzare o estendere)?
-
-Wait for an explicit answer. Do not infer from directory contents — an empty
-\`docs/\` tree is produced by both paths.
-
-## Step 1.5 — Multi-repo workspace detection (fire before proceeding)
-
-Detection signals (any one is enough):
-
-- \`repositories.json\` exists at project root
-- \`nonoise.config.json\` has \`"workspace": "multi-repo"\`
-- \`repos/\` folder exists with \`.gitkeep\`
-
-If detected, handle BEFORE continuing with Step 2 or Step 3:
-
-**1. Acknowledge the workspace shape**
-> This is a multi-repo workspace. Sub-repos live under \`repos/<path>\` and are
-> managed by the scripts in \`./scripts/\`:
-> - \`clone-all.(sh|ps1)\` — reads \`repositories.json\`, clones each \`active\`
->   repo into \`repos/<path>\`
-> - \`switch-branch.(sh|ps1) <branch>\` — checkout the same branch across all
->   sub-repos (creates if missing)
-> - \`pull-all.(sh|ps1)\` — \`git pull --ff-only\` across all active sub-repos
-
-**2. Check bootstrap state** — is \`repos/\` empty (only \`.gitkeep\`)?
-
-- **If yes**: offer two paths:
-  - *Guided*: "I can walk you through \`repositories.json\` entry-by-entry —
-    for each repo ask URL / path inside repos / branch / status. Then run
-    clone-all for you."
-  - *Manual*: "Edit \`repositories.json\` yourself, flip \`status\` to \`active\`
-    for the repos you want, then run \`./scripts/clone-all.sh\` and come back
-    to me."
-
-- **If no** (sub-repos already cloned): skip, move on.
-
-**3. Skills policy reminder**
-
-> This workspace is **workspace-centric**: skills live only at the workspace
-> root (\`.claude/skills/\` here). Open this directory in Claude Code / Copilot
-> and you have all skills available. Sub-repos under \`repos/\` are plain code
-> — they don't carry their own skill tree. If you ever need skills inside a
-> specific sub-repo (e.g. working isolated on a single service), say so and
-> I'll copy \`.claude/\` into that sub-repo on demand.
-
-**4. VibeKanban hint** (only if the user later mentions bugs in UAT/SIT — see
-\`external-tools.md\` § VibeKanban)
-
-> In a multi-repo workspace, \`./scripts/switch-branch.sh <branch>\` aligns all
-> sub-repos on the same branch — VibeKanban then treats the workspace as one
-> unit during bug triage.
-
-**5. Proceed with Step 1** — greenfield vs brownfield question still applies
-(a multi-repo workspace can be either).
-
-## Pair vs solo mode per step
-
-Every step is annotated with a **mode**: \`[pair]\` means gather multiple
-humans on one screen with a large model (decisional phases); \`[solo]\`
-means distributed per-task work (implementation). Announce the mode when
-engaging a step. Rationale: see \`feedback_pair_vs_solo_workflow\` — NONoise
-is explicit about this; most AI frameworks assume one-man-band.
-
-## Skip rules (when to bypass a step)
-
-- **Pure refactor, no new feature** → skip Step 2.4, start at Step 2.5
-  with an area-slug.
-- **Simple feature on known architecture (no new ADR)** → skip Step 2.5
-  and Step 2.6, go from Step 2.4 straight to Step 2.7. \`sprint-manifest\`
-  will consume the \`docs/superpowers/specs/\` design doc directly.
-- **Architectural study with no feature yet** → skip Step 2.4, start at
-  Step 2.5.
-- **Brownfield** → follow Step 3, then resume greenfield at Step 2.4 or
-  2.5 depending on scope (new feature vs architectural refactor).
-
-## Greenfield — Step 2.1 — Stack     \`[pair]\`
-
-Prompt:
-> What's the stack you're building? Short form is fine — "Node + React",
-> "Python FastAPI", "Flutter app", "data pipeline in dbt", "CLI in Rust".
-> If you're not sure yet, say "not decided" and we'll figure it out together
-> during arch-brainstorm.
-
-Record the answer in your working memory — later steps (\`arch-brainstorm\`,
-\`sprint-manifest\`, \`atr\`) will use it. Don't write it to disk yet.
-
-## Greenfield — Step 2.2 — Existing source material     \`[pair]\`
-
-Prompt:
-> Do you already have any material about this project — meeting notes,
-> email threads, briefs, regulatory documents, sketches, a PRD draft? Even
-> rough stuff counts. Transcripts of stakeholder calls are gold — if you
-> have them, see \`external-tools.md\` § call transcriptions for the
-> cleanest workflow.
-
-If **yes**:
-1. Ask where the files are.
-2. Engage \`requirements-ingest\` to organize them under
-   \`docs/requirements/<domain>/sources/\`. \`requirements-ingest\` will ask its
-   own questions about domain and ownership.
-3. When it returns, note the domains created and carry them into Step 2.3.
-
-If **no**: skip, move to Step 2.3.
-
-## Greenfield — Step 2.3 — Requirements elicitation     \`[pair]\`
-
-Prompt:
-> Let's capture what we know about the project. I'll engage
-> \`bmad-agent-analyst\` — it runs a structured elicitation, asks questions
-> like "who are the users?", "what's the core problem?", "what counts as
-> success?". Takes 10-20 minutes. OK to start?
-
-If the user wants a lighter touch, substitute \`bmad-advanced-elicitation\`
-(single-round, no agent persona).
-
-Output lives in \`docs/requirements/<domain>/\`.
-
-## Greenfield — Step 2.4 — Feature / product design     \`[pair]\`
-
-Prompt:
-> Now the feature design. I'll engage \`superpowers:brainstorming\` — a
-> disciplined Q&A where we explore the *what* and *why* before the *how*.
-> It ends with a design spec at
-> \`docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md\`. It even offers a
-> visual companion (browser mockups) if we hit UI questions. One question
-> at a time, no hurry.
-
-\`superpowers:brainstorming\` is product/feature level — it does NOT read
-\`docs/architecture/\` constraints, so if you also need architectural
-decisions, continue to Step 2.5. If the feature is simple and the
-architecture is already known (just plumbing), skip Step 2.5 → 2.6 and
-go straight to Step 2.7 (sprint-manifest consumes the design spec).
-
-**Fallback**: if \`superpowers:brainstorming\` was removed manually, see
-\`fallback-messages.md\` § brainstorming.
-
-## Greenfield — Step 2.5 — Architecture options     \`[pair]\`  *(skip if arch is known)*
-
-Prompt:
-> With the feature design in hand, let's pick the architecture. I'll
-> engage \`arch-brainstorm\` — it takes the area-slug, reads
-> \`docs/architecture/01-constraints.md\` (your source of truth),
-> \`docs/requirements/\`, and the Step 2.4 design spec, then produces a
-> narrative PRD under \`docs/prd/<area>/NN-<study>.md\` with 2-3
-> alternatives, Mermaid diagrams, and explicit anti-scope.
-
-Unlike \`superpowers:brainstorming\`, \`arch-brainstorm\` is project-aware —
-it pulls constraints and past ADRs from \`docs/architecture/\`. Use it
-when the architecture is non-trivial, or when the user explicitly wants
-to explore system-level options.
-
-**Alex personality note**: if the architect reaches for exotic patterns,
-Alex (\`bmad-agent-architect\`) will push back per
-\`feedback_canonical_architectures_alex\` — prefer canonical patterns
-(MVC, Repository, CQRS, Clean, hexagonal) unless there's a strong reason.
-
-## Greenfield — Step 2.6 — Architecture decision     \`[pair]\`
-
-Prompt:
-> Time to commit. I'll engage \`arch-decision\` — it takes the Step 2.5
-> study, runs Quint FPF validation (\`quint-fpf\` as a sub-skill:
-> abduction → deduction → induction → R_eff via WLNK), and updates the
-> PRD frontmatter to \`validated\` or \`rejected\`. On PASS it produces an
-> "Impact on docs/architecture/" checklist you apply manually.
-
-Output is a validated PRD + FPF audit at \`docs/prd/<area>/audit/\`. No
-auto-sync to \`docs/architecture/\` — Alex does that manually with the DOC
-capability.
-
-After \`arch-decision\` PASS, engage \`c4-doc-writer\` to update \`docs/architecture/c4/workspace.dsl\`. This keeps the architectural diagrams in sync with the validated decision — one Structurizr DSL source, many regenerated views (Context / Container / Component). The skill is advisory on CLI install (never auto-installs Structurizr) and appends a dated entry to \`docs/architecture/c4/CHANGELOG.md\` noting which ADR triggered the refresh.
-
-## Step 6b — arch-sync suggestion (between arch-decision and sprint-manifest)
-
-> **Step numbering note**: this section is labelled \`6b\` to align with \`polly/SKILL.md\` greenfield path (\`6\` = arch-decision → \`6b\` = arch-sync → \`7\` = sprint). The user-facing docs use longer numbering schemes — \`docs/polly.md\` Step \`7c\` and \`docs/sdlc.md\` Step \`8c\` reference the same logical operation.
-
-**Pre-condition**: \`arch-decision\` has just completed Phase 6 (PRD has
-\`status: validated\`, audit folder exists with \`05-decision.md\` carrying
-the strict-format \`## Impact on docs/architecture/\` checklist). On Polly's
-resume, the \`archDecision\` handoff fingerprint is satisfied and
-\`archSyncOffered\` is \`null\` (or \`false\` from a previous postpone).
-
-**Action**: Polly does NOT advance to \`sprint-manifest\`. Instead it
-presents:
-
-\`\`\`
-✅ Architettura validata — PRD <path>, R_eff <X>.
-
-Prima di passare allo sprint, vuoi proiettare la decisione in
-\`docs/architecture/\`?
-
-  [1] Sì — invoco arch-sync (legge PRD+05-decision.md, scrive in architettura con diff)
-  [2] No, lo faccio a mano — vado a sprint-manifest
-  [3] Dopo — fermati qui, ti chiamo io quando voglio
-\`\`\`
-
-**Choice handlers**:
-
-| # | Effect on state | Next Polly action |
-|---|-----------------|-------------------|
-| 1 | \`archSyncOffered = true\` | Standard handoff to \`arch-sync\` (pass \`prdPath\` + \`auditFolder\` in handoff args). After it returns, advance to \`sprint-manifest\`. |
-| 2 | \`archSyncOffered = true\` | Advance to \`sprint-manifest\`. The suggestion is not re-offered for this decision. |
-| 3 | \`archSyncOffered = false\` | Stop. On the next \`/polly\` invocation, this menu re-appears (because \`archSyncOffered === false\` and \`archDecision\` fingerprint still satisfies). |
-
-**Reset rule**: when a new PRD validation occurs (new \`archDecision\`
-fingerprint), reset \`archSyncOffered\` to \`null\` so the menu fires again
-for the new decision.
-
-## Greenfield — Step 2.7 — Sprint breakdown     \`[pair]\`
-
-Prompt:
-> Architecture locked. Let's plan the sprint. I'll engage
-> \`sprint-manifest\` — it promotes all validated PRDs to
-> \`docs/sprints/Sprint-N/<area>/\` and produces **one aggregated manifest**
-> at \`docs/sprints/Sprint-N/sprint-manifest.md\` — vertical slices, user
-> stories, macro tasks, confidence CL1/CL2/CL3, cross-area dependencies.
-
-Ask for the sprint number if the user hasn't specified.
-
-## Greenfield — Step 2.8 — Implementation loop (dev trio + ATR)     \`[solo]\`
-
-This is where the mode flips. Decisional phases were pair; per-task work
-is solo — ideally distributed across the team.
-
-For **each task** in the manifest, Polly engages the superpowers dev
-trio + atr as the default shipping path (not optional):
-
-**Prompt (per task):**
-> Task \`<task-id>\`: \`<task-title>\`. Solo work — one dev picks this up.
-> The shipping sequence is:
->
-> **a.** \`superpowers:writing-plans\` — I'll turn this task into a
-> numbered plan with explicit dependencies.
->
-> **b.** \`superpowers:executing-plans\` — runs the plan with review
-> checkpoints; uses \`superpowers:subagent-driven-development\` and
-> \`superpowers:dispatching-parallel-agents\` where the plan allows,
-> plus \`superpowers:test-driven-development\` for red-green-refactor.
->
-> **c.** \`atr\` — acceptance runner: generates the testbook from
-> acceptance criteria in the manifest, runs it with Playwright,
-> produces the report + screenshots at
-> \`docs/sprints/Sprint-N/acceptance/\`.
->
-> **d.** \`superpowers:finishing-a-development-branch\` — structured
-> merge/PR decision; picks the right integration path.
->
-> Ready to start?
-
-After each task, return to Polly and ask "next one?". Polly is the
-conductor across tasks.
-
-**Bug triage interlude** (during sprint, before release): if the user
-mentions bugs from UAT / SIT / QA, route to \`external-tools.md\` §
-VibeKanban and \`observability-debug\` — they compound.
-
-## Brownfield — Step 3.1 — Code path     \`[pair]\`
-
-Prompt:
-> Where's the code? Absolute path or relative to the scaffold root.
-
-If the code is inside the scaffold (same repo), check that \`.git\` exists so
-\`graphify\` can scan. If it's in a sibling repo, note the path.
-
-## Brownfield — Step 3.2 — Reverse engineering     \`[pair]\`
-
-Prompt:
-> I'll engage \`reverse-engineering\` — it verifies graphify is installed
-> (scaffold-time default), indexes your subject source with the full AST +
-> semantic + clustering pipeline, and opens an interactive analysis loop.
-
-Pass the source path to the handoff:
-
-\`\`\`
-Skill(skill: "reverse-engineering", args: "source_path=<Step 3.1 answer>")
-\`\`\`
-
-If the user provided no explicit source_path in Step 3.1 (or said "inside
-this repo"), omit \`source_path\` — \`reverse-engineering\` falls back to \`.\`
-or \`nonoise.config.json → reverse.source_path\`.
-
-\`reverse-engineering\` Step 0.1 verifies graphify is installed; Step 2.2
-runs the full AST + semantic + clustering pipeline on the source path.
-
-**Return fingerprint**: \`graphify-out/GRAPH_REPORT.md\` (at the indexing
-target path, not necessarily the project root).
-
-If the user skipped indexing inside \`reverse-engineering\`, the fingerprint
-is absent — Polly sees \`scan\` phase as NOT done on the next reconcile and
-will re-propose engaging \`reverse-engineering\` again before proceeding
-(see § "Reverse-engineering intent gate" below).
-
-## Reverse-engineering intent gate
-
-When the user's intent matches any of the reverse-engineering triggers
-listed in \`reverse-engineering/SKILL.md\` (e.g. "reverse-engineer X",
-"document legacy Y", "build a dossier on vendor Z's API", Italian/French
-/Spanish equivalents, or a path mention under \`docs/support/reverse/\`),
-Polly MUST check the graphify state before engaging \`reverse-engineering\`:
-
-\`\`\`
-graphify CLI available AND graph exists at the proposed source path?
-│
-├─ NO (either side)
-│    → engage \`reverse-engineering\` (its Step 0.1 verifies graphify is
-│      installed and Step 2.2 runs the full AST + semantic + clustering
-│      pipeline on <path>)
-│    → on return, re-check the fingerprint
-│         - satisfied → proceed (already inside reverse-engineering)
-│         - absent (user skipped indexing) → ASK THE USER:
-│             "Indexing was skipped. Reverse-engineering without a
-│              subject graph produces a source-less, partial dossier.
-│              Three options:
-│              a) Run indexing now (engage \`reverse-engineering\` again)
-│              b) Proceed source-less (confirm you understand it's partial)
-│              c) Pause"
-│           Wait for explicit choice. Never auto-pick (a) or (b).
-│
-└─ YES → engage reverse-engineering directly.
-         Its Q4 freshness check handles the stale-graph case internally.
-\`\`\`
-
-This gate applies both to the brownfield path (Step 3.2 + 3.3) and to
-orthogonal entry points where the user invokes RE outside the main tree.
-
-## Brownfield — Step 3.3 — Reverse engineering     \`[pair]\`
-
-Prompt:
-> Now I'll engage \`reverse-engineering\` — it reads the graphify index and
-> produces a subject-driven understanding document under
-> \`docs/support/reverse/<subject-slug>/\`. The skill is interactive: it will
-> pause and ask before writing, and will explore with you before committing
-> anything to disk.
-
-\`reverse-engineering\` has a strong "don't write without permission" rule —
-trust it, don't override.
-
-## Brownfield — Step 3.4 — Existing source material     \`[pair]\`
-
-Identical to greenfield Step 2.2. If there are emails / calls / briefs about
-the legacy system, route them through \`requirements-ingest\`.
-
-## Brownfield — Step 3.5 — Resume greenfield at the right step
-
-From here, brownfield joins greenfield. **This is a junction, not a
-transition — do NOT auto-pick a target.** Present the three options and
-wait for the user to choose. Template (IT):
-
-> Brownfield completo. Adesso raggiungiamo il flusso principale — ma
-> l'ingresso dipende da cosa vuoi fare:
->
-> - **a) Nuova feature sul codice legacy** → Step 2.4 (feature / product design con \`superpowers:brainstorming\`)
-> - **b) Refactor architetturale / cambio strutturale** → Step 2.5 (\`arch-brainstorm\` con area-slug)
-> - **c) Manutenzione semplice, architettura già chiara** → Step 2.7 (\`sprint-manifest\` direttamente)
-> - **d) Pausa / menu / altro** — dimmelo
->
-> Quale?
-
-Do NOT proceed until the user picks one. On silence, re-ask — do not
-default to (a).
-
-| User intent | Resume at |
-|---|---|
-| New feature on top of the legacy code | Step 2.4 (feature / product design) |
-| Architectural refactor, no new feature | Step 2.5 (arch-brainstorm with area-slug) |
-| Simple maintenance change on known arch | Step 2.7 (sprint-manifest directly) |
-
-\`arch-brainstorm\` in brownfield mode also reads \`docs/support/reverse/\`
-automatically — the skill figures this out on its own, no extra config
-needed.
-
-## Orthogonal entry points
-
-See \`SKILL.md\` § "Orthogonal entry points" for the routing table. Each entry
-is a one-shot handoff — engage the specialist, then return to the user with
-the result.
-",
   ".claude/skills/polly/references/external-tools.md": "# Polly — external tools Polly mentions
 
 Polly does not integrate these tools. It **tells the user they exist** when the
@@ -15378,716 +14969,6 @@ for the "don't write without permission" rule — respect it in manual mode
 too.
 
 ",
-  ".claude/skills/polly/references/fingerprints.md": "# Polly filesystem fingerprints
-
-This is the **source of truth** for whether a phase is complete. Polly
-reconciles \`polly-state.json#phases\` against this table on every entry; the
-filesystem wins.
-
-Paths are relative to the **workspace root** (i.e. the folder where
-\`nonoise.config.json\` lives). In multi-repo workspaces, everything here is
-still rooted at workspace level — \`repos/<name>/\` is the sub-repo content
-and is NOT inspected for Polly fingerprints.
-
-## Phase → fingerprint
-
-| Phase key | Skill(s) that produce it | Fingerprint (at least one must exist) |
-|---|---|---|
-| \`scan\` | \`reverse-engineering\` | \`graphify-out/GRAPH_REPORT.md\` |
-| \`reverse\` | \`reverse-engineering\` | any file matching \`docs/support/reverse/*/00-overview.md\` OR \`docs/support/reverse/*/CHANGELOG.md\` |
-| \`requirements\` | \`requirements-ingest\` | any \`docs/requirements/*/*.md\` that is NOT the template \`README.md\` (check size > 1 KB or non-placeholder content) |
-| \`featureDesign\` | \`bmad-agent-analyst\`, \`superpowers:brainstorming\` | any \`docs/prd/*.md\` (flat, not under an area folder) OR any \`docs/prfaq/*.md\` OR any \`docs/superpowers/specs/*.md\` |
-| \`archBrainstorm\` | \`arch-brainstorm\` | any \`docs/prd/<area>/NN-*.md\` where \`NN\` is a 2-digit prefix and the file is not \`00-area-brief.md\` |
-| \`archDecision\` | \`arch-decision\` | any \`docs/prd/<area>/audit/*-fpf/05-decision.md\` OR any \`docs/prd/<area>/NN-*.md\` with frontmatter \`status: validated\` |
-| \`fpfAudit\` | \`quint-fpf\` | \`.quint/context.md\` OR any \`docs/fpf/*/00-context.md\` OR any \`docs/prd/*/audit/*-fpf/00-context.md\` |
-| \`sprint\` | \`sprint-manifest\` | any \`docs/sprints/Sprint-*/sprint-manifest.md\` |
-| \`implementation\` | dev trio (\`superpowers:writing-plans\` → \`executing-plans\`) | any \`docs/sprints/Sprint-*/plans/*.md\` OR — pragmatic v1 — presence of \`docs/sprints/Sprint-*/acceptance/testbook.yml\` implies implementation ran |
-| \`acceptance\` | \`atr\` | any \`docs/sprints/Sprint-*/acceptance/testbook.yml\` |
-| \`c4\` | \`c4-doc-writer\` | \`docs/architecture/c4/workspace.dsl\` OR any \`docs/support/reverse/*/c4/workspace.dsl\` (reverse-mode output) |
-| \`archSync\` | \`arch-sync\` | any file matching \`docs/architecture/sync-reports/*.md\` newer than the most recent PRD's \`validated_at\` |
-| \`workitemExport\` | \`spec-to-workitem\` | any \`docs/sprints/Sprint-*/export/spec-to-workitem-*.md\` |
-
-## Per-skill handoff fingerprint
-
-When a skill is engaged via \`handoff.skill\`, the fingerprint Polly checks
-on return is the one that maps to that skill's primary output:
-
-| Handoff skill | Primary fingerprint | Related phase key |
-|---|---|---|
-| \`reverse-engineering\` | \`graphify-out/GRAPH_REPORT.md\` (scan phase) OR \`docs/support/reverse/*/00-overview.md\` (reverse phase) | \`scan\`, \`reverse\` |
-| \`requirements-ingest\` | any \`docs/requirements/*/*.md\` non-placeholder | \`requirements\` |
-| \`bmad-agent-analyst\` | any \`docs/prd/*.md\` or \`docs/prfaq/*.md\` | \`featureDesign\` |
-| \`bmad-advanced-elicitation\` | (no standalone fingerprint — folds into caller's output) | (inherit from caller) |
-| \`superpowers:brainstorming\` | \`docs/superpowers/specs/*.md\` | \`featureDesign\` |
-| \`arch-brainstorm\` | \`docs/prd/<area>/NN-*.md\` with status draft | \`archBrainstorm\` |
-| \`arch-decision\` | \`docs/prd/<area>/audit/*-fpf/05-decision.md\` or status validated | \`archDecision\` |
-| \`quint-fpf\` | \`.quint/context.md\` or \`docs/fpf/*/00-context.md\` or \`docs/prd/*/audit/*-fpf/00-context.md\` | \`fpfAudit\` |
-| \`sprint-manifest\` | \`docs/sprints/Sprint-*/sprint-manifest.md\` | \`sprint\` |
-| \`atr\` | \`docs/sprints/Sprint-*/acceptance/testbook.yml\` | \`acceptance\` |
-| \`c4-doc-writer\` | \`docs/architecture/c4/workspace.dsl\` OR any \`docs/support/reverse/*/c4/workspace.dsl\` | \`c4\` |
-| \`arch-sync\` | any \`docs/architecture/sync-reports/*.md\` newer than the PRD path it was invoked with | \`archSync\` |
-| \`spec-to-workitem\` | \`docs/sprints/Sprint-*/export/spec-to-workitem-*.md\` | \`workitemExport\` |
-
-## Glob semantics
-
-The glob patterns above use \`*\` as a single-segment wildcard (not
-recursive). E.g. \`docs/prd/<area>/NN-*.md\` matches \`docs/prd/billing/03-subscriptions.md\`
-but NOT \`docs/prd/billing/drafts/archived/03.md\`.
-
-If the AI running Polly doesn't have a glob tool handy, walk the directory
-manually (read \`docs/prd/<area>/\`, filter for files matching \`NN-*.md\`).
-
-## Non-placeholder detection
-
-The template scaffold ships a \`README.md\` in each \`docs/*\` subfolder with
-orientation text. These are NOT fingerprints — they exist even in a fresh
-project. To distinguish a real artifact:
-
-- For \`docs/requirements/*/*.md\`: ignore files whose content contains the
-  phrase \`"(fill this in once the project has requirements)"\` or similar
-  template boilerplate, or whose size is below 512 bytes.
-- Same heuristic for any \`README.md\` — treat as placeholder by default.
-- For YAML files (\`testbook.yml\`), treat any parseable YAML with at least
-  one section/test entry as real.
-
-When in doubt: ask the user "is this file a real artifact or just the
-template placeholder?" rather than silently marking a phase done.
-
-## Not fingerprints (v1)
-
-These exist but are NOT tracked by Polly's state cache — they're either
-too ephemeral or orthogonal to the SDLC loop:
-
-- \`docs/calls/*.md\` — meeting notes, cross-cutting context, not phase-tied
-- \`docs/support/vendor/*\` — vendor docs, regulatory
-- \`tools/*\` — scaffold utilities
-- \`graphify-out/wiki/*\` — generated views, second-order
-
-## How Polly uses this
-
-Pseudocode for the reconcile loop:
-
-\`\`\`
-for phase in phases:
-  if any(exists(p) for p in fingerprint(phase) where not is_placeholder(p)):
-    if not phases[phase].done:
-      phases[phase].done = true
-      phases[phase].via = infer_skill(phase)  # from the table above
-      phases[phase].at = max_mtime(fingerprint(phase))
-      emit_event("phase-complete", phase, via=phases[phase].via)
-\`\`\`
-
-"Infer skill" when multiple skills can produce the same fingerprint:
-
-- \`requirements\` → if there's a \`handoff\` event for \`requirements-ingest\`
-  in \`events\`, use that; else default to \`requirements-ingest\`.
-- \`featureDesign\` → check file location: \`docs/prd/*.md\` flat →
-  \`bmad-agent-analyst\`; \`docs/superpowers/specs/*.md\` →
-  \`superpowers:brainstorming\`.
-- Otherwise use the first skill in the per-skill table.
-
-## Decision signals (not phase-tied)
-
-These are filesystem signals Polly reads to adjust *routing decisions*,
-but they are NOT phase fingerprints — they do not update \`phases[*]\` and
-do not count toward completion. Use them to pick the right next skill
-and the right args to pass.
-
-| Signal | Check | Used by |
-|---|---|---|
-| \`graphify_unavailable_or_no_graph_RE_intent\` | (\`command -v graphify\` fails OR \`<proposed_source_path>/graphify-out/graph.json\` does NOT exist) AND user intent is RE | \`decision-tree.md\` § "Reverse-engineering intent gate" → invoke \`reverse-engineering\` (Step 2.2 builds the initial full graph) |
-| \`stale_source_graph\` | \`<source_path>/graphify-out/graph.json\` exists AND (\`manifest.json\` \`indexed_at\` OR file mtime) is older than \`nonoise.config.json → reverse.graph_freshness_days\` (default 30 days) | \`reverse-engineering\` Q4 freshness check (internal; Polly doesn't branch on this — the skill handles it) |
-
-Rules:
-
-- Decision signals are **cheap checks**, not phases. Run them at decision
-  time, don't cache them in \`polly-state.json\`.
-- If a decision signal conflicts with a phase fingerprint (e.g. \`scan\`
-  phase is marked done but \`graphify_installed_no_graph_RE_intent\` is
-  true for a different source path), trust the decision signal — the
-  phase fingerprint may refer to a prior subject.
-",
-  ".claude/skills/polly/references/handoff-protocol.md": "# Polly handoff & return protocol
-
-The single most common Polly failure mode in v1 was: user enters a skill
-(e.g. \`reverse-engineering\`), completes it, forgets to come back, later re-invokes
-Polly — and Polly re-walks the entire decision tree from Step 0 because it
-has no memory of what was done. This protocol fixes that.
-
-Polly keeps its orchestration state in \`.nonoise/polly-state.json\` (see
-\`state-schema.md\`) and uses filesystem fingerprints (see \`fingerprints.md\`)
-as the source of truth for phase completion.
-
-## Two moments that matter
-
-1. **Handoff** — when Polly is about to engage a specialist skill, it MUST
-   announce the return expectation and write the handoff to state.
-2. **Return** — when Polly is re-invoked, it MUST check the state file for
-   an active handoff and reconcile against the filesystem before asking the
-   user anything new.
-
-Everything else in Polly's decision tree is unchanged.
-
-## Non-negotiable: every phase transition is gated
-
-Polly does not auto-advance. Ever. After any skill completes, any phase
-finishes, or the tree hits a junction (e.g. brownfield Step 3.5 → the
-greenfield resume point), Polly presents concrete options — typically
-**procedi / pausa / menu / salta** — and **waits for the user's explicit
-answer** before engaging the next skill.
-
-A soft "Ok?" at the end of a declarative sentence is NOT a gate. A
-statement like "Procedo con X" is NOT a gate. A gate is a question with
-concrete options and a full stop.
-
-This applies equally to:
-- Return from a completed handoff (§ "Handle active handoff")
-- Resume after silent re-entry (§ "No active handoff — offer resume")
-- Step-to-step transitions inside a single session (no filesystem signal,
-  but still a junction — ask)
-- The brownfield → greenfield seam (Step 3.5 has multiple resume targets;
-  never auto-pick one)
-
----
-
-## Handoff — what Polly does
-
-When engaging skill \`X\` for phase \`P\` with next-step \`N\`:
-
-### 1. Announce (to the user)
-
-Adapt to the user's locale (read \`user.locale\` from \`nonoise.config.json\`).
-Template in English:
-
-> Now I'm handing off to **\`<X>\`**. That skill will <what it does — 1 sentence>,
-> and produces <expected fingerprint>. When you're done there, come back to
-> me: type \`/polly\` (Claude Code) or say **"back to polly"** (Copilot). I'll
-> pick up from **<N>**.
-
-Italian variant:
-
-> Ora passo la parola a **\`<X>\`**. Ti guiderà in <cosa fa — 1 frase> e
-> produrrà <fingerprint attesa>. Quando hai finito, torna da me: scrivi
-> \`/polly\` (Claude Code) o dì **«back to polly»** (Copilot). Riprendo da
-> **<N>**.
-
-Do NOT skip the "come back to me" sentence. It is the single word that tells
-the user Polly isn't a one-shot.
-
-### 2. Write state (atomic overwrite of \`polly-state.json\`)
-
-Before invoking the skill, update:
-
-\`\`\`json
-{
-  "updatedAt": "<now>",
-  "session": { "currentStep": "<P>", "mode": "<pair|solo>" },
-  "handoff": {
-    "skill": "<X>",
-    "engagedAt": "<now>",
-    "returnTo": "<N>",
-    "userMessage": "<the last sentence Polly said above>"
-  },
-  "events": [ ..., { "at": "<now>", "action": "handoff", "phase": "<P>", "skill": "<X>" } ]
-}
-\`\`\`
-
-Use the Write tool (or equivalent) to overwrite the file. Read → merge →
-write is the safe path: never partial-patch without reading first.
-
-### 3. Engage the skill
-
-Only after the state file is flushed to disk. If the write fails, tell the
-user and abort the handoff rather than losing the trail.
-
----
-
-## Return — what Polly does on every re-entry
-
-This is the new **Step −1** — runs before Step 0 (voice hint).
-
-### 1. Read state
-
-Read \`.nonoise/polly-state.json\`. Three outcomes:
-
-- **File absent** → session is fresh. Initialize in-memory with the schema
-  default (see \`state-schema.md\`), continue to Step 0. Do NOT write the
-  file yet — that's the scaffold's job; Polly writes it the first time it
-  advances state.
-- **File present, \`version != 1\`** → abort with the version message from
-  \`state-schema.md#versioning--migration\`.
-- **File present, version 1** → continue.
-
-### 2. Reconcile \`phases\` against the filesystem
-
-For every phase entry in \`phases\`, look up the fingerprint in
-\`fingerprints.md\` and check disk:
-
-- Fingerprint satisfied AND \`phases[P].done === false\` → set
-  \`phases[P].done = true\`, \`via = "<inferred or last-known skill>"\`,
-  \`at = <file mtime>\`, append a \`phase-complete\` event.
-- Fingerprint satisfied AND \`phases[P].done === true\` → leave alone.
-- Fingerprint NOT satisfied AND \`phases[P].done === true\` → trust the
-  state file (the user may have renamed or moved files). Don't silently
-  downgrade; log a \`reconcile-warning\` event and move on.
-
-This keeps Polly coherent even when the user did work outside Polly.
-
-### 3. Handle active handoff
-
-If \`handoff !== null\`:
-
-Let \`fp = fingerprint(handoff.skill)\`.
-
-- **\`fp\` satisfied** → the skill finished. Act:
-  1. Clear \`handoff\` (set to \`null\`).
-  2. Mark \`phases[<phase tied to that skill>].done = true\`, set \`via\`/\`at\`.
-  3. Set \`session.currentStep = handoff.returnTo\`.
-  4. Append a \`return\` event and a \`phase-complete\` event.
-  5. Write the file.
-  6. Greet the user with **an explicit choice, then STOP and wait**. Do
-     not engage the next skill in the same turn. Template (IT):
-
-     > Bentornato. Vedo che **\`<X>\`** ha finito — trovo \`<fingerprint>\`.
-     > La prossima fase sarebbe **\`<returnTo>\`** — <1 frase su cosa fa>.
-     >
-     > Cosa vuoi fare?
-     > - **a) Procedi** — ingaggio \`<next skill>\` per \`<returnTo>\`
-     > - **b) Pausa** — ci fermiamo qui, riprendiamo con \`/polly\` quando vuoi
-     > - **c) Menu** — mostrami tutte le fasi e le skill disponibili
-     > - **d) Salta a un'altra fase** — dimmi quale (es. "vai a sprint")
-
-     English equivalent:
-
-     > Welcome back. **\`<X>\`** is done — I can see \`<fingerprint>\`.
-     > The next phase would be **\`<returnTo>\`** — <1 sentence on what it does>.
-     >
-     > What would you like to do?
-     > - **a) Proceed** — I'll engage \`<next skill>\` for \`<returnTo>\`
-     > - **b) Pause** — we stop here, resume with \`/polly\` later
-     > - **c) Menu** — show me all phases and available skills
-     > - **d) Jump to a different phase** — tell me which one
-
-     **Wait for the answer before doing anything else.** The user may type
-     (a), "procedi", "yes", a skill name, "menu", "pausa", "stop" — parse
-     permissively but never auto-advance on silence or on a bare
-     acknowledgement. If the answer is ambiguous, ask again.
-
-- **\`fp\` NOT satisfied** → ambiguous. Ask the user directly, offering 3
-  choices:
-
-  > Bentornato. Eravamo a **\`<X>\`** ma non vedo ancora \`<fingerprint>\`.
-  > Tre opzioni:
-  > 1. **Completato** — procedo con \`<returnTo>\` (ricontrollerò il filesystem
-  >    prima di fidarmi).
-  > 2. **Pausato** — torniamo dentro \`<X>\`, continuo da lì.
-  > 3. **Saltato** — segno la fase come skip e procedo con \`<returnTo>\`.
-
-  On each answer: update state, clear or retain \`handoff\`, write, continue.
-
-### 4. No active handoff — offer resume
-
-If \`handoff === null\` AND \`session.currentStep !== "intro"\`:
-
-Show the user their progress and offer options — same gate pattern as
-above: present concrete choices and WAIT.
-
-> Bentornato. Ecco dove eravamo:
-> - Tipo progetto: **\`<kind>\`** (\`<scope>\`)
-> - Ultimo passo: **\`<currentStep>\`**
-> - Fasi completate: \`<list of phases with done:true>\`
->
-> Cosa vuoi fare?
-> - **a) Continua da \`<currentStep>\`**
-> - **b) Menu** — vedi tutte le fasi e le skill
-> - **c) Ricomincia dall'inizio**
-
-Restart = clear session (but keep \`voiceHintShown: true\` — no point
-re-showing it) and re-enter the tree at Step 1. Wait for the explicit
-choice; never assume "continue" on silence.
-
-### 5. No handoff, fresh session
-
-If \`handoff === null\` AND \`session.currentStep === "intro"\`:
-
-Proceed to Step 0 (voice hint) → Step 1 normally. At the end of each
-answered question in Steps 1–N, persist the answer to \`session.*\` and
-append an event.
-
----
-
-## Voice hint gate (Step 0)
-
-Old behavior: always show the voice hint on first screen.
-
-New behavior: if \`voiceHintShown === true\`, SKIP Step 0 entirely. After
-showing it for the first time, set \`voiceHintShown = true\` and write.
-
----
-
-## What Polly writes, and when
-
-Polly writes \`polly-state.json\` on each of these events:
-
-| Trigger | Fields updated |
-|---|---|
-| Voice hint shown | \`voiceHintShown = true\` |
-| User answers \`kind\` | \`session.kind\`, events |
-| User answers \`scope\` | \`session.scope\`, events |
-| User answers stack | \`session.stack\`, events |
-| User answers brownfield code path | \`session.brownfieldCodePath\`, events |
-| User sets active area | \`session.activeArea\`, \`session.studyCounter\`, events |
-| User sets active sprint | \`session.activeSprint\`, events |
-| Step advances (no handoff) | \`session.currentStep\`, events |
-| Skill engaged | \`handoff\`, events |
-| Return from skill | \`handoff = null\`, \`phases[P]\`, \`session.currentStep\`, events |
-| Reconcile finds new phase complete | \`phases[P]\`, events |
-| User answers "skip" or "abandon" | \`phases[P].done = true\` with \`via: "skipped"\` or \`via: "abandoned"\`, events |
-
-Keep \`events\` bounded: trim to the most recent 100 entries on every write.
-
----
-
-## Self-destruct interaction
-
-Existing rule: when invoked via \`POLLY_START.md\` auto-trigger, delete
-\`POLLY_START.md\` at end of session.
-
-**Do NOT delete \`polly-state.json\` in self-destruct.** The state file
-outlives the auto-trigger marker by design — the next manual \`/polly\`
-should benefit from the accumulated state.
-
----
-
-## Implementation notes for the AI running Polly
-
-- Use the \`Write\` tool to overwrite \`polly-state.json\` atomically. Read the
-  existing file first (if present), modify the fields you need, then write
-  the whole JSON back. This avoids losing fields written by an older or
-  newer Polly.
-- Keep \`updatedAt\` fresh on every write.
-- Ignore \`createdAt\` — it's set by the scaffold and never mutated.
-- Use ISO-8601 UTC (\`.toISOString()\`-equivalent) for all timestamps.
-- If you can't parse the file (corrupted JSON), rename it to
-  \`polly-state.corrupt-<timestamp>.json\` and bootstrap a fresh one, log a
-  \`reset\` event mentioning the rename. Tell the user.
-
----
-
-## Skill arguments convention
-
-Some skills accept optional arguments from Polly that adjust their behavior
-without changing the default flow for unorchestrated callers. The format
-is deliberately minimal.
-
-### Format
-
-A single string of \`key=value\` pairs separated by spaces. Values that
-contain spaces MUST be wrapped in double quotes.
-
-\`\`\`
-mode=reverse-engineering source_path="C:/legacy/billing system"
-\`\`\`
-
-When invoking through the \`Skill\` tool in Claude Code, pass this string
-as the \`args\` parameter:
-
-\`\`\`
-Skill(skill: "reverse-engineering", args: "source_path=./legacy")
-\`\`\`
-
-When invoking in Copilot (or any environment without a native \`Skill\`
-tool), prepend the args string to the skill's opening prompt as a line:
-
-\`\`\`
-args: mode=reverse-engineering source_path=./legacy
-\`\`\`
-
-### Rules
-
-1. **Missing args = default behavior.** A skill invoked without args must
-   behave exactly as it did before this convention existed.
-2. **Unknown keys are ignored.** Forward compatibility — Polly may pass
-   keys that an older skill version doesn't recognize. The skill must
-   neither error nor warn.
-3. **Unknown values are logged and ignored.** If a skill defines a
-   fixed set of values for a key (e.g. \`mode ∈ {reverse-engineering,
-   brownfield}\`), any other value is treated as absent and noted in
-   the skill's output.
-4. **Best-effort parsing.** Skills do their own parsing inline — no shared
-   library. A crude \`grep\`/split on \` \` + \`=\` is enough. Do not invest in
-   a parser.
-
-### Known keys (registered here as skills adopt them)
-
-| Key | Used by | Valid values | Purpose |
-|---|---|---|---|
-| \`source_path\` | \`reverse-engineering\` | any path | Default target for indexing pipeline |
-
-Add a row when your skill introduces a new key.
-",
-  ".claude/skills/polly/references/menu.md": "# Polly — menu command
-
-The menu is Polly's read-only overview. It answers three questions in one
-render:
-
-1. **Where we are** — project kind, scope, current step, phases done/pending
-2. **Where we can go** — the full decision tree for this \`kind\`, with the
-   current step highlighted and the available transitions
-3. **What Polly can orchestrate** — every skill Polly can hand off to,
-   grouped by flow, plus orthogonal entry points
-
-The menu never engages a skill and never changes state. It prints, then
-Polly waits for the user's next instruction.
-
-The sample outputs below are shown in Italian (matching the locale of
-the user who currently drives the project); adapt the locale at render
-time based on \`user.locale\` in \`nonoise.config.json\` or the ongoing
-conversation language.
-
-## Trigger phrases
-
-The menu fires on any of these (case-insensitive, IT or EN), checked at
-Step −0.5 of \`SKILL.md\` on every turn:
-
-- \`menu\`
-- \`mostra menu\` / \`show menu\`
-- \`mostra fasi\` / \`show phases\`
-- \`cosa puoi fare\` / \`what can you do\`
-- \`opzioni\` / \`options\`
-- \`panoramica\` / \`overview\`
-- \`/polly menu\` (when the slash command carries an \`menu\` argument)
-
-If the phrase appears alongside another instruction (e.g. "menu poi
-procedi"), render the menu first, then ask the user to confirm the
-follow-up.
-
-## What to render
-
-Structure the output as plain markdown. Four sections, in this order.
-
-### 1. Current state
-
-Read \`.nonoise/polly-state.json\`. Render:
-
-\`\`\`
-## 📍 Dove siamo
-
-- **Progetto**: <kind> (<scope or "—">)
-- **Step corrente**: <currentStep>
-- **Stack**: <stack or "non deciso">
-- **Area attiva**: <activeArea or "—">
-- **Sprint attivo**: <activeSprint or "—">
-- **Handoff aperto**: <handoff.skill or "nessuno">
-\`\`\`
-
-If the state file is absent (fresh session with no Step 0 yet), say so
-plainly — e.g. "Polly has no saved state yet: we're at the start" /
-"Polly non ha ancora stato salvato: siamo all'inizio" — and skip to
-section 2.
-
-### 2. Phases
-
-Render every phase from \`phases\` with a status glyph:
-
-\`\`\`
-## ✅ Fasi
-
-| Fase            | Stato | Fingerprint                                   |
-|-----------------|-------|-----------------------------------------------|
-| scan            | ✓     | graphify-out/GRAPH_REPORT.md                  |
-| reverse         | ✓     | docs/support/reverse/*/overview.md            |
-| requirements    | ○     | docs/requirements/**/requirements.md          |
-| featureDesign   | ○     | docs/superpowers/specs/*.md                   |
-| archBrainstorm  | ○     | docs/prd/*/NN-*.md                            |
-| archDecision    | ○     | docs/prd/*/audit/*.md (status: validated)     |
-| fpfAudit        | ○     | .quint/ or docs/fpf/*                          |
-| sprint          | ○     | docs/sprints/Sprint-N/sprint-manifest.md      |
-| implementation  | ○     | (tracked via sprint progress)                 |
-| acceptance      | ○     | docs/sprints/Sprint-N/acceptance/*            |
-| c4              | ○     | docs/architecture/c4/workspace.dsl            |
-| workitemExport  | ○     | (varies — spec-to-workitem output)            |
-\`\`\`
-
-Glyphs: \`✓\` = done (from \`phases[P].done === true\`), \`○\` = pending,
-\`⋯\` = in-progress (there's an active handoff tied to this phase).
-
-### 3. Possible next steps
-
-Based on \`kind\` and \`currentStep\`, show the local slice of the decision
-tree. Don't dump all 8 greenfield steps if we're at step 2.6 — show the
-current node, the 1-2 natural next nodes, and the junction options.
-
-Example for brownfield after \`reverse\` just completed:
-
-\`\`\`
-## 🧭 Prossimi passi
-
-Sei al giunto brownfield → greenfield. Tre strade:
-
-- **a) Nuova feature** — Step 2.4 → \`superpowers:brainstorming\`
-- **b) Refactor architetturale** — Step 2.5 → \`arch-brainstorm\`
-- **c) Manutenzione semplice** — Step 2.7 → \`sprint-manifest\`
-\`\`\`
-
-Example mid-greenfield after \`archDecision\`:
-
-\`\`\`
-## 🧭 Prossimi passi
-
-- **a) Continua** — Step 2.7 sprint-manifest (la prossima fase naturale)
-- **b) Aggiorna i C4** — \`c4-doc-writer\` (consigliato dopo un arch-decision)
-- **c) Export work items** — \`spec-to-workitem\` (Jira / Azure DevOps / GitHub Issues)
-- **d) Salta a un altro punto** — dimmi quale
-\`\`\`
-
-Always include a "jump elsewhere" option so the user can break out of
-the linear flow.
-
-### 4. Skills Polly can engage
-
-Reference \`skill-invocation-matrix.md\` for the full list. In the menu,
-render a compact version grouped by use:
-
-\`\`\`
-## 🛠 Skill che posso ingaggiare
-
-**Flusso greenfield / brownfield**
-- \`requirements-ingest\` — organizza materiale esistente in docs/requirements
-- \`bmad-agent-analyst\` — elicitation strutturata
-- \`superpowers:brainstorming\` — feature / product design
-- \`arch-brainstorm\` — opzioni architetturali
-- \`arch-decision\` — commit all'architettura (FPF audit incluso)
-- \`sprint-manifest\` — manifesto di sprint aggregato
-- \`atr\` — acceptance + test + implementazione per task
-
-**Brownfield**
-- \`reverse-engineering\` / \`graphify\` — indicizzazione del codice
-- \`reverse-engineering\` — dossier interattivo sul legacy
-
-**Implementation (dev trio + ATR)**
-- \`superpowers:writing-plans\` → \`superpowers:executing-plans\` → \`atr\` → \`superpowers:finishing-a-development-branch\`
-
-**Entry points ortogonali**
-- \`observability-debug\` — "prod è rotto"
-- \`ops-skill-builder\` — "questa operazione la ripeto a mano"
-- \`spec-to-workitem\` — push a Jira / Azure DevOps / GitHub / Linear
-- \`frontend-design\` — design UI
-- \`playwright-cli\` — test Playwright
-- \`c4-doc-writer\` — aggiorna i diagrammi C4
-- \`docs-md-generator\` / \`design-md-generator\` — template markdown
-- \`skill-finder\` — "non so quale skill mi serve"
-\`\`\`
-
-Keep this list in sync with \`skill-invocation-matrix.md\`. If a skill is
-missing locally (fingerprint check), mark it with \`(not installed)\` (or
-\`(non installata)\` when rendering in Italian) and point to
-\`fallback-messages.md\`.
-
-### 4.25. Project tools (bundled executables)
-
-On top of the skills, the scaffold drops runnable tools under \`tools/\`
-and (in multi-repo workspaces) \`scripts/\`. List only the ones actually
-present on the filesystem — see \`project-tools.md\` for the detection
-table.
-
-\`\`\`
-## 🧰 Tool nel progetto
-
-- **\`tools/md-extractor\`** — PDF/DOCX/immagini → Markdown (via LlamaCloud).
-  Produce il \`.md\` sorella che \`graphify\` / \`reverse-engineering\` /
-  \`requirements-ingest\` leggono come canonico.
-  \`node tools/md-extractor/extract.js <path>\`
-- **\`tools/devops-push\`** — push della gerarchia Feature → User Story →
-  Task su Azure DevOps (legge i JSON prodotti da \`sprint-manifest\`).
-  \`cd tools/devops-push && npm start\` (dry-run di default)
-\`\`\`
-
-In multi-repo workspaces, add:
-
-\`\`\`
-- **\`scripts/clone-all\`** — clona i sub-repo attivi da \`repositories.json\`
-- **\`scripts/switch-branch <branch>\`** — allinea tutti i sub-repo sullo
-  stesso branch (crea se manca)
-- **\`scripts/pull-all\`** — \`git pull --ff-only\` su tutti i sub-repo
-\`\`\`
-
-If a tool is not on disk, do not include it in the list. Never promise
-tools that aren't actually there.
-
-### 4.5. Bonus capabilities (via skill-finder)
-
-Polly is not limited to the bundled skills: via \`skill-finder\` it can
-search, download, and install skills from external registries (official
-Anthropic, Claude plugin marketplaces, community repos) straight into
-\`.claude/skills/\` of the current project. Make this an explicit invite
-in the menu — most users don't know this path exists. Example of how
-to present it (Italian sample output, since the rest of the menu uses
-IT):
-
-\`\`\`
-## ✨ Cose ganze che posso sbloccare (via skill-finder)
-
-Le skill qui sopra sono quelle bundlate. Ma posso andare a cercarne
-altre e installarle al volo — basta chiedere «cerca una skill per X»:
-
-- 📊 **Slide / pitch deck (PPTX)** — \`pptx\` skill (Anthropic ufficiale)
-- 🎬 **Video / animazioni** — skill community (Remotion, Manim, ecc.)
-- 📄 **PDF generativi** — \`pdf\` skill (Anthropic ufficiale)
-- 🧾 **Excel / fogli di calcolo** — skill community dedicate
-- 🖼 **Editing immagini / generative art** — skill community
-- 🌐 **Stack-specific** — Angular / C# / .NET / Go / Python avanzato
-  (skill che non bundlo di default per non appesantire lo scaffold)
-- ➕ **Qualsiasi altra cosa** — dimmi il dominio, skill-finder cerca
-  nei registri ufficiali e community e ti propone 3-5 candidate
-
-Scrivi «cerca una skill per <cosa>» e ingaggio \`skill-finder\`.
-\`\`\`
-
-The list is **indicative, not exhaustive** — it's there to spark a
-lightbulb, not to maintain a catalog. The actual registries live in
-\`packages/skills/skill-finder/registry.json\` and are the source of
-truth. If the user names something specific, do not promise it exists:
-delegate to \`skill-finder\`, which will do the real lookup and propose
-what it actually finds (including the offer to generate the skill from
-scratch via \`skill-creator\` if no registry has one).
-
-### 5. Closing question
-
-End with a single question that returns control to the user. English
-template:
-
-> What would you like to do? Pick one of the letters above, name a
-> specific skill, type "find a skill for &lt;thing&gt;" to unlock extra
-> capabilities (PPT, video, PDF, etc.), or say "pause" to stop here.
-
-Italian adaptation:
-
-> Cosa vuoi fare? Scrivi la lettera di una delle opzioni qui sopra,
-> il nome di una skill specifica, «cerca una skill per &lt;cosa&gt;» per
-> sbloccare capacità extra (PPT, video, PDF, ecc.), oppure «pausa» per
-> fermarci.
-
-Then **stop**. Do not engage a skill in the same turn. Do not auto-pick
-an option on silence.
-
-## What the menu is NOT
-
-- Not a state-changing action. Rendering the menu must not write
-  \`polly-state.json\`.
-- Not a tutorial. Keep it compact; link to \`decision-tree.md\` for long
-  explanations rather than inlining them.
-- Not a replacement for the tree. When the user picks an option, hand
-  back to the normal flow at that step (using the handoff protocol for
-  skill engagement).
-
-## Copilot / other tools
-
-The menu is plain markdown — it renders identically in Claude Code and
-Copilot. The trigger phrases are the same. The only difference is how
-the user re-enters Polly after the menu: \`/polly\` in Claude Code, "back
-to polly" in Copilot.
-",
   ".claude/skills/polly/references/project-tools.md": "# Polly — project tools (bundled executables)
 
 Distinct from **skills** (markdown instructions that guide the AI) and
@@ -16254,490 +15135,203 @@ e.g. \`reverse-engineering\` § "PDFs in .meta/raw/"). Polly is the
 conductor that reminds the user of the staging before entering the
 skill.
 ",
-  ".claude/skills/polly/references/skill-invocation-matrix.md": "# Polly — skill invocation matrix
+  ".claude/skills/polly/references/sdlc-flow.default.md": "<!--
+Embedded fallback copy of the default SDLC flow. Polly reads this ONLY
+when the project-local .nonoise/sdlc-flow.md is missing. Keep in sync
+with packages/templates/single-project/_always/.nonoise/sdlc-flow.md.
+-->
 
-This matrix lists every skill Polly engages, its current install state in
-the framework, and the phrase Polly uses to hand off.
+---
+version: 1
+default_language: it
+phases:
+  - id: stack
+    label:
+      it: "Stack e vincoli"
+      en: "Stack and constraints"
+    skill: null
+    fingerprint: null
+    mode: pair
+    conversational: true
+  - id: requirements-ingest
+    label:
+      it: "Ingest di materiale esistente"
+      en: "Existing material ingest"
+    skill: requirements-ingest
+    fingerprint: "docs/requirements/ingested/**/*.md"
+    mode: pair
+    skip_if: "no existing PDFs / docs / transcripts to ingest"
+  - id: requirements-elicit
+    label:
+      it: "Elicitation dei requisiti"
+      en: "Requirements elicitation"
+    skill: bmad-agent-analyst
+    fingerprint: "docs/requirements/**/*.md"
+    mode: pair
+  - id: feature-design
+    label:
+      it: "Design della feature / prodotto"
+      en: "Feature / product design"
+    skill: "superpowers:brainstorming"
+    fingerprint: "docs/superpowers/specs/**/*.md"
+    mode: pair
+    skip_if: "pure refactor with no new feature"
+  - id: arch-brainstorm
+    label:
+      it: "Opzioni architetturali"
+      en: "Architectural options"
+    skill: arch-brainstorm
+    fingerprint: "docs/architecture/brainstorm/**/*.md"
+    mode: pair
+    skip_if: "feature fits an existing, decided architecture"
+  - id: arch-decision
+    label:
+      it: "Decisione architetturale"
+      en: "Architectural decision"
+    skill: arch-decision
+    fingerprint: "docs/architecture/decisions/**/*.md"
+    mode: pair
+  - id: arch-sync
+    label:
+      it: "Sync architetturale (opzionale)"
+      en: "Architecture sync (optional)"
+    skill: arch-sync
+    fingerprint: "docs/architecture/synced/**/*.md"
+    mode: solo
+    skip_if: "arch-decision PASS doesn't need propagation yet"
+  - id: sprint-manifest
+    label:
+      it: "Sprint breakdown"
+      en: "Sprint breakdown"
+    skill: sprint-manifest
+    fingerprint: "docs/sprints/Sprint-*/manifest.md"
+    mode: pair
+  - id: implementation
+    label:
+      it: "Implementazione — per task"
+      en: "Implementation — per task"
+    skill: "superpowers:writing-plans"
+    fingerprint: "docs/superpowers/plans/**/*.md"
+    mode: solo
+  - id: acceptance
+    label:
+      it: "Acceptance test run"
+      en: "Acceptance test run"
+    skill: atr
+    fingerprint: "docs/atr/**/report.md"
+    mode: solo
+---
 
-## Legend
+# SDLC flow
 
-- **Installed** — ships in the MVP bundle today, always available
-- **Installed (vendored)** — vendored from upstream (e.g. \`superpowers:*\`
-  from \`obra/superpowers\`); installed into \`.claude/skills/<namespace>/\`
-  of every scaffolded project
-- **External** — not part of the bundle; engage only if the user confirms
-  it is installed locally (via \`skill-finder\` or manual install)
+This file is read by **Polly** (\`/polly\`, \`avvia polly\`, \`start polly\`) to decide what to suggest next. It is project-local — edit it to match your actual flow.
 
-## Core SDLC skills
+Each phase below has: when to run it, when to skip, and an example prompt in Italian + English you can paste into chat to trigger the skill automatically.
 
-| Skill | State | Phrase to use |
-|---|---|---|
-| \`requirements-ingest\` | Installed | "I'll engage requirements-ingest to sort your sources into \`docs/requirements/\`." |
-| \`bmad-agent-analyst\` | Installed | "I'll engage bmad-agent-analyst — it runs the structured elicitation." |
-| \`bmad-advanced-elicitation\` | Installed | "I'll engage bmad-advanced-elicitation for a lighter one-round pass." |
-| \`bmad-agent-architect\` | Installed | "Architect persona engaged — let's lay out the architectural frame." |
-| \`bmad-agent-ux-designer\` | Installed | "UX-designer persona engaged — let's map the flows." |
-| \`bmad-agent-tech-writer\` | Installed | "Tech-writer persona engaged — let's get the docs drafted." |
-| \`superpowers:brainstorming\` | Installed (vendored) | "I'll engage superpowers:brainstorming for the PRD." |
-| \`arch-brainstorm\` | Installed | "I'll engage arch-brainstorm — it proposes architectures against the constraints." |
-| \`quint-fpf\` | Installed | Engaged automatically by \`arch-decision\`. Polly does not invoke it directly. |
-| \`arch-decision\` | Installed | "I'll engage arch-decision — it picks one architecture and writes the ADR." |
-| \`arch-sync\` | Installed | "I'll engage arch-sync — it projects the validated PRD into \`docs/architecture/\` with a diff preview per file." |
-| \`sprint-manifest\` | Installed | "I'll engage sprint-manifest — it produces the aggregated manifest for the sprint." |
-| \`atr\` | Installed | "I'll engage atr for this item — acceptance, test, implementation." |
+## stack
 
-## Brownfield-specific
+Conversational phase — no skill. Describe your stack, constraints, team shape. Polly uses this to tailor later suggestions.
 
-| Skill | State | Handoff args | Phrase to use |
-|---|---|---|---|
-| \`reverse-engineering\` | Installed | \`source_path=<path>\` (optional) | "I'll engage \`reverse-engineering\` — it verifies graphify is installed (scaffold-time default), indexes your subject source with the full AST + semantic + clustering pipeline, and opens an interactive analysis loop." |
+- Run when: project is newly scaffolded and \`README.md\` / \`nonoise.config.json\` haven't been fleshed out.
+- Skip when: the README already contains the stack decisions.
 
-Args are parsed per \`handoff-protocol.md\` § "Skill arguments convention".
-When Polly routes RE intent and no graph exists for the proposed source
-path, it invokes \`reverse-engineering\` directly — its Step 0.1 verifies
-graphify is installed and Step 2.2 builds the initial full graph
-(see \`decision-tree.md\` § "Reverse-engineering intent gate").
+## requirements-ingest
 
-## Orthogonal / on-demand
-
-| Skill | State | Trigger |
-|---|---|---|
-| \`observability-debug\` | Installed | "prod is broken", "why is this slow?", "I need logs" |
-| \`ops-skill-builder\` | Installed | "I keep doing this ops task by hand" |
-| \`spec-to-workitem\` | Installed | "push to Jira / Azure DevOps / GitHub / Linear" |
-| \`frontend-design\` | Installed | "design this UI", "component design", "frontend patterns" |
-| \`playwright-cli\` | Installed | "write a Playwright test" |
-| \`vscode-config-generator\` | Installed | "generate VSCode configs", ".vscode settings" |
-| \`docs-md-generator\` | Installed | "I need a docs markdown", "README template" |
-| \`design-md-generator\` | Installed | "I need a design.md", "design doc template" |
-| \`skill-finder\` | Installed | "I don't know which skill I want" |
-
-## Superpowers (vendored from obra/superpowers — full list)
-
-Installed under \`.claude/skills/superpowers/<name>/\` in every scaffolded
-project (Claude Code also gets \`.claude/agents/superpowers/\`,
-\`.claude/commands/superpowers/\`, \`.claude/hooks/superpowers/\`):
-
-- \`superpowers:brainstorming\` — PRD drafting, creative exploration
-- \`superpowers:writing-plans\` — convert specs into numbered plans
-- \`superpowers:executing-plans\` — run a plan with review checkpoints
-- \`superpowers:test-driven-development\` — TDD discipline for features/fixes
-- \`superpowers:verification-before-completion\` — evidence before claims
-- \`superpowers:systematic-debugging\` — structured debugging approach
-- \`superpowers:subagent-driven-development\` — delegate independent tasks
-- \`superpowers:dispatching-parallel-agents\` — parallel independent work
-- \`superpowers:using-git-worktrees\` — isolated workspace per feature
-- \`superpowers:finishing-a-development-branch\` — merge/PR decisions
-- \`superpowers:requesting-code-review\` — request review before merging
-- \`superpowers:receiving-code-review\` — handle review feedback well
-- \`superpowers:writing-skills\` — create/edit skills
-- \`superpowers:using-superpowers\` — bootstrap instructions (auto-loaded)
-
-## External / user-managed
-
-These are not managed by Polly; if the user mentions them, acknowledge and
-stay out of the way:
-
-- \`graphify\` (the core Python package, installed at scaffold time)
-- IDE / LSP plugins installed via Claude Code marketplace or Copilot
-  \`setup lsp\` (Polly never auto-installs — see \`feedback_lsp_advisor_only\`
-  in the framework's design memory)
-
-## How Polly engages a skill
-
-### Claude Code
-
-Use the \`Skill\` tool with the skill's \`name\` frontmatter value:
-
-\`\`\`
-Skill(skill: "arch-brainstorm")
-Skill(skill: "superpowers:brainstorming")   # once vendored
-\`\`\`
-
-### GitHub Copilot
-
-Read the skill's \`SKILL.md\` directly from \`.claude/skills/<name>/SKILL.md\`
-and follow the instructions inline. Copilot has no \`Skill\` tool
-equivalent, so the skill's markdown IS the instruction set.
-
-### When a skill is not present
-
-1. Check \`.claude/skills/<name>/SKILL.md\` exists before invoking.
-2. If it doesn't, use the fallback templates in \`fallback-messages.md\`.
-",
-  ".claude/skills/polly/references/state-schema.md": "# Polly state file — schema v1
-
-Polly persists its orchestration state at \`.nonoise/polly-state.json\` so that
-the decision tree is not re-walked from the top on every invocation. The
-scaffold writes an initial file when Polly-compatible AI tools (Claude Code,
-Copilot) are selected; Polly updates it at every meaningful transition.
-
-**Golden rule:** the filesystem is the source of truth for *whether a phase
-is done*. This state file is a cache of that judgement plus the facts that
-can't be recovered from disk (the user's answers, the active area, the
-currently running handoff). On every entry Polly reconciles \`phases\` against
-the fingerprints in \`fingerprints.md\`; **on conflict, the filesystem wins**.
-
-## Location
-
-\`<workspace-root>/.nonoise/polly-state.json\`
-
-Same directory as \`POLLY_START.md\` (the one-shot scaffold marker) so that
-everything Polly-infrastructural is contained in \`.nonoise/\`.
-
-The companion JSON Schema lives alongside it at
-\`<workspace-root>/.nonoise/schemas/polly-state.v1.json\`. The state file's
-\`$schema\` points to it with a relative path (\`./schemas/polly-state.v1.json\`)
-so editors (VS Code, JetBrains, Cursor) resolve it locally — no network,
-no published URL. Re-scaffolding refreshes it; do not edit by hand.
-
-## JSON shape (v1)
-
-\`\`\`json
-{
-  "$schema": "./schemas/polly-state.v1.json",
-  "version": 1,
-  "createdAt": "2026-04-19T20:00:00Z",
-  "updatedAt": "2026-04-19T20:15:00Z",
-  "voiceHintShown": false,
-  "archSyncOffered": null,
-
-  "session": {
-    "kind": "greenfield|brownfield|refactor|arch-study|unknown",
-    "scope": "new-feature|refactor|arch-study|null",
-    "currentStep": "intro|stack|material|requirements|feature-design|arch-brainstorm|arch-decision|sprint|implementation|acceptance|done",
-    "mode": "pair|solo|unknown",
-    "stack": null,
-    "activeArea": null,
-    "activeSprint": null,
-    "studyCounter": {},
-    "brownfieldCodePath": null
-  },
-
-  "handoff": null,
-
-  "phases": {
-    "scan":           { "done": false },
-    "reverse":        { "done": false },
-    "requirements":   { "done": false },
-    "featureDesign":  { "done": false },
-    "archBrainstorm": { "done": false },
-    "archDecision":   { "done": false },
-    "fpfAudit":       { "done": false },
-    "sprint":         { "done": false },
-    "implementation": { "done": false },
-    "acceptance":     { "done": false },
-    "c4":             { "done": false },
-    "workitemExport": { "done": false }
-  },
-
-  "events": []
-}
+\`\`\`prompt (it)
+Ho del materiale esistente da cui partire: <lista PDF / DOCX / link / trascrizioni / screenshot>. Ingerisci tutto il materiale, estrai requisiti e produci un dossier in docs/requirements/ingested/. Procedi.
 \`\`\`
 
-## Field reference
-
-### Top-level
-
-| Field | Type | Notes |
-|---|---|---|
-| \`version\` | \`1\` (literal) | Bump only on breaking schema changes. |
-| \`createdAt\` | ISO date | Written by scaffold; immutable. |
-| \`updatedAt\` | ISO date | Polly updates on every write. |
-| \`voiceHintShown\` | boolean | Step 0 flips to \`true\` after showing the voice-tools hint. Prevents re-spam across sessions. |
-
-### \`archSyncOffered\`
-
-\`boolean | null\` — tracks whether Polly has already presented the
-\`arch-sync\` suggestion menu after the most recent \`arch-decision\`
-completion.
-
-| Value | Meaning |
-|-------|---------|
-| \`null\` | Never offered (initial state, or no \`arch-decision\` PASS yet) |
-| \`true\` | Offered AND the architect made a final choice (1 = invoked arch-sync, 2 = chose to skip). The menu is NOT re-offered. |
-| \`false\` | Offered but the architect chose 3 (postpone). The menu re-appears on the next \`/polly\` invocation. |
-
-**Reset trigger**: when a new PRD reaches \`status: validated\` (i.e. a new
-\`archDecision\` fingerprint appears that wasn't there before), reset
-\`archSyncOffered\` to \`null\` so the suggestion fires again for the new
-decision.
-
-### \`session\`
-
-Facts that can't be inferred from the filesystem. Either the user answered a
-question or Polly inferred it from context.
-
-| Field | Type | Notes |
-|---|---|---|
-| \`kind\` | \`greenfield\` / \`brownfield\` / \`refactor\` / \`arch-study\` / \`unknown\` | Answered in Step 1. Drives which tree Polly walks. |
-| \`scope\` | \`new-feature\` / \`refactor\` / \`arch-study\` / \`null\` | Refines the path inside greenfield/brownfield (skip rules). |
-| \`currentStep\` | step slug | Polly writes this BEFORE engaging the associated skill. On return, Polly reads it to know where to resume. |
-| \`mode\` | \`pair\` / \`solo\` / \`unknown\` | Optional; the announce-mode hint. |
-| \`stack\` | string / null | E.g. \`"TypeScript + Next.js + Postgres"\`. Gathered in Step 2.1. |
-| \`activeArea\` | string / null | E.g. \`"billing"\`. Used by arch-brainstorm / arch-decision. |
-| \`activeSprint\` | string / null | E.g. \`"Sprint-3"\`. Used by sprint-manifest / atr. |
-| \`studyCounter\` | \`{ [area]: number }\` | Monotonic per-area PRD numbering (so the next arch-brainstorm under \`billing\` knows it's \`03-…\`). |
-| \`brownfieldCodePath\` | string / null | The path the user gave in Step 3.1. |
-
-### \`handoff\`
-
-Non-null only while a skill is engaged. Cleared on return.
-
-\`\`\`json
-{
-  "skill": "reverse-engineering",
-  "engagedAt": "2026-04-19T20:05:00Z",
-  "returnTo": "reverse",
-  "userMessage": "When you're done scanning, come back with /polly"
-}
+\`\`\`prompt (en)
+I have existing material to start from: <list of PDFs / DOCX / links / transcripts / screenshots>. Ingest everything, extract requirements, and produce a dossier under docs/requirements/ingested/. Proceed.
 \`\`\`
 
-- \`skill\` — the skill that's currently running. The fingerprint Polly checks on return is derived from this (see \`fingerprints.md\`).
-- \`returnTo\` — the next step slug Polly will advance to if the fingerprint confirms completion.
-- \`userMessage\` — the last sentence Polly told the user before handing off, kept so the return prompt can reference it.
+Skip when: there is no pre-existing source material — go straight to requirements-elicit.
 
-### \`phases\`
+## requirements-elicit
 
-Cache of "is this phase done?". Polly reconciles each key against
-\`fingerprints.md\` on every entry; the filesystem is authoritative.
-
-Each entry:
-
-\`\`\`json
-{ "done": true, "via": "reverse-engineering", "at": "2026-04-19T20:12:00Z", "note": null }
+\`\`\`prompt (it)
+Mi servono requisiti strutturati per <feature / progetto>. Lo scope completo è <chi usa, cosa fa, perché, vincoli, criteri di successo>. Elicita a fondo, produci spec EARS/INVEST in docs/requirements/. Procedi.
 \`\`\`
 
-If \`done: false\`, the \`via\` / \`at\` fields are absent.
-
-The full phase set (v1):
-
-- \`scan\` — graphify knowledge graph built
-- \`reverse\` — reverse-engineering dossier generated
-- \`requirements\` — any requirement file under \`docs/requirements/\`
-- \`featureDesign\` — a PRD or design spec exists
-- \`archBrainstorm\` — draft PRDs under \`docs/prd/<area>/\`
-- \`archDecision\` — at least one PRD validated (status: validated) with an audit file
-- \`fpfAudit\` — quint-fpf has run (\`.quint/\` or \`docs/fpf/*\`)
-- \`sprint\` — a sprint manifest exists
-- \`implementation\` — we track this via sprint progress, optional in v1
-- \`acceptance\` — at least one testbook/report exists
-- \`c4\` — C4 workspace file exists
-- \`workitemExport\` — spec-to-workitem has produced an export
-
-### \`events\`
-
-Append-only trail. Bounded to the last 100 entries (Polly trims on write).
-
-Each event:
-
-\`\`\`json
-{
-  "at": "2026-04-19T20:05:00Z",
-  "action": "answered|handoff|return|phase-complete|skip|abandon|reset",
-  "phase": "stack",
-  "skill": "reverse-engineering",
-  "key": "kind",
-  "value": "brownfield",
-  "note": "user picked brownfield"
-}
+\`\`\`prompt (en)
+I need structured requirements for <feature / project>. Full scope: <who uses it, what it does, why, constraints, success criteria>. Elicit deeply, produce EARS/INVEST-style spec under docs/requirements/. Proceed.
 \`\`\`
 
-Only fields relevant to the action are present. \`action\` is required;
-everything else is optional.
+## feature-design
 
-## Example — initial state (written by scaffold)
-
-\`\`\`json
-{
-  "$schema": "./schemas/polly-state.v1.json",
-  "version": 1,
-  "createdAt": "2026-04-19T19:00:00Z",
-  "updatedAt": "2026-04-19T19:00:00Z",
-  "voiceHintShown": false,
-  "session": {
-    "kind": "unknown",
-    "scope": null,
-    "currentStep": "intro",
-    "mode": "unknown",
-    "stack": null,
-    "activeArea": null,
-    "activeSprint": null,
-    "studyCounter": {},
-    "brownfieldCodePath": null
-  },
-  "handoff": null,
-  "phases": {
-    "scan": { "done": false },
-    "reverse": { "done": false },
-    "requirements": { "done": false },
-    "featureDesign": { "done": false },
-    "archBrainstorm": { "done": false },
-    "archDecision": { "done": false },
-    "fpfAudit": { "done": false },
-    "sprint": { "done": false },
-    "implementation": { "done": false },
-    "acceptance": { "done": false },
-    "c4": { "done": false },
-    "workitemExport": { "done": false }
-  },
-  "events": [
-    { "at": "2026-04-19T19:00:00Z", "action": "bootstrap", "note": "created by create-nonoise scaffold" }
-  ]
-}
+\`\`\`prompt (it)
+Fai brainstorming sulla feature <nome>. Requisiti in docs/requirements/<file>.md. Vincoli noti: <…>. Esplora 2-3 approcci con trade-off e scegli, poi salva uno spec in docs/superpowers/specs/. Procedi.
 \`\`\`
 
-## Example — mid-session with active handoff
-
-Brownfield scan in progress:
-
-\`\`\`json
-{
-  "$schema": "./schemas/polly-state.v1.json",
-  "version": 1,
-  "createdAt": "2026-04-19T19:00:00Z",
-  "updatedAt": "2026-04-19T20:05:00Z",
-  "voiceHintShown": true,
-  "session": {
-    "kind": "brownfield",
-    "scope": null,
-    "currentStep": "scan",
-    "mode": "pair",
-    "stack": "TypeScript + Next.js + Postgres",
-    "activeArea": null,
-    "activeSprint": null,
-    "studyCounter": {},
-    "brownfieldCodePath": "./legacy-app"
-  },
-  "handoff": {
-    "skill": "reverse-engineering",
-    "engagedAt": "2026-04-19T20:05:00Z",
-    "returnTo": "reverse",
-    "userMessage": "When graphify-out/ is populated, say 'back to polly' and I'll pick up with reverse-engineering."
-  },
-  "phases": {
-    "scan": { "done": false },
-    "reverse": { "done": false },
-    "requirements": { "done": false },
-    "featureDesign": { "done": false },
-    "archBrainstorm": { "done": false },
-    "archDecision": { "done": false },
-    "fpfAudit": { "done": false },
-    "sprint": { "done": false },
-    "implementation": { "done": false },
-    "acceptance": { "done": false },
-    "c4": { "done": false },
-    "workitemExport": { "done": false }
-  },
-  "events": [
-    { "at": "2026-04-19T19:00:00Z", "action": "bootstrap" },
-    { "at": "2026-04-19T19:20:00Z", "action": "answered", "key": "kind", "value": "brownfield" },
-    { "at": "2026-04-19T19:45:00Z", "action": "answered", "key": "brownfieldCodePath", "value": "./legacy-app" },
-    { "at": "2026-04-19T20:00:00Z", "action": "answered", "key": "stack", "value": "TypeScript + Next.js + Postgres" },
-    { "at": "2026-04-19T20:05:00Z", "action": "handoff", "phase": "scan", "skill": "reverse-engineering" }
-  ]
-}
+\`\`\`prompt (en)
+Brainstorm the feature <name>. Requirements at docs/requirements/<file>.md. Known constraints: <…>. Explore 2-3 approaches with trade-offs, pick one, save a spec under docs/superpowers/specs/. Proceed.
 \`\`\`
 
-## Example — after return from a completed skill
+Skip when: the work is a pure refactor with no new feature.
 
-\`\`\`json
-  "session": { ..., "currentStep": "reverse" },
-  "handoff": null,
-  "phases": {
-    "scan": {
-      "done": true,
-      "via": "reverse-engineering",
-      "at": "2026-04-19T20:30:00Z",
-      "note": "graphify-out/GRAPH_REPORT.md present"
-    },
-    ...
-  },
-  "events": [
-    ...,
-    { "at": "2026-04-19T20:30:00Z", "action": "return", "skill": "reverse-engineering" },
-    { "at": "2026-04-19T20:30:00Z", "action": "phase-complete", "phase": "scan", "via": "reverse-engineering" }
-  ]
+## arch-brainstorm
+
+\`\`\`prompt (it)
+Voglio esplorare opzioni architetturali per <area / feature>. Contesto: <scope, vincoli, pattern canonici attesi>. Produci 2-3 opzioni con trade-off e una raccomandazione in docs/architecture/brainstorm/. Procedi.
 \`\`\`
 
-## Versioning & migration
+\`\`\`prompt (en)
+I want to explore architectural options for <area / feature>. Context: <scope, constraints, expected canonical patterns>. Produce 2-3 options with trade-offs and a recommendation under docs/architecture/brainstorm/. Proceed.
+\`\`\`
 
-If Polly reads a state file with \`version != 1\`:
+Skip when: the feature fits an already-decided architecture.
 
-- \`version > 1\` → newer Polly, refuse to touch it; ask the user to upgrade
-  the framework (\`npm install -g create-nonoise@latest\` only affects new
-  scaffolds, so really they need to sync this project's \`.claude/skills/polly/\`
-  from a fresh scaffold).
-- \`version < 1\` → doesn't exist yet (v1 is the first schema).
+## arch-decision
 
-Never silently migrate. Keep the file backward-compatible by adding optional
-fields only; schema-breaking changes require a version bump + a companion
-migration note here.
-",
-  ".claude/skills/polly/references/voice-tools.md": "# Polly — voice input hint
+\`\`\`prompt (it)
+Porta a decisione l'opzione architetturale <scelta> da docs/architecture/brainstorm/<file>.md. Esegui il processo arch-decision (incluso Quint FPF) e pubblica l'ADR finale in docs/architecture/decisions/. Procedi.
+\`\`\`
 
-Fire this in Step 0, **once per session** only. Adapt the language to the
-user's locale — keep the three tool names, URLs, and categories intact.
+\`\`\`prompt (en)
+Drive option <choice> from docs/architecture/brainstorm/<file>.md to a decision. Run the arch-decision process (including Quint FPF) and publish the final ADR under docs/architecture/decisions/. Proceed.
+\`\`\`
 
-## English version (default)
+## arch-sync
 
-> Polly works best as a conversation. If you find yourself typing a lot, a
-> voice-to-text tool helps:
->
-> - **Wispr Flow** — cross-platform, commercial, AI-enhanced dictation
->   https://wisprflow.ai
-> - **Handy** — open-source, Win/Mac/Linux
->   https://github.com/cjpais/Handy
-> - **Superwhisper** — macOS, strong price/quality ratio
->   https://superwhisper.com
->
-> Nothing to install right now — just know the option is there.
+\`\`\`prompt (it)
+Propaga la decisione architetturale <ADR> ai documenti di progetto (C4, ADR index, README). Procedi.
+\`\`\`
 
-## Italian version
+\`\`\`prompt (en)
+Propagate architectural decision <ADR> to the project documents (C4, ADR index, README). Proceed.
+\`\`\`
 
-> Polly funziona meglio come conversazione. Se ti trovi a digitare tanto,
-> uno di questi tool di voice-to-text può aiutare:
->
-> - **Wispr Flow** — multipiattaforma, commerciale, dictation AI-enhanced
->   https://wisprflow.ai
-> - **Handy** — open-source, Win/Mac/Linux
->   https://github.com/cjpais/Handy
-> - **Superwhisper** — macOS, ottimo rapporto qualità/prezzo
->   https://superwhisper.com
->
-> Non serve installare niente adesso — è solo un'opzione da tenere a mente.
+Optional — skip if the decision doesn't yet need propagation.
 
-## Why this hint exists
+## sprint-manifest
 
-Polly's decision tree asks a lot of small questions. Typing every answer
-gets tiring fast, and users who get tired abandon the flow. Voice-to-text
-removes that friction for the users who want it.
+\`\`\`prompt (it)
+Spezza <ADR / design doc> in uno sprint operativo. Produci Sprint-<N>/manifest.md + task JSON in docs/sprints/. Target tracker: <none / GitHub / Jira / Azure DevOps>. Procedi.
+\`\`\`
 
-## Why the three tools, not one
+\`\`\`prompt (en)
+Break down <ADR / design doc> into a workable sprint. Produce Sprint-<N>/manifest.md + task JSON under docs/sprints/. Target tracker: <none / GitHub / Jira / Azure DevOps>. Proceed.
+\`\`\`
 
-Each has a clear niche:
+## implementation
 
-- **Wispr Flow** — paid, cross-platform, best polish and AI rewrite
-- **Handy** — free, open-source, for users who don't trust closed tools
-  or aren't allowed to use them at work
-- **Superwhisper** — native macOS, fair price, stays out of the way
+\`\`\`prompt (it)
+Devo implementare il task <id> dello Sprint-<N>. Scrivi un plan dettagliato e poi eseguilo via subagent-driven-development con TDD. Procedi.
+\`\`\`
 
-One tool would favour one OS / one wallet — three covers reasonable cases.
+\`\`\`prompt (en)
+I need to implement task <id> of Sprint-<N>. Write a detailed plan and execute it via subagent-driven-development with TDD. Proceed.
+\`\`\`
 
-## Skip conditions
+## acceptance
 
-Skip Step 0 if:
+\`\`\`prompt (it)
+Esegui l'Acceptance Test Run per <feature>. Produci testbook + Playwright run + report in docs/atr/. Procedi.
+\`\`\`
 
-- Polly is being re-entered in the same session (user did a detour and
-  came back)
-- The user has already mentioned voice input in this conversation
-- The user is clearly on a mobile interface where voice is already
-  available natively — no hint needed
-- The user is running Polly non-interactively (rare — only happens in
-  scripted tests)
-
-Do **not** skip Step 0 just because the user seems experienced — even
-experienced users appreciate the reminder once per session.
+\`\`\`prompt (en)
+Run the Acceptance Test Run for <feature>. Produce testbook + Playwright run + report under docs/atr/. Proceed.
+\`\`\`
 ",
   ".claude/skills/quint-fpf/SKILL.md": "---
 name: quint-fpf
@@ -31499,16 +30093,10 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/playwright-cli/references/tracing.md",
   ".claude/skills/playwright-cli/references/video-recording.md",
   ".claude/skills/polly/SKILL.md",
-  ".claude/skills/polly/references/decision-tree.md",
   ".claude/skills/polly/references/external-tools.md",
   ".claude/skills/polly/references/fallback-messages.md",
-  ".claude/skills/polly/references/fingerprints.md",
-  ".claude/skills/polly/references/handoff-protocol.md",
-  ".claude/skills/polly/references/menu.md",
   ".claude/skills/polly/references/project-tools.md",
-  ".claude/skills/polly/references/skill-invocation-matrix.md",
-  ".claude/skills/polly/references/state-schema.md",
-  ".claude/skills/polly/references/voice-tools.md",
+  ".claude/skills/polly/references/sdlc-flow.default.md",
   ".claude/skills/quint-fpf/SKILL.md",
   ".claude/skills/quint-fpf/commands/q-actualize.md",
   ".claude/skills/quint-fpf/commands/q-decay.md",
