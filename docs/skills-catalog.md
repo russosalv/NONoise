@@ -20,10 +20,10 @@ Every skill under `packages/skills/` falls into one of three provenance tiers. T
 | Tier | Meaning | Count |
 |---|---|---:|
 | **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 23 |
-| **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design`, `playwright-cli`, and the `graphify` tool (wrapped by the custom `graphify-setup`). | 2 |
+| **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. The `graphify` tool is installed directly by `create-nonoise` at scaffold time (not a skill wrapper). | 2 |
 | **vendored** | Installed under a namespace, pinned by commit, refreshed via `scripts/sync-vendor.mjs`. Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
 
-The `graphify` tool itself is external (not a skill bundled under `packages/skills/`); the bundled `graphify-setup` wires it into the project and is custom NONoise.
+The `graphify` tool itself is external (not a skill bundled under `packages/skills/`). The `create-nonoise` CLI installs the `graphifyy` Python package and wires the per-tool hooks at scaffold time.
 
 ---
 
@@ -184,15 +184,6 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 ---
 
 ## Brownfield & knowledge
-
-### `graphify-setup`
-- **SKILL.md:** [`packages/skills/graphify-setup/SKILL.md`](../packages/skills/graphify-setup/SKILL.md)
-- **Provenance:** custom NONoise. Wraps the external `graphify` tool (used as-is) and wires it into the project.
-- **Purpose:** installs the `graphify` knowledge-graph tool and wires its usage rules into the project. After this skill runs, `graphify .` produces `graphify-out/GRAPH_REPORT.md` + a JSON/HTML graph. Usage rules include a hook that reminds the AI to read `GRAPH_REPORT.md` before searching raw files.
-- **Triggers:** Polly's Step B2; manual "setup graphify".
-- **Reads:** project state (for rule wiring).
-- **Writes:** `.claude/settings.json` (hook), `.gitignore` (adds `graphify-out/cache/`), context-file stanza.
-- **Phase:** Brownfield.
 
 ### `reverse-engineering`
 - **SKILL.md:** [`packages/skills/reverse-engineering/SKILL.md`](../packages/skills/reverse-engineering/SKILL.md)
@@ -382,7 +373,7 @@ Per `todo.txt` feedback, the future scaffold will install only a **core** pack b
 |---|---|
 | **Core** (always) | `polly`, `requirements-ingest`, `bmad-agent-analyst`, `arch-brainstorm`, `arch-decision`, `arch-sync`, `quint-fpf`, `sprint-manifest`, `atr`, dev trio (superpowers:*). Context files. 3-5 generator skills. |
 | **Frontend pack** | `frontend-design`, `playwright-cli`, Impeccable skills, `bmad-agent-ux-designer`, `design-md-generator`. |
-| **Docs/Analysis pack** | `docs-md-generator`, `requirements-ingest` extras, `reverse-engineering`, `graphify-setup`, `bmad-advanced-elicitation`, `bmad-req-validator`. |
+| **Docs/Analysis pack** | `docs-md-generator`, `requirements-ingest` extras, `reverse-engineering`, `bmad-advanced-elicitation`, `bmad-req-validator`. |
 | **Ops/Observability pack** | `observability-debug`, `ops-skill-builder`, `skill-creator`. |
 | **PM/Architecture pack** | `bmad-agent-architect`, `spec-to-workitem`, `c4-doc-writer`, `bmad-agent-tech-writer`. |
 

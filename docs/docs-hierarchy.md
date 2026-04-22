@@ -241,7 +241,6 @@ A cross-reference of which skill reads / writes which folder (condensed from [`s
 | `sprint-manifest` | validated PRDs | `docs/sprints/Sprint-N/manifest.md` |
 | `atr` | sprint manifest, acceptance criteria | `docs/sprints/Sprint-N/acceptance/` |
 | `spec-to-workitem` | sprint manifest | external tracker, `workitem-map.json` in sprint folder |
-| `graphify-setup` | project state | `.claude/settings.json`, `.gitignore`, context files |
 | `reverse-engineering` | target codebase | `docs/support/reverse/<subject>/` |
 | `ops-skill-builder` | target ops system, existing skills | `.claude/skills/ops-<name>/` |
 | `observability-debug` | backend via CLI | `docs/support/incidents/` |

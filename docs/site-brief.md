@@ -284,8 +284,8 @@ phases: {
     },
   ],
   brownfield_note: {
-    it: "Prefisso brownfield: graphify-setup → graphify . → reverse-engineering. Poi rientro al punto 1 o 2 secondo la three-way routing table.",
-    en: "Brownfield prefix: graphify-setup → graphify . → reverse-engineering. Then re-enter at step 1 or 2 per the three-way routing table.",
+    it: "Prefisso brownfield: reverse-engineering (build del grafo + analisi). Poi rientro al punto 1 o 2 secondo la three-way routing table.",
+    en: "Brownfield prefix: reverse-engineering (graph build + analysis). Then re-enter at step 1 or 2 per the three-way routing table.",
   },
 },
 ```
@@ -324,8 +324,8 @@ polly: {
       k: "greenfield-brownfield",
       t: { it: "Greenfield + brownfield", en: "Greenfield + brownfield" },
       d: {
-        it: "Greenfield: stack → requisiti → design → architettura → sprint → dev → acceptance. Brownfield: graphify-setup → reverse-engineering → requirements-ingest → rientro via three-way routing (nuova feature / cambio architetturale / solo documentazione).",
-        en: "Greenfield: stack → requirements → design → architecture → sprint → dev → acceptance. Brownfield: graphify-setup → reverse-engineering → requirements-ingest → re-entry via three-way routing (new feature / architectural change / doc-only).",
+        it: "Greenfield: stack → requisiti → design → architettura → sprint → dev → acceptance. Brownfield: reverse-engineering → requirements-ingest → rientro via three-way routing (nuova feature / cambio architetturale / solo documentazione).",
+        en: "Greenfield: stack → requirements → design → architecture → sprint → dev → acceptance. Brownfield: reverse-engineering → requirements-ingest → re-entry via three-way routing (new feature / architectural change / doc-only).",
       },
     },
     {
@@ -416,7 +416,6 @@ skills: {
       t: { it: "Brownfield & Knowledge", en: "Brownfield & Knowledge" },
       s: { it: "Indicizzazione codebase + dossier reverse-engineering", en: "Codebase indexing + reverse-engineering dossiers" },
       items: [
-        { k: "graphify-setup", d: { it: "Installa tool + wire hook 'leggi GRAPH_REPORT prima'", en: "Installs tool + wires 'read GRAPH_REPORT first' hook" } },
         { k: "reverse-engineering", d: { it: "Dossier versionato · Q&A interattivo · changelog", en: "Versioned dossier · interactive Q&A · changelog" } },
       ],
     },

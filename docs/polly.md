@@ -121,7 +121,7 @@ Each numbered step is one clarification + one skill invocation. Polly does not d
 
 ```
 B1   Path of the existing code                  [pair]  —
-B2   Index the codebase                         [pair]  → graphify-setup → graphify .
+B2   Index the codebase                         [pair]  → reverse-engineering (full AST + semantic + clustering)
 B3   Understand what's there                    [pair]  → reverse-engineering
 B4   Existing source material                   [pair]  → requirements-ingest
 B5   Re-enter greenfield path                   —       (resume at Step 5 or 6)

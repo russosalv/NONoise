@@ -59,7 +59,7 @@ The mention surfaces during the atr phase; the framework does not push to VibeKa
 
 ### Knowledge graph
 
-- **graphify** — indexes a codebase into a knowledge graph with god-nodes, community clusters, audit-trailed edges. Run via `graphify .` after `graphify-setup` has installed the binary. This is the one "tool Polly engages" that crosses the advisor line — but only because `graphify-setup` is itself a NONoise skill whose job is to install and configure graphify with the user's consent.
+- **graphify** — indexes a codebase into a knowledge graph with god-nodes, community clusters, audit-trailed edges. The `create-nonoise` CLI installs the `graphifyy` Python package (`uv tool install "graphifyy>=0.4.23"`) at scaffold time and wires the per-tool hooks (`graphify install`, `graphify copilot install`). Invoke as `/graphify <path>` (the slash-command / Skill invocation; the bare `graphify` binary is reserved for read-side operations like `graphify query`, `graphify path`, `graphify explain`, `graphify update`).
 
 Output: `graphify-out/GRAPH_REPORT.md`, `graph.json`, `graph.html`, `manifest.json`. A pre-tool hook reminds the AI to read the report before searching raw files. See [`sdlc.md`](sdlc.md) §Brownfield prefix.
 
@@ -89,7 +89,7 @@ The user runs it; Polly then continues.
 | GitHub Issues | Sprint phase | Work-item tracker | adapter in `spec-to-workitem` |
 | Linear | Sprint phase | Work-item tracker | adapter in `spec-to-workitem` |
 | VibeKanban | UAT / SIT | Bug triage kanban | upstream search |
-| graphify | Brownfield | Codebase knowledge graph | installed by `graphify-setup` |
+| graphify | Brownfield | Codebase knowledge graph | installed at scaffold time by `create-nonoise` |
 | App Insights | Observability | Tracing + logs | adapter in `observability-debug` |
 | Datadog | Observability | Tracing + logs | adapter in `observability-debug` |
 | Grafana + Loki | Observability | Dashboards + logs | adapter in `observability-debug` |

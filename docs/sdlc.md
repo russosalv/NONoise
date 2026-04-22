@@ -156,13 +156,13 @@ Applied when starting on an existing codebase. Inserted before the greenfield fl
 Step  Phase                            Mode     Skill(s)
 ────  ─────                            ────     ────────
 B1    Path of the existing code        [pair]   —
-B2    Index the codebase               [pair]   graphify-setup  →  graphify .
+B2    Index the codebase               [pair]   reverse-engineering (full pipeline)
 B3    Understand what's there          [pair]   reverse-engineering (interactive Q&A, versioned dossier)
 B4    Existing source material         [pair]   requirements-ingest
 B5    Re-enter greenfield at step 6    —        (new feature) or step 7 (architectural change)
 ```
 
-**Graphify.** `graphify-setup` installs the knowledge-graph tool; `graphify .` produces `graphify-out/GRAPH_REPORT.md` + a JSON/HTML graph. The report lists god-nodes (most connected — the system's core abstractions), community hubs (semantic clusters), surprising connections, and knowledge gaps (isolated nodes = possible doc gaps). **Read `GRAPH_REPORT.md` before diving into raw files** — a pre-tool hook reminds you to do so.
+**Graphify.** The `create-nonoise` CLI installs the knowledge-graph tool (`graphifyy`) at scaffold time; `/graphify <path>` produces `graphify-out/GRAPH_REPORT.md` + a JSON/HTML graph. The report lists god-nodes (most connected — the system's core abstractions), community hubs (semantic clusters), surprising connections, and knowledge gaps (isolated nodes = possible doc gaps). **Read `GRAPH_REPORT.md` before diving into raw files** — a pre-tool hook reminds you to do so.
 
 **Reverse engineering.** The `reverse-engineering` skill maintains a versioned dossier per subject (legacy codebase, third-party API, data pipeline) under `docs/support/reverse/<subject>/`. Interactive Q&A, explicit save trigger. Dossiers accumulate — re-entry into a brownfield project reads the dossier first.
 
