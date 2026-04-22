@@ -87,7 +87,7 @@ claude           # Claude Code CLI
 > **GitHub Release fallback.** If the npm registry is temporarily unavailable for this package, you can install the exact same tarball directly from the GitHub Release attached to each tag:
 >
 > ```bash
-> npx https://github.com/russosalv/NONoise/releases/download/v0.24.7/create-nonoise-0.24.7.tgz my-project
+> npx https://github.com/russosalv/NONoise/releases/download/v1.0.0/create-nonoise-1.0.0.tgz my-project
 > ```
 
 Invoke Polly whenever you're unsure what to do next:
