@@ -3416,7 +3416,7 @@ When you are in this persona and the user calls a skill, this persona must carry
 | TR | Technical feasibility, architecture options, implementation approaches | Handoff to \`bmad-agent-architect\` (Alex) |
 | CB | Create or update product briefs through guided or autonomous discovery | Inline — produces \`docs/prd/<slug>.md\` using PRD template |
 | WB | Working Backwards PRFAQ challenge — forge and stress-test product concepts | Inline — produces \`docs/prfaq/<slug>.md\` |
-| DP | Analyze an existing project to produce documentation for human and LLM consumption | Handoff to \`reverse-engineering\` skill (graphify-based); fallback: inline with graphify-setup output |
+| DP | Analyze an existing project to produce documentation for human and LLM consumption | Handoff to \`reverse-engineering\` skill (graphify-based) |
 | EL | Deep elicitation / critique of a draft | \`bmad-advanced-elicitation\` skill |
 | RV | Formal requirement validation via 10-methodology suite (INVEST/SMART/EARS/MoSCoW/5W1H/WOTIF/IEEE830/FMEA-Lite/SWOT/ATAM-Lite) — **optional**, skippable | \`bmad-req-validator\` skill (Isa offers it, user can skip) |
 
@@ -4624,7 +4624,7 @@ bytes as-is from the old file into the new one.
 Known markers in the NONoise framework today:
 
 - \`polly\` — owned by the \`polly\` skill (entry-point reminder for Polly).
-- \`graphify\` — owned by the \`graphify-setup\` skill (knowledge-graph rules).
+- \`graphify\` — owned by the \`create-nonoise\` CLI (knowledge-graph rules, installed during scaffolding).
 - \`design-md\` — optional, owned by \`design-md-generator\` (pointer to
   \`docs/design.md\` for UI code generation).
 
@@ -4846,7 +4846,7 @@ one to open and one to close:
 | Marker | Owning skill | Typical body |
 |---|---|---|
 | \`polly\` | \`polly\` | Auto-trigger reminder for \`.nonoise/POLLY_START.md\`, plus trigger phrases (\`/polly\`, "start polly", ...). |
-| \`graphify\` | \`graphify-setup\` | Rules for reading \`graphify-out/GRAPH_REPORT.md\`, \`graphify-out/wiki/index.md\`, and rebuilding the graph after code changes. |
+| \`graphify\` | \`create-nonoise\` CLI | Rules for reading \`graphify-out/GRAPH_REPORT.md\`, \`graphify-out/wiki/index.md\`, and rebuilding the graph after code changes. |
 | \`design-md\` | \`design-md-generator\` | Pointer telling AI code-generators to read \`docs/design.md\` before producing UI code. |
 
 This list is authoritative as of the current framework version. New
@@ -4921,10 +4921,11 @@ not invent new ones from this skill.
 
 This skill only writes managed blocks that already exist in the
 source file. It does not create \`polly\` or \`graphify\` blocks from
-scratch — those are the responsibility of \`polly\` and
-\`graphify-setup\`. If the user's \`AGENTS.md\` lacks a block that their
-tool file clearly needs, tell the user to run the relevant skill
-(e.g. \`graphify-setup\`) before re-running this one.
+scratch — those are the responsibility of \`polly\` and the
+\`create-nonoise\` CLI. If the user's \`AGENTS.md\` lacks a block that
+their tool file clearly needs, tell the user to scaffold the project
+with \`create-nonoise\` or run the relevant skill (e.g. \`polly\`) before
+re-running this one.
 ",
   ".claude/skills/docs-md-generator/references/mode-prompts.md": "# Mode prompts — verbatim Q&A flows
 
@@ -5098,9 +5099,9 @@ See \`.github/copilot-instructions.md\` for GitHub Copilot rules.
 <cross-tool conventions — things that apply regardless of which AI
 tool the developer uses>
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise CLI) -->
 ## graphify
-...owned by graphify-setup...
+...owned by create-nonoise...
 <!-- <<< graphify -->
 
 ---
@@ -5144,9 +5145,9 @@ Claude Code>
 ...owned by polly...
 <!-- <<< polly -->
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise CLI) -->
 ## graphify
-...owned by graphify-setup...
+...owned by create-nonoise...
 <!-- <<< graphify -->
 
 ---
@@ -5193,9 +5194,9 @@ instructions.
 ...owned by polly...
 <!-- <<< polly -->
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise CLI) -->
 ## graphify
-...owned by graphify-setup...
+...owned by create-nonoise...
 <!-- <<< graphify -->
 
 ---
@@ -5219,7 +5220,7 @@ names, separated by commas. Reference NONoise default grouping:
 
 **Sprint & implementation** — \`sprint-manifest\`, \`atr\`
 
-**Brownfield** — \`graphify-setup\`, \`reverse-engineering\`
+**Brownfield** — \`reverse-engineering\`
 
 **Ops & observability** — \`ops-skill-builder\`, \`observability-debug\`
 
@@ -5288,239 +5289,6 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 
 Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
 ",
-  ".claude/skills/graphify-setup/SKILL.md": "---
-name: graphify-setup
-description: Installs the graphify knowledge-graph tool and wires its usage rules into the project. Use when the user asks to "install graphify", "set up graphify", "add graphify rules", or when graphify is listed in the installed skills but \`graphify-out/\` is missing. Optionally bootstraps the first graph when invoked with \`mode=reverse-engineering\` or \`mode=brownfield\` — in that case, after install/rules, runs an explicit indexing proposal with strong warning (skippable). Without \`mode\`, does NOT build the first graph — that is left to the orchestrator skill or the user.
----
-
-# graphify-setup
-
-Installs the [graphify](https://github.com/safishamsi/graphify) tool and registers its usage rules in every AI-tool context file present in the project. By default (no \`mode\` arg) the first graph is **not** built — greenfield projects have nothing to graph yet, and brownfield builds belong to a higher-level orchestrator. When the caller passes \`mode=reverse-engineering\` or \`mode=brownfield\` (typically Polly during a reverse-engineering flow), Step 5 below proposes the first build explicitly with a strong "essential but skippable" warning.
-
-## Inputs (optional, from caller)
-
-Two equivalent ways to pass arguments depending on the host tool:
-
-- **Claude Code**: Polly invokes this skill via the \`Skill\` tool with an \`args\` string parsed per \`polly/references/handoff-protocol.md\` § "Skill arguments convention".
-- **GitHub Copilot / Cursor / Gemini / Codex / any other tool without a native skill harness**: there is no \`args\` channel. Look for the same \`key=value\` tokens directly in the user's message that triggered this skill (e.g. "run graphify-setup mode=reverse-engineering source_path=./legacy"). If the tokens are absent, behave as if \`mode\` is unset (default flow, no Step 5).
-
-Recognized keys:
-
-| Key | Values | Behavior |
-|---|---|---|
-| \`mode\` | \`reverse-engineering\` | Enables Step 5 (indexing proposal) with RE-flavored warning. |
-| \`mode\` | \`brownfield\` | Enables Step 5 with softer "strongly recommended" wording. |
-| \`mode\` | any other | Log \`unknown mode <value>, treating as absent\` and continue as default. |
-| \`source_path\` | any path | Default target for Step 5 when \`mode\` is set. If the path doesn't exist, the skill asks the user for a correction in Step 5.1. |
-
-When \`mode\` is absent, Steps 1–4 run exactly as before and Step 5 is
-skipped. No warning, no prompt — fully backwards compatible.
-
-## What this skill does
-
-1. **Package install** (idempotent, uv‑based)
-   - **Preflight A — Python**: checks that Python ≥ 3.10 is available (\`python --version\` or \`python3 --version\`). If missing, prints the install command and stops gracefully (does not fail the scaffold).
-   - **Preflight B — uv**: probes \`uv --version\`. If missing, prints the one‑line bootstrap and stops gracefully (non‑fatal):
-     - macOS / Linux: \`curl -LsSf https://astral.sh/uv/install.sh | sh\`
-     - Windows: \`powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"\`
-   - **Install**: runs \`uv tool install "graphifyy>=0.4.23"\`. Idempotent — a no‑op if the tool is already present at the requested version.
-   - **Upgrade path** (when the binary is on \`PATH\` but older than 0.4.23): runs \`uv tool upgrade graphifyy\`; if that reports nothing to do, falls back to \`uv tool install --reinstall "graphifyy>=0.4.23"\`.
-   - **Documented escape hatch** (printed only if uv cannot be installed and the user opts out of bootstrapping it): \`pip install --user "graphifyy>=0.4.23"\`. The skill does NOT silently fall back to pip — uv is the new contract.
-   - The PyPI package is \`graphifyy\` (double‑y). \`graphify\` tout court is a different, unaffiliated package — do not install it.
-
-2. **Global wiring** (idempotent, per AI tool selected at scaffold time)
-   - Always: runs \`graphify install\`, which writes the per‑user skill in \`~/.claude/skills/graphify/SKILL.md\` and updates \`~/.claude/CLAUDE.md\`. (This is required even for non‑Claude scaffolds — other tools' installers below also rely on it being present.)
-   - **If Copilot was selected**: runs \`graphify copilot install\`, which writes \`~/.copilot/skills/graphify/SKILL.md\` (idempotent — re‑runs are safe). Failure is non‑fatal: warn and continue.
-   - The active AI‑tool set is read the same way Step 3 selects which context files to write. In Claude Code: from the skill's \`args\` channel (parsed per \`polly/references/handoff-protocol.md\`). In other hosts: from \`key=value\` tokens in the triggering message, falling back to inspecting which context files exist in the project.
-   - Other tools (Gemini, Cursor, Codex, Kiro, VSCode) are intentionally NOT wired here — Step 3 covers their needs via the project‑level rules block.
-
-3. **Project‑level rules** for every selected AI tool. Writes the same 3 rules in each tool's context file. **Claude and Copilot are always covered; Cursor / Gemini / Codex only if selected.**
-
-   Target files:
-   - \`CLAUDE.md\` (if Claude Code selected)
-   - \`.github/copilot-instructions.md\` (if Copilot selected)
-   - \`GEMINI.md\` (if Gemini CLI selected)
-   - \`.cursor/rules.md\` (if Cursor selected)
-   - \`AGENTS.md\` (always — cross‑tool fallback)
-
-   Block content (identical across tools, only the surrounding context changes):
-
-   \`\`\`markdown
-   ## graphify
-
-   This project has a graphify knowledge graph at graphify-out/.
-
-   Rules:
-   - Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-   - If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-   - For cross-module "how does X relate to Y" questions, prefer \`graphify query "<question>"\`, \`graphify path "<A>" "<B>"\`, or \`graphify explain "<concept>"\` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
-   - After modifying code files in this session, run \`graphify update .\` to keep the graph current (AST-only, no API cost)
-   \`\`\`
-
-   The canonical text lives in \`references/rules-block.md\` and is verified by a unit test (Task 8) — keep both in sync when upstream changes.
-
-   Idempotence: the block is delimited by HTML‑comment markers so it can be re‑applied without duplication:
-
-   \`\`\`markdown
-   <!-- >>> graphify (managed by graphify-setup skill) -->
-   ## graphify
-   ...
-   <!-- <<< graphify -->
-   \`\`\`
-
-   If a block with these markers already exists, replace it. Otherwise append.
-
-4. **\`.gitignore\` block** (idempotent) — writes or confirms this block in the root \`.gitignore\`:
-
-   \`\`\`gitignore
-   # >>> graphify (managed by graphify-setup skill)
-   graphify-out/
-   .graphify_*
-   .obj/
-   # <<< graphify
-   \`\`\`
-
-   If the file does not exist, create it containing only this block.
-
-## Step 5 — Initial indexing proposal (only when \`mode\` is set)
-
-Fires after Steps 1–4 complete successfully. Skipped when \`mode\` is absent
-or unrecognized.
-
-### 5.1 — Resolve target path
-
-Priority:
-
-1. If the caller passed \`source_path=<path>\`, use it directly.
-2. Else, if \`nonoise.config.json\` has a top-level \`reverse.source_path\`,
-   propose it as default (show it in the prompt).
-3. Else, propose \`.\` (the project root) as default.
-
-Prompt (adapt to user locale; English template):
-
-> **Indexing target**: I'm about to index \`<path>\` so the reverse-engineering
-> flow has a knowledge graph to work with.
->
-> Accept this path, or give me a different one (e.g. external legacy repo)?
-
-If the user provides a different path, validate it exists (\`test -d <path>\`)
-and loop back if missing.
-
-### 5.2 — Existing-graph check
-
-For the resolved \`<path>\`:
-
-\`\`\`bash
-test -f "<path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
-\`\`\`
-
-- \`MISSING\` → propose the full \`/graphify <path>\` pipeline (AST extraction + LLM semantic pass + community detection + HTML/JSON/GRAPH_REPORT.md).
-- \`EXISTS\` → propose \`/graphify <path> --update\` (the skill's incremental mode, which re-extracts only changed files and reuses cached semantic results).
-
-### 5.2.1 — How to invoke the pipeline (tool-dependent)
-
-The \`graphify\` binary CLI does NOT have a \`graphify <path>\` command — running it directly fails with "unknown command". The full pipeline (AST + **semantic extraction via LLM** + clustering) is orchestrated by the **graphify skill** at \`~/.claude/skills/graphify/SKILL.md\` (installed by Step 2 above), not by the CLI alone.
-
-Invocation depends on the host tool:
-
-- **Claude Code**: type \`/graphify <path>\` — the slash command is registered by \`graphify install\` (Step 2) and triggers the skill. Or, equivalently, invoke \`Skill(skill: "graphify", args: "<path>")\`.
-- **GitHub Copilot / Cursor / Gemini / Codex / any tool without slash commands**: open \`~/.claude/skills/graphify/SKILL.md\` (or the platform-specific path under \`.copilot/skills/\`, \`.cursor/rules/\`, etc.) and follow its step-by-step instructions, which call \`graphify.detect\`, \`graphify.extract\`, \`graphify.cluster\` directly via Python. Pass the target \`<path>\` as the input. For Copilot specifically, Step 2 of this skill installs the per‑user \`graphify\` skill at \`~/.copilot/skills/graphify/SKILL.md\` via \`graphify copilot install\` — open that file (not the Claude one) and follow it.
-- **Flag variants** available at the skill level:
-  - \`--update\` → incremental (no LLM for unchanged files — cache reuse)
-  - \`--mode deep\` → richer INFERRED edges
-  - \`--cluster-only\` → rerun clustering on existing \`graph.json\` (no re-extraction)
-  - \`--no-viz\` → skip HTML, just JSON + GRAPH_REPORT.md
-  - \`--wiki\` → also build the navigable wiki under \`graphify-out/wiki/\`
-
-**The CLI \`graphify\` binary is useful ONLY for these narrower operations** (do NOT use them for the initial full build):
-
-- \`graphify update <path>\` — re-extract AST only (**no LLM**) when you've changed code and just need to refresh structural edges
-- \`graphify cluster-only <path>\` — rerun community detection on an existing graph
-- \`graphify query "..."\`, \`graphify path "A" "B"\`, \`graphify explain "X"\` — read-side operations on an existing graph
-
-### 5.3 — Strong-warning prompt
-
-Shown before executing anything. \`mode=reverse-engineering\` variant:
-
-> ⚠️ **Indexing is essential for a useful reverse-engineering result.**
-> Without a graphify graph, downstream skills (\`reverse-engineering\`,
-> \`arch-brainstorm\`, ad-hoc code Q&A) have no god-node map, no
-> communities, no semantic lookup. Chapters that depend on source
-> become stubs with open points.
->
-> I will run the full \`/graphify <path>\` pipeline — that is AST
-> extraction + semantic extraction via LLM + community detection. The
-> LLM pass is what produces the "surprising connections", god-node
-> labels, and community names; without it the report is near-empty.
-> Expect a few minutes and real LLM tokens on the first run. Re-runs
-> reuse cached results and are nearly free.
->
-> Proposed command: \`/graphify <path>\` (MISSING) or
-> \`/graphify <path> --update\` (EXISTS).
->
-> Proceed? (\`yes\` / \`different-path\` / \`skip\`)
->
-> - \`yes\` → run now.
-> - \`different-path\` → loops back to 5.1.
-> - \`skip\` → explicit opt-out. Logged in the final report; reverse-engineering
->   / architecture answers will have degraded quality until you come back.
-
-\`mode=brownfield\` variant: same structure, softer wording —
-"strongly recommended" instead of "essential", "may have reduced
-quality" instead of "chapters become stubs".
-
-### 5.4 — Execution
-
-- \`yes\` → invoke the graphify skill per §5.2.1 for the host tool. Wait for completion. Parse nodes/edges/communities from \`graphify-out/GRAPH_REPORT.md\` for the final report. Verify the "Token cost" line in the report is non-zero on a MISSING (initial) run — if it reports \`0 input · 0 output\` on an initial build, the semantic pass did not actually run (likely no LLM credentials configured, or \`--no-semantic\` flag slipped in); surface this as a warning.
-- \`different-path\` → back to 5.1.
-- \`skip\` → no command run, record the skip for the report.
-
-### 5.5 — Failure handling
-
-- \`graphify\` Python package not importable (despite Step 1 reporting install
-  success) → abort Step 5 with a clear error; do NOT undo Steps 1–4.
-- Target path does not exist → ask the user to correct it in 5.1.
-- Semantic pass fails (LLM credentials missing, network error) → surface the error and ask: retry, proceed with AST-only (\`graphify update <path>\` — degraded output, explicitly logged), skip, or abort. Do NOT treat a silent semantic failure as success.
-- Graph builds but \`GRAPH_REPORT.md\` reports 0-token extraction on an initial run → warn the user: the semantic pass was skipped for some reason, and the resulting report will lack community names and cross-concept connections.
-
-## What this skill does NOT do
-
-- **Does not run \`graphify .\` unless \`mode\` is set** — in greenfield invocations (no \`mode\` arg) the first graph is not built, because projects scaffolded from NONoise start empty. When Polly hands off with \`mode=reverse-engineering\` or \`mode=brownfield\`, Step 5 proposes the first build explicitly and the user can accept or skip.
-- **Does not invoke \`graphify hook install\`** — git hooks are opt‑in and belong to the orchestrator.
-- **Does not modify per‑directory \`.gitignore\`** — only the root one.
-
-## Reporting
-
-After each run, report to the user:
-- Whether Python was found (version).
-- Whether \`uv\` was found (version), or skipped because it could not be installed.
-- Whether \`graphifyy\` was installed (or already present), and via which path: \`uv tool install\` (default) or the printed pip escape hatch.
-- Whether \`graphify install\` succeeded (Claude Code).
-- Whether \`graphify copilot install\` succeeded (only when Copilot was selected).
-- For each context file touched: \`+\` (block added), \`=\` (block already present), or \`~\` (block replaced).
-- **Only when \`mode\` was set (Step 5 ran)**:
-  - If indexing ran: \`📊 Initial graph built at <path>/graphify-out/ — N nodes, M edges, K communities\`.
-  - If the user skipped: \`⚠️ Initial indexing skipped (user explicit opt-out). Reverse-engineering / architecture answers will have degraded quality. Re-run graphify-setup or invoke /graphify <path> when ready.\`
-  - If Step 5 failed: \`❌ Initial indexing attempted but failed: <error>. Install/rules are OK; graph is not built.\`
-
-## Failure modes
-
-- Python missing → print the OS install command for Python ≥ 3.10 and continue (non‑fatal). Do NOT attempt anything else — uv would also fail.
-- \`uv\` missing → print the one‑liner bootstrap (\`astral.sh/uv/install.{sh,ps1}\`) and continue (non‑fatal). Do NOT auto‑run it without user consent.
-- \`uv tool install "graphifyy>=0.4.23"\` fails → print the error, the equivalent retry, and the documented \`pip install --user "graphifyy>=0.4.23"\` escape hatch. Continue.
-- \`graphify copilot install\` fails (e.g. \`graphifyy\` somehow at a version older than 0.4.15 that lacks the subcommand) → warn and continue. The project‑level rules block (Step 3) already covers Copilot's needs.
-- Everything else (writing \`.gitignore\`, context files) is local file I/O and must succeed.
-",
-  ".claude/skills/graphify-setup/references/rules-block.md": "## graphify
-
-This project has a graphify knowledge graph at graphify-out/.
-
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- For cross-module "how does X relate to Y" questions, prefer \`graphify query "<question>"\`, \`graphify path "<A>" "<B>"\`, or \`graphify explain "<concept>"\` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
-- After modifying code files in this session, run \`graphify update .\` to keep the graph current (AST-only, no API cost)
-",
   ".claude/skills/observability-debug/SKILL.md": "---
 name: observability-debug
 description: Observability-driven debugging, triage, and performance analysis. Ingests traces, logs, and exceptions from any configured backend (App Insights, Datadog, Grafana+Loki, CloudWatch, OpenTelemetry collector, or a generic log file), correlates them by request/trace ID, walks the call chain, identifies the root cause in source code, and proposes a fix with file:line precision. Backend-agnostic via adapter pattern — same methodology across backends. USE whenever the user mentions errors, latency, production incidents, or triage — even without naming a tool. Triggers — pasted correlation/trace/operation/request IDs, browser console errors, HTTP status codes (500, 401, 403, 504, timeout), performance complaints ("is slow", "is lagging"), phrases like "what's broken", "why isn't this working", "check the logs", "triage this", "find the exception for request Y", "what changed in prod in the last hour".
@@ -5562,7 +5330,7 @@ Phases 0 → 5 are always executed. Phase 6 is opt-in.
 2. **Selects the adapter** — reads \`nonoise.config.json.observability.backend\` when set, otherwise asks. Falls back to the \`generic-log-file\` adapter.
 3. **Probes access** — verifies the selected adapter is reachable. If not, coaches the user through authentication (env vars, CLI login, OIDC).
 4. **Fetches traces/logs** — calls the adapter's contract methods to pull all telemetry for the correlation ID, or a time-range window.
-5. **Correlates with code** — matches stack frames, file paths, function names in the traces to actual files in the repo via \`Grep\` / \`Read\` / (optionally) \`graphify-setup\`.
+5. **Correlates with code** — matches stack frames, file paths, function names in the traces to actual files in the repo via \`Grep\` / \`Read\` / (optionally) \`graphify\` queries.
 6. **Explains and proposes a fix** — narrates the chain of events in plain language; proposes a concrete patch with file:line, a minimal diff, and a regression test.
 7. **Optionally crystallizes** — if the debugging flow is worth reusing, offers to save it as a project-local skill via [\`skill-creator\`](../skill-creator/SKILL.md).
 
@@ -5782,7 +5550,7 @@ Now match trace entries to actual source code:
 1. **Extract candidate code locations** from exceptions — file names, line numbers, function names, class names appearing in stack traces.
 2. **Grep the repo** for each candidate. Prefer fully qualified names (namespace + class) for precision.
 3. **Read the file(s)** around the matched line. Reconstruct the execution path: which code path was taken, what inputs led here, which assumption failed.
-4. **Optional — use [\`graphify-setup\`](../graphify-setup/SKILL.md)** if the repo has a prepared graph. A graph query ("who calls \`OrderService.Place\`?") can disambiguate when the stack trace is ambiguous or optimized away.
+4. **Optional — query the existing graph** via \`graphify query "<question>"\`, \`graphify path "A" "B"\`, or \`graphify explain "<concept>"\` if \`graphify-out/\` exists. A graph query can disambiguate when the stack trace is ambiguous or optimized away.
 5. **Re-read the request/input data** from the trace — custom dimensions, request body (if captured), headers, user identity — to see what triggered the failing branch.
 
 Produce an **annotated timeline**: each row from phase 3 is now decorated with the \`file:line\` it corresponds to, and with the data that was flowing at that point.
@@ -5894,7 +5662,7 @@ Read on demand — do not preload upfront.
 ## Related skills
 
 - [\`skill-creator\`](../skill-creator/SKILL.md) — phase 6 target; crystallizes a debugging workflow into a reusable skill.
-- [\`graphify-setup\`](../graphify-setup/SKILL.md) — phase 4 companion for repo-scale code navigation.
+- [\`graphify\`](../graphify/SKILL.md) — phase 4 companion for repo-scale code navigation.
 - [\`ops-skill-builder\`](../ops-skill-builder/SKILL.md) — sibling access-first skill for setting up the access paths this skill depends on.
 - [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — use when the investigation reveals a design problem, not a bug.
 ",
@@ -7016,7 +6784,7 @@ This skill sits on the **operations** axis, orthogonal to the architectural axis
 │   │  Phase 0  Intent           │                              │
 │   │  Phase 1  Access (menu)    │                              │
 │   │  Phase 2  Context          │──┐                           │
-│   │  Phase 3  Operation plan   │  │ (may call graphify-setup) │
+│   │  Phase 3  Operation plan   │  │ (may call /graphify) │
 │   │  Phase 4  Execute          │  │ (may call arch docs)      │
 │   │  Phase 5  Crystallize      │──┼──▶ skill-creator          │
 │   │                            │  │                           │
@@ -7030,7 +6798,7 @@ This skill sits on the **operations** axis, orthogonal to the architectural axis
 Related skills:
 
 - [\`../skill-creator/SKILL.md\`](../skill-creator/SKILL.md) — invoked in Phase 5 to crystallize the successful flow.
-- [\`../graphify-setup/SKILL.md\`](../graphify-setup/SKILL.md) — invoked in Phase 2 when the operation needs code-level awareness (rollback mapped to the right module, a migration driven by schema references, etc.).
+- [\`../graphify/SKILL.md\`](../graphify/SKILL.md) — invoked in Phase 2 when the operation needs code-level awareness (rollback mapped to the right module, a migration driven by schema references, etc.).
 - [\`../observability-debug/SKILL.md\`](../observability-debug/SKILL.md) — paired skill for production debugging: this skill handles Phase 0 "wire correlation-ID tracking on the code side" (an ops concern: configure App Insights / Datadog / OpenTelemetry), then \`observability-debug\` takes over Phase 1+ (read traces, find the bug, propose a fix).
 - [\`../spec-to-workitem/SKILL.md\`](../spec-to-workitem/SKILL.md) — sibling in spirit (adapter pattern, env-var auth, dry-run default).
 
@@ -7038,7 +6806,7 @@ Related skills:
 
 1. **Elicits intent** — asks the user what they want to achieve, in their own words, then slots it into a category (deploy / pipeline / provision / teardown / rollback / migrate / scale / cron / diagnose / debug-wiring / custom).
 2. **Proposes an access menu** — CLI first, API second, Web last — with trade-offs. Bundles reference file \`references/access-patterns.md\` with concrete examples for Azure / AWS / GCP / GitHub / Azure DevOps / Jira / Kubernetes / Terraform.
-3. **Gathers context** — reads \`docs/architecture/\` (project constraints), \`nonoise.config.json\` (project metadata + working language), optionally invokes \`graphify-setup\` to index the codebase, and probes the target environment (\`az account show\`, \`kubectl config current-context\`, \`gh auth status\`, etc.).
+3. **Gathers context** — reads \`docs/architecture/\` (project constraints), \`nonoise.config.json\` (project metadata + working language), optionally invokes \`/graphify .\` to index the codebase, and probes the target environment (\`az account show\`, \`kubectl config current-context\`, \`gh auth status\`, etc.).
 4. **Defines the operation** — translates the user's natural-language intent into an ordered, risk-annotated plan. Every step is labeled \`non-destructive\` / \`reversible\` / \`destructive\`.
 5. **Executes paired or delegated** — dry-run is the default. Paired mode: step-by-step with "proceed?" between steps. Delegated mode: autonomous after plan confirmation. On error: snapshot state, explain, propose rollback.
 6. **Crystallizes** — on success, offers to save the exact sequence as a reusable project-local skill via \`skill-creator\`. The generated skill becomes the team's source of truth for "how we do this op in THIS project".
@@ -7169,13 +6937,13 @@ If **none** of the three tiers is feasible, stop and ask the user whether to ins
    - \`01-constraints.md\` — hard constraints (cloud provider, vendor restrictions, compliance)
    - Other numbered files — stack, patterns, component registry
 3. **Read the repo root** — \`CLAUDE.md\`, \`AGENTS.md\`, \`.github/copilot-instructions.md\` if present (they may declare ops rules specific to this project).
-4. **Optionally invoke \`graphify-setup\`** — only if the operation needs code-level awareness:
+4. **Optionally invoke \`/graphify .\`** — only if the operation needs code-level awareness:
    - Rollback that needs to identify the right module
    - Migration driven by schema references scattered in code
    - Pipeline that needs to list every service's build command
    - Debug-wiring that must know where HTTP clients / loggers live
 
-   If \`graphify-out/\` is missing, ask the user: "This op needs code-level context. Would you like me to invoke \`graphify-setup\` to index the codebase? (~1–5 min)". On decline, proceed without it.
+   If \`graphify-out/\` is missing, ask the user: "This op needs code-level context. Would you like me to invoke \`/graphify .\` to index the codebase? (~1–5 min)". On decline, proceed without it.
 
 #### Target-side context
 
@@ -7476,7 +7244,7 @@ If Phase 4 failed and left the environment in a broken state:
 ## Related skills
 
 - [\`../skill-creator/SKILL.md\`](../skill-creator/SKILL.md) — invoked in Phase 5 to crystallize.
-- [\`../graphify-setup/SKILL.md\`](../graphify-setup/SKILL.md) — invoked in Phase 2 when code-level context is needed.
+- [\`../graphify/SKILL.md\`](../graphify/SKILL.md) — invoked in Phase 2 when code-level context is needed.
 - [\`../observability-debug/SKILL.md\`](../observability-debug/SKILL.md) — takes over after Phase 0 debug-wiring for the actual production-debug flow.
 - [\`../spec-to-workitem/SKILL.md\`](../spec-to-workitem/SKILL.md) — sibling adapter-pattern skill (auth via env vars, dry-run default, tracker-agnostic).
 - [\`../arch-brainstorm/SKILL.md\`](../arch-brainstorm/SKILL.md) — the architectural-axis counterpart (one question at a time, multiple-choice, dialog-driven).
@@ -9839,7 +9607,7 @@ per task:
 
 \`\`\`
 1. Path of the existing code?              [pair]
-2. Indexing                                [pair]  → graphify-setup + \`graphify .\`
+2. Indexing                                [pair]  → reverse-engineering (Step 2.2 runs \`graphify .\`)
 3. Understand what's there                 [pair]  → reverse-engineering
 4. Existing source material?               [pair]  → requirements-ingest
 5. From here, pick up greenfield flow at step 4 or 5 depending on scope:
@@ -10274,36 +10042,33 @@ Prompt:
 If the code is inside the scaffold (same repo), check that \`.git\` exists so
 \`graphify\` can scan. If it's in a sibling repo, note the path.
 
-## Brownfield — Step 3.2 — Graphify setup     \`[pair]\`
+## Brownfield — Step 3.2 — Reverse engineering     \`[pair]\`
 
 Prompt:
-> I'll engage \`graphify-setup\` first — it verifies Python is installed,
-> installs \`graphify\` if needed, wires the usage rules into every selected
-> AI-tool context file, and — because we're in a reverse-engineering flow —
-> it will also propose indexing your code path right away (with a clear
-> warning that indexing is essential for a good reverse result, but you can
-> skip if you have a reason to).
+> I'll engage \`reverse-engineering\` — it verifies graphify is installed
+> (scaffold-time default), indexes your subject source with the full AST +
+> semantic + clustering pipeline, and opens an interactive analysis loop.
 
-Pass the args string to the handoff:
+Pass the source path to the handoff:
 
 \`\`\`
-Skill(skill: "graphify-setup", args: "mode=reverse-engineering source_path=<Step 3.1 answer>")
+Skill(skill: "reverse-engineering", args: "source_path=<Step 3.1 answer>")
 \`\`\`
 
 If the user provided no explicit source_path in Step 3.1 (or said "inside
-this repo"), omit \`source_path\` — graphify-setup falls back to \`.\` or
-\`nonoise.config.json → reverse.source_path\`.
+this repo"), omit \`source_path\` — \`reverse-engineering\` falls back to \`.\`
+or \`nonoise.config.json → reverse.source_path\`.
 
-If \`graphify-setup\` reports Python missing, show the install instructions
-and offer the user the chance to install manually, then retry.
+\`reverse-engineering\` Step 0.1 verifies graphify is installed; Step 2.2
+runs the full AST + semantic + clustering pipeline on the source path.
 
 **Return fingerprint**: \`graphify-out/GRAPH_REPORT.md\` (at the indexing
 target path, not necessarily the project root).
 
-If the user skipped indexing at Step 5 of graphify-setup, the fingerprint
+If the user skipped indexing inside \`reverse-engineering\`, the fingerprint
 is absent — Polly sees \`scan\` phase as NOT done on the next reconcile and
-will re-propose indexing before engaging \`reverse-engineering\` (see
-§ "Reverse-engineering intent gate" below).
+will re-propose engaging \`reverse-engineering\` again before proceeding
+(see § "Reverse-engineering intent gate" below).
 
 ## Reverse-engineering intent gate
 
@@ -10317,14 +10082,16 @@ Polly MUST check the graphify state before engaging \`reverse-engineering\`:
 graphify CLI available AND graph exists at the proposed source path?
 │
 ├─ NO (either side)
-│    → engage graphify-setup with args="mode=reverse-engineering [source_path=<path>]"
+│    → engage \`reverse-engineering\` (its Step 0.1 verifies graphify is
+│      installed and Step 2.2 runs the full AST + semantic + clustering
+│      pipeline on <path>)
 │    → on return, re-check the fingerprint
-│         - satisfied → proceed to reverse-engineering
-│         - absent (user skipped Step 5) → ASK THE USER:
+│         - satisfied → proceed (already inside reverse-engineering)
+│         - absent (user skipped indexing) → ASK THE USER:
 │             "Indexing was skipped. Reverse-engineering without a
 │              subject graph produces a source-less, partial dossier.
 │              Three options:
-│              a) Run indexing now (engage graphify-setup again)
+│              a) Run indexing now (engage \`reverse-engineering\` again)
 │              b) Proceed source-less (confirm you understand it's partial)
 │              c) Pause"
 │           Wait for explicit choice. Never auto-pick (a) or (b).
@@ -10629,11 +10396,6 @@ only write to disk when the user says "save". See \`reverse-engineering\`
 for the "don't write without permission" rule — respect it in manual mode
 too.
 
-### graphify-setup (if ever absent)
-
-This should not happen — \`graphify-setup\` is a scaffold-level prerequisite
-and ships with the MVP bundle. If it really is missing: tell the user to
-run \`pip install graphifyy\` and then \`graphify install\`, and retry.
 ",
   ".claude/skills/polly/references/fingerprints.md": "# Polly filesystem fingerprints
 
@@ -10650,7 +10412,7 @@ and is NOT inspected for Polly fingerprints.
 
 | Phase key | Skill(s) that produce it | Fingerprint (at least one must exist) |
 |---|---|---|
-| \`scan\` | \`graphify-setup\` | \`graphify-out/GRAPH_REPORT.md\` |
+| \`scan\` | \`reverse-engineering\` | \`graphify-out/GRAPH_REPORT.md\` |
 | \`reverse\` | \`reverse-engineering\` | any file matching \`docs/support/reverse/*/00-overview.md\` OR \`docs/support/reverse/*/CHANGELOG.md\` |
 | \`requirements\` | \`requirements-ingest\` | any \`docs/requirements/*/*.md\` that is NOT the template \`README.md\` (check size > 1 KB or non-placeholder content) |
 | \`featureDesign\` | \`bmad-agent-analyst\`, \`superpowers:brainstorming\` | any \`docs/prd/*.md\` (flat, not under an area folder) OR any \`docs/prfaq/*.md\` OR any \`docs/superpowers/specs/*.md\` |
@@ -10671,8 +10433,7 @@ on return is the one that maps to that skill's primary output:
 
 | Handoff skill | Primary fingerprint | Related phase key |
 |---|---|---|
-| \`graphify-setup\` | \`graphify-out/GRAPH_REPORT.md\` | \`scan\` |
-| \`reverse-engineering\` | \`docs/support/reverse/*/00-overview.md\` | \`reverse\` |
+| \`reverse-engineering\` | \`graphify-out/GRAPH_REPORT.md\` (scan phase) OR \`docs/support/reverse/*/00-overview.md\` (reverse phase) | \`scan\`, \`reverse\` |
 | \`requirements-ingest\` | any \`docs/requirements/*/*.md\` non-placeholder | \`requirements\` |
 | \`bmad-agent-analyst\` | any \`docs/prd/*.md\` or \`docs/prfaq/*.md\` | \`featureDesign\` |
 | \`bmad-advanced-elicitation\` | (no standalone fingerprint — folds into caller's output) | (inherit from caller) |
@@ -10753,7 +10514,7 @@ and the right args to pass.
 
 | Signal | Check | Used by |
 |---|---|---|
-| \`graphify_unavailable_or_no_graph_RE_intent\` | (\`command -v graphify\` fails OR \`<proposed_source_path>/graphify-out/graph.json\` does NOT exist) AND user intent is RE | \`decision-tree.md\` § "Reverse-engineering intent gate" → invoke \`graphify-setup\` with \`args="mode=reverse-engineering source_path=<path>"\` |
+| \`graphify_unavailable_or_no_graph_RE_intent\` | (\`command -v graphify\` fails OR \`<proposed_source_path>/graphify-out/graph.json\` does NOT exist) AND user intent is RE | \`decision-tree.md\` § "Reverse-engineering intent gate" → invoke \`reverse-engineering\` (Step 2.2 builds the initial full graph) |
 | \`stale_source_graph\` | \`<source_path>/graphify-out/graph.json\` exists AND (\`manifest.json\` \`indexed_at\` OR file mtime) is older than \`nonoise.config.json → reverse.graph_freshness_days\` (default 30 days) | \`reverse-engineering\` Q4 freshness check (internal; Polly doesn't branch on this — the skill handles it) |
 
 Rules:
@@ -10768,7 +10529,7 @@ Rules:
   ".claude/skills/polly/references/handoff-protocol.md": "# Polly handoff & return protocol
 
 The single most common Polly failure mode in v1 was: user enters a skill
-(e.g. \`graphify-setup\`), completes it, forgets to come back, later re-invokes
+(e.g. \`reverse-engineering\`), completes it, forgets to come back, later re-invokes
 Polly — and Polly re-walks the entire decision tree from Step 0 because it
 has no memory of what was done. This protocol fixes that.
 
@@ -11051,7 +10812,7 @@ When invoking through the \`Skill\` tool in Claude Code, pass this string
 as the \`args\` parameter:
 
 \`\`\`
-Skill(skill: "graphify-setup", args: "mode=reverse-engineering source_path=./legacy")
+Skill(skill: "reverse-engineering", args: "source_path=./legacy")
 \`\`\`
 
 When invoking in Copilot (or any environment without a native \`Skill\`
@@ -11080,8 +10841,7 @@ args: mode=reverse-engineering source_path=./legacy
 
 | Key | Used by | Valid values | Purpose |
 |---|---|---|---|
-| \`mode\` | \`graphify-setup\` | \`reverse-engineering\`, \`brownfield\` | Enables Step 5 indexing proposal |
-| \`source_path\` | \`graphify-setup\` | any path | Default target for Step 5 indexing |
+| \`source_path\` | \`reverse-engineering\` | any path | Default target for indexing pipeline |
 
 Add a row when your skill introduces a new key.
 ",
@@ -11221,7 +10981,7 @@ render a compact version grouped by use:
 - \`atr\` — acceptance + test + implementazione per task
 
 **Brownfield**
-- \`graphify-setup\` / \`graphify\` — indicizzazione del codice
+- \`reverse-engineering\` / \`graphify\` — indicizzazione del codice
 - \`reverse-engineering\` — dossier interattivo sul legacy
 
 **Implementation (dev trio + ATR)**
@@ -11504,7 +11264,7 @@ workspace, so local state is never taken for granted.
 
 | Tool | Skills that drive / benefit from it |
 |---|---|
-| \`md-extractor\` | \`requirements-ingest\`, \`reverse-engineering\`, \`graphify-setup\` |
+| \`md-extractor\` | \`requirements-ingest\`, \`reverse-engineering\` |
 | \`devops-push\` | \`spec-to-workitem\` (for Azure DevOps targets) |
 | \`clone-all\` / \`switch-branch\` / \`pull-all\` | No skill — workspace infrastructure for multi-repo |
 
@@ -11549,14 +11309,13 @@ the framework, and the phrase Polly uses to hand off.
 
 | Skill | State | Handoff args | Phrase to use |
 |---|---|---|---|
-| \`graphify-setup\` | Installed | \`mode=reverse-engineering [source_path=<path>]\` when triggered from an RE flow; empty otherwise | "I'll engage graphify-setup — it installs graphify, wires the usage rules, and (in RE flow) proposes indexing your code right away." |
-| \`reverse-engineering\` | Installed | none | "I'll engage reverse-engineering — we'll explore the legacy code together before writing anything. It prerequires a graphify graph for the subject; Polly handles that via graphify-setup first." |
+| \`reverse-engineering\` | Installed | \`source_path=<path>\` (optional) | "I'll engage \`reverse-engineering\` — it verifies graphify is installed (scaffold-time default), indexes your subject source with the full AST + semantic + clustering pipeline, and opens an interactive analysis loop." |
 
 Args are parsed per \`handoff-protocol.md\` § "Skill arguments convention".
 When Polly routes RE intent and no graph exists for the proposed source
-path, it invokes \`graphify-setup\` with \`mode=reverse-engineering\` first
-(see \`decision-tree.md\` § "Reverse-engineering intent gate"), then
-\`reverse-engineering\`.
+path, it invokes \`reverse-engineering\` directly — its Step 0.1 verifies
+graphify is installed and Step 2.2 builds the initial full graph
+(see \`decision-tree.md\` § "Reverse-engineering intent gate").
 
 ## Orthogonal / on-demand
 
@@ -11598,7 +11357,7 @@ project (Claude Code also gets \`.claude/agents/superpowers/\`,
 These are not managed by Polly; if the user mentions them, acknowledge and
 stay out of the way:
 
-- \`graphify\` (the core Python package, not the \`graphify-setup\` skill)
+- \`graphify\` (the core Python package, installed at scaffold time)
 - IDE / LSP plugins installed via Claude Code marketplace or Copilot
   \`setup lsp\` (Polly never auto-installs — see \`feedback_lsp_advisor_only\`
   in the framework's design memory)
@@ -11746,7 +11505,7 @@ Non-null only while a skill is engaged. Cleared on return.
 
 \`\`\`json
 {
-  "skill": "graphify-setup",
+  "skill": "reverse-engineering",
   "engagedAt": "2026-04-19T20:05:00Z",
   "returnTo": "reverse",
   "userMessage": "When you're done scanning, come back with /polly"
@@ -11765,7 +11524,7 @@ Cache of "is this phase done?". Polly reconciles each key against
 Each entry:
 
 \`\`\`json
-{ "done": true, "via": "graphify-setup", "at": "2026-04-19T20:12:00Z", "note": null }
+{ "done": true, "via": "reverse-engineering", "at": "2026-04-19T20:12:00Z", "note": null }
 \`\`\`
 
 If \`done: false\`, the \`via\` / \`at\` fields are absent.
@@ -11796,7 +11555,7 @@ Each event:
   "at": "2026-04-19T20:05:00Z",
   "action": "answered|handoff|return|phase-complete|skip|abandon|reset",
   "phase": "stack",
-  "skill": "graphify-setup",
+  "skill": "reverse-engineering",
   "key": "kind",
   "value": "brownfield",
   "note": "user picked brownfield"
@@ -11870,7 +11629,7 @@ Brownfield scan in progress:
     "brownfieldCodePath": "./legacy-app"
   },
   "handoff": {
-    "skill": "graphify-setup",
+    "skill": "reverse-engineering",
     "engagedAt": "2026-04-19T20:05:00Z",
     "returnTo": "reverse",
     "userMessage": "When graphify-out/ is populated, say 'back to polly' and I'll pick up with reverse-engineering."
@@ -11894,7 +11653,7 @@ Brownfield scan in progress:
     { "at": "2026-04-19T19:20:00Z", "action": "answered", "key": "kind", "value": "brownfield" },
     { "at": "2026-04-19T19:45:00Z", "action": "answered", "key": "brownfieldCodePath", "value": "./legacy-app" },
     { "at": "2026-04-19T20:00:00Z", "action": "answered", "key": "stack", "value": "TypeScript + Next.js + Postgres" },
-    { "at": "2026-04-19T20:05:00Z", "action": "handoff", "phase": "scan", "skill": "graphify-setup" }
+    { "at": "2026-04-19T20:05:00Z", "action": "handoff", "phase": "scan", "skill": "reverse-engineering" }
   ]
 }
 \`\`\`
@@ -11907,7 +11666,7 @@ Brownfield scan in progress:
   "phases": {
     "scan": {
       "done": true,
-      "via": "graphify-setup",
+      "via": "reverse-engineering",
       "at": "2026-04-19T20:30:00Z",
       "note": "graphify-out/GRAPH_REPORT.md present"
     },
@@ -11915,8 +11674,8 @@ Brownfield scan in progress:
   },
   "events": [
     ...,
-    { "at": "2026-04-19T20:30:00Z", "action": "return", "skill": "graphify-setup" },
-    { "at": "2026-04-19T20:30:00Z", "action": "phase-complete", "phase": "scan", "via": "graphify-setup" }
+    { "at": "2026-04-19T20:30:00Z", "action": "return", "skill": "reverse-engineering" },
+    { "at": "2026-04-19T20:30:00Z", "action": "phase-complete", "phase": "scan", "via": "reverse-engineering" }
   ]
 \`\`\`
 
@@ -14887,7 +14646,7 @@ The output is a **minor-version bump** of the dossier (v1.N → v1.N+1) each tim
 
 1. **Incremental, not one-shot**. The dossier evolves over many sessions. We never rewrite from scratch; we edit the minimum subset of chapters implied by the user's intent.
 2. **Never write on our own initiative**. Indexing and analysis happen freely in chat, but the target folder is **not touched** until the user says "save" (or equivalent). A reverse session can run for hours and produce dozens of scratch drafts — most are discarded; only the final consolidated result reaches disk.
-3. **Graphify is context, not output**. The knowledge graph produced by [graphify](../graphify-setup/SKILL.md) is consumed to answer questions during the loop; it is not re-indexed on save and it is not copied into the dossier.
+3. **Graphify is context, not output**. The knowledge graph produced by graphify is consumed to answer questions during the loop; it is not re-indexed on save and it is not copied into the dossier.
 4. **Source documents are read-only**. Project inputs (sprint docs, meeting notes, research PDFs, code) are sources. The dossier is a derived artifact. Don't write back.
 
 ## When to use this skill
@@ -14958,15 +14717,20 @@ python -c "import graphify" 2>&1 || graphify --help 2>&1
 
 If both checks fail, tell the user:
 
-> Graphify is not installed. This skill uses it to index the subject's code and supporting documents.
+> Graphify is not installed. It is normally installed at scaffold time by \`create-nonoise\`. Re-run the scaffold in this project, or install manually:
 >
-> To install: \`uv tool install "graphifyy>=0.4.23"\` (note: the package name ends in double‑y — \`graphifyy\`, not \`graphify\`). If \`uv\` is not available, see the \`graphify-setup\` skill for bootstrap instructions and the documented pip escape hatch.
+> \`\`\`
+> uv tool install "graphifyy>=0.4.23"
+> \`\`\`
 >
-> For the full setup (hooks, always-on, per-tool rules) see the [\`graphify-setup\`](../graphify-setup/SKILL.md) skill.
+> If \`uv\` is not available, bootstrap it first:
 >
-> Want me to run the install now? (yes/no)
+> - macOS / Linux: \`curl -LsSf https://astral.sh/uv/install.sh | sh\`
+> - Windows:       \`powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"\`
+>
+> Can't proceed without graphify — re-run me once it's installed.
 
-If not confirmed, stop with: "Can't proceed without graphify — re-run me once it's installed."
+Then stop.
 
 **0.2 — Local developer config**
 
@@ -15587,7 +15351,6 @@ Suggested next steps:
 
 ## Related skills
 
-- [\`graphify-setup\`](../graphify-setup/SKILL.md) — installs graphify and wires its rules; run this before the first reverse session on a project
 - [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — consumes the dossier as reference when planning new architectural work
 - [\`sprint-manifest\`](../sprint-manifest/SKILL.md) — may reference the dossier in its "supporting docs" list for promoted PRDs
 
@@ -24702,7 +24465,6 @@ This project contains a library of AI skills in \`.claude/skills/\`. The skills 
 
 Installed skills:
 
-- \`graphify-setup\`
 - \`vscode-config-generator\`
 - \`docs-md-generator\` (stub)
 - \`playwright-cli\`
@@ -24710,7 +24472,7 @@ Installed skills:
 
 BMAD agent skills (if installed) provide personas: analyst, architect, tech-writer, UX designer, and advanced elicitation.
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise) -->
 ## graphify
 
 This project has a graphify knowledge graph at \`graphify-out/\`.
@@ -24764,7 +24526,7 @@ Installed skills:
 
 **Sprint & implementation** — \`sprint-manifest\`, \`atr\`
 
-**Brownfield** — \`graphify-setup\`, \`reverse-engineering\`
+**Brownfield** — \`reverse-engineering\`
 
 **Ops & observability** — \`ops-skill-builder\`, \`observability-debug\`
 
@@ -24802,7 +24564,7 @@ for X?", "what's next?"). Polly is the conductor across the SDLC — it decides 
 specialist skill to engage next.
 <!-- <<< polly -->
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise) -->
 ## graphify
 
 This project has a graphify knowledge graph at \`graphify-out/\`.
@@ -24842,7 +24604,7 @@ Thumbs.db
 .env
 .env.local
 
-# >>> graphify (managed by graphify-setup skill)
+# >>> graphify (managed by create-nonoise)
 graphify-out/
 .graphify_*
 .obj/
@@ -25238,7 +25000,7 @@ See \`GEMINI.md\` for Gemini CLI rules.
 
 (fill this in once the project has code)
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise) -->
 ## graphify
 
 This project has a graphify knowledge graph at \`graphify-out/\`.
@@ -25282,7 +25044,7 @@ skill for each SDLC step.
 
 **Sprint & implementation** — \`sprint-manifest\`, \`atr\`
 
-**Brownfield** — \`graphify-setup\`, \`reverse-engineering\`
+**Brownfield** — \`reverse-engineering\`
 
 **Ops & observability** — \`ops-skill-builder\`, \`observability-debug\`
 
@@ -25325,7 +25087,7 @@ Otherwise, invoke Polly when the user types \`/polly\`, says "start polly" / "av
 "which skill for X?", "what's next?").
 <!-- <<< polly -->
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise) -->
 ## graphify
 
 This project has a graphify knowledge graph at \`graphify-out/\`.
@@ -25351,7 +25113,6 @@ This project contains a library of AI skills in \`.claude/skills/\`. The skills 
 
 Installed skills:
 
-- \`graphify-setup\`
 - \`vscode-config-generator\`
 - \`docs-md-generator\` (stub)
 - \`playwright-cli\`
@@ -25359,7 +25120,7 @@ Installed skills:
 
 BMAD agent skills (if installed) provide personas: analyst, architect, tech-writer, UX designer, and advanced elicitation.
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise) -->
 ## graphify
 
 This project has a graphify knowledge graph at \`graphify-out/\`.
@@ -25824,7 +25585,6 @@ support/
     "geminiCli": true
   },
   "skills": [
-    "graphify-setup",
     "vscode-config-generator",
     "docs-md-generator",
     "playwright-cli",
@@ -26845,8 +26605,6 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/docs-md-generator/references/mode-prompts.md",
   ".claude/skills/docs-md-generator/references/output-templates.md",
   ".claude/skills/frontend-design/SKILL.md",
-  ".claude/skills/graphify-setup/SKILL.md",
-  ".claude/skills/graphify-setup/references/rules-block.md",
   ".claude/skills/observability-debug/SKILL.md",
   ".claude/skills/observability-debug/references/adapter-app-insights.md",
   ".claude/skills/observability-debug/references/adapter-cloudwatch.md",
