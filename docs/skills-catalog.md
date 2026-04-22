@@ -31,7 +31,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 
 | Domain | Skills | Primary purpose |
 |---|---:|---|
-| [Orchestration](#orchestration) | 1 | Conduct the SDLC |
+| [Orchestration](#orchestration) | 1 | Advise on the SDLC |
 | [Requirements & discovery](#requirements--discovery) | 4 | Raw input → structured requirements |
 | [Architecture & validation](#architecture--validation) | 5 | Draft and formally validate architecture |
 | [Sprint & implementation](#sprint--implementation) | 2 | Break work down, run acceptance |
@@ -53,10 +53,10 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 ### `polly`
 - **SKILL.md:** [`packages/skills/polly/SKILL.md`](../packages/skills/polly/SKILL.md)
 - **Provenance:** custom NONoise.
-- **Purpose:** the NONoise orchestrator. Walks the full SDLC; picks the next skill; announces `[pair]` / `[solo]` mode per step. Auto-triggers post-scaffold via `.nonoise/POLLY_START.md`. Full dedicated doc: [`polly.md`](polly.md).
-- **Triggers:** `/polly` in Claude Code, *"start polly"* / *"avvia polly"* / *"run polly"* in Copilot and others, confusion-trigger (*"where do I start?"*), auto-trigger from scaffold marker.
-- **Reads:** `.nonoise/POLLY_START.md`, `nonoise.config.json`, `repositories.json`, the `docs/` tree state.
-- **Writes:** nothing directly; delegates to specialist skills.
+- **Purpose:** the NONoise SDLC advisor. Reads `.nonoise/sdlc-flow.md`, detects the current phase from filesystem fingerprints, and produces a one-shot 4-block message: where you are, what to do next, a copy-pasteable prompt, and an offer to delegate. One message per invocation, then terminates. Full dedicated doc: [`polly.md`](polly.md).
+- **Triggers:** `/polly` in Claude Code, *"start polly"* / *"avvia polly"* / *"run polly"* in Copilot and others, confusion-trigger (*"where do I start?"* / *"what's next?"* / *"sono perso"*).
+- **Reads:** `.nonoise/sdlc-flow.md`, `nonoise.config.json`, `repositories.json`, filesystem fingerprints per phase.
+- **Writes:** nothing; delegates to specialist skills.
 - **Phase:** all.
 
 ---

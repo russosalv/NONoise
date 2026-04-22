@@ -1,6 +1,6 @@
 # create-nonoise
 
-**An AI SDLC bootstrapper.** One command turns an empty directory into a fully-wired, AI-ready project — skills, docs hierarchy, cross-tool context files, and an orchestrator (Polly) that walks your team through the whole software lifecycle.
+**An AI SDLC bootstrapper.** One command turns an empty directory into a fully-wired, AI-ready project — skills, docs hierarchy, cross-tool context files, and an advisor (Polly) that tells your team where they are in the SDLC and what to do next.
 
 🌐 **Site:** https://nonoise-frmk.com
 📦 **Repo:** https://github.com/russosalv/NONoise
@@ -26,10 +26,10 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go.
 - **`docs/`** — six-folder source-of-truth hierarchy (architecture, requirements, calls, support, prd, sprints).
-- **`.claude/skills/`** — 40+ AI skills: Polly orchestrator, BMAD personas, Quint FPF validator, vendored [superpowers](https://github.com/obra/superpowers), design and ops packs.
+- **`.claude/skills/`** — 40+ AI skills: Polly advisor, BMAD personas, Quint FPF validator, vendored [superpowers](https://github.com/obra/superpowers), design and ops packs.
 - **Context files** for each selected tool — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs.
-- **`.nonoise/POLLY_START.md`** — auto-trigger marker. On first session, Polly introduces herself and walks you through the SDLC.
+- **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.
 
 ## Options
 
@@ -44,13 +44,13 @@ npx create-nonoise [directory] [options]
   --help, -h           print help
 ```
 
-## The SDLC Polly walks you through
+## The SDLC flow
 
 ```
 Requirements → Discovery → Architecture → Sprint → Implementation → Acceptance → Operations
 ```
 
-Every step is annotated `[pair]` (multiple seniors, large model) or `[solo]` (one dev per task, smaller model, parallelisable). Polly announces the mode so nobody wastes the wrong model on the wrong problem.
+Every phase is annotated `[pair]` (multiple seniors, large model) or `[solo]` (one dev per task, smaller model, parallelisable). Invoke `/polly` to find out where you are and get the exact prompt for the next skill.
 
 ## Who this is for
 

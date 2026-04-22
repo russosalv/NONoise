@@ -25,7 +25,7 @@ one to open and one to close:
 
 | Marker | Owning skill | Typical body |
 |---|---|---|
-| `polly` | `polly` | Auto-trigger reminder for `.nonoise/POLLY_START.md`, plus trigger phrases (`/polly`, "start polly", ...). |
+| `polly` | `polly` | Polly advisor invocation block — trigger phrases (`/polly`, "start polly", "avvia polly", ...) and a pointer to `.nonoise/sdlc-flow.md`. |
 | `graphify` | `create-nonoise` CLI | Rules for reading `graphify-out/GRAPH_REPORT.md`, `graphify-out/wiki/index.md`, and rebuilding the graph after code changes. |
 | `design-md` | `design-md-generator` | Pointer telling AI code-generators to read `docs/design.md` before producing UI code. |
 

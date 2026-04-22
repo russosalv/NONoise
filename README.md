@@ -5,7 +5,7 @@
 
 <h1 align="center">NONoise</h1>
 
-<p align="center"><strong>An AI SDLC bootstrapper.</strong> One command turns an empty directory into a fully-wired, AI-ready project — with skills, a docs hierarchy, templated context files, and an orchestrator (Polly) that walks your team through the whole software lifecycle.</p>
+<p align="center"><strong>An AI SDLC bootstrapper.</strong> One command turns an empty directory into a fully-wired, AI-ready project — with skills, a docs hierarchy, templated context files, and an advisor (Polly) that tells your team where they are in the SDLC and what to do next.</p>
 
 <p align="center">
   <a href="#quickstart">Quickstart</a> ·
@@ -29,30 +29,30 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** — a library of **40+ AI skills**: Polly orchestrator, BMAD-derived personas, Quint FPF validator, vendored [superpowers](https://github.com/obra/superpowers), design / ops / testing packs.
+- **`.claude/skills/`** — a library of **40+ AI skills**: Polly advisor, BMAD-derived personas, Quint FPF validator, vendored [superpowers](https://github.com/obra/superpowers), design / ops / testing packs.
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
-- **`.nonoise/POLLY_START.md`** — auto-trigger marker. On first session, your AI reads it and invokes Polly; Polly asks "greenfield or brownfield?" and walks you through the rest.
+- **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.
 
 ---
 
 ## Why this exists
 
-**Most AI tooling assumes a one-man-band developer with a chat window.** Real companies have analysts, architects, multiple developers, shadow testers. Different phases need different models — discovery and architecture are `[pair]` work on a large model; implementation is `[solo]` on a smaller one. NONoise's orchestrator **announces the mode for every step** so nobody wastes the wrong model on the wrong problem.
+**Most AI tooling assumes a one-man-band developer with a chat window.** Real companies have analysts, architects, multiple developers, shadow testers. Different phases need different models — discovery and architecture are `[pair]` work on a large model; implementation is `[solo]` on a smaller one. The SDLC flow **annotates the mode for every step** so nobody wastes the wrong model on the wrong problem.
 
-**A skill library is useless if nobody knows what to use when.** Polly is the conductor that removes that problem entirely. It auto-triggers the moment scaffolding is complete, asks one question — *greenfield or brownfield?* — and then walks your team through the full **SDLC** in sequence, surfacing the right skill at every phase.
+**A skill library is useless if nobody knows what to use when.** Polly is the advisor that removes that problem entirely. Invoke `/polly` whenever you're unsure what's next — she reads `.nonoise/sdlc-flow.md`, tells you where you are in the SDLC, and hands you the exact prompt to trigger the right skill.
 
 <p align="center">
   <img src="logos/flow.png" alt="NONoise SDLC flow" width="100%" />
 </p>
 
 ```
-🚀 create-nonoise ──► 🎼 Polly
+🚀 create-nonoise ──► 💡 /polly (advisor)
                           │
-             ┌────────────┴────────────┐
-        Greenfield                Brownfield
-             │                        │
-             ▼                        ▼
+             reads .nonoise/sdlc-flow.md
+             detects current phase
+             suggests next skill
+                          │
        📋 Requirements ──► 🔍 Discovery ──► 🏛️ Architecture ──► 📅 Sprint Planning
                                                                           │
                     ┌─────────────────────────────────────────────────────┘
@@ -90,19 +90,15 @@ claude           # Claude Code CLI
 > npx https://github.com/russosalv/NONoise/releases/download/v0.24.7/create-nonoise-0.24.7.tgz my-project
 > ```
 
-On first session the AI detects `.nonoise/POLLY_START.md` and invokes Polly automatically. If you missed the trigger, start Polly manually:
+Invoke Polly whenever you're unsure what to do next:
 
 - **Claude Code:** `/polly`
 - **GitHub Copilot:** "start polly" / "avvia polly" / "run polly"
 - **Cursor / Gemini CLI / Codex:** read `.claude/skills/polly/SKILL.md` and follow
 
-Polly will:
+Polly reads `.nonoise/sdlc-flow.md`, tells you where you are in the SDLC, and hands you the exact prompt to trigger the right skill. One message per invocation, then she terminates.
 
-1. Suggest voice-to-text tools for long sessions (Wispr Flow / Handy / Superwhisper) — **info only, not installed**.
-2. Ask: **greenfield or brownfield?**
-3. Walk the appropriate pipeline, announcing `[pair]` vs `[solo]` for every step.
-
-A full walkthrough of the SDLC lives in [`docs/sdlc.md`](docs/sdlc.md); Polly's decision tree is documented in [`docs/polly.md`](docs/polly.md).
+A full walkthrough of the SDLC lives in [`docs/sdlc.md`](docs/sdlc.md); Polly's advisor model is documented in [`docs/polly.md`](docs/polly.md).
 
 ---
 
@@ -113,7 +109,7 @@ A full walkthrough of the SDLC lives in [`docs/sdlc.md`](docs/sdlc.md); Polly's 
 | **See the big picture** — what NONoise is and isn't | [`docs/overview.md`](docs/overview.md) |
 | **Understand the philosophy** — 5 noise sources, parametric memory, canonical patterns | [`docs/philosophy.md`](docs/philosophy.md) |
 | **Follow the SDLC flow** — greenfield + brownfield, step by step | [`docs/sdlc.md`](docs/sdlc.md) |
-| **Meet Polly** — orchestrator decision tree, pair/solo modes, dev trio | [`docs/polly.md`](docs/polly.md) |
+| **Meet Polly** — advisor model, one-shot 4-block output, pair/solo modes | [`docs/polly.md`](docs/polly.md) |
 | **See the team model** — why NONoise is team-first, not one-man-band | [`docs/team-model.md`](docs/team-model.md) |
 | **Browse the skill catalog** — 40+ skills organized by domain | [`docs/skills-catalog.md`](docs/skills-catalog.md) |
 | **Understand the docs/ tree** — six folders, each a source of truth | [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md) |

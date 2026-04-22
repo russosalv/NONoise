@@ -49,7 +49,7 @@ Then the scaffold runs, bundling:
 - `tools/md-extractor/` — Node CLI for ingesting PDF / DOCX / images via LlamaCloud Agentic API.
 - `tools/devops-push/` — Node CLI for pushing sprint task breakdowns to Azure DevOps.
 - `nonoise.config.json` — project-level settings (installed packs, selected tools, scaffold-time choices).
-- `.nonoise/POLLY_START.md` — auto-trigger marker; deleted after Polly's first run.
+- `.nonoise/sdlc-flow.md` — SDLC flow file Polly reads to detect your current phase and suggest the next skill.
 
 ### First session
 
@@ -62,17 +62,13 @@ cursor .        # Cursor
 # or paste the project folder into Gemini CLI / your Codex-style agent
 ```
 
-On first session, the AI detects `.nonoise/POLLY_START.md` and invokes Polly. Polly:
-
-1. (Once per session) Suggests voice-to-text tools — info-only.
-2. Asks *greenfield or brownfield?*
-3. Walks the SDLC step by step, announcing `[pair]` / `[solo]` per step.
-
-If the auto-trigger didn't fire (best-effort tier), start Polly manually:
+Invoke Polly whenever you're unsure what to do next:
 
 - **Claude Code:** `/polly`
 - **Copilot:** "start polly" / "avvia polly"
 - **Cursor / Gemini / Codex:** open `.claude/skills/polly/SKILL.md` and ask the model to follow it.
+
+Polly reads `.nonoise/sdlc-flow.md`, detects your current phase, and produces a one-shot 4-block message: where you are, what skill to engage next, a copy-pasteable prompt, and an offer to delegate. One message per invocation.
 
 ### Updating a scaffolded project (roadmap)
 
@@ -314,7 +310,7 @@ This `docs/` folder doubles as the source material for the public site at [NONoi
 | `pnpm install` fails with version mismatch | wrong pnpm version | `corepack enable; corepack prepare pnpm@9.12.0 --activate` |
 | CLI test snapshots fail unexpectedly | a vendored pack bumped | `git diff packages/skills/vendor/` to see; update snapshots deliberately |
 | Scaffolded project is missing a skill | `bundle-assets.mjs` didn't pick it up | check the glob; sometimes a new top-level folder needs explicit inclusion |
-| Polly doesn't auto-trigger in Claude Code | `CLAUDE.md` missing the POLLY_START block | regenerate context files; check `.nonoise/POLLY_START.md` exists |
+| Polly can't find the SDLC flow | `.nonoise/sdlc-flow.md` missing | Polly falls back to the embedded default and mentions the missing file; create one from `packages/skills/polly/references/sdlc-flow.default.md` |
 | `graphify .` produces an empty report | graphify binary not installed or not on PATH | re-run `create-nonoise` in the project, or install manually: `uv tool install "graphifyy>=0.4.23"` |
 
 ---

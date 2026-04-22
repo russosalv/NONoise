@@ -54,7 +54,7 @@ Do it in the same commit as the `package.json` / `CHANGELOG.md` bump produced by
 2. **Resolve templates** (`template-resolver.ts`) — templates use a conditional-folder convention. `_always/` ships unconditionally; `_if-<tool>/` only if that tool was selected. Files with `.hbs` are rendered via Handlebars against the project context.
 3. **Install skills** (`skill-installer.ts`) — copies `MVP_SKILL_BUNDLE` (hardcoded list in `scaffold.ts`) from `packages/skills/` plus vendored packs from `packages/skills/vendor/` into the scaffolded project's `.claude/skills/`.
 4. **Write context files** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` are all generated from Handlebars templates so the same source of truth feeds every tool.
-5. **Drop `.nonoise/POLLY_START.md`** — one-shot auto-trigger marker Polly deletes on first invocation.
+5. **Write `.nonoise/sdlc-flow.md`** — the SDLC flow file Polly reads every invocation to detect the current phase and suggest the next skill.
 
 ### Build — asset bundling
 
@@ -72,7 +72,7 @@ Do it in the same commit as the `package.json` / `CHANGELOG.md` bump produced by
 
 ### Polly
 
-Polly (`packages/skills/polly/SKILL.md`) is the SDLC orchestrator — the conductor that picks which skill to run next. She is a skill, not code. Three entry points: `/polly` slash command, phrase triggers in Copilot (`"start polly"`, `"avvia polly"`), and the `.nonoise/POLLY_START.md` first-session auto-trigger. Polly decision tree lives in `docs/polly.md`.
+Polly (`packages/skills/polly/SKILL.md`) is the SDLC advisor — a one-shot skill that reads `.nonoise/sdlc-flow.md`, detects the current phase, and produces a single 4-block message (where you are, what to do next, a copy-pasteable prompt, delegate offer). Three triggers: `/polly` slash command, phrase triggers in Copilot (`"start polly"`, `"avvia polly"`), confusion fallback. No auto-trigger, no state. Full doc: `docs/polly.md`.
 
 ### Docs as source material
 

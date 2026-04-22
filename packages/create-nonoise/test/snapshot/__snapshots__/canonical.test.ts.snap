@@ -4858,7 +4858,7 @@ one to open and one to close:
 
 | Marker | Owning skill | Typical body |
 |---|---|---|
-| \`polly\` | \`polly\` | Auto-trigger reminder for \`.nonoise/POLLY_START.md\`, plus trigger phrases (\`/polly\`, "start polly", ...). |
+| \`polly\` | \`polly\` | Polly advisor invocation block — trigger phrases (\`/polly\`, "start polly", "avvia polly", ...) and a pointer to \`.nonoise/sdlc-flow.md\`. |
 | \`graphify\` | \`create-nonoise\` CLI | Rules for reading \`graphify-out/GRAPH_REPORT.md\`, \`graphify-out/wiki/index.md\`, and rebuilding the graph after code changes. |
 | \`design-md\` | \`design-md-generator\` | Pointer telling AI code-generators to read \`docs/design.md\` before producing UI code. |
 
@@ -5132,16 +5132,15 @@ context see \`AGENTS.md\`.
 
 ## Entry point — Polly
 
-This project ships with **Polly**, the NONoise SDLC orchestrator.
+This project ships with **Polly**, the NONoise SDLC advisor.
 Start there whenever you don't know what to do next:
 
 - Type \`/polly\` to launch
-- Or say "start polly" / "avvia polly" / "orchestrate this project"
-- Or, if \`.nonoise/POLLY_START.md\` exists, Polly auto-triggers on the
-  next session
+- Or say "start polly" / "avvia polly" / "run polly"
 
-Polly will ask whether the project is greenfield or brownfield, then
-engage the right bundled skill for each SDLC step.
+Polly reads \`.nonoise/sdlc-flow.md\`, tells you where you are in the
+SDLC, and hands you the exact prompt to trigger the next skill.
+One message per invocation, then she terminates.
 
 ## Installed skills
 
@@ -5178,14 +5177,12 @@ Project-scoped rules for Copilot. For cross-tool context see
 
 ## Entry point — Polly
 
-This project ships with **Polly**, the NONoise SDLC orchestrator.
-Whenever the developer is unsure what to do next, or asks "start polly"
-/ "avvia polly" / "orchestrate this project", read
-\`.claude/skills/polly/SKILL.md\` and follow its decision tree.
-
-If the file \`.nonoise/POLLY_START.md\` exists in the project root, your
-FIRST action this session is to invoke Polly, then delete
-\`.nonoise/POLLY_START.md\` so it doesn't re-trigger.
+This project ships with **Polly**, the NONoise SDLC advisor.
+Whenever the developer is unsure what to do next, or says "start polly"
+/ "avvia polly" / "run polly" / "what's next?" / "sono perso", read
+\`.claude/skills/polly/SKILL.md\` and follow it. Polly reads
+\`.nonoise/sdlc-flow.md\` and produces a one-shot 4-block advisory
+message, then terminates.
 
 ## Conventions
 

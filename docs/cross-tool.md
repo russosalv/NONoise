@@ -4,17 +4,16 @@ NONoise targets multiple AI coding assistants. Some are **first-class** (fully v
 
 ## V1 scope — Claude Code and GitHub Copilot
 
-**Polly v1 targets Claude Code and GitHub Copilot explicitly.** The decision tree is validated on those two. Both tools are first-class — the SDLC loop is identical; the mechanics underneath differ.
+**Polly v1 targets Claude Code and GitHub Copilot explicitly.** The advisor flow is validated on those two. Both tools are first-class — the SDLC loop is identical; the mechanics underneath differ.
 
-- **Claude Code** is the original target and has the deepest integration: slash commands, `Skill` tool invocation, hooks, MCP servers, auto-trigger from `.nonoise/POLLY_START.md`.
+- **Claude Code** is the original target and has the deepest integration: slash commands, `Skill` tool invocation, hooks, MCP servers.
 - **GitHub Copilot** is an equal first-class — the scaffolder writes `.github/copilot-instructions.md` and wires the same auto-trigger as a phrased instruction; every skill runs as "read the SKILL.md and follow it".
 
 | Capability | Claude Code | GitHub Copilot |
 |---|---|---|
 | **Scaffold writes context file** | `CLAUDE.md` (plus `.claude/skills/`, `.claude/commands/`, `.claude/settings.json`) | `.github/copilot-instructions.md` |
-| **Launch Polly** | `/polly` slash command (wired via `.claude/commands/polly.md`) | Phrase trigger: "start polly" / "avvia polly" / "run polly" / "orchestrate this project" |
+| **Launch Polly** | `/polly` slash command (wired via `.claude/commands/polly.md`) | Phrase trigger: "start polly" / "avvia polly" / "run polly" |
 | **Invoke a specialist skill** | `Skill` tool by name — e.g. `arch-brainstorm`, `superpowers:writing-plans` | Read the SKILL.md file inline and follow its instructions |
-| **Auto-trigger on first scaffold** | `.nonoise/POLLY_START.md` + `CLAUDE.md` block | `.nonoise/POLLY_START.md` + `.github/copilot-instructions.md` block |
 | **Hooks** (pre/post tool-use) | Active (defined in `.claude/settings.json`) | No hook mechanism — relevant hooks are silent no-op |
 | **MCP servers** (`.mcp.json`) | Supported if user configures | Silent no-op |
 | **Worktrees** (`superpowers:using-git-worktrees`) | Active | Active (worktrees are a git feature, not tool-specific) |
@@ -36,14 +35,13 @@ These tools read plain Markdown and can follow a SKILL.md by hand. NONoise write
 | **Scaffold writes context file** | `.cursor/rules.md` | `GEMINI.md` | `AGENTS.md` |
 | **Launch Polly** | Read `.claude/skills/polly/SKILL.md` manually | Ask Gemini to activate `polly` skill | Read `.claude/skills/polly/SKILL.md` manually |
 | **Invoke a specialist skill** | Read its SKILL.md manually | Ask Gemini to activate the named skill | Read its SKILL.md manually |
-| **Auto-trigger on first scaffold** | Block in `.cursor/rules.md`, fires if tool reads it | Block in `GEMINI.md`, similar | Block in `AGENTS.md`, similar |
 | **Hooks / slash commands / MCP** | Silent no-op | Silent no-op | Silent no-op |
 
-Most of the SDLC flow works in best-effort tier because skills are plain Markdown and the AI follows them conversationally. What degrades is auto-triggering, slash-command ergonomics, and hook-based validations.
+Most of the SDLC flow works in best-effort tier because skills are plain Markdown and the AI follows them conversationally. What degrades is slash-command ergonomics and hook-based validations.
 
 ## Deferred — full support on best-effort tier
 
-v1 explicitly does not validate Polly's full decision tree on Cursor / Gemini CLI / Codex. Reaching Claude-Code / Copilot parity requires:
+v1 explicitly does not validate Polly's full advisor flow on Cursor / Gemini CLI / Codex. Reaching Claude-Code / Copilot parity requires:
 
 1. Per-tool phrasing in the entry-point file blocks (`.cursor/rules.md`, `GEMINI.md`, `AGENTS.md`) tested against the actual tool's rule-matching behaviour.
 2. Tool-specific skill invocation syntax encoded in the skill library (e.g., Gemini's `activate_skill` vs Claude Code's `Skill` tool).
@@ -73,7 +71,7 @@ The scaffold writes:
 - If Cursor: `.cursor/rules.md`.
 - If Gemini CLI: `GEMINI.md`.
 
-All entry files are generated from one template per template plus shared stanzas — the POLLY_START auto-trigger block, the graphify-report-first block, the project glossary — so edits to shared content don't require touching each file manually.
+All entry files are generated from one template per template plus shared stanzas — the Polly invocation block, the graphify-report-first block, the project glossary — so edits to shared content don't require touching each file manually.
 
 ## Why multiple tools matter
 
