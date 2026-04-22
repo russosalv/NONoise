@@ -34,14 +34,13 @@ the framework, and the phrase Polly uses to hand off.
 
 | Skill | State | Handoff args | Phrase to use |
 |---|---|---|---|
-| `graphify-setup` | Installed | `mode=reverse-engineering [source_path=<path>]` when triggered from an RE flow; empty otherwise | "I'll engage graphify-setup — it installs graphify, wires the usage rules, and (in RE flow) proposes indexing your code right away." |
-| `reverse-engineering` | Installed | none | "I'll engage reverse-engineering — we'll explore the legacy code together before writing anything. It prerequires a graphify graph for the subject; Polly handles that via graphify-setup first." |
+| `reverse-engineering` | Installed | `source_path=<path>` (optional) | "I'll engage `reverse-engineering` — it verifies graphify is installed (scaffold-time default), indexes your subject source with the full AST + semantic + clustering pipeline, and opens an interactive analysis loop." |
 
 Args are parsed per `handoff-protocol.md` § "Skill arguments convention".
 When Polly routes RE intent and no graph exists for the proposed source
-path, it invokes `graphify-setup` with `mode=reverse-engineering` first
-(see `decision-tree.md` § "Reverse-engineering intent gate"), then
-`reverse-engineering`.
+path, it invokes `reverse-engineering` directly — its Step 0.1 verifies
+graphify is installed and Step 2.2 builds the initial full graph
+(see `decision-tree.md` § "Reverse-engineering intent gate").
 
 ## Orthogonal / on-demand
 
@@ -83,7 +82,7 @@ project (Claude Code also gets `.claude/agents/superpowers/`,
 These are not managed by Polly; if the user mentions them, acknowledge and
 stay out of the way:
 
-- `graphify` (the core Python package, not the `graphify-setup` skill)
+- `graphify` (the core Python package, installed at scaffold time)
 - IDE / LSP plugins installed via Claude Code marketplace or Copilot
   `setup lsp` (Polly never auto-installs — see `feedback_lsp_advisor_only`
   in the framework's design memory)

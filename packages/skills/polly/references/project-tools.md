@@ -155,7 +155,7 @@ workspace, so local state is never taken for granted.
 
 | Tool | Skills that drive / benefit from it |
 |---|---|
-| `md-extractor` | `requirements-ingest`, `reverse-engineering`, `graphify-setup` |
+| `md-extractor` | `requirements-ingest`, `reverse-engineering` |
 | `devops-push` | `spec-to-workitem` (for Azure DevOps targets) |
 | `clone-all` / `switch-branch` / `pull-all` | No skill — workspace infrastructure for multi-repo |
 

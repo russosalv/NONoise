@@ -134,7 +134,7 @@ render a compact version grouped by use:
 - `atr` — acceptance + test + implementazione per task
 
 **Brownfield**
-- `graphify-setup` / `graphify` — indicizzazione del codice
+- `reverse-engineering` / `graphify` — indicizzazione del codice
 - `reverse-engineering` — dossier interattivo sul legacy
 
 **Implementation (dev trio + ATR)**

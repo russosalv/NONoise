@@ -127,8 +127,3 @@ only write to disk when the user says "save". See `reverse-engineering`
 for the "don't write without permission" rule — respect it in manual mode
 too.
 
-### graphify-setup (if ever absent)
-
-This should not happen — `graphify-setup` is a scaffold-level prerequisite
-and ships with the MVP bundle. If it really is missing: tell the user to
-run `pip install graphifyy` and then `graphify install`, and retry.

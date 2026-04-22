@@ -119,7 +119,7 @@ Non-null only while a skill is engaged. Cleared on return.
 
 ```json
 {
-  "skill": "graphify-setup",
+  "skill": "reverse-engineering",
   "engagedAt": "2026-04-19T20:05:00Z",
   "returnTo": "reverse",
   "userMessage": "When you're done scanning, come back with /polly"
@@ -138,7 +138,7 @@ Cache of "is this phase done?". Polly reconciles each key against
 Each entry:
 
 ```json
-{ "done": true, "via": "graphify-setup", "at": "2026-04-19T20:12:00Z", "note": null }
+{ "done": true, "via": "reverse-engineering", "at": "2026-04-19T20:12:00Z", "note": null }
 ```
 
 If `done: false`, the `via` / `at` fields are absent.
@@ -169,7 +169,7 @@ Each event:
   "at": "2026-04-19T20:05:00Z",
   "action": "answered|handoff|return|phase-complete|skip|abandon|reset",
   "phase": "stack",
-  "skill": "graphify-setup",
+  "skill": "reverse-engineering",
   "key": "kind",
   "value": "brownfield",
   "note": "user picked brownfield"
@@ -243,7 +243,7 @@ Brownfield scan in progress:
     "brownfieldCodePath": "./legacy-app"
   },
   "handoff": {
-    "skill": "graphify-setup",
+    "skill": "reverse-engineering",
     "engagedAt": "2026-04-19T20:05:00Z",
     "returnTo": "reverse",
     "userMessage": "When graphify-out/ is populated, say 'back to polly' and I'll pick up with reverse-engineering."
@@ -267,7 +267,7 @@ Brownfield scan in progress:
     { "at": "2026-04-19T19:20:00Z", "action": "answered", "key": "kind", "value": "brownfield" },
     { "at": "2026-04-19T19:45:00Z", "action": "answered", "key": "brownfieldCodePath", "value": "./legacy-app" },
     { "at": "2026-04-19T20:00:00Z", "action": "answered", "key": "stack", "value": "TypeScript + Next.js + Postgres" },
-    { "at": "2026-04-19T20:05:00Z", "action": "handoff", "phase": "scan", "skill": "graphify-setup" }
+    { "at": "2026-04-19T20:05:00Z", "action": "handoff", "phase": "scan", "skill": "reverse-engineering" }
   ]
 }
 ```
@@ -280,7 +280,7 @@ Brownfield scan in progress:
   "phases": {
     "scan": {
       "done": true,
-      "via": "graphify-setup",
+      "via": "reverse-engineering",
       "at": "2026-04-19T20:30:00Z",
       "note": "graphify-out/GRAPH_REPORT.md present"
     },
@@ -288,8 +288,8 @@ Brownfield scan in progress:
   },
   "events": [
     ...,
-    { "at": "2026-04-19T20:30:00Z", "action": "return", "skill": "graphify-setup" },
-    { "at": "2026-04-19T20:30:00Z", "action": "phase-complete", "phase": "scan", "via": "graphify-setup" }
+    { "at": "2026-04-19T20:30:00Z", "action": "return", "skill": "reverse-engineering" },
+    { "at": "2026-04-19T20:30:00Z", "action": "phase-complete", "phase": "scan", "via": "reverse-engineering" }
   ]
 ```
 

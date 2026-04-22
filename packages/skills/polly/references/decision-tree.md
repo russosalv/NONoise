@@ -294,36 +294,33 @@ Prompt:
 If the code is inside the scaffold (same repo), check that `.git` exists so
 `graphify` can scan. If it's in a sibling repo, note the path.
 
-## Brownfield — Step 3.2 — Graphify setup     `[pair]`
+## Brownfield — Step 3.2 — Reverse engineering     `[pair]`
 
 Prompt:
-> I'll engage `graphify-setup` first — it verifies Python is installed,
-> installs `graphify` if needed, wires the usage rules into every selected
-> AI-tool context file, and — because we're in a reverse-engineering flow —
-> it will also propose indexing your code path right away (with a clear
-> warning that indexing is essential for a good reverse result, but you can
-> skip if you have a reason to).
+> I'll engage `reverse-engineering` — it verifies graphify is installed
+> (scaffold-time default), indexes your subject source with the full AST +
+> semantic + clustering pipeline, and opens an interactive analysis loop.
 
-Pass the args string to the handoff:
+Pass the source path to the handoff:
 
 ```
-Skill(skill: "graphify-setup", args: "mode=reverse-engineering source_path=<Step 3.1 answer>")
+Skill(skill: "reverse-engineering", args: "source_path=<Step 3.1 answer>")
 ```
 
 If the user provided no explicit source_path in Step 3.1 (or said "inside
-this repo"), omit `source_path` — graphify-setup falls back to `.` or
-`nonoise.config.json → reverse.source_path`.
+this repo"), omit `source_path` — `reverse-engineering` falls back to `.`
+or `nonoise.config.json → reverse.source_path`.
 
-If `graphify-setup` reports Python missing, show the install instructions
-and offer the user the chance to install manually, then retry.
+`reverse-engineering` Step 0.1 verifies graphify is installed; Step 2.2
+runs the full AST + semantic + clustering pipeline on the source path.
 
 **Return fingerprint**: `graphify-out/GRAPH_REPORT.md` (at the indexing
 target path, not necessarily the project root).
 
-If the user skipped indexing at Step 5 of graphify-setup, the fingerprint
+If the user skipped indexing inside `reverse-engineering`, the fingerprint
 is absent — Polly sees `scan` phase as NOT done on the next reconcile and
-will re-propose indexing before engaging `reverse-engineering` (see
-§ "Reverse-engineering intent gate" below).
+will re-propose engaging `reverse-engineering` again before proceeding
+(see § "Reverse-engineering intent gate" below).
 
 ## Reverse-engineering intent gate
 
@@ -337,14 +334,16 @@ Polly MUST check the graphify state before engaging `reverse-engineering`:
 graphify CLI available AND graph exists at the proposed source path?
 │
 ├─ NO (either side)
-│    → engage graphify-setup with args="mode=reverse-engineering [source_path=<path>]"
+│    → engage `reverse-engineering` (its Step 0.1 verifies graphify is
+│      installed and Step 2.2 runs the full AST + semantic + clustering
+│      pipeline on <path>)
 │    → on return, re-check the fingerprint
-│         - satisfied → proceed to reverse-engineering
-│         - absent (user skipped Step 5) → ASK THE USER:
+│         - satisfied → proceed (already inside reverse-engineering)
+│         - absent (user skipped indexing) → ASK THE USER:
 │             "Indexing was skipped. Reverse-engineering without a
 │              subject graph produces a source-less, partial dossier.
 │              Three options:
-│              a) Run indexing now (engage graphify-setup again)
+│              a) Run indexing now (engage `reverse-engineering` again)
 │              b) Proceed source-less (confirm you understand it's partial)
 │              c) Pause"
 │           Wait for explicit choice. Never auto-pick (a) or (b).

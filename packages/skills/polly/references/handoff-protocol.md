@@ -1,7 +1,7 @@
 # Polly handoff & return protocol
 
 The single most common Polly failure mode in v1 was: user enters a skill
-(e.g. `graphify-setup`), completes it, forgets to come back, later re-invokes
+(e.g. `reverse-engineering`), completes it, forgets to come back, later re-invokes
 Polly — and Polly re-walks the entire decision tree from Step 0 because it
 has no memory of what was done. This protocol fixes that.
 
@@ -284,7 +284,7 @@ When invoking through the `Skill` tool in Claude Code, pass this string
 as the `args` parameter:
 
 ```
-Skill(skill: "graphify-setup", args: "mode=reverse-engineering source_path=./legacy")
+Skill(skill: "reverse-engineering", args: "source_path=./legacy")
 ```
 
 When invoking in Copilot (or any environment without a native `Skill`
@@ -313,7 +313,6 @@ args: mode=reverse-engineering source_path=./legacy
 
 | Key | Used by | Valid values | Purpose |
 |---|---|---|---|
-| `mode` | `graphify-setup` | `reverse-engineering`, `brownfield` | Enables Step 5 indexing proposal |
-| `source_path` | `graphify-setup` | any path | Default target for Step 5 indexing |
+| `source_path` | `reverse-engineering` | any path | Default target for indexing pipeline |
 
 Add a row when your skill introduces a new key.

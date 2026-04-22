@@ -213,7 +213,7 @@ per task:
 
 ```
 1. Path of the existing code?              [pair]
-2. Indexing                                [pair]  → graphify-setup + `graphify .`
+2. Indexing                                [pair]  → reverse-engineering (Step 2.2 runs `graphify .`)
 3. Understand what's there                 [pair]  → reverse-engineering
 4. Existing source material?               [pair]  → requirements-ingest
 5. From here, pick up greenfield flow at step 4 or 5 depending on scope:
