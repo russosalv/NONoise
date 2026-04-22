@@ -211,4 +211,4 @@ Details in [`docs-hierarchy.md`](docs-hierarchy.md) §Multi-repo.
 - [`skills-catalog.md`](skills-catalog.md) — what each skill actually does, trigger surface, references.
 - [`docs-hierarchy.md`](docs-hierarchy.md) — where phase outputs land and who owns each folder.
 - [`packages/skills/polly/SKILL.md`](../packages/skills/polly/SKILL.md) — the authoritative Polly specification (this document summarises; the SKILL.md runs).
-- [`packages/skills/polly/references/decision-tree.md`](../packages/skills/polly/references/decision-tree.md) — full decision-tree text with mode tags and routing table.
+- [`.nonoise/sdlc-flow.md`](../.nonoise/sdlc-flow.md) in any scaffolded project — the editable flow Polly reads at runtime. The source template lives at `packages/templates/single-project/_always/.nonoise/sdlc-flow.md`.
