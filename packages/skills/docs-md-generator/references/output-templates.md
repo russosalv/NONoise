@@ -37,9 +37,9 @@ See `.github/copilot-instructions.md` for GitHub Copilot rules.
 <cross-tool conventions — things that apply regardless of which AI
 tool the developer uses>
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise CLI) -->
 ## graphify
-...owned by graphify-setup...
+...owned by create-nonoise...
 <!-- <<< graphify -->
 
 ---
@@ -83,9 +83,9 @@ Claude Code>
 ...owned by polly...
 <!-- <<< polly -->
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise CLI) -->
 ## graphify
-...owned by graphify-setup...
+...owned by create-nonoise...
 <!-- <<< graphify -->
 
 ---
@@ -132,9 +132,9 @@ instructions.
 ...owned by polly...
 <!-- <<< polly -->
 
-<!-- >>> graphify (managed by graphify-setup skill) -->
+<!-- >>> graphify (managed by create-nonoise CLI) -->
 ## graphify
-...owned by graphify-setup...
+...owned by create-nonoise...
 <!-- <<< graphify -->
 
 ---
@@ -158,7 +158,7 @@ names, separated by commas. Reference NONoise default grouping:
 
 **Sprint & implementation** — `sprint-manifest`, `atr`
 
-**Brownfield** — `graphify-setup`, `reverse-engineering`
+**Brownfield** — `reverse-engineering`
 
 **Ops & observability** — `ops-skill-builder`, `observability-debug`
 

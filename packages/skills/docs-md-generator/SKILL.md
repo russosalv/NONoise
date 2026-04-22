@@ -63,7 +63,7 @@ bytes as-is from the old file into the new one.
 Known markers in the NONoise framework today:
 
 - `polly` — owned by the `polly` skill (entry-point reminder for Polly).
-- `graphify` — owned by the `graphify-setup` skill (knowledge-graph rules).
+- `graphify` — owned by the `create-nonoise` CLI (knowledge-graph rules, installed during scaffolding).
 - `design-md` — optional, owned by `design-md-generator` (pointer to
   `docs/design.md` for UI code generation).
 

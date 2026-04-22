@@ -24,7 +24,6 @@ function supportsPolly(aiTools: ProjectContext['aiTools']): boolean {
 }
 
 const MVP_SKILL_BUNDLE = [
-  'graphify-setup',
   'vscode-config-generator',
   'docs-md-generator',
   'playwright-cli',

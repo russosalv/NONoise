@@ -26,7 +26,7 @@ one to open and one to close:
 | Marker | Owning skill | Typical body |
 |---|---|---|
 | `polly` | `polly` | Auto-trigger reminder for `.nonoise/POLLY_START.md`, plus trigger phrases (`/polly`, "start polly", ...). |
-| `graphify` | `graphify-setup` | Rules for reading `graphify-out/GRAPH_REPORT.md`, `graphify-out/wiki/index.md`, and rebuilding the graph after code changes. |
+| `graphify` | `create-nonoise` CLI | Rules for reading `graphify-out/GRAPH_REPORT.md`, `graphify-out/wiki/index.md`, and rebuilding the graph after code changes. |
 | `design-md` | `design-md-generator` | Pointer telling AI code-generators to read `docs/design.md` before producing UI code. |
 
 This list is authoritative as of the current framework version. New
@@ -101,7 +101,8 @@ not invent new ones from this skill.
 
 This skill only writes managed blocks that already exist in the
 source file. It does not create `polly` or `graphify` blocks from
-scratch — those are the responsibility of `polly` and
-`graphify-setup`. If the user's `AGENTS.md` lacks a block that their
-tool file clearly needs, tell the user to run the relevant skill
-(e.g. `graphify-setup`) before re-running this one.
+scratch — those are the responsibility of `polly` and the
+`create-nonoise` CLI. If the user's `AGENTS.md` lacks a block that
+their tool file clearly needs, tell the user to scaffold the project
+with `create-nonoise` or run the relevant skill (e.g. `polly`) before
+re-running this one.
