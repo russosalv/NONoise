@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, readFile, stat } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -198,40 +199,21 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     };
   }
 
-  it('writes .nonoise/polly-state.json with schema v1 initial shape when Polly is supported', async () => {
+  it('does NOT write .nonoise/polly-state.json (Polly v2 is stateless)', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
-    const raw = await readFile(join(projectPath, '.nonoise', 'polly-state.json'), 'utf8');
-    const state = JSON.parse(raw) as {
-      version: number;
-      voiceHintShown: boolean;
-      session: { currentStep: string; kind: string };
-      handoff: unknown;
-      phases: Record<string, { done: boolean }>;
-      events: Array<{ action: string }>;
-    };
-    expect(state.version).toBe(1);
-    expect(state.voiceHintShown).toBe(false);
-    expect(state.session.currentStep).toBe('intro');
-    expect(state.session.kind).toBe('unknown');
-    expect(state.handoff).toBeNull();
-    expect(state.phases.scan!.done).toBe(false);
-    expect(state.phases.sprint!.done).toBe(false);
-    expect(state.events[0]!.action).toBe('bootstrap');
+    await expect(stat(join(projectPath, '.nonoise', 'polly-state.json'))).rejects.toThrow();
   });
 
-  it('writes .nonoise/polly-state.mjs CLI next to polly-state.json when Polly is supported', async () => {
+  it('does NOT write .nonoise/polly-state.mjs (Polly v2 is stateless)', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
-    const body = await readFile(join(projectPath, '.nonoise', 'polly-state.mjs'), 'utf8');
-    expect(body).toContain('#!/usr/bin/env node');
-    expect(body).toContain('--reset');
-    expect(body).toContain('polly-state.json');
+    await expect(stat(join(projectPath, '.nonoise', 'polly-state.mjs'))).rejects.toThrow();
   });
 
-  it('does NOT write polly-state.json or polly-state.mjs when no Polly-compatible AI is selected', async () => {
+  it('does NOT write polly-state.json or polly-state.mjs for any AI tool selection', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ cursor: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
@@ -239,20 +221,22 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     await expect(stat(join(projectPath, '.nonoise', 'polly-state.mjs'))).rejects.toThrow();
   });
 
-  it('writes .nonoise/POLLY_START.md when Claude is selected', async () => {
+  it('does NOT write .nonoise/POLLY_START.md when Claude is selected (Polly v2 has no auto-trigger)', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
-    const marker = await readFile(join(projectPath, '.nonoise', 'POLLY_START.md'), 'utf8');
-    expect(marker).toContain('Polly auto-trigger marker');
+    await expect(
+      stat(join(projectPath, '.nonoise', 'POLLY_START.md')),
+    ).rejects.toThrow();
   });
 
-  it('writes .nonoise/POLLY_START.md when only Copilot is selected (cross-tool)', async () => {
+  it('does NOT write .nonoise/POLLY_START.md when only Copilot is selected (Polly v2 has no auto-trigger)', async () => {
     await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
-    const marker = await readFile(join(projectPath, '.nonoise', 'POLLY_START.md'), 'utf8');
-    expect(marker).toContain('Polly auto-trigger marker');
+    await expect(
+      stat(join(projectPath, '.nonoise', 'POLLY_START.md')),
+    ).rejects.toThrow();
   });
 
   it('does NOT write POLLY_START.md when zero AI tools are selected', async () => {
@@ -312,6 +296,15 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     await expect(
       stat(join(projectPath, '.claude', 'commands', 'polly.md')),
     ).rejects.toThrow();
+  });
+
+  it('does not write Polly state-machinery files (POLLY_START.md, polly-state.json, polly-state.schema.json, polly-state.mjs)', async () => {
+    const ctx = buildCtx({ aiTools: buildAi({ claudeCode: true, copilot: true }) });
+    await scaffold(ctx, { templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT });
+    for (const f of ['POLLY_START.md', 'polly-state.json', 'polly-state.schema.json', 'polly-state.mjs']) {
+      const p = join(projectPath, '.nonoise', f);
+      expect(existsSync(p), `${f} should not exist after scaffold`).toBe(false);
+    }
   });
 
   it('installs polly SKILL when only Copilot is selected (cross-tool)', async () => {
