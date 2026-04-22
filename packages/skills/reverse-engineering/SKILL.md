@@ -35,7 +35,7 @@ The output is a **minor-version bump** of the dossier (v1.N → v1.N+1) each tim
 
 1. **Incremental, not one-shot**. The dossier evolves over many sessions. We never rewrite from scratch; we edit the minimum subset of chapters implied by the user's intent.
 2. **Never write on our own initiative**. Indexing and analysis happen freely in chat, but the target folder is **not touched** until the user says "save" (or equivalent). A reverse session can run for hours and produce dozens of scratch drafts — most are discarded; only the final consolidated result reaches disk.
-3. **Graphify is context, not output**. The knowledge graph produced by [graphify](../graphify-setup/SKILL.md) is consumed to answer questions during the loop; it is not re-indexed on save and it is not copied into the dossier.
+3. **Graphify is context, not output**. The knowledge graph produced by graphify is consumed to answer questions during the loop; it is not re-indexed on save and it is not copied into the dossier.
 4. **Source documents are read-only**. Project inputs (sprint docs, meeting notes, research PDFs, code) are sources. The dossier is a derived artifact. Don't write back.
 
 ## When to use this skill
@@ -106,15 +106,20 @@ python -c "import graphify" 2>&1 || graphify --help 2>&1
 
 If both checks fail, tell the user:
 
-> Graphify is not installed. This skill uses it to index the subject's code and supporting documents.
+> Graphify is not installed. It is normally installed at scaffold time by `create-nonoise`. Re-run the scaffold in this project, or install manually:
 >
-> To install: `uv tool install "graphifyy>=0.4.23"` (note: the package name ends in double‑y — `graphifyy`, not `graphify`). If `uv` is not available, see the `graphify-setup` skill for bootstrap instructions and the documented pip escape hatch.
+> ```
+> uv tool install "graphifyy>=0.4.23"
+> ```
 >
-> For the full setup (hooks, always-on, per-tool rules) see the [`graphify-setup`](../graphify-setup/SKILL.md) skill.
+> If `uv` is not available, bootstrap it first:
 >
-> Want me to run the install now? (yes/no)
+> - macOS / Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+> - Windows:       `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+>
+> Can't proceed without graphify — re-run me once it's installed.
 
-If not confirmed, stop with: "Can't proceed without graphify — re-run me once it's installed."
+Then stop.
 
 **0.2 — Local developer config**
 
@@ -735,7 +740,6 @@ Suggested next steps:
 
 ## Related skills
 
-- [`graphify-setup`](../graphify-setup/SKILL.md) — installs graphify and wires its rules; run this before the first reverse session on a project
 - [`arch-brainstorm`](../arch-brainstorm/SKILL.md) — consumes the dossier as reference when planning new architectural work
 - [`sprint-manifest`](../sprint-manifest/SKILL.md) — may reference the dossier in its "supporting docs" list for promoted PRDs
 
