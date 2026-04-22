@@ -34,7 +34,7 @@ This skill sits on the **operations** axis, orthogonal to the architectural axis
 │   │  Phase 0  Intent           │                              │
 │   │  Phase 1  Access (menu)    │                              │
 │   │  Phase 2  Context          │──┐                           │
-│   │  Phase 3  Operation plan   │  │ (may call graphify-setup) │
+│   │  Phase 3  Operation plan   │  │ (may call /graphify) │
 │   │  Phase 4  Execute          │  │ (may call arch docs)      │
 │   │  Phase 5  Crystallize      │──┼──▶ skill-creator          │
 │   │                            │  │                           │
@@ -48,7 +48,7 @@ This skill sits on the **operations** axis, orthogonal to the architectural axis
 Related skills:
 
 - [`../skill-creator/SKILL.md`](../skill-creator/SKILL.md) — invoked in Phase 5 to crystallize the successful flow.
-- [`../graphify-setup/SKILL.md`](../graphify-setup/SKILL.md) — invoked in Phase 2 when the operation needs code-level awareness (rollback mapped to the right module, a migration driven by schema references, etc.).
+- [`../graphify/SKILL.md`](../graphify/SKILL.md) — invoked in Phase 2 when the operation needs code-level awareness (rollback mapped to the right module, a migration driven by schema references, etc.).
 - [`../observability-debug/SKILL.md`](../observability-debug/SKILL.md) — paired skill for production debugging: this skill handles Phase 0 "wire correlation-ID tracking on the code side" (an ops concern: configure App Insights / Datadog / OpenTelemetry), then `observability-debug` takes over Phase 1+ (read traces, find the bug, propose a fix).
 - [`../spec-to-workitem/SKILL.md`](../spec-to-workitem/SKILL.md) — sibling in spirit (adapter pattern, env-var auth, dry-run default).
 
@@ -56,7 +56,7 @@ Related skills:
 
 1. **Elicits intent** — asks the user what they want to achieve, in their own words, then slots it into a category (deploy / pipeline / provision / teardown / rollback / migrate / scale / cron / diagnose / debug-wiring / custom).
 2. **Proposes an access menu** — CLI first, API second, Web last — with trade-offs. Bundles reference file `references/access-patterns.md` with concrete examples for Azure / AWS / GCP / GitHub / Azure DevOps / Jira / Kubernetes / Terraform.
-3. **Gathers context** — reads `docs/architecture/` (project constraints), `nonoise.config.json` (project metadata + working language), optionally invokes `graphify-setup` to index the codebase, and probes the target environment (`az account show`, `kubectl config current-context`, `gh auth status`, etc.).
+3. **Gathers context** — reads `docs/architecture/` (project constraints), `nonoise.config.json` (project metadata + working language), optionally invokes `/graphify .` to index the codebase, and probes the target environment (`az account show`, `kubectl config current-context`, `gh auth status`, etc.).
 4. **Defines the operation** — translates the user's natural-language intent into an ordered, risk-annotated plan. Every step is labeled `non-destructive` / `reversible` / `destructive`.
 5. **Executes paired or delegated** — dry-run is the default. Paired mode: step-by-step with "proceed?" between steps. Delegated mode: autonomous after plan confirmation. On error: snapshot state, explain, propose rollback.
 6. **Crystallizes** — on success, offers to save the exact sequence as a reusable project-local skill via `skill-creator`. The generated skill becomes the team's source of truth for "how we do this op in THIS project".
@@ -187,13 +187,13 @@ If **none** of the three tiers is feasible, stop and ask the user whether to ins
    - `01-constraints.md` — hard constraints (cloud provider, vendor restrictions, compliance)
    - Other numbered files — stack, patterns, component registry
 3. **Read the repo root** — `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md` if present (they may declare ops rules specific to this project).
-4. **Optionally invoke `graphify-setup`** — only if the operation needs code-level awareness:
+4. **Optionally invoke `/graphify .`** — only if the operation needs code-level awareness:
    - Rollback that needs to identify the right module
    - Migration driven by schema references scattered in code
    - Pipeline that needs to list every service's build command
    - Debug-wiring that must know where HTTP clients / loggers live
 
-   If `graphify-out/` is missing, ask the user: "This op needs code-level context. Would you like me to invoke `graphify-setup` to index the codebase? (~1–5 min)". On decline, proceed without it.
+   If `graphify-out/` is missing, ask the user: "This op needs code-level context. Would you like me to invoke `/graphify .` to index the codebase? (~1–5 min)". On decline, proceed without it.
 
 #### Target-side context
 
@@ -494,7 +494,7 @@ If Phase 4 failed and left the environment in a broken state:
 ## Related skills
 
 - [`../skill-creator/SKILL.md`](../skill-creator/SKILL.md) — invoked in Phase 5 to crystallize.
-- [`../graphify-setup/SKILL.md`](../graphify-setup/SKILL.md) — invoked in Phase 2 when code-level context is needed.
+- [`../graphify/SKILL.md`](../graphify/SKILL.md) — invoked in Phase 2 when code-level context is needed.
 - [`../observability-debug/SKILL.md`](../observability-debug/SKILL.md) — takes over after Phase 0 debug-wiring for the actual production-debug flow.
 - [`../spec-to-workitem/SKILL.md`](../spec-to-workitem/SKILL.md) — sibling adapter-pattern skill (auth via env vars, dry-run default, tracker-agnostic).
 - [`../arch-brainstorm/SKILL.md`](../arch-brainstorm/SKILL.md) — the architectural-axis counterpart (one question at a time, multiple-choice, dialog-driven).

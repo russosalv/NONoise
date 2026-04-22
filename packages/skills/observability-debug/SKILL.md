@@ -39,7 +39,7 @@ Phases 0 → 5 are always executed. Phase 6 is opt-in.
 2. **Selects the adapter** — reads `nonoise.config.json.observability.backend` when set, otherwise asks. Falls back to the `generic-log-file` adapter.
 3. **Probes access** — verifies the selected adapter is reachable. If not, coaches the user through authentication (env vars, CLI login, OIDC).
 4. **Fetches traces/logs** — calls the adapter's contract methods to pull all telemetry for the correlation ID, or a time-range window.
-5. **Correlates with code** — matches stack frames, file paths, function names in the traces to actual files in the repo via `Grep` / `Read` / (optionally) `graphify-setup`.
+5. **Correlates with code** — matches stack frames, file paths, function names in the traces to actual files in the repo via `Grep` / `Read` / (optionally) `graphify` queries.
 6. **Explains and proposes a fix** — narrates the chain of events in plain language; proposes a concrete patch with file:line, a minimal diff, and a regression test.
 7. **Optionally crystallizes** — if the debugging flow is worth reusing, offers to save it as a project-local skill via [`skill-creator`](../skill-creator/SKILL.md).
 
@@ -259,7 +259,7 @@ Now match trace entries to actual source code:
 1. **Extract candidate code locations** from exceptions — file names, line numbers, function names, class names appearing in stack traces.
 2. **Grep the repo** for each candidate. Prefer fully qualified names (namespace + class) for precision.
 3. **Read the file(s)** around the matched line. Reconstruct the execution path: which code path was taken, what inputs led here, which assumption failed.
-4. **Optional — use [`graphify-setup`](../graphify-setup/SKILL.md)** if the repo has a prepared graph. A graph query ("who calls `OrderService.Place`?") can disambiguate when the stack trace is ambiguous or optimized away.
+4. **Optional — query the existing graph** via `graphify query "<question>"`, `graphify path "A" "B"`, or `graphify explain "<concept>"` if `graphify-out/` exists. A graph query can disambiguate when the stack trace is ambiguous or optimized away.
 5. **Re-read the request/input data** from the trace — custom dimensions, request body (if captured), headers, user identity — to see what triggered the failing branch.
 
 Produce an **annotated timeline**: each row from phase 3 is now decorated with the `file:line` it corresponds to, and with the data that was flowing at that point.
@@ -371,6 +371,6 @@ Read on demand — do not preload upfront.
 ## Related skills
 
 - [`skill-creator`](../skill-creator/SKILL.md) — phase 6 target; crystallizes a debugging workflow into a reusable skill.
-- [`graphify-setup`](../graphify-setup/SKILL.md) — phase 4 companion for repo-scale code navigation.
+- [`graphify`](../graphify/SKILL.md) — phase 4 companion for repo-scale code navigation.
 - [`ops-skill-builder`](../ops-skill-builder/SKILL.md) — sibling access-first skill for setting up the access paths this skill depends on.
 - [`arch-brainstorm`](../arch-brainstorm/SKILL.md) — use when the investigation reveals a design problem, not a bug.
