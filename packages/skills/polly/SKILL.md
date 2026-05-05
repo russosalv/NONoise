@@ -64,6 +64,6 @@ If `repositories.json` is present at project root (or `nonoise.config.json` has 
 ## References
 
 - `references/fallback-messages.md` — what to say when a skill is missing.
-- `references/external-tools.md` — info-only mentions (claude-mem, VibeKanban, call transcriptions).
+- `references/external-tools.md` — info-only mentions (claude-mem, Paseo, call transcriptions).
 - `references/project-tools.md` — bundled executables Polly may cite when the phase calls for them (`md-extractor`, `devops-push`, multi-repo scripts).
 - `references/sdlc-flow.default.md` — embedded fallback copy of the flow.

@@ -340,8 +340,8 @@ polly: {
       k: "multi-repo",
       t: { it: "Multi-repo workspace", en: "Multi-repo workspace" },
       d: {
-        it: "Rileva repositories.json, annuncia la convenzione workspace-centric (skill alla radice), integrazione con script clone-all / switch-branch / pull-all, compatibilità VibeKanban per triage bug cross-repo.",
-        en: "Detects repositories.json, announces workspace-centric convention (skills at root), integration with clone-all / switch-branch / pull-all scripts, VibeKanban compatibility for cross-repo bug triage.",
+        it: "Rileva repositories.json, annuncia la convenzione workspace-centric (skill alla radice), integrazione con script clone-all / switch-branch / pull-all, compatibilità Paseo per triage bug cross-repo.",
+        en: "Detects repositories.json, announces workspace-centric convention (skills at root), integration with clone-all / switch-branch / pull-all scripts, Paseo compatibility for cross-repo bug triage.",
       },
     },
     {

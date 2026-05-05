@@ -1,6 +1,6 @@
-# ATR Phase 3 — VibeKanban Push Details (future integration)
+# ATR Phase 3 — Paseo Push Details (future integration)
 
-> **Status**: planned integration. The VibeKanban MCP server is not yet bundled with NONoise v1. This file documents the target workflow so that when the MCP is wired, `/atr push` can be completed without rewriting.
+> **Status**: planned integration. The Paseo MCP server is not yet bundled with NONoise v1. This file documents the target workflow so that when the MCP is wired, `/atr push` can be completed without rewriting.
 
 Reference for `/atr push` — MCP configuration, issue templates, and workflow details.
 
@@ -20,15 +20,15 @@ Reference for `/atr push` — MCP configuration, issue templates, and workflow d
 
 `/atr push` runs in **dry-run mode**: it reads `backlog.md` and prints a formatted summary of what would be pushed to a tracker. This gives the user a copy-paste-friendly view of the failures without requiring any external integration.
 
-When the VibeKanban MCP (or another tracker integration) becomes available, the same `/atr push` command will switch to live mode automatically — this file documents what that live mode will do.
+When the Paseo MCP (or another tracker integration) becomes available, the same `/atr push` command will switch to live mode automatically — this file documents what that live mode will do.
 
 ---
 
 ## MCP Auto-Configuration (when wired)
 
-If `vibe_kanban` is not in the MCP configuration, ask the user:
+If `paseo` is not in the MCP configuration, ask the user:
 
-> "VibeKanban MCP server is not configured. Do you want me to add it automatically? I can configure it for:
+> "Paseo MCP server is not configured. Do you want me to add it automatically? I can configure it for:
 > 1. **Claude Code** (`.claude/settings.json`)
 > 2. **GitHub Copilot** (`.vscode/mcp.json`)
 > 3. **Both**
@@ -40,9 +40,9 @@ If `vibe_kanban` is not in the MCP configuration, ask the user:
 ```json
 {
   "mcpServers": {
-    "vibe_kanban": {
+    "paseo": {
       "command": "npx",
-      "args": ["-y", "vibe-kanban@latest", "--mcp"]
+      "args": ["-y", "paseo@latest", "--mcp"]
     }
   }
 }
@@ -55,9 +55,9 @@ Merge with existing settings (preserve `enabledPlugins` and other keys).
 ```json
 {
   "servers": {
-    "vibe_kanban": {
+    "paseo": {
       "command": "npx",
-      "args": ["-y", "vibe-kanban@latest", "--mcp"]
+      "args": ["-y", "paseo@latest", "--mcp"]
     }
   }
 }
@@ -70,7 +70,7 @@ After configuring, inform the user they need to restart Claude Code or reload VS
 ## Push Process
 
 1. **Read `backlog.md`** from the specified path (or the latest one under `docs/sprints/Sprint-N/acceptance/`)
-2. **Discover VibeKanban context**:
+2. **Discover Paseo context**:
    - Call `list_organizations` to get the org ID
    - Call `list_projects` to find the target project (ask the user which one if multiple exist)
    - Call `list_tags` to check if `atr` and `sprint-{N}` tags exist
@@ -86,7 +86,7 @@ After configuring, inform the user they need to restart Claude Code or reload VS
 
 ## Severity to Priority Mapping
 
-| ATR Severity | VibeKanban Priority |
+| ATR Severity | Paseo Priority |
 |---|---|
 | critical | urgent |
 | high | high |
@@ -97,7 +97,7 @@ After configuring, inform the user they need to restart Claude Code or reload VS
 
 ## Issue Description Template
 
-The body of each VibeKanban issue is assembled from the backlog entry:
+The body of each Paseo issue is assembled from the backlog entry:
 
 ```markdown
 ## Context

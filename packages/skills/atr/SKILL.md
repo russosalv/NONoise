@@ -1,6 +1,6 @@
 ---
 name: atr
-description: Acceptance Test Runner — reads acceptance criteria from a sprint manifest and/or requirements files, generates a machine-readable testbook, executes it via Playwright against the running app, produces markdown reports with screenshots, and maintains a backlog of failures. Optionally pushes failures to an external tracker (VibeKanban integration planned as future work). Use this skill when the user mentions acceptance testing, testbook, running tests against the app, producing a stakeholder-friendly test plan, verifying the app against the sprint manifest, or pushing test failures to a tracker. Triggers — `/atr generate`, `/atr run`, `/atr doc`, `/atr push`, "run acceptance tests", "generate testbook for sprint N", "check the app against the manifest", "create a readable test plan for stakeholders". Language — reports and testbook descriptions follow the project's working language (inferred from the sprint manifest / requirements content, or from `nonoise.config.json` `language` if set; defaults to English).
+description: Acceptance Test Runner — reads acceptance criteria from a sprint manifest and/or requirements files, generates a machine-readable testbook, executes it via Playwright against the running app, produces markdown reports with screenshots, and maintains a backlog of failures. Optionally pushes failures to an external tracker (Paseo integration planned as future work). Use this skill when the user mentions acceptance testing, testbook, running tests against the app, producing a stakeholder-friendly test plan, verifying the app against the sprint manifest, or pushing test failures to a tracker. Triggers — `/atr generate`, `/atr run`, `/atr doc`, `/atr push`, "run acceptance tests", "generate testbook for sprint N", "check the app against the manifest", "create a readable test plan for stakeholders". Language — reports and testbook descriptions follow the project's working language (inferred from the sprint manifest / requirements content, or from `nonoise.config.json` `language` if set; defaults to English).
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; output under docs/sprints/Sprint-N/acceptance/
 ---
@@ -44,7 +44,7 @@ Generates a stakeholder-friendly markdown document from a testbook YAML — for 
 Reads `backlog.md` and creates issues on an external tracker for each failure.
 
 **Supported integrations (current + planned)**:
-- **VibeKanban via MCP** — planned future integration; the skill will be wired to it once the MCP server is part of the NONoise bundle. Reference template is already in `references/vibekanban.md`.
+- **Paseo via MCP** — planned future integration; the skill will be wired to it once the MCP server is part of the NONoise bundle. Reference template is already in `references/paseo.md`.
 - **GitHub Issues / Azure DevOps / Jira / Linear** — out of scope for v1; user can still use `/atr push` to produce a structured backlog that their own export skill or CI job can consume.
 
 **Usage**: `/atr push` (uses the latest backlog) or `/atr push docs/sprints/Sprint-5/acceptance/backlog.md`
@@ -313,11 +313,11 @@ Reads `backlog.md` and creates one issue per failure on an external tracker.
 
 ### Current status
 
-**VibeKanban via MCP** — planned future integration. The reference for the MCP workflow lives in `references/vibekanban.md`. When the VibeKanban MCP is wired into the NONoise bundle, this phase will be fully automated.
+**Paseo via MCP** — planned future integration. The reference for the MCP workflow lives in `references/paseo.md`. When the Paseo MCP is wired into the NONoise bundle, this phase will be fully automated.
 
 **For v1**: without a configured MCP, `/atr push` prints a report of what **would** be pushed (dry run) and lists the backlog entries, so the user can manually copy them to their tracker or hook their own export flow.
 
-See `references/vibekanban.md` for the (future) MCP setup, severity-to-priority mapping, issue description template, and idempotency rules.
+See `references/paseo.md` for the (future) MCP setup, severity-to-priority mapping, issue description template, and idempotency rules.
 
 ---
 
@@ -431,7 +431,7 @@ docs/sprints/Sprint-N/
 3. **Screenshot-less FAIL** — if a test fails without a screenshot, the report is useless. Always capture.
 4. **Sequential report writing** — if you are not delegating, you are doing it wrong.
 5. **Custom screenshot names** — never invent suffixes like `-pass.png`; use the testbook-declared name.
-6. **Running `/atr push` without a tracker** — will print a dry-run until VibeKanban MCP (or another tracker integration) is wired.
+6. **Running `/atr push` without a tracker** — will print a dry-run until Paseo MCP (or another tracker integration) is wired.
 
 ## When NOT to use
 
@@ -444,6 +444,6 @@ docs/sprints/Sprint-N/
 ## References
 
 - [`references/templates.md`](./references/templates.md) — Report / backlog / stakeholder-plan formats + transformation examples
-- [`references/vibekanban.md`](./references/vibekanban.md) — Planned VibeKanban MCP integration (future)
+- [`references/paseo.md`](./references/paseo.md) — Planned Paseo MCP integration (future)
 - Sibling skill `playwright-cli` — browser automation backend
 - Sibling skill `sprint-manifest` — source of acceptance criteria

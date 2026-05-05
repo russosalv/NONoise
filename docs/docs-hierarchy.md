@@ -258,7 +258,7 @@ Polly handles this automatically:
 
 - Skills live at workspace root (open the workspace in your AI tool to have them all).
 - Per-sub-repo skill propagation is on demand: "if you need skills inside a specific sub-repo, I can copy `.claude/` there — just ask".
-- `switch-branch` aligns every sub-repo on the same branch — compatible with VibeKanban treating the workspace as one unit.
+- `switch-branch` aligns every sub-repo on the same branch — compatible with Paseo treating the workspace as one unit.
 
 ## Single-project fallback
 

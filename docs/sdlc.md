@@ -108,7 +108,7 @@ This is where the phase is explicitly **`[solo]`** — one developer per task, s
 - `superpowers:subagent-driven-development` — optional; for large tasks that benefit from sub-agent delegation under a spec reviewer + code quality reviewer two-stage review.
 - `superpowers:systematic-debugging` — when a test fails unexpectedly, use this instead of shotgun-patching.
 - `superpowers:verification-before-completion` — never claim "done" without running the actual check.
-- `atr` — acceptance test runner. Reads acceptance criteria from the sprint manifest, generates a testbook, executes via Playwright, produces Markdown reports with screenshots. Mentions VibeKanban as a push target for failures (info-only — see [`external-tools.md`](external-tools.md)).
+- `atr` — acceptance test runner. Reads acceptance criteria from the sprint manifest, generates a testbook, executes via Playwright, produces Markdown reports with screenshots. Mentions Paseo as a push target for failures (info-only — see [`external-tools.md`](external-tools.md)).
 - `superpowers:requesting-code-review` / `superpowers:receiving-code-review` — code review with technical rigor, not performative agreement.
 - `superpowers:using-git-worktrees` — when a task needs isolation from the current workspace.
 - `superpowers:finishing-a-development-branch` — merge, PR, cleanup with structured options.
@@ -200,7 +200,7 @@ NONoise has a multi-repo template variant (roadmap item — `repositories.json` 
 
 - Skills live at workspace root (not inside sub-repos).
 - Sub-repos clone under `repos/<path>` via `clone-all`.
-- `switch-branch` aligns every sub-repo to the same branch — compatible with VibeKanban treating the workspace as one unit.
+- `switch-branch` aligns every sub-repo to the same branch — compatible with Paseo treating the workspace as one unit.
 - Per-repo skill propagation is on demand: "if you need skills inside a specific sub-repo, I can copy `.claude/` there — just ask."
 
 Details in [`docs-hierarchy.md`](docs-hierarchy.md) §Multi-repo.

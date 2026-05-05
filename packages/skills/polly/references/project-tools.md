@@ -1,7 +1,7 @@
 # Polly — project tools (bundled executables)
 
 Distinct from **skills** (markdown instructions that guide the AI) and
-from **external tools** (`external-tools.md` — claude-mem, VibeKanban,
+from **external tools** (`external-tools.md` — claude-mem, Paseo,
 etc.), **project tools** are Node.js / shell executables that the
 scaffold drops physically into the project under `tools/` and
 `scripts/`. Polly knows about them, mentions them at the right moment,
@@ -118,7 +118,7 @@ time, or at the start of a fresh checkout on a new machine.
 
 ### `switch-branch <branch>`
 Checks out `<branch>` across all `active` sub-repos. Creates the branch
-if missing. Key for making VibeKanban treat the workspace as a single
+if missing. Key for making Paseo treat the workspace as a single
 unit during triage.
 
 **When:** to align all sub-repos on a shared feature branch (e.g. a

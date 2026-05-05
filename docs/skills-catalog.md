@@ -174,12 +174,12 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 ### `atr`
 - **SKILL.md:** [`packages/skills/atr/SKILL.md`](../packages/skills/atr/SKILL.md)
 - **Provenance:** custom NONoise.
-- **Purpose:** Acceptance Test Runner. Reads acceptance criteria from the sprint manifest, generates a testbook, executes via Playwright, produces Markdown reports with screenshots. Mentions VibeKanban as a push target for failures (info-only — see [`external-tools.md`](external-tools.md)).
+- **Purpose:** Acceptance Test Runner. Reads acceptance criteria from the sprint manifest, generates a testbook, executes via Playwright, produces Markdown reports with screenshots. Mentions Paseo as a push target for failures (info-only — see [`external-tools.md`](external-tools.md)).
 - **Triggers:** dev trio Step 3; manual "run ATR" after implementation.
 - **Reads:** `docs/sprints/Sprint-N/manifest.md`, acceptance-criteria references.
 - **Writes:** `docs/sprints/Sprint-N/acceptance/<report>.md`, screenshot assets.
 - **Phase:** Implementation (acceptance sub-phase).
-- **References:** `references/output-templates.md`, `references/vibekanban-integration.md`.
+- **References:** `references/output-templates.md`, `references/paseo-integration.md`.
 
 ---
 

@@ -1,6 +1,6 @@
 # Multi-repo workspaces
 
-A NONoise multi-repo workspace is a single scaffolded project that holds one or more Git sub-repositories under `repos/<path>/`. It is useful when a feature spans multiple repos you want to align branch-by-branch — typically when your bug-triage tool (e.g. VibeKanban) treats the workspace as a single unit.
+A NONoise multi-repo workspace is a single scaffolded project that holds one or more Git sub-repositories under `repos/<path>/`. It is useful when a feature spans multiple repos you want to align branch-by-branch — typically when your bug-triage tool (e.g. Paseo) treats the workspace as a single unit.
 
 ## Detection
 
@@ -35,7 +35,7 @@ Array of `{ name, path, url, branch? }` entries. The scaffold does not auto-clon
 ## Scripts
 
 - **`clone-all`** — iterates `repositories.json`, clones each entry into `repos/<path>/` if absent.
-- **`switch-branch <branch>`** — switches every sub-repo to the given branch (creates tracking branch if needed). Aligns the workspace so tools like VibeKanban treat it as a single unit.
+- **`switch-branch <branch>`** — switches every sub-repo to the given branch (creates tracking branch if needed). Aligns the workspace so tools like Paseo treat it as a single unit.
 - **`pull-all`** — fast-forwards every sub-repo on its current branch.
 
 Each script ships in both `.sh` (POSIX) and `.ps1` (PowerShell) flavours.
@@ -44,9 +44,9 @@ Each script ships in both `.sh` (POSIX) and `.ps1` (PowerShell) flavours.
 
 Skills are installed **at workspace root** (`.claude/skills/`), not per sub-repo. Open the workspace in your AI tool to have them all available everywhere. If a specific sub-repo needs its own copy of `.claude/` (e.g. a sub-repo that will later spin out as an independent project), copy the directory in by hand — the framework does not force per-sub-repo duplication.
 
-## VibeKanban alignment
+## Paseo alignment
 
-Aligning all sub-repos on the same branch via `switch-branch` lets VibeKanban treat the workspace as one unit during bug triage. When a VibeKanban task spans multiple repos, align first, work second.
+Aligning all sub-repos on the same branch via `switch-branch` lets Paseo treat the workspace as one unit during bug triage. When a Paseo task spans multiple repos, align first, work second.
 
 ## Relationship to Polly
 

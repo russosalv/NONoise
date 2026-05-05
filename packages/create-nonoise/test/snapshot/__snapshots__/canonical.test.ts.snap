@@ -2294,7 +2294,7 @@ The architect can either un-ignore the path or accept the risk explicitly.
 ",
   ".claude/skills/atr/SKILL.md": "---
 name: atr
-description: Acceptance Test Runner — reads acceptance criteria from a sprint manifest and/or requirements files, generates a machine-readable testbook, executes it via Playwright against the running app, produces markdown reports with screenshots, and maintains a backlog of failures. Optionally pushes failures to an external tracker (VibeKanban integration planned as future work). Use this skill when the user mentions acceptance testing, testbook, running tests against the app, producing a stakeholder-friendly test plan, verifying the app against the sprint manifest, or pushing test failures to a tracker. Triggers — \`/atr generate\`, \`/atr run\`, \`/atr doc\`, \`/atr push\`, "run acceptance tests", "generate testbook for sprint N", "check the app against the manifest", "create a readable test plan for stakeholders". Language — reports and testbook descriptions follow the project's working language (inferred from the sprint manifest / requirements content, or from \`nonoise.config.json\` \`language\` if set; defaults to English).
+description: Acceptance Test Runner — reads acceptance criteria from a sprint manifest and/or requirements files, generates a machine-readable testbook, executes it via Playwright against the running app, produces markdown reports with screenshots, and maintains a backlog of failures. Optionally pushes failures to an external tracker (Paseo integration planned as future work). Use this skill when the user mentions acceptance testing, testbook, running tests against the app, producing a stakeholder-friendly test plan, verifying the app against the sprint manifest, or pushing test failures to a tracker. Triggers — \`/atr generate\`, \`/atr run\`, \`/atr doc\`, \`/atr push\`, "run acceptance tests", "generate testbook for sprint N", "check the app against the manifest", "create a readable test plan for stakeholders". Language — reports and testbook descriptions follow the project's working language (inferred from the sprint manifest / requirements content, or from \`nonoise.config.json\` \`language\` if set; defaults to English).
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; output under docs/sprints/Sprint-N/acceptance/
 ---
@@ -2338,7 +2338,7 @@ Generates a stakeholder-friendly markdown document from a testbook YAML — for 
 Reads \`backlog.md\` and creates issues on an external tracker for each failure.
 
 **Supported integrations (current + planned)**:
-- **VibeKanban via MCP** — planned future integration; the skill will be wired to it once the MCP server is part of the NONoise bundle. Reference template is already in \`references/vibekanban.md\`.
+- **Paseo via MCP** — planned future integration; the skill will be wired to it once the MCP server is part of the NONoise bundle. Reference template is already in \`references/paseo.md\`.
 - **GitHub Issues / Azure DevOps / Jira / Linear** — out of scope for v1; user can still use \`/atr push\` to produce a structured backlog that their own export skill or CI job can consume.
 
 **Usage**: \`/atr push\` (uses the latest backlog) or \`/atr push docs/sprints/Sprint-5/acceptance/backlog.md\`
@@ -2607,11 +2607,11 @@ Reads \`backlog.md\` and creates one issue per failure on an external tracker.
 
 ### Current status
 
-**VibeKanban via MCP** — planned future integration. The reference for the MCP workflow lives in \`references/vibekanban.md\`. When the VibeKanban MCP is wired into the NONoise bundle, this phase will be fully automated.
+**Paseo via MCP** — planned future integration. The reference for the MCP workflow lives in \`references/paseo.md\`. When the Paseo MCP is wired into the NONoise bundle, this phase will be fully automated.
 
 **For v1**: without a configured MCP, \`/atr push\` prints a report of what **would** be pushed (dry run) and lists the backlog entries, so the user can manually copy them to their tracker or hook their own export flow.
 
-See \`references/vibekanban.md\` for the (future) MCP setup, severity-to-priority mapping, issue description template, and idempotency rules.
+See \`references/paseo.md\` for the (future) MCP setup, severity-to-priority mapping, issue description template, and idempotency rules.
 
 ---
 
@@ -2725,7 +2725,7 @@ docs/sprints/Sprint-N/
 3. **Screenshot-less FAIL** — if a test fails without a screenshot, the report is useless. Always capture.
 4. **Sequential report writing** — if you are not delegating, you are doing it wrong.
 5. **Custom screenshot names** — never invent suffixes like \`-pass.png\`; use the testbook-declared name.
-6. **Running \`/atr push\` without a tracker** — will print a dry-run until VibeKanban MCP (or another tracker integration) is wired.
+6. **Running \`/atr push\` without a tracker** — will print a dry-run until Paseo MCP (or another tracker integration) is wired.
 
 ## When NOT to use
 
@@ -2738,9 +2738,160 @@ docs/sprints/Sprint-N/
 ## References
 
 - [\`references/templates.md\`](./references/templates.md) — Report / backlog / stakeholder-plan formats + transformation examples
-- [\`references/vibekanban.md\`](./references/vibekanban.md) — Planned VibeKanban MCP integration (future)
+- [\`references/paseo.md\`](./references/paseo.md) — Planned Paseo MCP integration (future)
 - Sibling skill \`playwright-cli\` — browser automation backend
 - Sibling skill \`sprint-manifest\` — source of acceptance criteria
+",
+  ".claude/skills/atr/references/paseo.md": "# ATR Phase 3 — Paseo Push Details (future integration)
+
+> **Status**: planned integration. The Paseo MCP server is not yet bundled with NONoise v1. This file documents the target workflow so that when the MCP is wired, \`/atr push\` can be completed without rewriting.
+
+Reference for \`/atr push\` — MCP configuration, issue templates, and workflow details.
+
+## Table of Contents
+
+- [Current status in NONoise v1](#current-status-in-nonoise-v1)
+- [MCP Auto-Configuration (when wired)](#mcp-auto-configuration-when-wired)
+- [Push Process](#push-process)
+- [Severity to Priority Mapping](#severity-to-priority-mapping)
+- [Issue Description Template](#issue-description-template)
+- [Idempotency](#idempotency)
+- [Output Format](#output-format)
+
+---
+
+## Current status in NONoise v1
+
+\`/atr push\` runs in **dry-run mode**: it reads \`backlog.md\` and prints a formatted summary of what would be pushed to a tracker. This gives the user a copy-paste-friendly view of the failures without requiring any external integration.
+
+When the Paseo MCP (or another tracker integration) becomes available, the same \`/atr push\` command will switch to live mode automatically — this file documents what that live mode will do.
+
+---
+
+## MCP Auto-Configuration (when wired)
+
+If \`paseo\` is not in the MCP configuration, ask the user:
+
+> "Paseo MCP server is not configured. Do you want me to add it automatically? I can configure it for:
+> 1. **Claude Code** (\`.claude/settings.json\`)
+> 2. **GitHub Copilot** (\`.vscode/mcp.json\`)
+> 3. **Both**
+>
+> Which one?"
+
+**Claude Code configuration** — add to \`.claude/settings.json\`:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "paseo": {
+      "command": "npx",
+      "args": ["-y", "paseo@latest", "--mcp"]
+    }
+  }
+}
+\`\`\`
+
+Merge with existing settings (preserve \`enabledPlugins\` and other keys).
+
+**GitHub Copilot configuration** — create or update \`.vscode/mcp.json\`:
+
+\`\`\`json
+{
+  "servers": {
+    "paseo": {
+      "command": "npx",
+      "args": ["-y", "paseo@latest", "--mcp"]
+    }
+  }
+}
+\`\`\`
+
+After configuring, inform the user they need to restart Claude Code or reload VS Code for the MCP server to be available, then retry \`/atr push\`.
+
+---
+
+## Push Process
+
+1. **Read \`backlog.md\`** from the specified path (or the latest one under \`docs/sprints/Sprint-N/acceptance/\`)
+2. **Discover Paseo context**:
+   - Call \`list_organizations\` to get the org ID
+   - Call \`list_projects\` to find the target project (ask the user which one if multiple exist)
+   - Call \`list_tags\` to check if \`atr\` and \`sprint-{N}\` tags exist
+3. **For each failure entry** in the backlog:
+   - Call \`create_issue\` with:
+     - **title**: \`[{test_id}] {short description}\` (e.g. \`[US-003] Signup form does not show loading state\`)
+     - **description**: full body assembled from the backlog entry (see template below)
+     - **priority**: mapped from ATR severity (see mapping table)
+   - Call \`add_issue_tag\` to tag with \`atr\` and \`sprint-{N}\`
+4. **Report results**: show how many issues were created with their IDs and links
+
+---
+
+## Severity to Priority Mapping
+
+| ATR Severity | Paseo Priority |
+|---|---|
+| critical | urgent |
+| high | high |
+| medium | medium |
+| low | low |
+
+---
+
+## Issue Description Template
+
+The body of each Paseo issue is assembled from the backlog entry:
+
+\`\`\`markdown
+## Context
+
+**ATR test**: {test_id} — {test_title}
+**Manifest section**: {manifest_ref}
+**Sprint**: {N}
+
+## Problem
+
+**Manifest requirement**: {exact requirement text}
+**Expected**: {expected}
+**Observed**: {actual observation}
+
+## Technical details
+
+**Likely files**: {file paths}
+**Fix hint**: {suggested fix}
+**Screenshot**: {screenshot path} (see the local ATR report)
+
+## References
+
+- ATR report: \`docs/sprints/Sprint-{N}/acceptance/{report_file}\`
+- Manifest: \`docs/sprints/Sprint-{N}/sprint-manifest.md\` {manifest_ref}
+\`\`\`
+
+---
+
+## Idempotency
+
+Before creating an issue, search existing issues (via \`list_issues\` with a query matching the test ID like \`[US-003]\`) to avoid duplicates. If an issue with the same test ID already exists, skip and report it as "already tracked".
+
+---
+
+## Output Format
+
+After pushing, print a summary:
+
+\`\`\`
+ATR Push — Sprint {N}
+
+Created:  5 issues
+Skipped:  2 (already tracked)
+Failed:   0
+
+Issues created:
+  [US-003] Signup form does not show loading state -> #42 (medium)
+  [US-005] Empty fields render as "null" -> #43 (medium)
+  ...
+\`\`\`
 ",
   ".claude/skills/atr/references/templates.md": "# ATR Output Templates
 
@@ -3089,157 +3240,6 @@ Becomes:
 > 1. The system verifies that the entered data is displayed correctly:
 >    - First name "Alice" present in the record
 >    - Last name "Smith" present in the record
-",
-  ".claude/skills/atr/references/vibekanban.md": "# ATR Phase 3 — VibeKanban Push Details (future integration)
-
-> **Status**: planned integration. The VibeKanban MCP server is not yet bundled with NONoise v1. This file documents the target workflow so that when the MCP is wired, \`/atr push\` can be completed without rewriting.
-
-Reference for \`/atr push\` — MCP configuration, issue templates, and workflow details.
-
-## Table of Contents
-
-- [Current status in NONoise v1](#current-status-in-nonoise-v1)
-- [MCP Auto-Configuration (when wired)](#mcp-auto-configuration-when-wired)
-- [Push Process](#push-process)
-- [Severity to Priority Mapping](#severity-to-priority-mapping)
-- [Issue Description Template](#issue-description-template)
-- [Idempotency](#idempotency)
-- [Output Format](#output-format)
-
----
-
-## Current status in NONoise v1
-
-\`/atr push\` runs in **dry-run mode**: it reads \`backlog.md\` and prints a formatted summary of what would be pushed to a tracker. This gives the user a copy-paste-friendly view of the failures without requiring any external integration.
-
-When the VibeKanban MCP (or another tracker integration) becomes available, the same \`/atr push\` command will switch to live mode automatically — this file documents what that live mode will do.
-
----
-
-## MCP Auto-Configuration (when wired)
-
-If \`vibe_kanban\` is not in the MCP configuration, ask the user:
-
-> "VibeKanban MCP server is not configured. Do you want me to add it automatically? I can configure it for:
-> 1. **Claude Code** (\`.claude/settings.json\`)
-> 2. **GitHub Copilot** (\`.vscode/mcp.json\`)
-> 3. **Both**
->
-> Which one?"
-
-**Claude Code configuration** — add to \`.claude/settings.json\`:
-
-\`\`\`json
-{
-  "mcpServers": {
-    "vibe_kanban": {
-      "command": "npx",
-      "args": ["-y", "vibe-kanban@latest", "--mcp"]
-    }
-  }
-}
-\`\`\`
-
-Merge with existing settings (preserve \`enabledPlugins\` and other keys).
-
-**GitHub Copilot configuration** — create or update \`.vscode/mcp.json\`:
-
-\`\`\`json
-{
-  "servers": {
-    "vibe_kanban": {
-      "command": "npx",
-      "args": ["-y", "vibe-kanban@latest", "--mcp"]
-    }
-  }
-}
-\`\`\`
-
-After configuring, inform the user they need to restart Claude Code or reload VS Code for the MCP server to be available, then retry \`/atr push\`.
-
----
-
-## Push Process
-
-1. **Read \`backlog.md\`** from the specified path (or the latest one under \`docs/sprints/Sprint-N/acceptance/\`)
-2. **Discover VibeKanban context**:
-   - Call \`list_organizations\` to get the org ID
-   - Call \`list_projects\` to find the target project (ask the user which one if multiple exist)
-   - Call \`list_tags\` to check if \`atr\` and \`sprint-{N}\` tags exist
-3. **For each failure entry** in the backlog:
-   - Call \`create_issue\` with:
-     - **title**: \`[{test_id}] {short description}\` (e.g. \`[US-003] Signup form does not show loading state\`)
-     - **description**: full body assembled from the backlog entry (see template below)
-     - **priority**: mapped from ATR severity (see mapping table)
-   - Call \`add_issue_tag\` to tag with \`atr\` and \`sprint-{N}\`
-4. **Report results**: show how many issues were created with their IDs and links
-
----
-
-## Severity to Priority Mapping
-
-| ATR Severity | VibeKanban Priority |
-|---|---|
-| critical | urgent |
-| high | high |
-| medium | medium |
-| low | low |
-
----
-
-## Issue Description Template
-
-The body of each VibeKanban issue is assembled from the backlog entry:
-
-\`\`\`markdown
-## Context
-
-**ATR test**: {test_id} — {test_title}
-**Manifest section**: {manifest_ref}
-**Sprint**: {N}
-
-## Problem
-
-**Manifest requirement**: {exact requirement text}
-**Expected**: {expected}
-**Observed**: {actual observation}
-
-## Technical details
-
-**Likely files**: {file paths}
-**Fix hint**: {suggested fix}
-**Screenshot**: {screenshot path} (see the local ATR report)
-
-## References
-
-- ATR report: \`docs/sprints/Sprint-{N}/acceptance/{report_file}\`
-- Manifest: \`docs/sprints/Sprint-{N}/sprint-manifest.md\` {manifest_ref}
-\`\`\`
-
----
-
-## Idempotency
-
-Before creating an issue, search existing issues (via \`list_issues\` with a query matching the test ID like \`[US-003]\`) to avoid duplicates. If an issue with the same test ID already exists, skip and report it as "already tracked".
-
----
-
-## Output Format
-
-After pushing, print a summary:
-
-\`\`\`
-ATR Push — Sprint {N}
-
-Created:  5 issues
-Skipped:  2 (already tracked)
-Failed:   0
-
-Issues created:
-  [US-003] Signup form does not show loading state -> #42 (medium)
-  [US-005] Empty fields render as "null" -> #43 (medium)
-  ...
-\`\`\`
 ",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md": "---
 name: bmad-advanced-elicitation
@@ -14449,7 +14449,7 @@ If \`repositories.json\` is present at project root (or \`nonoise.config.json\` 
 ## References
 
 - \`references/fallback-messages.md\` — what to say when a skill is missing.
-- \`references/external-tools.md\` — info-only mentions (claude-mem, VibeKanban, call transcriptions).
+- \`references/external-tools.md\` — info-only mentions (claude-mem, Paseo, call transcriptions).
 - \`references/project-tools.md\` — bundled executables Polly may cite when the phase calls for them (\`md-extractor\`, \`devops-push\`, multi-repo scripts).
 - \`references/sdlc-flow.default.md\` — embedded fallback copy of the flow.
 ",
@@ -14487,39 +14487,30 @@ Copilot equivalent and surfacing it would just be noise.
 
 Polly never prompts the user to install. It's a pointer, nothing more.
 
-## 2. VibeKanban
+## 2. Paseo
 
-**Mention when:** the user describes bugs coming from UAT / SIT / staging,
-says "bug reported by QA", "users are hitting this in test", or asks how to
-triage production / test-env issues with AI.
+**Mention when:** the user wants to drive coding sessions from outside
+their workstation — from a phone, tablet, or a different machine — or
+asks how to keep an AI coding agent running while away from the desk.
 
 **What Polly says (one paragraph + link):**
 
-> **VibeKanban** is where bug tickets become AI-ready tasks. The workflow it
-> enables is:
+> **Paseo** runs your native agent harness (Claude Code, Codex, OpenCode)
+> from anywhere — phone, desktop, web, CLI — with your existing skills,
+> config, and MCP servers intact. It's privacy-first (no telemetry, no
+> tracking, no forced log-ins) and the same NONoise project you scaffold
+> locally remains usable end-to-end through Paseo. Useful when you want
+> to kick off a long-running task from your laptop, monitor it from your
+> phone, and resume on desktop without losing the session.
 >
-> 1. QA or the end user opens a bug with two pieces of information: *what
->    they were doing* when it broke, and a **copy-as-fetch Node.js** of the
->    failing network call (Chrome DevTools → Network tab → right-click on
->    the failing request → Copy → Copy as fetch (Node.js)). That fetch
->    captures the full payload — headers, body, auth — which is what the AI
->    needs to reproduce the failure.
-> 2. Optionally, import existing bug lists from Azure DevOps, Jira, or
->    GitHub Issues.
-> 3. Pair VibeKanban with the \`observability-debug\` skill — the AI reads the
->    failing fetch, correlates it with backend traces, and proposes a fix
->    synchronously.
->
-> Link + docs: \`<vibekanban repo>\` (user supplies at publish time).
+> Link + docs: https://paseo.sh
 
-**Callout Polly must include:** this workflow lives or dies on prompt
-discipline. The team needs to be trained to open bugs with the
-*what-they-did + copy-as-fetch* pattern. Without that discipline the
-pipeline decays — bugs come back as "it doesn't work" and the AI has
-nothing to reason about.
+**Callout Polly must include:** Paseo does not change the SDLC flow —
+the same skills run, the same \`.nonoise/sdlc-flow.md\` is read. Treat it
+as a transport layer for your existing setup, not a separate workflow.
 
-**Pairs with:** \`observability-debug\`. Mention both when the signal is
-strong.
+**Pairs with:** any skill — Paseo is harness-level, orthogonal to the
+skill catalogue.
 
 ## 3. Call transcription tools
 
@@ -14698,7 +14689,7 @@ too.
   ".claude/skills/polly/references/project-tools.md": "# Polly — project tools (bundled executables)
 
 Distinct from **skills** (markdown instructions that guide the AI) and
-from **external tools** (\`external-tools.md\` — claude-mem, VibeKanban,
+from **external tools** (\`external-tools.md\` — claude-mem, Paseo,
 etc.), **project tools** are Node.js / shell executables that the
 scaffold drops physically into the project under \`tools/\` and
 \`scripts/\`. Polly knows about them, mentions them at the right moment,
@@ -14815,7 +14806,7 @@ time, or at the start of a fresh checkout on a new machine.
 
 ### \`switch-branch <branch>\`
 Checks out \`<branch>\` across all \`active\` sub-repos. Creates the branch
-if missing. Key for making VibeKanban treat the workspace as a single
+if missing. Key for making Paseo treat the workspace as a single
 unit during triage.
 
 **When:** to align all sub-repos on a shared feature branch (e.g. a
@@ -29753,8 +29744,8 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/arch-decision/SKILL.md",
   ".claude/skills/arch-sync/SKILL.md",
   ".claude/skills/atr/SKILL.md",
+  ".claude/skills/atr/references/paseo.md",
   ".claude/skills/atr/references/templates.md",
-  ".claude/skills/atr/references/vibekanban.md",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md",
   ".claude/skills/bmad-advanced-elicitation/methods.csv",
   ".claude/skills/bmad-agent-analyst/SKILL.md",

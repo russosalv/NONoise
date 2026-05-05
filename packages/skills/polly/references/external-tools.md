@@ -32,39 +32,30 @@ Copilot equivalent and surfacing it would just be noise.
 
 Polly never prompts the user to install. It's a pointer, nothing more.
 
-## 2. VibeKanban
+## 2. Paseo
 
-**Mention when:** the user describes bugs coming from UAT / SIT / staging,
-says "bug reported by QA", "users are hitting this in test", or asks how to
-triage production / test-env issues with AI.
+**Mention when:** the user wants to drive coding sessions from outside
+their workstation — from a phone, tablet, or a different machine — or
+asks how to keep an AI coding agent running while away from the desk.
 
 **What Polly says (one paragraph + link):**
 
-> **VibeKanban** is where bug tickets become AI-ready tasks. The workflow it
-> enables is:
+> **Paseo** runs your native agent harness (Claude Code, Codex, OpenCode)
+> from anywhere — phone, desktop, web, CLI — with your existing skills,
+> config, and MCP servers intact. It's privacy-first (no telemetry, no
+> tracking, no forced log-ins) and the same NONoise project you scaffold
+> locally remains usable end-to-end through Paseo. Useful when you want
+> to kick off a long-running task from your laptop, monitor it from your
+> phone, and resume on desktop without losing the session.
 >
-> 1. QA or the end user opens a bug with two pieces of information: *what
->    they were doing* when it broke, and a **copy-as-fetch Node.js** of the
->    failing network call (Chrome DevTools → Network tab → right-click on
->    the failing request → Copy → Copy as fetch (Node.js)). That fetch
->    captures the full payload — headers, body, auth — which is what the AI
->    needs to reproduce the failure.
-> 2. Optionally, import existing bug lists from Azure DevOps, Jira, or
->    GitHub Issues.
-> 3. Pair VibeKanban with the `observability-debug` skill — the AI reads the
->    failing fetch, correlates it with backend traces, and proposes a fix
->    synchronously.
->
-> Link + docs: `<vibekanban repo>` (user supplies at publish time).
+> Link + docs: https://paseo.sh
 
-**Callout Polly must include:** this workflow lives or dies on prompt
-discipline. The team needs to be trained to open bugs with the
-*what-they-did + copy-as-fetch* pattern. Without that discipline the
-pipeline decays — bugs come back as "it doesn't work" and the AI has
-nothing to reason about.
+**Callout Polly must include:** Paseo does not change the SDLC flow —
+the same skills run, the same `.nonoise/sdlc-flow.md` is read. Treat it
+as a transport layer for your existing setup, not a separate workflow.
 
-**Pairs with:** `observability-debug`. Mention both when the signal is
-strong.
+**Pairs with:** any skill — Paseo is harness-level, orthogonal to the
+skill catalogue.
 
 ## 3. Call transcription tools
 

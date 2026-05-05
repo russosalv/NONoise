@@ -53,9 +53,9 @@ The `tools/devops-push/` Node CLI (scaffolded into every project) is a dedicated
 
 ### UAT / SIT bug triage
 
-- **VibeKanban** — lightweight kanban for UAT / SIT bugs. Mentioned by `atr` as a future push target for acceptance-test failures (UAT integration is on the ATR roadmap).
+- **Paseo** — lightweight kanban for UAT / SIT bugs. Mentioned by `atr` as a future push target for acceptance-test failures (UAT integration is on the ATR roadmap).
 
-The mention surfaces during the atr phase; the framework does not push to VibeKanban automatically. VibeKanban has an "copy-as-fetch" pattern for bugs — the idea is that a failing acceptance test produces a VibeKanban-ready fetch command the user runs manually.
+The mention surfaces during the atr phase; the framework does not push to Paseo automatically. Paseo has an "copy-as-fetch" pattern for bugs — the idea is that a failing acceptance test produces a Paseo-ready fetch command the user runs manually.
 
 ### Knowledge graph
 
@@ -88,7 +88,7 @@ The user runs it; Polly then continues.
 | Jira | Sprint phase | Work-item tracker | adapter in `spec-to-workitem` |
 | GitHub Issues | Sprint phase | Work-item tracker | adapter in `spec-to-workitem` |
 | Linear | Sprint phase | Work-item tracker | adapter in `spec-to-workitem` |
-| VibeKanban | UAT / SIT | Bug triage kanban | upstream search |
+| Paseo | UAT / SIT | Bug triage kanban | upstream search |
 | graphify | Brownfield | Codebase knowledge graph | installed at scaffold time by `create-nonoise` |
 | App Insights | Observability | Tracing + logs | adapter in `observability-debug` |
 | Datadog | Observability | Tracing + logs | adapter in `observability-debug` |
