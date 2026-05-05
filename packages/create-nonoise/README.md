@@ -19,7 +19,7 @@ cd my-project
 > **GitHub Release fallback.** If the npm registry is temporarily unavailable, install the identical tarball from the GitHub Release:
 >
 > ```bash
-> npx https://github.com/russosalv/NONoise/releases/download/v1.0.0/create-nonoise-1.0.0.tgz my-project
+> npx https://github.com/russosalv/NONoise/releases/download/v1.0.1/create-nonoise-1.0.1.tgz my-project
 > ```
 
 The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then scaffolds:

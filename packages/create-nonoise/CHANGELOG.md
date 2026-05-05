@@ -1,5 +1,11 @@
 # create-nonoise
 
+## 1.0.1
+
+### Patch Changes
+
+- Rename every VibeKanban mention across bundled skills, templates, and docs to Paseo (https://paseo.sh). Polly's `external-tools.md` §2 is rewritten to describe Paseo's actual purpose — running native agent harnesses (Claude Code, Codex, OpenCode) from phone, desktop, web, and CLI — instead of the previous bug-triage workflow. The ATR `references/vibekanban.md` reference file is renamed to `paseo.md` and all internal cross-links are updated accordingly.
+
 ## 1.0.0
 
 ### Major Changes
