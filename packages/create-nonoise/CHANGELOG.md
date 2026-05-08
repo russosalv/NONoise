@@ -1,5 +1,15 @@
 # create-nonoise
 
+## 1.2.1
+
+### Patch Changes
+
+- Fix `scripts/bundle-assets.mjs` to handle vendor exclusions deterministically on CI runners.
+
+  **Bug**: the previous implementation copied the whole `packages/skills/vendor/` directory with one recursive `cp` and then pruned the excluded packs (`graphify`) afterwards. On CI runners, the recursive copy could occasionally finish in a state where `graphify` was bundled and other vendor packs (e.g. `skill-creator`) were missing — likely a timing/permission interaction with Node's `fs.cp` recursive mode. Local builds always passed, so the regression only surfaced on the release workflow's test step.
+
+  **Fix**: enumerate vendor sub-folders explicitly and skip excluded packs upfront (no post-copy prune). Add a `verify()` step at the end of the script that asserts excluded packs are absent and required packs (`superpowers`, `impeccable`, `skill-creator`) are present, exiting non-zero with a clear message if not — so any future regression fails the build immediately rather than surfacing as a flaky test.
+
 ## 1.2.0
 
 ### Minor Changes
