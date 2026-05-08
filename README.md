@@ -87,7 +87,7 @@ claude           # Claude Code CLI
 > **GitHub Release fallback.** If the npm registry is temporarily unavailable for this package, you can install the exact same tarball directly from the GitHub Release attached to each tag:
 >
 > ```bash
-> npx https://github.com/russosalv/NONoise/releases/download/v1.0.1/create-nonoise-1.0.1.tgz my-project
+> npx https://github.com/russosalv/NONoise/releases/download/v1.2.1/create-nonoise-1.2.1.tgz my-project
 > ```
 
 Invoke Polly whenever you're unsure what to do next:
@@ -99,6 +99,40 @@ Invoke Polly whenever you're unsure what to do next:
 Polly reads `.nonoise/sdlc-flow.md`, tells you where you are in the SDLC, and hands you the exact prompt to trigger the right skill. One message per invocation, then she terminates.
 
 A full walkthrough of the SDLC lives in [`docs/sdlc.md`](docs/sdlc.md); Polly's advisor model is documented in [`docs/polly.md`](docs/polly.md).
+
+---
+
+## Upgrading an existing NONoise project
+
+Bundled skills (`reverse-engineering`, `polly`, `arch-*`, etc.) are copied into your project at scaffold time and stay frozen at that version — they don't follow `npm` updates of `create-nonoise`. To pick up improvements (e.g. hardened anti-pattern guards, new skills), run the **upgrade** path on an existing project:
+
+```bash
+# Interactive: detects an existing nonoise.config.json and asks
+npx create-nonoise@latest path/to/existing-project
+
+# Direct, non-interactive
+npx create-nonoise@latest --upgrade path/to/existing-project
+```
+
+What `--upgrade` does:
+
+- **Refreshes all bundled skills** under `<project>/.claude/skills/` (overwrites — pick up the latest `SKILL.md` files for `reverse-engineering`, `polly`, BMAD agents, the `superpowers` and `impeccable` vendor packs, etc.).
+- **Re-runs the graphify install** so `<project>/CLAUDE.md` and `<project>/.claude/settings.json` get the current `PreToolUse` hook.
+- **Does NOT touch templates** — `CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md` keep your local edits.
+- **Does NOT touch `nonoise.config.json`** — your AI-tools selection survives the upgrade.
+
+Two narrower variants:
+
+```bash
+# Only repair the graphify CLI integration (no skill refresh)
+npx create-nonoise@latest --graphify-only path/to/existing-project
+
+# In Claude Code, build/refresh the project's knowledge graph (uses your IDE's
+# model, no external API key) — every NONoise project ships this slash command
+/index .
+```
+
+Auto-detection guard: when you pass a positional path that already contains a `nonoise.config.json`, the CLI **never silently scaffolds over it**. Without `--yes` it prompts (Upgrade / Graphify-only / Cancel); with `--yes` it aborts and prints the explicit `--upgrade` / `--graphify-only` commands you should run instead.
 
 ---
 

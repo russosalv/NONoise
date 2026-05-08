@@ -59,7 +59,7 @@ The mention surfaces during the atr phase; the framework does not push to Paseo 
 
 ### Knowledge graph
 
-- **graphify** — indexes a codebase into a knowledge graph with god-nodes, community clusters, audit-trailed edges. The `create-nonoise` CLI installs the `graphifyy` Python package (`uv tool install "graphifyy>=0.4.23"`) at scaffold time and wires the per-tool hooks (`graphify install`, `graphify copilot install`). Invoke as `/graphify <path>` (the slash-command / Skill invocation; the bare `graphify` binary is reserved for read-side operations like `graphify query`, `graphify path`, `graphify explain`, `graphify update`).
+- **graphify** — indexes a codebase into a knowledge graph with god-nodes, community clusters, audit-trailed edges. The `create-nonoise` CLI installs the `graphifyy` Python package (`uv tool install "graphifyy>=0.7.0"`) at scaffold time and wires the per-tool hooks (`graphify claude install`, `graphify copilot install`). Invoke as `/graphify <path>` — or use the project's `/index <path>` shortcut in Claude Code, which wraps `/graphify` with anti-pattern guidance against the bare CLI. The bare `graphify` binary is reserved for read-side operations only (`graphify query`, `graphify path`, `graphify explain`, AST-only `graphify update`); never use it for full indexing — `graphify extract` requires an external LLM API key, while the `/graphify` slash skill runs through the IDE assistant's session with no key required.
 
 Output: `graphify-out/GRAPH_REPORT.md`, `graph.json`, `graph.html`, `manifest.json`. A pre-tool hook reminds the AI to read the report before searching raw files. See [`sdlc.md`](sdlc.md) §Brownfield prefix.
 

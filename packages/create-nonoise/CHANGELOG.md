@@ -12,9 +12,31 @@
 
 ## 1.2.0
 
+> **Note:** 1.2.0 was tagged but never published to npm because the release workflow's bundle-assets test was flaky on CI. Use 1.2.1 — same feature set, plus the bundle-assets CI fix.
+
 ### Minor Changes
 
 - Add `--upgrade` mode for existing projects, auto-detect NONoise projects on positional path, and harden the `reverse-engineering` skill against the bare `graphify` CLI trap.
+
+  **Quick reference — new commands**
+
+  ```bash
+  # Refresh an existing project (skills + graphify), interactive
+  npx create-nonoise@latest path/to/existing-project
+
+  # Same, non-interactive
+  npx create-nonoise@latest --upgrade path/to/existing-project
+
+  # Narrow path: only the graphify integration, not skills
+  npx create-nonoise@latest --graphify-only path/to/existing-project
+
+  # In Claude Code, build the project's knowledge graph (no API key needed)
+  /index .
+  ```
+
+  **Migration note for projects scaffolded with 1.0.x or 1.1.x**
+
+  Bundled skills (e.g. `reverse-engineering`) were copied at scaffold time and stay frozen at the version that shipped with `create-nonoise@<your-version>`. To pick up the hardened `reverse-engineering` skill (anti-CLI guard rails) and the new `/index` slash command, run `npx create-nonoise@latest --upgrade <your-project>`. Your `CLAUDE.md`, `AGENTS.md`, `nonoise.config.json` and any local customisation are preserved.
 
   **New: `--upgrade` mode**
 

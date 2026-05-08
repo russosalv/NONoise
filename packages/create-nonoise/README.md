@@ -19,7 +19,7 @@ cd my-project
 > **GitHub Release fallback.** If the npm registry is temporarily unavailable, install the identical tarball from the GitHub Release:
 >
 > ```bash
-> npx https://github.com/russosalv/NONoise/releases/download/v1.0.1/create-nonoise-1.0.1.tgz my-project
+> npx https://github.com/russosalv/NONoise/releases/download/v1.2.1/create-nonoise-1.2.1.tgz my-project
 > ```
 
 The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then scaffolds:
@@ -36,13 +36,56 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 ```bash
 npx create-nonoise [directory] [options]
 
-  --template <name>    single-project | multi-repo   (default: single-project)
-  --ai <csv>           claude-code,copilot,codex,cursor,gemini-cli
-  --no-git             skip git init
-  --yes, -y            non-interactive defaults
-  --version, -v        print version
-  --help, -h           print help
+  --workspace <kind>    new | existing-single | existing-multi
+  --template <name>     single-project | multi-repo   (default: single-project)
+  --ai <csv>            claude-code,copilot,codex,cursor,gemini-cli
+  --user-name <name>    developer name (used by AI to address you)
+  --user-locale <iso>   ISO 639-1 language code (en, it, …)
+  --reverse / --no-reverse   enable/disable reverse-engineering config block
+  --no-git              skip git init
+  --yes, -y             non-interactive defaults
+  --version, -v         print version
+  --help, -h            print help
+
+Maintenance (existing projects):
+  --upgrade [path]        refresh bundled skills + re-install graphify
+  --graphify-only [path]  narrow path: only the graphify CLI integration
 ```
+
+When run with no flags, the CLI asks interactively whether to:
+
+1. **Create a new NONoise project** (full scaffold)
+2. **Upgrade an existing project** (refresh skills + graphify)
+3. **Force-install graphify only** (narrow, idempotent fix)
+
+If you pass a positional path that already contains `nonoise.config.json`, the CLI auto-detects it as an existing project and prompts: *Upgrade / Graphify-only / Cancel* — it never silently scaffolds over an existing project.
+
+## Upgrading an existing project
+
+Bundled skills are copied at scaffold time and stay frozen at that version — `npm install -g create-nonoise` doesn't reach them. To pick up improvements (e.g. hardened anti-pattern guards on `reverse-engineering`, new skills, the `/index` slash command), run:
+
+```bash
+# Interactive (auto-detect)
+npx create-nonoise@latest path/to/existing-project
+
+# Direct, non-interactive
+npx create-nonoise@latest --upgrade path/to/existing-project
+```
+
+What `--upgrade` does:
+
+- **Re-copies all bundled skills** under `<project>/.claude/skills/` (overwrites — picks up the latest `SKILL.md` files).
+- **Re-runs the graphify install** (`graphify claude install` / `graphify copilot install`) so `<project>/CLAUDE.md` and `.claude/settings.json` get the current hook.
+- **Does NOT touch templates** — `CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md` keep your edits.
+- **Does NOT touch `nonoise.config.json`**.
+
+For the narrower repair path (only graphify, no skill refresh):
+
+```bash
+npx create-nonoise@latest --graphify-only path/to/existing-project
+```
+
+In `--yes` mode auto-detection refuses to operate on an existing project and prints the explicit `--upgrade` / `--graphify-only` command you should run — non-interactive scripts cannot silently clobber an existing project.
 
 ## The SDLC flow
 
@@ -51,6 +94,20 @@ Requirements → Discovery → Architecture → Sprint → Implementation → Ac
 ```
 
 Every phase is annotated `[pair]` (multiple seniors, large model) or `[solo]` (one dev per task, smaller model, parallelisable). Invoke `/polly` to find out where you are and get the exact prompt for the next skill.
+
+## Knowledge graph (graphify)
+
+Every scaffolded project ships an integration with [`graphify`](https://github.com/safishamsi/graphify) for AST + semantic + community-detection knowledge graphs.
+
+In Claude Code there is also a project-level `/index` slash command that wraps the `/graphify` skill — it builds the graph using your IDE's own model (no external LLM API key required):
+
+```
+/index .                 # index the current directory
+/index <path>            # index a specific path
+/index . --update        # incremental — re-extract only changed files
+```
+
+Don't use the bare `graphify extract` CLI for indexing — it requires an external LLM API key. The `/graphify` slash skill (and the `/index` shortcut) runs the same pipeline through your IDE assistant's session.
 
 ## Who this is for
 
