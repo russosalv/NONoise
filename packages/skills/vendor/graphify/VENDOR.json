@@ -1,12 +1,12 @@
 {
   "source": "https://github.com/safishamsi/graphify",
-  "ref": "v4",
+  "ref": "v7",
   "subpath": null,
   "scope": [
     "."
   ],
-  "commit": "215b5d40e78e498100cbf8855224331c40f757d9",
-  "fetchedAt": "2026-04-21T22:51:26.634Z",
+  "commit": "ef1050b0e4134df0bd59956b0f900dc3c83e8184",
+  "fetchedAt": "2026-05-08T10:05:37.938Z",
   "license": "see upstream LICENSE",
   "notes": ""
 }

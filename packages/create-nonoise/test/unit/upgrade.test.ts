@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, readFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -183,14 +183,17 @@ describe('runUpgrade', () => {
     }
   });
 
-  it('returns exitCode=1 when graphify install fails', async () => {
+  it('returns exitCode=0 when graphify global install fails but project-local writer succeeded', async () => {
+    // New contract: project-local skill files are the source of truth, so a
+    // failed `uv tool install` does not propagate to a non-zero exit.
     const dir = makeProject({ withConfig: true });
     const realRoot = BUNDLED_SKILLS_ROOT;
 
     mockedExec.mockImplementation((cmd) => {
       const s = String(cmd);
       if (/python3? --version/.test(s)) return Buffer.from('Python 3.11.7');
-      if (/uv --version/.test(s)) return Buffer.from('uv 0.4.20');
+      if (/^uv --version/.test(s)) return Buffer.from('uv 0.4.20');
+      if (/^uv tool dir graphifyy$/.test(s)) throw new Error('not installed');
       if (/^uv tool list$/.test(s)) return Buffer.from('');
       if (/uv tool install/.test(s)) throw new Error('install boom');
       throw new Error(`Unexpected: ${cmd}`);
@@ -200,11 +203,47 @@ describe('runUpgrade', () => {
         targetPath: dir,
         skillsRoot: realRoot,
       });
-      expect(result.exitCode).toBe(1);
-      // Skills should still have been refreshed even though graphify failed.
+      expect(result.exitCode).toBe(0);
+      expect(result.graphifyReport.graphifyy).toBe('install-failed');
+      // Project-local writer ran from the bundled lean dir.
+      expect(result.graphifyReport.projectLocal.source).toBe('bundled');
+      expect(result.graphifyReport.projectLocal.written.length).toBeGreaterThan(0);
+      // Skills should still have been refreshed.
       expect(result.skillsRefreshed).toBeGreaterThan(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns exitCode=1 when project-local writer cannot find any source skills', async () => {
+    // Copy the real skills root so installSkills succeeds, then strip
+    // graphify-platform-skills/ from the copy so the project-local writer
+    // has nothing to read from.
+    const dir = makeProject({ withConfig: true });
+    const skillsRootCopy = mkdtempSync(join(tmpdir(), 'nonoise-skills-strip-'));
+    cpSync(BUNDLED_SKILLS_ROOT, skillsRootCopy, { recursive: true });
+    rmSync(join(skillsRootCopy, 'graphify-platform-skills'), { recursive: true, force: true });
+
+    mockedExec.mockImplementation((cmd) => {
+      const s = String(cmd);
+      if (/python3? --version/.test(s)) return Buffer.from('Python 3.11.7');
+      if (/^uv --version/.test(s)) return Buffer.from('uv 0.4.20');
+      if (/^uv tool dir graphifyy$/.test(s)) throw new Error('not installed');
+      if (/^uv tool list$/.test(s)) return Buffer.from('graphifyy v0.7.7\n- graphify\n');
+      if (/uv tool install/.test(s)) return Buffer.from('');
+      if (/^graphify (claude|copilot|codex) install$/.test(s)) return Buffer.from('');
+      throw new Error(`Unexpected: ${cmd}`);
+    });
+    try {
+      const result = await runUpgrade({
+        targetPath: dir,
+        skillsRoot: skillsRootCopy,
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.graphifyReport.projectLocal.source).toBe('unavailable');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(skillsRootCopy, { recursive: true, force: true });
     }
   });
 

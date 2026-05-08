@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Mock child_process so installGraphify (called transitively) doesn't actually
 // touch the host system.
@@ -13,6 +14,12 @@ import { execSync } from 'node:child_process';
 import { runGraphifyOnly } from '../../src/graphify-only.js';
 
 const mockedExec = vi.mocked(execSync);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Workspace source skills (always present in repo) — contains the lean
+// `graphify-platform-skills/` directory the project-local writer reads from.
+const BUNDLED_SKILLS_ROOT = resolve(__dirname, '..', '..', '..', 'skills');
 
 const UV_TOOL_LIST_077 = 'graphifyy v0.7.7\n- graphify\n';
 
@@ -74,7 +81,7 @@ describe('runGraphifyOnly', () => {
     });
 
     try {
-      const result = runGraphifyOnly({ targetPath: dir });
+      const result = runGraphifyOnly({ targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.source).toBe('config');
       expect(result.aiTools.claudeCode).toBe(true);
       expect(result.aiTools.copilot).toBe(true);
@@ -92,7 +99,7 @@ describe('runGraphifyOnly', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nonoise-graphify-only-noconfig-'));
     happyPathExec();
     try {
-      const result = runGraphifyOnly({ targetPath: dir, aiCsv: 'claude-code' });
+      const result = runGraphifyOnly({ targetPath: dir, aiCsv: 'claude-code', skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.source).toBe('flag');
       expect(result.aiTools.claudeCode).toBe(true);
       expect(result.aiTools.copilot).toBe(false);
@@ -109,7 +116,7 @@ describe('runGraphifyOnly', () => {
     });
     happyPathExec();
     try {
-      const result = runGraphifyOnly({ targetPath: dir, aiCsv: 'copilot' });
+      const result = runGraphifyOnly({ targetPath: dir, aiCsv: 'copilot', skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.source).toBe('merged');
       expect(result.aiTools.claudeCode).toBe(true);
       expect(result.aiTools.copilot).toBe(true);
@@ -165,21 +172,49 @@ describe('runGraphifyOnly', () => {
     }
   });
 
-  it('returns exitCode=1 when graphify install fails', () => {
+  it('returns exitCode=0 when graphify global install fails but project-local writer succeeds', () => {
+    // New contract: project-local skill files are the source of truth. A
+    // failure of `uv tool install` is tolerated as long as project-local
+    // copies were written.
     const dir = makeProject({ withConfig: true });
     mockedExec.mockImplementation((cmd) => {
       const s = String(cmd);
       if (/python3? --version/.test(s)) return Buffer.from('Python 3.11.7');
-      if (/uv --version/.test(s)) return Buffer.from('uv 0.4.20');
+      if (/^uv --version/.test(s)) return Buffer.from('uv 0.4.20');
+      if (/^uv tool dir graphifyy$/.test(s)) throw new Error('not installed');
       if (/^uv tool list$/.test(s)) return Buffer.from('');
       if (/uv tool install/.test(s)) throw new Error('install boom');
       throw new Error(`Unexpected: ${cmd}`);
     });
     try {
-      const result = runGraphifyOnly({ targetPath: dir });
+      const result = runGraphifyOnly({ targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
+      expect(result.exitCode).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns exitCode=1 when project-local writer cannot find any source skills', () => {
+    // Empty skillsRoot → no bundled graphify-platform-skills/ → no installed
+    // graphifyy → project-local writer reports source=unavailable → fail.
+    const dir = makeProject({ withConfig: true });
+    const emptyRoot = mkdtempSync(join(tmpdir(), 'nonoise-empty-skills-'));
+    mockedExec.mockImplementation((cmd) => {
+      const s = String(cmd);
+      if (/python3? --version/.test(s)) return Buffer.from('Python 3.11.7');
+      if (/^uv --version/.test(s)) return Buffer.from('uv 0.4.20');
+      if (/^uv tool dir graphifyy$/.test(s)) throw new Error('not installed');
+      if (/^uv tool list$/.test(s)) return Buffer.from(UV_TOOL_LIST_077);
+      if (/uv tool install/.test(s)) return Buffer.from('');
+      if (/^graphify (claude|copilot|codex) install$/.test(s)) return Buffer.from('');
+      throw new Error(`Unexpected: ${cmd}`);
+    });
+    try {
+      const result = runGraphifyOnly({ targetPath: dir, skillsRoot: emptyRoot });
       expect(result.exitCode).toBe(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+      rmSync(emptyRoot, { recursive: true, force: true });
     }
   });
 });

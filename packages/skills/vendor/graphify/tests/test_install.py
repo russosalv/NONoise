@@ -1,5 +1,7 @@
 """Tests for graphify install --platform routing."""
+import os
 from pathlib import Path
+import sys
 from unittest.mock import patch
 import pytest
 
@@ -18,8 +20,13 @@ PLATFORMS = {
 
 def _install(tmp_path, platform):
     from graphify.__main__ import install
-    with patch("graphify.__main__.Path.home", return_value=tmp_path):
-        install(platform=platform)
+    old_cwd = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        with patch("graphify.__main__.Path.home", return_value=tmp_path):
+            install(platform=platform)
+    finally:
+        os.chdir(old_cwd)
 
 
 def test_install_default_claude(tmp_path):
@@ -35,6 +42,29 @@ def test_install_codex(tmp_path):
 def test_install_opencode(tmp_path):
     _install(tmp_path, "opencode")
     assert (tmp_path / ".config" / "opencode" / "skills" / "graphify" / "SKILL.md").exists()
+
+
+def test_install_positional_platform_opencode(tmp_path, monkeypatch):
+    from graphify.__main__ import main
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["graphify", "install", "opencode"])
+    with patch("graphify.__main__.Path.home", return_value=tmp_path):
+        main()
+    assert (tmp_path / ".config" / "opencode" / "skills" / "graphify" / "SKILL.md").exists()
+    assert not (tmp_path / ".claude" / "skills" / "graphify" / "SKILL.md").exists()
+
+
+def test_install_help_does_not_install_default(tmp_path, monkeypatch, capsys):
+    from graphify.__main__ import main
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["graphify", "install", "opencode", "--help"])
+    with patch("graphify.__main__.Path.home", return_value=tmp_path):
+        main()
+    out = capsys.readouterr().out
+    assert "Usage: graphify install" in out
+    assert "opencode" in out
+    assert not (tmp_path / ".claude").exists()
+    assert not (tmp_path / ".config").exists()
 
 
 def test_install_claw(tmp_path):
@@ -194,9 +224,9 @@ def test_opencode_agents_install_writes_plugin(tmp_path):
 
 
 def test_opencode_agents_install_registers_plugin_in_config(tmp_path):
-    """opencode install registers the plugin in opencode.json."""
+    """opencode install registers the plugin in .opencode/opencode.json."""
     _agents_install(tmp_path, "opencode")
-    config_file = tmp_path / "opencode.json"
+    config_file = tmp_path / ".opencode" / "opencode.json"
     assert config_file.exists()
     import json as _json
     config = _json.loads(config_file.read_text())
@@ -204,9 +234,10 @@ def test_opencode_agents_install_registers_plugin_in_config(tmp_path):
 
 
 def test_opencode_agents_install_merges_existing_config(tmp_path):
-    """opencode install preserves existing opencode.json keys."""
+    """opencode install preserves existing .opencode/opencode.json keys."""
     import json as _json
-    config_file = tmp_path / "opencode.json"
+    config_file = tmp_path / ".opencode" / "opencode.json"
+    config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.write_text(_json.dumps({"model": "claude-opus-4-5", "plugin": []}))
     _agents_install(tmp_path, "opencode")
     config = _json.loads(config_file.read_text())
@@ -221,7 +252,7 @@ def test_opencode_agents_uninstall_removes_plugin(tmp_path):
     _agents_uninstall(tmp_path, platform="opencode")
     plugin = tmp_path / ".opencode" / "plugins" / "graphify.js"
     assert not plugin.exists()
-    config_file = tmp_path / "opencode.json"
+    config_file = tmp_path / ".opencode" / "opencode.json"
     if config_file.exists():
         config = _json.loads(config_file.read_text())
         assert not any("graphify.js" in p for p in config.get("plugin", []))

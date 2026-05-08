@@ -7,7 +7,18 @@ import networkx as nx
 
 
 def _safe_filename(name: str) -> str:
-    return name.replace("/", "-").replace(" ", "_").replace(":", "-")
+    """Make a label safe for use as a filename across platforms.
+
+    Substitutes characters that Windows reserves in filenames
+    (< > : " / \\ | ? *) and strips trailing dots/spaces, also reserved.
+    Falls back to 'unnamed' for empty results and caps length at 200
+    chars to stay well under common filesystem limits.
+    """
+    import re
+    s = name.replace("/", "-").replace(" ", "_").replace(":", "-")
+    s = re.sub(r'[<>:"/\\|?*]', '_', s)
+    s = s.strip('. ')
+    return s[:200] if s else 'unnamed'
 
 
 def _cross_community_links(G: nx.Graph, nodes: list[str], own_cid: int, labels: dict[int, str]) -> list[tuple[str, int]]:
@@ -185,17 +196,43 @@ def to_wiki(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
+    if not communities:
+        raise ValueError(
+            "communities dict is empty — refusing to clear wiki/. "
+            "Run `graphify extract .` or `graphify cluster-only .` first."
+        )
+
+    # Clear stale .md files from previous runs to prevent orphan accumulation.
+    # Community labels are LLM-generated (per skill.md Step 5) and non-deterministic
+    # across runs — the same conceptual community may be named differently each time
+    # (e.g. "AutoAgent Skills" → "AutoAgent Methodology"), leaving the previous file
+    # as an orphan. Since to_wiki() owns wiki/ entirely (always writes the full set),
+    # it can safely clear .md files at the start of each call.
+    for old_article in out.glob("*.md"):
+        old_article.unlink()
+
     labels = community_labels or {cid: f"Community {cid}" for cid in communities}
     cohesion = cohesion or {}
     god_nodes_data = god_nodes_data or []
 
     count = 0
+    used_slugs: set[str] = set()
+
+    def _unique_slug(base: str) -> str:
+        slug = base
+        n = 2
+        while slug in used_slugs:
+            slug = f"{base}_{n}"
+            n += 1
+        used_slugs.add(slug)
+        return slug
 
     # Community articles
     for cid, nodes in communities.items():
         label = labels.get(cid, f"Community {cid}")
         article = _community_article(G, cid, nodes, label, labels, cohesion.get(cid))
-        (out / f"{_safe_filename(label)}.md").write_text(article)
+        slug = _unique_slug(_safe_filename(label))
+        (out / f"{slug}.md").write_text(article, encoding="utf-8")
         count += 1
 
     # God node articles
@@ -203,12 +240,14 @@ def to_wiki(
         nid = node_data.get("id")
         if nid and nid in G:
             article = _god_node_article(G, nid, labels)
-            (out / f"{_safe_filename(node_data['label'])}.md").write_text(article)
+            slug = _unique_slug(_safe_filename(node_data['label']))
+            (out / f"{slug}.md").write_text(article, encoding="utf-8")
             count += 1
 
     # Index
     (out / "index.md").write_text(
-        _index_md(communities, labels, god_nodes_data, G.number_of_nodes(), G.number_of_edges())
+        _index_md(communities, labels, god_nodes_data, G.number_of_nodes(), G.number_of_edges()),
+        encoding="utf-8",
     )
 
     return count

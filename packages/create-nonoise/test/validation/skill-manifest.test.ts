@@ -7,7 +7,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const SKILLS_ROOT = resolve(__dirname, '..', '..', '..', '..', 'packages', 'skills');
 
-const GROUPING_DIRS = new Set(['vendor', '_shared']);
+// Grouping/data directories that don't follow the SKILL.md convention.
+// `graphify-platform-skills` is a vendored payload of per-platform skill files
+// (skill.md, skill-copilot.md, …) bundled with create-nonoise and copied into
+// project-local `.claude/skills/`, `.copilot/skills/`, `.agents/skills/` at
+// install time — not a NONoise skill in its own right.
+const GROUPING_DIRS = new Set(['vendor', '_shared', 'graphify-platform-skills']);
 
 describe('skill manifest validation', () => {
   it('every skill has a SKILL.md with valid frontmatter', async () => {

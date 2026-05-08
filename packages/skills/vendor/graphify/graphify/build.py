@@ -21,8 +21,10 @@
 #    before any graph construction happens.
 #
 from __future__ import annotations
+import json
 import re
 import sys
+from pathlib import Path
 import networkx as nx
 from .validate import validate_extraction
 
@@ -37,6 +39,12 @@ def _normalize_id(s: str) -> str:
     return cleaned.strip("_").lower()
 
 
+def _norm_source_file(p: str | None) -> str | None:
+    """Normalize path separators to forward slashes so Windows backslash paths
+    and POSIX paths from semantic subagents resolve to the same node identity."""
+    return p.replace("\\", "/") if p else p
+
+
 def build_from_json(extraction: dict, *, directed: bool = False) -> nx.Graph:
     """Build a NetworkX graph from an extraction dict.
 
@@ -46,6 +54,32 @@ def build_from_json(extraction: dict, *, directed: bool = False) -> nx.Graph:
     # NetworkX <= 3.1 serialised edges as "links"; remap to "edges" for compatibility.
     if "edges" not in extraction and "links" in extraction:
         extraction = dict(extraction, edges=extraction["links"])
+
+    # Canonicalize legacy node/edge schema before validation.
+    for node in extraction.get("nodes", []):
+        if not isinstance(node, dict):
+            continue
+        if "source" in node and "source_file" not in node:
+            # Count edges that reference this node so the warning is actionable (#479)
+            node_id = node.get("id", "?")
+            affected_edges = sum(
+                1 for e in extraction.get("edges", [])
+                if e.get("source") == node_id or e.get("target") == node_id
+            )
+            print(
+                f"[graphify] WARNING: node '{node_id}' uses field 'source' instead of "
+                f"'source_file' — {affected_edges} edge(s) may be misrouted. "
+                f"Rename the field to 'source_file' to silence this warning.",
+                file=sys.stderr,
+            )
+            node["source_file"] = node.pop("source")
+        # Default missing/None file_type to "concept" so legacy graph.json
+        # entries (and stub nodes preserved by `_rebuild_code` from older
+        # graphify versions that didn't always populate file_type) don't
+        # trigger spurious "invalid file_type 'None'" validator warnings (#660).
+        if node.get("file_type") in (None, ""):
+            node["file_type"] = "concept"
+
     errors = validate_extraction(extraction)
     # Dangling edges (stdlib/external imports) are expected - only warn about real schema errors.
     real_errors = [e for e in errors if "does not match any node id" not in e]
@@ -53,6 +87,8 @@ def build_from_json(extraction: dict, *, directed: bool = False) -> nx.Graph:
         print(f"[graphify] Extraction warning ({len(real_errors)} issues): {real_errors[0]}", file=sys.stderr)
     G: nx.Graph = nx.DiGraph() if directed else nx.Graph()
     for node in extraction.get("nodes", []):
+        if "source_file" in node:
+            node["source_file"] = _norm_source_file(node["source_file"])
         G.add_node(node["id"], **{k: v for k, v in node.items() if k != "id"})
     node_set = set(G.nodes())
     # Normalized ID map: lets edges survive when the LLM generates IDs with
@@ -75,6 +111,8 @@ def build_from_json(extraction: dict, *, directed: bool = False) -> nx.Graph:
         if src not in node_set or tgt not in node_set:
             continue  # skip edges to external/stdlib nodes - expected, not an error
         attrs = {k: v for k, v in edge.items() if k not in ("source", "target")}
+        if "source_file" in attrs:
+            attrs["source_file"] = _norm_source_file(attrs["source_file"])
         # Preserve original edge direction - undirected graphs lose it otherwise,
         # causing display functions to show edges backwards.
         attrs["_src"] = src
@@ -86,17 +124,27 @@ def build_from_json(extraction: dict, *, directed: bool = False) -> nx.Graph:
     return G
 
 
-def build(extractions: list[dict], *, directed: bool = False) -> nx.Graph:
+def build(
+    extractions: list[dict],
+    *,
+    directed: bool = False,
+    dedup: bool = True,
+    dedup_llm_backend: str | None = None,
+) -> nx.Graph:
     """Merge multiple extraction results into one graph.
 
     directed=True produces a DiGraph that preserves edge direction (source→target).
     directed=False (default) produces an undirected Graph for backward compatibility.
+    dedup=True (default) runs entity deduplication before building the graph.
+    dedup_llm_backend: if set (e.g. "gemini", "claude", or "kimi"), uses LLM to resolve
+        ambiguous pairs in the 75–92 Jaro-Winkler score zone.
 
     Extractions are merged in order. For nodes with the same ID, the last
     extraction's attributes win (NetworkX add_node overwrites). Pass AST
     results before semantic results so semantic labels take precedence, or
     reverse the order if you prefer AST source_location precision to win.
     """
+    from graphify.dedup import deduplicate_entities
     combined: dict = {"nodes": [], "edges": [], "hyperedges": [], "input_tokens": 0, "output_tokens": 0}
     for ext in extractions:
         combined["nodes"].extend(ext.get("nodes", []))
@@ -104,4 +152,153 @@ def build(extractions: list[dict], *, directed: bool = False) -> nx.Graph:
         combined["hyperedges"].extend(ext.get("hyperedges", []))
         combined["input_tokens"] += ext.get("input_tokens", 0)
         combined["output_tokens"] += ext.get("output_tokens", 0)
+    if dedup and combined["nodes"]:
+        combined["nodes"], combined["edges"] = deduplicate_entities(
+            combined["nodes"], combined["edges"], communities={},
+            dedup_llm_backend=dedup_llm_backend,
+        )
     return build_from_json(combined, directed=directed)
+
+
+def _norm_label(label: str) -> str:
+    """Canonical dedup key — lowercase, alphanumeric only."""
+    return re.sub(r"[^a-z0-9 ]", "", label.lower()).strip()
+
+
+def deduplicate_by_label(nodes: list[dict], edges: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Merge nodes that share a normalised label, rewriting edge references.
+
+    Prefers IDs without chunk suffixes (_c\\d+) and shorter IDs when tied.
+    Drops self-loops created by the merge. Called in build() automatically.
+    """
+    _CHUNK_SUFFIX = re.compile(r"_c\d+$")
+    canonical: dict[str, dict] = {}  # norm_label -> surviving node
+    remap: dict[str, str] = {}       # old_id -> surviving_id
+
+    for node in nodes:
+        key = _norm_label(node.get("label", node.get("id", "")))
+        if not key:
+            continue
+        existing = canonical.get(key)
+        if existing is None:
+            canonical[key] = node
+        else:
+            has_suffix = bool(_CHUNK_SUFFIX.search(node["id"]))
+            existing_has_suffix = bool(_CHUNK_SUFFIX.search(existing["id"]))
+            if has_suffix and not existing_has_suffix:
+                remap[node["id"]] = existing["id"]
+            elif existing_has_suffix and not has_suffix:
+                remap[existing["id"]] = node["id"]
+                canonical[key] = node
+            elif len(node["id"]) < len(existing["id"]):
+                remap[existing["id"]] = node["id"]
+                canonical[key] = node
+            else:
+                remap[node["id"]] = existing["id"]
+
+    if not remap:
+        return nodes, edges
+
+    print(f"[graphify] Deduplicated {len(remap)} duplicate node(s) by label.", file=sys.stderr)
+    deduped_nodes = list(canonical.values())
+    deduped_edges = []
+    for edge in edges:
+        e = dict(edge)
+        e["source"] = remap.get(e["source"], e["source"])
+        e["target"] = remap.get(e["target"], e["target"])
+        if e["source"] != e["target"]:
+            deduped_edges.append(e)
+    return deduped_nodes, deduped_edges
+
+
+def build_merge(
+    new_chunks: list[dict],
+    graph_path: str | Path = "graphify-out/graph.json",
+    prune_sources: list[str] | None = None,
+    *,
+    directed: bool = False,
+    dedup: bool = True,
+    dedup_llm_backend: str | None = None,
+) -> nx.Graph:
+    """Load existing graph.json, merge new chunks into it, and save back.
+
+    Never replaces — only grows (or prunes deleted-file nodes via prune_sources).
+    Safe to call repeatedly: existing nodes and edges are preserved.
+    """
+    from networkx.readwrite import json_graph as _jg
+
+    graph_path = Path(graph_path)
+    if graph_path.exists():
+        data = json.loads(graph_path.read_text(encoding="utf-8"))
+        try:
+            existing_G = _jg.node_link_graph(data, edges="links")
+        except TypeError:
+            existing_G = _jg.node_link_graph(data)
+        # Reconstruct as a plain extraction dict so build() can merge it
+        existing_nodes = [{"id": n, **existing_G.nodes[n]} for n in existing_G.nodes]
+        existing_edges = [
+            {"source": u, "target": v, **d} for u, v, d in existing_G.edges(data=True)
+        ]
+        base = [{"nodes": existing_nodes, "edges": existing_edges}]
+    else:
+        base = []
+
+    all_chunks = base + list(new_chunks)
+    G = build(all_chunks, directed=directed, dedup=dedup, dedup_llm_backend=dedup_llm_backend)
+
+    # Prune nodes from deleted source files
+    if prune_sources:
+        to_remove = [
+            n for n, d in G.nodes(data=True)
+            if d.get("source_file") in prune_sources
+        ]
+        G.remove_nodes_from(to_remove)
+        n_files = len(prune_sources)
+        n_nodes = len(to_remove)
+        if n_nodes:
+            print(
+                f"[graphify] Pruned {n_nodes} node(s) from {n_files} deleted source file(s).",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"[graphify] {n_files} source file(s) deleted since last run — "
+                f"no matching nodes in graph, already clean.",
+                file=sys.stderr,
+            )
+
+    # Safety check: refuse to shrink the graph silently (#479)
+    # Skip when dedup or prune_sources is active — shrinkage is intentional there.
+    if graph_path.exists() and not dedup and not prune_sources:
+        existing_n = len(existing_nodes)
+        new_n = G.number_of_nodes()
+        if new_n < existing_n:
+            raise ValueError(
+                f"graphify: build_merge would shrink graph from {existing_n} → {new_n} nodes. "
+                f"Pass prune_sources explicitly if you intend to remove nodes."
+            )
+
+    return G
+
+
+def prefix_graph_for_global(G: nx.Graph, repo_tag: str) -> nx.Graph:
+    """Return a copy of G with all node IDs prefixed with repo_tag::.
+
+    Labels are preserved unchanged (for display). A 'local_id' attribute
+    is added to each node so the original ID can be recovered. Edges are
+    rewritten to match the new prefixed IDs. The 'repo' attribute is set
+    on every node.
+    """
+    relabel = {n: f"{repo_tag}::{n}" for n in G.nodes}
+    H = nx.relabel_nodes(G, relabel, copy=True)
+    for node, data in H.nodes(data=True):
+        data["repo"] = repo_tag
+        data.setdefault("local_id", node.split("::", 1)[1])
+    return H
+
+
+def prune_repo_from_graph(G: nx.Graph, repo_tag: str) -> int:
+    """Remove all nodes tagged with repo_tag from G in-place. Returns count removed."""
+    to_remove = [n for n, d in G.nodes(data=True) if d.get("repo") == repo_tag]
+    G.remove_nodes_from(to_remove)
+    return len(to_remove)

@@ -115,8 +115,12 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
     const report = installGraphify({
       projectPath: ctx.projectPath,
+      bundledSkillsRoot: paths.skillsRoot,
       claudeCode: ctx.aiTools.claudeCode,
       copilot: ctx.aiTools.copilot,
+      codex: ctx.aiTools.codex,
+      cursor: ctx.aiTools.cursor,
+      geminiCli: ctx.aiTools.geminiCli,
     });
     console.log('\n[graphify] install summary:\n' + formatReport(report) + '\n');
   }

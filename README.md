@@ -117,6 +117,7 @@ npx create-nonoise@latest --upgrade path/to/existing-project
 What `--upgrade` does:
 
 - **Refreshes all bundled skills** under `<project>/.claude/skills/` (overwrites — pick up the latest `SKILL.md` files for `reverse-engineering`, `polly`, BMAD agents, the `superpowers` and `impeccable` vendor packs, etc.).
+- **Refreshes the project-local graphify skills** (`.claude/skills/graphify/`, `.copilot/skills/graphify/`, `.agents/skills/graphify/`) so any cloning teammate gets the subagent-dispatch flow without touching `ANTHROPIC_API_KEY`. Stamp file `.graphify_skill_version` tells `--upgrade` whether the bundled copy is newer than the version on disk.
 - **Re-runs the graphify install** so `<project>/CLAUDE.md` and `<project>/.claude/settings.json` get the current `PreToolUse` hook.
 - **Does NOT touch templates** — `CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md` keep your local edits.
 - **Does NOT touch `nonoise.config.json`** — your AI-tools selection survives the upgrade.

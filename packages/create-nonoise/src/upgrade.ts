@@ -161,7 +161,8 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
 
   console.log(`[upgrade] target:    ${targetPath}`);
   console.log(`[upgrade] aiTools:   from ${source} → ` +
-    `claude=${aiTools.claudeCode} copilot=${aiTools.copilot}`);
+    `claude=${aiTools.claudeCode} copilot=${aiTools.copilot} ` +
+    `codex=${aiTools.codex} cursor=${aiTools.cursor} gemini=${aiTools.geminiCli}`);
   console.log(`[upgrade] mode:      refresh bundled skills (overwrite) + re-install graphify`);
 
   const skillsRoot = opts.skillsRoot ?? defaultSkillsRoot();
@@ -198,15 +199,21 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   // Step 3 — re-install graphify integration with the latest CLI version.
   const graphifyReport = installGraphify({
     projectPath: targetPath,
+    bundledSkillsRoot: skillsRoot,
     claudeCode: aiTools.claudeCode,
     copilot: aiTools.copilot,
+    codex: aiTools.codex,
+    cursor: aiTools.cursor,
+    geminiCli: aiTools.geminiCli,
   });
   console.log('\n[upgrade] graphify install summary:\n' + formatReport(graphifyReport) + '\n');
 
-  const failed =
-    graphifyReport.graphifyy === 'install-failed' ||
-    graphifyReport.claudeHook === 'failed' ||
-    graphifyReport.copilotHook === 'failed';
+  // Project-local skills are the new contract. Global hook failures are
+  // tolerated as long as we wrote the project-local files.
+  const projectLocalFailed =
+    graphifyReport.projectLocal.source === 'unavailable' ||
+    graphifyReport.projectLocal.errors.length > 0;
+  const failed = projectLocalFailed;
 
   return {
     targetPath,

@@ -99,7 +99,9 @@ Every phase is annotated `[pair]` (multiple seniors, large model) or `[solo]` (o
 
 Every scaffolded project ships an integration with [`graphify`](https://github.com/safishamsi/graphify) for AST + semantic + community-detection knowledge graphs.
 
-In Claude Code there is also a project-level `/index` slash command that wraps the `/graphify` skill — it builds the graph using your IDE's own model (no external LLM API key required):
+**No API key needed.** The scaffold writes per-platform graphify skill files **into the project itself** — `.claude/skills/graphify/SKILL.md` for Claude Code, `.copilot/skills/graphify/SKILL.md` for Copilot, `.agents/skills/graphify/SKILL.md` for Codex. Anyone who clones the repo (or runs the CLI without Python/uv on `PATH`) immediately gets the subagent-dispatch flow — no `ANTHROPIC_API_KEY` prompt, no missing-skill fallback. The companion `graphify <X> install` is still run as belt-and-suspenders for the user-global install.
+
+In Claude Code there is also a project-level `/index` slash command that wraps the `/graphify` skill — it builds the graph using your IDE's own model:
 
 ```
 /index .                 # index the current directory

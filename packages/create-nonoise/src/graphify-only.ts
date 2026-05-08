@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { installGraphify, formatReport } from './graphify-install.js';
 import type { AiTools, AiToolKey } from './types.js';
 import { FLAG_TO_AI_TOOL } from './types.js';
@@ -9,7 +10,17 @@ export type GraphifyOnlyOptions = {
   targetPath?: string;
   /** CSV of AI tool flags (claude-code,copilot,…) — overrides values from nonoise.config.json. */
   aiCsv?: string;
+  /**
+   * Override the path where bundled skills are read from. Defaults to the
+   * `skills/` directory shipped alongside the create-nonoise CLI.
+   */
+  skillsRoot?: string;
 };
+
+function defaultSkillsRoot(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return resolve(here, '..', 'skills');
+}
 
 export type GraphifyOnlyResult = {
   targetPath: string;
@@ -119,20 +130,25 @@ export function runGraphifyOnly(opts: GraphifyOnlyOptions): GraphifyOnlyResult {
 
   console.log(`[graphify] target:    ${targetPath}`);
   console.log(`[graphify] aiTools:   from ${source} → ` +
-    `claude=${aiTools.claudeCode} copilot=${aiTools.copilot}`);
+    `claude=${aiTools.claudeCode} copilot=${aiTools.copilot} ` +
+    `codex=${aiTools.codex} cursor=${aiTools.cursor} gemini=${aiTools.geminiCli}`);
 
   const report = installGraphify({
     projectPath: targetPath,
+    bundledSkillsRoot: opts.skillsRoot ?? defaultSkillsRoot(),
     claudeCode: aiTools.claudeCode,
     copilot: aiTools.copilot,
+    codex: aiTools.codex,
+    cursor: aiTools.cursor,
+    geminiCli: aiTools.geminiCli,
   });
 
   console.log('\n[graphify] install summary:\n' + formatReport(report) + '\n');
 
-  const failed =
-    report.graphifyy === 'install-failed' ||
-    report.claudeHook === 'failed' ||
-    report.copilotHook === 'failed';
+  const projectLocalFailed =
+    report.projectLocal.source === 'unavailable' ||
+    report.projectLocal.errors.length > 0;
+  const failed = projectLocalFailed;
 
   return {
     targetPath,

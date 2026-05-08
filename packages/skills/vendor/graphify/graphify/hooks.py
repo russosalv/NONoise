@@ -1,7 +1,8 @@
 # git hook integration - install/uninstall graphify post-commit and post-checkout hooks
 from __future__ import annotations
+import configparser
 import re
-import subprocess
+import sys
 from pathlib import Path
 
 _HOOK_MARKER = "# graphify-hook-start"
@@ -13,7 +14,10 @@ _PYTHON_DETECT = """\
 # Detect the correct Python interpreter (handles pipx, venv, system installs)
 GRAPHIFY_BIN=$(command -v graphify 2>/dev/null)
 if [ -n "$GRAPHIFY_BIN" ]; then
-    _SHEBANG=$(head -1 "$GRAPHIFY_BIN" | sed 's/^#![[:space:]]*//')
+    case "$GRAPHIFY_BIN" in
+        *.exe) _SHEBANG="" ;;
+        *)     _SHEBANG=$(head -1 "$GRAPHIFY_BIN" | sed 's/^#![[:space:]]*//') ;;
+    esac
     case "$_SHEBANG" in
         */env\\ *) GRAPHIFY_PYTHON="${_SHEBANG#*/env }" ;;
         *)         GRAPHIFY_PYTHON="$_SHEBANG" ;;
@@ -44,6 +48,13 @@ _HOOK_SCRIPT = """\
 # Auto-rebuilds the knowledge graph after each commit (code files only, no LLM needed).
 # Installed by: graphify hook install
 
+# Skip during rebase/merge/cherry-pick to avoid blocking --continue with unstaged changes
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+[ -d "$GIT_DIR/rebase-merge" ] && exit 0
+[ -d "$GIT_DIR/rebase-apply" ] && exit 0
+[ -f "$GIT_DIR/MERGE_HEAD" ] && exit 0
+[ -f "$GIT_DIR/CHERRY_PICK_HEAD" ] && exit 0
+
 CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git diff --name-only HEAD 2>/dev/null)
 if [ -z "$CHANGED" ]; then
     exit 0
@@ -51,7 +62,13 @@ fi
 
 """ + _PYTHON_DETECT + """
 export GRAPHIFY_CHANGED="$CHANGED"
-$GRAPHIFY_PYTHON -c "
+
+# Run rebuild detached so git commit returns immediately.
+# Full repo rebuilds can take hours; blocking the post-commit hook stalls the shell.
+_GRAPHIFY_LOG="${HOME}/.cache/graphify-rebuild.log"
+mkdir -p "$(dirname "$_GRAPHIFY_LOG")"
+echo "[graphify hook] launching background rebuild (log: $_GRAPHIFY_LOG)"
+nohup $GRAPHIFY_PYTHON -c "
 import os, sys
 from pathlib import Path
 
@@ -64,12 +81,15 @@ if not changed:
 print(f'[graphify hook] {len(changed)} file(s) changed - rebuilding graph...')
 
 try:
+    import os as _os
     from graphify.watch import _rebuild_code
-    _rebuild_code(Path('.'))
+    _force = _os.environ.get('GRAPHIFY_FORCE', '').lower() in ('1', 'true', 'yes')
+    _rebuild_code(Path('.'), force=_force)
 except Exception as exc:
     print(f'[graphify hook] Rebuild failed: {exc}')
     sys.exit(1)
-"
+" > "$_GRAPHIFY_LOG" 2>&1 < /dev/null &
+disown 2>/dev/null || true
 # graphify-hook-end
 """
 
@@ -93,18 +113,29 @@ if [ ! -d "graphify-out" ]; then
     exit 0
 fi
 
+# Skip during rebase/merge/cherry-pick
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+[ -d "$GIT_DIR/rebase-merge" ] && exit 0
+[ -d "$GIT_DIR/rebase-apply" ] && exit 0
+[ -f "$GIT_DIR/MERGE_HEAD" ] && exit 0
+[ -f "$GIT_DIR/CHERRY_PICK_HEAD" ] && exit 0
+
 """ + _PYTHON_DETECT + """
-echo "[graphify] Branch switched - rebuilding knowledge graph (code files)..."
-$GRAPHIFY_PYTHON -c "
+_GRAPHIFY_LOG="${HOME}/.cache/graphify-rebuild.log"
+mkdir -p "$(dirname "$_GRAPHIFY_LOG")"
+echo "[graphify] Branch switched - launching background rebuild (log: $_GRAPHIFY_LOG)"
+nohup $GRAPHIFY_PYTHON -c "
 from graphify.watch import _rebuild_code
 from pathlib import Path
-import sys
+import os, sys
 try:
-    _rebuild_code(Path('.'))
+    _force = os.environ.get('GRAPHIFY_FORCE', '').lower() in ('1', 'true', 'yes')
+    _rebuild_code(Path('.'), force=_force)
 except Exception as exc:
     print(f'[graphify] Rebuild failed: {exc}')
     sys.exit(1)
-"
+" > "$_GRAPHIFY_LOG" 2>&1 < /dev/null &
+disown 2>/dev/null || true
 # graphify-checkout-hook-end
 """
 
@@ -121,20 +152,33 @@ def _git_root(path: Path) -> Path | None:
 def _hooks_dir(root: Path) -> Path:
     """Return the git hooks directory, respecting core.hooksPath if set (e.g. Husky)."""
     try:
-        result = subprocess.run(
-            ["git", "-C", str(root), "config", "core.hooksPath"],
-            capture_output=True, text=True,
-        )
-        if result.returncode == 0:
-            custom = result.stdout.strip()
-            if custom:
-                p = Path(custom)
-                if not p.is_absolute():
-                    p = root / p
+        cfg = configparser.RawConfigParser()
+        cfg.read(root / ".git" / "config", encoding="utf-8")
+        # configparser lowercases option names; git's hooksPath becomes hookspath
+        custom = cfg.get("core", "hookspath", fallback="").strip()
+        if custom:
+            p = Path(custom).expanduser()
+            if not p.is_absolute():
+                p = root / p
+            # Validate the resolved path stays within the repository root
+            # to prevent supply-chain attacks via malicious core.hooksPath values
+            try:
+                p.resolve().relative_to(root.resolve())
+            except ValueError:
+                pass  # Path escapes repo root; fall through to default .git/hooks
+            else:
                 p.mkdir(parents=True, exist_ok=True)
                 return p
-    except (OSError, FileNotFoundError):
-        pass
+    except (configparser.Error, OSError) as exc:
+        # Narrow the exception (PR747-NEW-2): a bare `except Exception: pass`
+        # was hiding tampering signals (corrupt .git/config, permission flips
+        # by another tool). Surface them on stderr instead of silently
+        # falling through to the default hooks directory.
+        print(
+            f"[graphify hooks] could not read core.hooksPath from "
+            f"{root / '.git' / 'config'}: {exc}",
+            file=sys.stderr,
+        )
     d = root / ".git" / "hooks"
     d.mkdir(exist_ok=True)
     return d

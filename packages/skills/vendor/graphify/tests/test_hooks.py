@@ -117,3 +117,28 @@ def test_status_shows_both_hooks(tmp_path):
     assert "post-commit" in result
     assert "post-checkout" in result
     assert result.count("installed") >= 2
+
+
+def test_hook_skips_head_on_exe():
+    """Hook script must skip shebang extraction for .exe binaries (Windows)."""
+    from graphify.hooks import _PYTHON_DETECT
+    assert "*.exe) _SHEBANG=" in _PYTHON_DETECT or '*.exe)' in _PYTHON_DETECT
+
+
+def test_hook_check_no_additionalContext(tmp_path):
+    """graphify hook-check must not emit additionalContext — Codex Desktop rejects it."""
+    import sys
+    out = tmp_path / "graphify-out"
+    out.mkdir()
+    (out / "graph.json").write_text("{}", encoding="utf-8")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "graphify", "hook-check"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+    assert result.stderr == ""

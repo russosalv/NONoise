@@ -1,0 +1,14 @@
+{
+  "sourceRepo": "https://github.com/safishamsi/graphify",
+  "sourceRef": "v7",
+  "sourceCommit": "ef1050b0e4134df0bd59956b0f900dc3c83e8184",
+  "graphifyVersion": "0.7.10",
+  "skills": [
+    "skill.md",
+    "skill-copilot.md",
+    "skill-codex.md",
+    "skill-windows.md"
+  ],
+  "syncedAt": "2026-05-08T10:06:18.762Z",
+  "notes": "Lean per-platform graphify skill snapshot. Bundled with create-nonoise and copied into project-local .claude/skills/, .copilot/skills/, .agents/skills/ at install time. Refresh via scripts/sync-graphify-platform-skills.mjs after bumping the vendor pin."
+}
