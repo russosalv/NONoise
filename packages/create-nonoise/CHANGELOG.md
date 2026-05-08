@@ -1,5 +1,26 @@
 # create-nonoise
 
+## 1.1.0
+
+### Minor Changes
+
+- Fix the graphify install step during scaffolding and add `--graphify-only` for upgrading existing projects.
+
+  **Fixes (graphify install during `npx create-nonoise`)**
+
+  - Bumped pin to `graphifyy>=0.7.0`. The previous `0.4.23` pin predated the `graphify claude install` / `graphify copilot install` subcommands and would silently land on a CLI that no longer ships those commands.
+  - Replaced the broken `graphify --version` probe (the CLI never had a `--version` flag in 0.7.x) with parsing of `uv tool list`, so the report now shows the real installed version.
+  - The Claude integration step now runs `graphify claude install` (project-local CLAUDE.md + PreToolUse hook) instead of the bare `graphify install`, which copies the user-level skill into `~/.claude/`.
+  - Hook commands now run with `cwd = projectPath`, so `CLAUDE.md` and `.claude/settings.json` land inside the freshly scaffolded project rather than in the directory where `npx create-nonoise` was invoked.
+  - The Claude install step is now gated on the `claudeCode` AI-tools flag (was always running, regardless of selection).
+  - Failure hints now include concrete recovery commands (uv, pipx, pip) and reference the project path so the user can copy-paste them into a new shell.
+
+  **New: `--graphify-only` mode**
+
+  - `create-nonoise --graphify-only [path]` re-runs only the graphify install step on an existing NONoise project. It reads `aiTools` from `nonoise.config.json` and accepts a `--ai` override.
+  - The interactive flow now opens with a top-level prompt: _Create a new project_ vs. _Update / force-install graphify on an existing project_. The second branch asks for the project path (and for AI tools if no `nonoise.config.json` is found) and delegates to the same `--graphify-only` logic.
+  - Use this to upgrade older NONoise projects to the new graphify CLI integration without touching templates or rerunning the full scaffold.
+
 ## 1.0.1
 
 ### Patch Changes

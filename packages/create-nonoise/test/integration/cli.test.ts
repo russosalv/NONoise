@@ -53,5 +53,14 @@ describe('CLI via bin shim', () => {
     const { stdout } = await exec('node', [BIN, '--help'], { cwd: parent });
     expect(stdout).toContain('Usage:');
     expect(stdout).toContain('--ai');
+    expect(stdout).toContain('--graphify-only');
+  });
+
+  it('--graphify-only without config and without --ai exits non-zero with helpful error', async () => {
+    await expect(
+      exec('node', [BIN, '--graphify-only'], { cwd: parent }),
+    ).rejects.toMatchObject({
+      stderr: expect.stringMatching(/No nonoise\.config\.json found/),
+    });
   });
 });

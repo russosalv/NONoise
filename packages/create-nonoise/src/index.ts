@@ -1,9 +1,18 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scaffold, defaultScaffoldPaths } from './scaffold.js';
-import { runPrompts, outro, spinner, note } from './prompts.js';
+import {
+  runPrompts,
+  outro,
+  spinner,
+  note,
+  askEntryMode,
+  askGraphifyOnlyPath,
+  askAiCsvForGraphifyOnly,
+} from './prompts.js';
 import { printBanner } from './banner.js';
+import { runGraphifyOnly } from './graphify-only.js';
 import type { CliFlags } from './prompts.js';
 import type { TemplateName, WorkspaceKind } from './types.js';
 
@@ -19,7 +28,25 @@ export async function main(): Promise<void> {
     return;
   }
 
+  // Direct CLI flag wins — no prompts, no banner.
+  if (flags.graphifyOnly) {
+    runGraphifyOnlyAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai });
+    return;
+  }
+
   printBanner();
+
+  // Interactive top-level mode pick (skipped on --yes or with a positional dir).
+  const mode = await askEntryMode(flags);
+  if (mode === 'graphify-only') {
+    const targetPath = await askGraphifyOnlyPath();
+    let aiCsv = flags.ai;
+    if (!aiCsv && !existsSync(resolve(targetPath, 'nonoise.config.json'))) {
+      aiCsv = await askAiCsvForGraphifyOnly();
+    }
+    runGraphifyOnlyAndExit({ targetPath, aiCsv });
+    return;
+  }
 
   try {
     const ctx = await runPrompts(flags, readVersion());
@@ -40,7 +67,22 @@ export async function main(): Promise<void> {
   }
 }
 
-type ParsedFlags = CliFlags & { help?: boolean; version?: boolean };
+function runGraphifyOnlyAndExit(opts: { targetPath?: string; aiCsv?: string }): void {
+  try {
+    const result = runGraphifyOnly(opts);
+    if (result.exitCode !== 0) process.exit(result.exitCode);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`\nError: ${msg}`);
+    process.exit(1);
+  }
+}
+
+type ParsedFlags = CliFlags & {
+  help?: boolean;
+  version?: boolean;
+  graphifyOnly?: boolean;
+};
 
 function parseArgv(args: string[]): ParsedFlags {
   const out: ParsedFlags = {};
@@ -51,6 +93,7 @@ function parseArgv(args: string[]): ParsedFlags {
     else if (a === '--version' || a === '-v') out.version = true;
     else if (a === '--yes' || a === '-y') out.yes = true;
     else if (a === '--no-git') out.noGit = true;
+    else if (a === '--graphify-only') out.graphifyOnly = true;
     else if (a === '--template') {
       const raw = args[++i];
       if (raw !== 'single-project' && raw !== 'multi-repo') {
@@ -88,6 +131,10 @@ function printHelp(): void {
 
 Usage:
   create-nonoise [directory] [options]
+  create-nonoise --graphify-only [path] [--ai <csv>]
+
+When run with no arguments, asks interactively whether you want to scaffold a
+new project or re-install graphify on an existing NONoise project.
 
 Options:
   --workspace <kind>  Workspace: new | existing-single | existing-multi (asked interactively if omitted)
@@ -100,5 +147,13 @@ Options:
   --yes, -y           Use defaults, non-interactive
   --version, -v       Print version
   --help, -h          Print help
+
+Maintenance:
+  --graphify-only [path]
+                      Skip scaffolding. Re-run the graphify install step on an
+                      existing NONoise project at [path] (default: cwd). Reads
+                      AI tools from nonoise.config.json. Pass --ai to override.
+                      Use this to upgrade an older project to the current
+                      graphify CLI integration without touching templates.
 `);
 }

@@ -24,6 +24,76 @@ export type CliFlags = {
   reverseEngineering?: boolean;
 };
 
+export type EntryMode = 'new' | 'graphify-only';
+
+/**
+ * Top-level interactive prompt. Decides whether the user wants to create a
+ * new NONoise project or re-run only the graphify install step on an existing
+ * one (e.g. to upgrade an older project to the new graphify CLI integration).
+ *
+ * Skipped in non-interactive mode (--yes) and when the user already passed a
+ * positional directory (which only makes sense for the scaffold flow).
+ */
+export async function askEntryMode(flags: CliFlags): Promise<EntryMode> {
+  if (flags.yes) return 'new';
+  if (flags.positionalDir) return 'new';
+
+  const answer = await select({
+    message: 'What do you want to do?',
+    options: [
+      {
+        value: 'new' as EntryMode,
+        label: 'Create a new NONoise project',
+        hint: 'Full scaffold (templates, skills, hooks)',
+      },
+      {
+        value: 'graphify-only' as EntryMode,
+        label: 'Update / force-install graphify on an existing NONoise project',
+        hint: 'Re-runs only the graphify install step (idempotent)',
+      },
+    ],
+    initialValue: 'new' as EntryMode,
+  });
+  abortIfCancel(answer);
+  return answer as EntryMode;
+}
+
+/**
+ * Asked when the user picks 'graphify-only' from the entry-mode prompt.
+ * Returns the target project path (absolute).
+ */
+export async function askGraphifyOnlyPath(): Promise<string> {
+  const cwd = process.cwd();
+  const answer = await text({
+    message: 'Path to the existing NONoise project',
+    placeholder: cwd,
+    initialValue: cwd,
+    validate(value) {
+      if (!value || !value.trim()) return 'Path is required.';
+    },
+  });
+  abortIfCancel(answer);
+  return resolve((answer as string).trim());
+}
+
+/**
+ * Asked when the user picks 'graphify-only' but the target project has no
+ * nonoise.config.json. Returns a CSV string compatible with `--ai`.
+ */
+export async function askAiCsvForGraphifyOnly(): Promise<string> {
+  const selected = await multiselect({
+    message: 'Which AI tools should graphify wire up? (no nonoise.config.json found)',
+    options: [
+      { value: 'claude-code', label: 'Claude Code' },
+      { value: 'copilot', label: 'GitHub Copilot' },
+    ],
+    initialValues: ['claude-code', 'copilot'],
+    required: true,
+  });
+  abortIfCancel(selected);
+  return (selected as string[]).join(',');
+}
+
 const DEFAULT_AI_TOOLS: AiTools = {
   claudeCode: true,
   copilot: true,
