@@ -98,18 +98,43 @@ Steps 0–3 are linear. Steps 4–6 fire **only** when the user utters a save ph
 
 ### Step 0 — Prerequisites
 
-**0.1 — graphify installed**
+**0.1 — graphify installed AND `/graphify` skill registered**
+
+Two checks. Both must pass — the binary alone is not enough (see Hard rule #11: this skill must never invoke the bare `graphify` CLI for indexing).
+
+**Check A — binary is on PATH**
 
 ```bash
-python -c "import graphify" 2>&1 || graphify --help 2>&1
+graphify --help >/dev/null 2>&1 && echo "BIN_OK" || echo "BIN_MISSING"
 ```
 
-If both checks fail, tell the user:
+**Check B — `/graphify` slash skill is registered in the active IDE**
 
-> Graphify is not installed. It is normally installed at scaffold time by `create-nonoise`. Re-run the scaffold in this project, or install manually:
+The semantic-extraction step runs through the IDE assistant's own model (no external API key required) only when the `/graphify` skill is loaded. Probe the platform-specific install paths:
+
+```bash
+# Claude Code
+test -f "$HOME/.claude/skills/graphify/SKILL.md" && echo "CLAUDE_OK"
+# GitHub Copilot
+test -f "$HOME/.copilot/skills/graphify/SKILL.md" && echo "COPILOT_OK"
+# Cursor (rules format)
+test -f "$HOME/.cursor/rules/graphify.mdc" && echo "CURSOR_OK"
+```
+
+At least one of those must print OK on the IDE the user is currently in. If none do, the bare CLI is the only path left — and that path requires an API key, which is exactly what we're avoiding.
+
+**If Check A fails:**
+
+> Graphify is not installed. It's normally installed at scaffold time by `create-nonoise`. Re-run the scaffold's graphify-only mode (idempotent, safe on existing projects):
 >
 > ```
-> uv tool install "graphifyy>=0.4.23"
+> npx create-nonoise@latest --graphify-only
+> ```
+>
+> Or install manually:
+>
+> ```
+> uv tool install "graphifyy>=0.7.0"
 > ```
 >
 > If `uv` is not available, bootstrap it first:
@@ -118,6 +143,20 @@ If both checks fail, tell the user:
 > - Windows:       `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
 >
 > Can't proceed without graphify — re-run me once it's installed.
+
+**If Check A passes but Check B fails (binary present, skill not registered):**
+
+> The graphify binary is installed, but the `/graphify` slash skill is not registered in your IDE. Without it, the indexing step would fall back to the headless CLI (`graphify extract`), which requires a separate LLM API key (`ANTHROPIC_API_KEY` / `MOONSHOT_API_KEY` / `OPENAI_API_KEY`). That defeats the point of running through the IDE assistant.
+>
+> Register the skill (idempotent):
+>
+> ```
+> npx create-nonoise@latest --graphify-only
+> ```
+>
+> This re-runs the per-IDE skill install (`graphify claude install` / `graphify copilot install`) inside this project. After that, restart the IDE chat session so the skill is picked up, then re-run me.
+>
+> Cannot proceed — Hard rule #11 forbids the bare CLI path.
 
 Then stop.
 
@@ -333,7 +372,7 @@ test -f "<path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
 
 Quote paths — they can contain spaces. graphify writes to `./graphify-out/` relative to CWD; move under `<path>/graphify-out/` if needed for consistency and future incremental runs.
 
-**Invocation note** — `/graphify <path>` is a **slash command / skill invocation**, not the `graphify` binary CLI. The CLI does not have a `graphify <path>` command; running it directly fails with "unknown command". The full pipeline (AST + **semantic extraction via LLM** + community detection) is orchestrated by the graphify skill at `~/.claude/skills/graphify/SKILL.md`. In Claude Code invoke `/graphify <path>` or `Skill(skill: "graphify", args: "<path>")`. In Copilot / Cursor / Gemini / Codex / any tool without slash commands, open that skill file and follow its step-by-step instructions (which call `graphify.detect`, `graphify.extract`, `graphify.cluster` directly via Python). The CLI is useful only for `graphify update <path>` (AST-only, no LLM), `graphify cluster-only <path>`, and read-side `graphify query`/`path`/`explain`. For a reverse dossier we need the semantic pass — always use the skill, never the bare CLI for indexing.
+**Invocation note — see Hard rule #11.** `/graphify <path>` is a **slash skill invocation**, NOT the `graphify` binary. The bare CLI's `extract` subcommand requires an external LLM API key; the slash skill runs the same pipeline through the IDE assistant's model with no key required. In Claude Code: type `/graphify <path>` or call `Skill(skill: "graphify", args: "<path>")`. In Copilot / Cursor / Gemini / Codex / any IDE without slash commands: open the skill file at the path probed in Step 0.1 (Check B) and follow its steps. The bare CLI is allowed *only* for read-side ops: `graphify update <path>` (AST-only), `graphify cluster-only`, `graphify query`/`path`/`explain`. For a reverse dossier we always need the semantic pass — always the skill, never `graphify extract`.
 
 **2.2 — Subject source** (from Q3/Q4)
 
@@ -717,6 +756,7 @@ Suggested next steps:
 8. **Never commit on the user's behalf** — the final summary suggests a commit; the commit is the user's call.
 9. **Never modify source documents** (`docs/sprints/`, `docs/calls/`, `docs/requirements/`, any Q2 path, any Q3 source). The dossier is a derived read-only artifact.
 10. **Never switch language mid-version** — the whole v1.(N+1) stays in the same working language as v1.N.
+11. **Never invoke the bare `graphify` CLI for indexing** — never call `graphify extract`, `graphify generate`, `graphify-cli`, or any subcommand that performs LLM-driven semantic extraction. Those paths require a separate API key (`ANTHROPIC_API_KEY` / `MOONSHOT_API_KEY` / `OPENAI_API_KEY` / Bedrock / etc.) and bypass the IDE assistant's session. Always invoke the **`/graphify <path>` slash skill** instead, so the LLM-extraction step runs through the host AI's own model — no external key needed. If the slash skill isn't registered, Step 0.1 (Check B) must abort with a hint to run `npx create-nonoise@latest --graphify-only`. The bare CLI is allowed only for read-side ops (`graphify query`, `graphify path`, `graphify explain`) and the AST-only `graphify update`.
 
 ## Known edge cases
 

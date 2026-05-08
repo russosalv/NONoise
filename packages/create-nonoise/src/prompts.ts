@@ -24,12 +24,13 @@ export type CliFlags = {
   reverseEngineering?: boolean;
 };
 
-export type EntryMode = 'new' | 'graphify-only';
+export type EntryMode = 'new' | 'graphify-only' | 'upgrade';
 
 /**
- * Top-level interactive prompt. Decides whether the user wants to create a
- * new NONoise project or re-run only the graphify install step on an existing
- * one (e.g. to upgrade an older project to the new graphify CLI integration).
+ * Top-level interactive prompt. Decides whether the user wants to:
+ *   • create a new NONoise project (full scaffold), or
+ *   • upgrade an existing project (refresh bundled skills + graphify), or
+ *   • only re-run graphify install (narrow, idempotent fix path).
  *
  * Skipped in non-interactive mode (--yes) and when the user already passed a
  * positional directory (which only makes sense for the scaffold flow).
@@ -47,9 +48,14 @@ export async function askEntryMode(flags: CliFlags): Promise<EntryMode> {
         hint: 'Full scaffold (templates, skills, hooks)',
       },
       {
+        value: 'upgrade' as EntryMode,
+        label: 'Upgrade an existing NONoise project',
+        hint: 'Refresh bundled skills (overwrite) + re-install graphify',
+      },
+      {
         value: 'graphify-only' as EntryMode,
-        label: 'Update / force-install graphify on an existing NONoise project',
-        hint: 'Re-runs only the graphify install step (idempotent)',
+        label: 'Force-install graphify only',
+        hint: 'Narrow path: only the graphify CLI integration (idempotent)',
       },
     ],
     initialValue: 'new' as EntryMode,
@@ -59,10 +65,51 @@ export async function askEntryMode(flags: CliFlags): Promise<EntryMode> {
 }
 
 /**
- * Asked when the user picks 'graphify-only' from the entry-mode prompt.
- * Returns the target project path (absolute).
+ * Asked when the user picks 'graphify-only' or 'upgrade' from the entry-mode
+ * prompt. Returns the target project path (absolute).
  */
 export async function askGraphifyOnlyPath(): Promise<string> {
+  return askExistingProjectPath();
+}
+
+export type ExistingProjectAction = 'upgrade' | 'graphify-only' | 'cancel';
+
+/**
+ * Asked when the user passes a positional path that already contains a
+ * `nonoise.config.json`. Lets them pick between upgrading the project
+ * (refresh skills + graphify), narrowing to graphify-only, or cancelling.
+ *
+ * Re-scaffolding over an existing NONoise project is intentionally NOT
+ * offered here — that path destroys local customisation and should require
+ * an explicit `--workspace existing-single|new` to a fresh directory.
+ */
+export async function askExistingProjectAction(targetPath: string): Promise<ExistingProjectAction> {
+  const answer = await select({
+    message: `${targetPath} is already a NONoise project. What do you want to do?`,
+    options: [
+      {
+        value: 'upgrade' as ExistingProjectAction,
+        label: 'Upgrade',
+        hint: 'Refresh bundled skills (overwrite) + re-install graphify',
+      },
+      {
+        value: 'graphify-only' as ExistingProjectAction,
+        label: 'Force-install graphify only',
+        hint: 'Narrow path: only the graphify CLI integration',
+      },
+      {
+        value: 'cancel' as ExistingProjectAction,
+        label: 'Cancel',
+        hint: 'Exit without making changes',
+      },
+    ],
+    initialValue: 'upgrade' as ExistingProjectAction,
+  });
+  abortIfCancel(answer);
+  return answer as ExistingProjectAction;
+}
+
+export async function askExistingProjectPath(): Promise<string> {
   const cwd = process.cwd();
   const answer = await text({
     message: 'Path to the existing NONoise project',
@@ -77,12 +124,17 @@ export async function askGraphifyOnlyPath(): Promise<string> {
 }
 
 /**
- * Asked when the user picks 'graphify-only' but the target project has no
- * nonoise.config.json. Returns a CSV string compatible with `--ai`.
+ * Asked when the user picks 'graphify-only' or 'upgrade' but the target
+ * project has no nonoise.config.json. Returns a CSV string compatible with
+ * `--ai`.
  */
 export async function askAiCsvForGraphifyOnly(): Promise<string> {
+  return askAiCsvForExistingProject();
+}
+
+export async function askAiCsvForExistingProject(): Promise<string> {
   const selected = await multiselect({
-    message: 'Which AI tools should graphify wire up? (no nonoise.config.json found)',
+    message: 'Which AI tools should we wire up? (no nonoise.config.json found)',
     options: [
       { value: 'claude-code', label: 'Claude Code' },
       { value: 'copilot', label: 'GitHub Copilot' },

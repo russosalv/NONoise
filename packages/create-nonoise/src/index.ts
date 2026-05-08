@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scaffold, defaultScaffoldPaths } from './scaffold.js';
 import {
@@ -8,11 +8,13 @@ import {
   spinner,
   note,
   askEntryMode,
-  askGraphifyOnlyPath,
-  askAiCsvForGraphifyOnly,
+  askExistingProjectPath,
+  askAiCsvForExistingProject,
+  askExistingProjectAction,
 } from './prompts.js';
 import { printBanner } from './banner.js';
 import { runGraphifyOnly } from './graphify-only.js';
+import { runUpgrade } from './upgrade.js';
 import type { CliFlags } from './prompts.js';
 import type { TemplateName, WorkspaceKind } from './types.js';
 
@@ -29,9 +31,44 @@ export async function main(): Promise<void> {
   }
 
   // Direct CLI flag wins — no prompts, no banner.
+  if (flags.upgrade) {
+    await runUpgradeAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai });
+    return;
+  }
   if (flags.graphifyOnly) {
     runGraphifyOnlyAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai });
     return;
+  }
+
+  // Auto-detect: if a positional path is given AND it already contains a
+  // NONoise project (nonoise.config.json), default to maintenance mode
+  // (upgrade / graphify-only) instead of trying to scaffold over it.
+  if (flags.positionalDir) {
+    const candidatePath = resolve(process.cwd(), flags.positionalDir);
+    if (existsSync(join(candidatePath, 'nonoise.config.json'))) {
+      if (flags.yes) {
+        console.error(
+          `\nError: ${candidatePath} is already a NONoise project (found nonoise.config.json).\n` +
+          `In non-interactive mode (--yes) we don't auto-pick a maintenance action. Either:\n` +
+          `  • create-nonoise --upgrade ${flags.positionalDir}        # refresh skills + graphify\n` +
+          `  • create-nonoise --graphify-only ${flags.positionalDir}  # narrow: only graphify\n` +
+          `  • pick a different (non-NONoise) directory for the new scaffold`,
+        );
+        process.exit(1);
+      }
+      printBanner();
+      const action = await askExistingProjectAction(candidatePath);
+      if (action === 'cancel') {
+        outro('Cancelled — no changes made.');
+        return;
+      }
+      if (action === 'upgrade') {
+        await runUpgradeAndExit({ targetPath: candidatePath, aiCsv: flags.ai });
+      } else {
+        runGraphifyOnlyAndExit({ targetPath: candidatePath, aiCsv: flags.ai });
+      }
+      return;
+    }
   }
 
   printBanner();
@@ -39,12 +76,21 @@ export async function main(): Promise<void> {
   // Interactive top-level mode pick (skipped on --yes or with a positional dir).
   const mode = await askEntryMode(flags);
   if (mode === 'graphify-only') {
-    const targetPath = await askGraphifyOnlyPath();
+    const targetPath = await askExistingProjectPath();
     let aiCsv = flags.ai;
     if (!aiCsv && !existsSync(resolve(targetPath, 'nonoise.config.json'))) {
-      aiCsv = await askAiCsvForGraphifyOnly();
+      aiCsv = await askAiCsvForExistingProject();
     }
     runGraphifyOnlyAndExit({ targetPath, aiCsv });
+    return;
+  }
+  if (mode === 'upgrade') {
+    const targetPath = await askExistingProjectPath();
+    let aiCsv = flags.ai;
+    if (!aiCsv && !existsSync(resolve(targetPath, 'nonoise.config.json'))) {
+      aiCsv = await askAiCsvForExistingProject();
+    }
+    await runUpgradeAndExit({ targetPath, aiCsv });
     return;
   }
 
@@ -78,10 +124,22 @@ function runGraphifyOnlyAndExit(opts: { targetPath?: string; aiCsv?: string }): 
   }
 }
 
+async function runUpgradeAndExit(opts: { targetPath?: string; aiCsv?: string }): Promise<void> {
+  try {
+    const result = await runUpgrade(opts);
+    if (result.exitCode !== 0) process.exit(result.exitCode);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`\nError: ${msg}`);
+    process.exit(1);
+  }
+}
+
 type ParsedFlags = CliFlags & {
   help?: boolean;
   version?: boolean;
   graphifyOnly?: boolean;
+  upgrade?: boolean;
 };
 
 function parseArgv(args: string[]): ParsedFlags {
@@ -94,6 +152,7 @@ function parseArgv(args: string[]): ParsedFlags {
     else if (a === '--yes' || a === '-y') out.yes = true;
     else if (a === '--no-git') out.noGit = true;
     else if (a === '--graphify-only') out.graphifyOnly = true;
+    else if (a === '--upgrade') out.upgrade = true;
     else if (a === '--template') {
       const raw = args[++i];
       if (raw !== 'single-project' && raw !== 'multi-repo') {
@@ -131,10 +190,13 @@ function printHelp(): void {
 
 Usage:
   create-nonoise [directory] [options]
+  create-nonoise --upgrade [path] [--ai <csv>]
   create-nonoise --graphify-only [path] [--ai <csv>]
 
-When run with no arguments, asks interactively whether you want to scaffold a
-new project or re-install graphify on an existing NONoise project.
+When run with no arguments, asks interactively whether you want to:
+  1. Create a new NONoise project (full scaffold)
+  2. Upgrade an existing NONoise project (refresh skills + graphify)
+  3. Force-install graphify only (narrow, idempotent fix)
 
 Options:
   --workspace <kind>  Workspace: new | existing-single | existing-multi (asked interactively if omitted)
@@ -149,11 +211,18 @@ Options:
   --help, -h          Print help
 
 Maintenance:
+  --upgrade [path]
+                      Refresh an existing NONoise project to the current version:
+                      re-copies all bundled skills (overwriting old SKILL.md
+                      files) and re-runs the graphify install. Reads aiTools
+                      from nonoise.config.json. Templates (CLAUDE.md,
+                      AGENTS.md, etc.) are NOT touched — they may have local
+                      customisation. Pass --ai to override AI tool selection.
+
   --graphify-only [path]
-                      Skip scaffolding. Re-run the graphify install step on an
-                      existing NONoise project at [path] (default: cwd). Reads
-                      AI tools from nonoise.config.json. Pass --ai to override.
-                      Use this to upgrade an older project to the current
-                      graphify CLI integration without touching templates.
+                      Narrow path: only re-runs the graphify install step on
+                      an existing NONoise project. Use this if you only need
+                      to fix the graphify CLI integration without touching
+                      bundled skills.
 `);
 }

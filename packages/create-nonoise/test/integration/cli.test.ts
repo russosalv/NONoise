@@ -63,4 +63,36 @@ describe('CLI via bin shim', () => {
       stderr: expect.stringMatching(/No nonoise\.config\.json found/),
     });
   });
+
+  it('--yes <existing-nonoise-project> exits non-zero pointing to --upgrade / --graphify-only', async () => {
+    // Build a fake existing NONoise project (just nonoise.config.json is enough).
+    const { mkdir, writeFile } = await import('node:fs/promises');
+    const target = join(parent, 'existing-project');
+    await mkdir(target, { recursive: true });
+    const cfg = {
+      $schema: 'https://nonoise.dev/schemas/project-config.v1.json',
+      frameworkVersion: '1.0.0',
+      template: 'single-project',
+      createdAt: new Date().toISOString(),
+      aiTools: {
+        claudeCode: true,
+        copilot: true,
+        codex: false,
+        cursor: false,
+        geminiCli: false,
+      },
+      skills: [],
+    };
+    await writeFile(join(target, 'nonoise.config.json'), JSON.stringify(cfg, null, 2), 'utf8');
+
+    await expect(
+      exec('node', [BIN, 'existing-project', '--yes', '--ai', 'claude-code', '--no-git'], {
+        cwd: parent,
+      }),
+    ).rejects.toMatchObject({
+      stderr: expect.stringMatching(
+        /already a NONoise project[\s\S]*--upgrade[\s\S]*--graphify-only/,
+      ),
+    });
+  }, 30_000);
 });

@@ -1,5 +1,31 @@
 # create-nonoise
 
+## 1.2.0
+
+### Minor Changes
+
+- Add `--upgrade` mode for existing projects, auto-detect NONoise projects on positional path, and harden the `reverse-engineering` skill against the bare `graphify` CLI trap.
+
+  **New: `--upgrade` mode**
+
+  - `create-nonoise --upgrade [path]` refreshes an existing NONoise project to the current shipped version: re-copies all bundled skills (`overwrite: true`, so updated `SKILL.md` files reach existing projects) and re-runs the graphify install. Templates (`CLAUDE.md`, `AGENTS.md`, etc.) are NOT touched — they may have local customisation.
+  - The interactive entry-mode prompt now offers three options: New project / Upgrade existing project / Force-install graphify only.
+  - New `installSkills`/`installVendor` `overwrite?: boolean` option (default `false` for scaffold; `true` for upgrade).
+
+  **New: auto-detect on positional path**
+
+  - `create-nonoise <path-to-existing-nonoise-project>` now detects the existing `nonoise.config.json` and prompts: Upgrade / Graphify-only / Cancel — instead of trying to scaffold over the existing project.
+  - In `--yes` mode it aborts with an actionable error message pointing to `--upgrade` and `--graphify-only`, so non-interactive scripts cannot silently clobber existing projects.
+
+  **Hardened `reverse-engineering` skill**
+
+  The skill's Step 0.1 now runs two checks: (A) graphify binary is on PATH, and (B) the `/graphify` slash skill is registered in the active IDE (`~/.claude/skills/graphify/`, `~/.copilot/skills/graphify/`, or `~/.cursor/rules/graphify.mdc`). If A passes but B fails, the skill aborts and tells the user to run `npx create-nonoise@latest --graphify-only` — preventing fallback to the bare `graphify extract` CLI which requires an external API key. The pin in the install hint is bumped from `>=0.4.23` to `>=0.7.0`. New Hard rule #11 forbids invoking the bare CLI for indexing.
+
+  **New: `/index` slash command for Claude Code**
+
+  - New project-level slash command `.claude/commands/index.md` (added to both single-project and multi-repo templates) wraps `/graphify <path>` with explicit "anti-pattern" guidance redirecting away from `graphify extract`.
+  - The canonical graphify rules block (`graphify-rules-block.md` + all 10 `.hbs` template files) gains a 5th bullet making the rule explicit: always slash skill, never bare CLI for full rebuilds.
+
 ## 1.1.0
 
 ### Minor Changes

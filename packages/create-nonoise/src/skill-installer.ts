@@ -6,10 +6,17 @@ export type InstallSkillsOptions = {
   skillsRoot: string;
   projectPath: string;
   skillNames: string[];
+  /**
+   * If true, overwrite existing skill files in the destination. Used by the
+   * `--upgrade` flow to refresh bundled skills on an existing project. Default
+   * is false (scaffold behaviour: never clobber pre-existing files).
+   */
+  overwrite?: boolean;
 };
 
 export async function installSkills(opts: InstallSkillsOptions): Promise<void> {
   const destBase = join(opts.projectPath, '.claude', 'skills');
+  const force = opts.overwrite === true;
 
   for (const name of opts.skillNames) {
     const src = join(opts.skillsRoot, name);
@@ -25,7 +32,7 @@ export async function installSkills(opts: InstallSkillsOptions): Promise<void> {
       throw err;
     }
     const dest = join(destBase, name);
-    await cp(src, dest, { recursive: true, force: false, errorOnExist: false });
+    await cp(src, dest, { recursive: true, force, errorOnExist: false });
   }
 }
 
@@ -34,10 +41,13 @@ export type InstallVendorOptions = {
   projectPath: string;
   namespace: string;
   installClaudeSpecific: boolean;
+  /** See InstallSkillsOptions.overwrite. */
+  overwrite?: boolean;
 };
 
 export async function installVendor(opts: InstallVendorOptions): Promise<void> {
   const { vendorSourcePath, projectPath, namespace, installClaudeSpecific } = opts;
+  const force = opts.overwrite === true;
 
   const nestedSkillsSrc = join(vendorSourcePath, 'skills');
   const skillsSrc = (await dirExists(nestedSkillsSrc)) ? nestedSkillsSrc : vendorSourcePath;
@@ -48,7 +58,7 @@ export async function installVendor(opts: InstallVendorOptions): Promise<void> {
     if (!(await isSkillDir(candidate))) continue;
     await cp(candidate, join(skillsDest, name), {
       recursive: true,
-      force: false,
+      force,
       errorOnExist: false,
     });
   }
@@ -63,7 +73,7 @@ export async function installVendor(opts: InstallVendorOptions): Promise<void> {
     for (const name of await readdir(src)) {
       await cp(join(src, name), join(dest, name), {
         recursive: true,
-        force: false,
+        force,
         errorOnExist: false,
       });
     }
