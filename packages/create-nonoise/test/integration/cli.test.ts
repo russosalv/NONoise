@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, rm, readFile, stat } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, stat, access } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,19 +9,38 @@ import { fileURLToPath } from 'node:url';
 const exec = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const BIN = resolve(__dirname, '..', '..', 'bin', 'create-nonoise.mjs');
-const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
+const PKG_ROOT = resolve(__dirname, '..', '..');
+const BIN = resolve(PKG_ROOT, 'bin', 'create-nonoise.mjs');
+const DIST_ENTRY = resolve(PKG_ROOT, 'dist', 'index.js');
+const BUNDLED_SKILL_MARKER = resolve(PKG_ROOT, 'skills', 'polly', 'SKILL.md');
 
 describe('CLI via bin shim', () => {
   let parent: string;
 
+  // We deliberately do NOT run `pnpm build` here. Triggering a build during
+  // tests rewrote `<pkg>/skills/` concurrently with bundle-assets.test.ts'
+  // existsSync checks, producing a race that surfaced as flaky failures on
+  // Ubuntu + Node 20 in CI. The build step is the caller's responsibility:
+  // CI runs `pnpm -r run build` before `pnpm -r run test`; locally `pnpm
+  // test` users should run `pnpm build` first. We assert prerequisites
+  // here with a clear error so the failure mode is "rebuild" instead of
+  // "mysterious test failure".
   beforeAll(async () => {
-    // Ensure build has run (produces dist/ + bundles templates/skills into the package root)
-    await exec('pnpm', ['--filter', 'create-nonoise', 'run', 'build'], {
-      cwd: REPO_ROOT,
-      shell: true,
-    });
-  }, 120_000);
+    const missing: string[] = [];
+    for (const path of [DIST_ENTRY, BUNDLED_SKILL_MARKER]) {
+      try {
+        await access(path);
+      } catch {
+        missing.push(path);
+      }
+    }
+    if (missing.length > 0) {
+      throw new Error(
+        `cli.test.ts prerequisites missing — run \`pnpm --filter create-nonoise run build\` first.\n` +
+        `Missing:\n  - ${missing.join('\n  - ')}`,
+      );
+    }
+  });
 
   beforeEach(async () => {
     parent = await mkdtemp(join(tmpdir(), 'nonoise-cli-'));
