@@ -94,6 +94,23 @@ The convention each entry-point file respects:
 
 Tools that support richer mechanisms (Claude Code's `Skill` tool, Gemini's `activate_skill`) layer on top; tools that don't fall back to "read the file and follow it".
 
+## Worked example — swarm-router as cross-harness skill
+
+`swarm-router` is the first NONoise skill written with explicit *Harness-specific dispatch* sections for Claude Code, Copilot, Gemini CLI, and Codex inside the same SKILL.md. It is the explicit template for how future cross-tool-aware skills should be structured — one skill body, a per-harness table that maps every dispatch primitive to the local mechanism.
+
+Tier breakdown for `swarm-router` specifically:
+
+| Mode | Claude Code (first-class) | Copilot / Gemini CLI / Codex (best-effort) |
+|---|---|---|
+| **1 — single** | `Skill` tool invokes the matching `*-delegate` skill | Shell-out: `gemini -p`, `codex exec`, `copilot -p` |
+| **2 — sequential** | Chain of `Skill` invocations, intermediate file on disk | Chained shell calls, intermediate file on disk |
+| **3 — parallel fan-out** | N parallel tool calls in one message | N background shell processes + `wait`, output to `/tmp/swarm/<role>.out` |
+| **4 — parallel-team** | Native `Agent` tool — in-process parallel subagents, each with its own context window; cap N ≤ 4 | Shell-parallel background processes + `wait`; cap N ≤ 3; **no native file-ownership enforcement** — boundaries are prompt-only and must be audited via `git status` afterwards |
+
+Mode 1 / 2 / 3 reach full parity on best-effort harnesses because they only need a peer-CLI shell-out. Mode 4 is where the gap shows: Claude Code's `Agent` tool gives atomic spawn, isolated context per subagent, and structured aggregation; the shell-parallel fallback in Copilot / Gemini / Codex works for ≤ 3 disjoint workers but loses coordination guarantees (no barriers, no per-subagent steering, no file-ownership runtime enforcement).
+
+The `swarm-router` SKILL.md itself encodes the per-harness dispatch tables so the orchestrator picks the right mechanism without external lookup — the pattern any future cross-tool skill should follow.
+
 ## Where to read more
 
 - [`polly.md`](polly.md) §Best-effort mode — what degrades when Polly runs outside Claude Code / Copilot.

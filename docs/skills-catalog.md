@@ -32,6 +32,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 | Domain | Skills | Primary purpose |
 |---|---:|---|
 | [Orchestration](#orchestration) | 1 | Advise on the SDLC |
+| [Multi-model orchestration](#multi-model-orchestration) | 1 | Route/dispatch/fan-out tasks across multiple model CLIs by specialization |
 | [Requirements & discovery](#requirements--discovery) | 4 | Raw input → structured requirements |
 | [Architecture & validation](#architecture--validation) | 5 | Draft and formally validate architecture |
 | [Sprint & implementation](#sprint--implementation) | 2 | Break work down, run acceptance |
@@ -58,6 +59,19 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **Reads:** `.nonoise/sdlc-flow.md`, `nonoise.config.json`, `repositories.json`, filesystem fingerprints per phase.
 - **Writes:** nothing; delegates to specialist skills.
 - **Phase:** all.
+
+---
+
+## Multi-model orchestration
+
+### `swarm-router`
+- **SKILL.md:** [`packages/skills/swarm-router/SKILL.md`](../packages/skills/swarm-router/SKILL.md)
+- **Provenance:** custom NONoise.
+- **Purpose:** routes / dispatches / fans-out / parallelizes a task across Claude / Codex / Gemini / Copilot's many models (Copilot is treated as a multiplexer reaching Opus, Sonnet, Haiku, GPT-5.x, plus free-tier `gpt-4.1` / `gpt-5-mini`). Classifies the task via a specialization matrix (UI → Gemini, review/security/DevOps → Codex, edge-case implementation → Claude, throwaway classification → Copilot free tier) and supports four execution modes: **single** dispatch, **sequential** pipeline, **parallel fan-out** for competing hypotheses, and **parallel-team** that splits a complex feature into N disjoint subtasks with explicit file-ownership boundaries. Cross-harness by design: first-class on Claude Code (native `Agent` + `Skill` tools for Mode 4), best-effort on Copilot / Gemini CLI / Codex CLI via shell-parallel background processes with documented caveats. Hierarchical orchestration only — there is no peer-to-peer messaging between different model CLIs.
+- **Triggers:** explicit user phrases only — `swarm: …`, `/swarm`, `usa lo swarm`, `instrada`, `fan-out`, `scegli il modello migliore per …`, `best model for …`, `second opinion da …`, `team mode`, `parallel-dev`, `sviluppa in parallelo`, `fai team`, `build with a team`. Same trigger phrases regardless of which AI harness is orchestrating; the skill reads its own "Harness-specific dispatch" section to pick the right mechanism.
+- **Reads:** the user's task description plus any context files the task references; per-harness it may shell out to `claude -p`, `gemini -p`, `codex exec`, `copilot -p` (or, on Claude Code, invoke the matching `*-delegate` skills via the `Skill` tool).
+- **Writes:** a single combined block with verbatim per-model outputs labelled by stage / worker role, an optional **Synthesis** section (mandatory for parallel-fanout and parallel-team), and — for parallel-team — a `file-ownership` block listing the paths each worker may write.
+- **Phase:** Cross-cutting — applicable in any SDLC step where mixing models adds value (UI work to Gemini, review / security to Codex, edge-case implementation to Claude, cheap classification to Copilot's free tier).
 
 ---
 

@@ -29,7 +29,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** — a library of **40+ AI skills**: Polly advisor, BMAD-derived personas, Quint FPF validator, vendored [superpowers](https://github.com/obra/superpowers), design / ops / testing packs.
+- **`.claude/skills/`** — a library of **40+ AI skills**: Polly advisor, BMAD-derived personas, Quint FPF validator, vendored [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.
@@ -67,6 +67,30 @@ You never pick the wrong skill. You always know the next step.
 **Canonical architectures beat exotic ones** because they're already in the parametric memory of every frontier LLM. NONoise's architectural skills push toward DDD, Clean Architecture, CQRS, standard REST — and only allow deviations that survive a formal Quint FPF validation. Every token you spend re-teaching the LLM your bespoke abstraction is a token it isn't spending on your actual problem.
 
 **Local tooling, no service.** Everything runs inside your AI tool of choice. No server, no telemetry, no account. Skills are plain Markdown; a `git clone` carries them between projects. External tools (issue trackers, voice recorders, memory systems) are mentioned by Polly at the right moment — not wired, not required.
+
+### Multi-model orchestration with swarm-router
+
+One team, many models. `swarm-router` is a NONoise skill that routes a single user request across Claude, Codex, Gemini, and Copilot's many models — picking the right specialist for each piece of work instead of forcing one model to do everything.
+
+Four execution modes:
+
+- **single** — classify the task, dispatch to one model, return verbatim. ~80% of routings.
+- **sequential** — pipeline: A's output feeds B (e.g. Gemini writes the UI → Codex audits it).
+- **parallel fan-out** — same prompt to N models in parallel, then synthesize. For competing hypotheses or second opinions.
+- **parallel-team** — split a complex feature into N disjoint subtasks with explicit file-ownership boundaries, run them concurrently, then merge.
+
+Specialization matrix the router uses by default:
+
+| Model | Default lane |
+|---|---|
+| **Claude** | Implementation, agentic loops, edge-case hunting, integration tests |
+| **Gemini** | Frontend HTML/CSS, Figma→code, SVG, big-context reads (>200k tokens) |
+| **Codex** | Code review, security audits, terminal/DevOps/scripting |
+| **Copilot** | Multiplexer — reaches any of the above, plus a free tier (`gpt-4.1`, `gpt-5-mini`) for cheap classification |
+
+Cross-tool by design: **first-class on Claude Code** (Mode 4 uses the native `Agent` tool for in-process parallel subagents); **best-effort on Copilot / Gemini CLI / Codex** (Mode 1/2/3 work fully via shell-out to peer CLIs; Mode 4 falls back to background shell processes + `wait`, capped at N ≤ 3).
+
+Trigger phrases are the same in every harness — `swarm: ...`, `/swarm`, `usa lo swarm`, `fan-out`, `parallel-dev`, `fai team` — and the skill reads its own *Harness-specific dispatch* section to pick the right mechanism. Full skill source: [`packages/skills/swarm-router/SKILL.md`](packages/skills/swarm-router/SKILL.md); catalog entry: [`docs/skills-catalog.md#multi-model-orchestration`](docs/skills-catalog.md#multi-model-orchestration).
 
 ---
 
