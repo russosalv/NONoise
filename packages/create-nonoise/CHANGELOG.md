@@ -1,5 +1,26 @@
 # create-nonoise
 
+## 1.4.0
+
+### Minor Changes
+
+- Add `swarm-router` skill: user-invoked multi-model orchestrator across Claude / Codex / Gemini / Copilot.
+
+  **What it is.** A new skill at `packages/skills/swarm-router/SKILL.md` that classifies and dispatches a task to one or more AI model CLIs, then stitches results back together verbatim. The user owns the trigger ("usa lo swarm", "swarm:", "/swarm", "fan-out", "instrada", "best model for…", "team mode", "parallel-dev", "sviluppa in parallelo", "fai team", etc.); the orchestrator (whichever harness is reading the skill) owns classification, dispatch, and aggregation. NEVER invokes itself — only on explicit user request.
+
+  **Four modes.**
+
+  - **single** — pick one best-fit model and dispatch.
+  - **sequential pipeline** — chain models so each one's output feeds the next (e.g. Gemini drafts UI → Codex reviews → Claude integrates).
+  - **parallel fan-out** — same prompt to N models, return all answers side-by-side for ensemble / second-opinion.
+  - **parallel-team** — spawn multiple specialist subagents in parallel, each delegating to its model of choice (Gemini for UI/CSS, Codex for review/DevOps, Claude for implementation, Copilot for cost arbitrage and free tiers).
+
+  **Cross-harness.** First-class on Claude Code (Agent tool + shell dispatch). Best-effort on Copilot CLI / Gemini CLI / Codex CLI via shell-parallel (`&` + `wait`), since those harnesses lack a true subagent primitive. Hierarchical orchestration only — there is no peer-to-peer messaging between different model CLIs.
+
+  **Copilot as a multiplexer.** The skill is aware that `copilot --model <name>` (or the existing `copilot-delegate` skill when the orchestrator is Claude) can target any of Claude Opus 4.7 / Sonnet 4.6-4 / Haiku 4.5, GPT 5.5 / 5.4 / 5.2 / mini / codex, or free tiers (`gpt-4.1`, `gpt-5-mini` at 0× cost) — useful for cost arbitrage routing.
+
+  **Docs.** Skills catalog (`docs/skills-catalog.md`) and cross-tool matrix (`docs/cross-tool.md`) updated with the new entry; README gains a section pointing at the skill.
+
 ## 1.3.0
 
 ### Minor Changes
