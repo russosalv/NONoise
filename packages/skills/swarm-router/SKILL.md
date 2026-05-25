@@ -1,6 +1,20 @@
 ---
 name: swarm-router
-description: Use ONLY when the user explicitly asks the AI assistant to route, dispatch, fan-out, split, or parallelize a task across multiple AI model CLIs (Claude / Codex / Gemini / Copilot's many models) — phrases like "usa lo swarm", "swarm:", "/swarm", "instrada", "fan-out", "route this task", "scegli il modello migliore per", "delega allo swarm", "best model for this", "ensemble", "second opinion da", "team mode", "parallel-dev", "sviluppa in parallelo", "swarm parallel", "fai team", "build with a team". Four modes: single dispatch, sequential pipeline, parallel fan-out, and parallel-team. Works across any harness that can read this SKILL.md (Claude Code, Copilot, Gemini CLI, Codex) — the dispatch mechanism differs per harness (see Harness-specific dispatch). Hierarchical orchestration only — there is NO peer-to-peer messaging between different model CLIs. NEVER invoke this skill on your own; only when the user explicitly uses one of the trigger phrases above.
+description: >-
+  Use ONLY when the user explicitly asks the AI assistant to route, dispatch,
+  fan-out, split, or parallelize a task across multiple AI model CLIs (Claude /
+  Codex / Gemini / Copilot's many models) — phrases like "usa lo swarm",
+  "swarm:", "/swarm", "instrada", "fan-out", "route this task", "scegli il
+  modello migliore per", "delega allo swarm", "best model for this",
+  "ensemble", "second opinion da", "team mode", "parallel-dev", "sviluppa in
+  parallelo", "swarm parallel", "fai team", "build with a team". Four modes:
+  single dispatch, sequential pipeline, parallel fan-out, and parallel-team.
+  Works across any harness that can read this SKILL.md (Claude Code, Copilot,
+  Gemini CLI, Codex) — the dispatch mechanism differs per harness (see
+  Harness-specific dispatch). Hierarchical orchestration only — there is NO
+  peer-to-peer messaging between different model CLIs. NEVER invoke this
+  skill on your own; only when the user explicitly uses one of the trigger
+  phrases above.
 ---
 
 # swarm-router
