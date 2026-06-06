@@ -1,5 +1,11 @@
 # create-nonoise
 
+## 1.5.0
+
+### Minor Changes
+
+- Bundle the new `swarm-router` skill into scaffolded projects. The skill existed in the workspace but was never listed in `MVP_SKILL_BUNDLE`, so it was never installed. It is the skill that routes/dispatches and hands off a task across multiple AI model CLIs (Claude, Codex, Gemini, Copilot) — single dispatch, sequential pipeline, parallel fan-out, and parallel-team modes. Now every scaffold ships it under `.claude/skills/swarm-router/`.
+
 ## 1.4.0
 
 ### Minor Changes

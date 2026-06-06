@@ -45,6 +45,7 @@ const MVP_SKILL_BUNDLE = [
   'observability-debug',
   'polly',
   'c4-doc-writer',
+  'swarm-router',
 ] as const;
 
 export type ScaffoldPaths = {
