@@ -1,6 +1,7 @@
 ---
 name: copilot-delegate
-description: Use ONLY when the user explicitly asks to delegate a task to GitHub Copilot CLI — phrases like "delega a copilot", "usa copilot", "ask copilot", "passa a copilot", "fai con copilot", "@copilot", "/copilot", "via copilot", "with copilot". Runs `copilot -p` non-interactively, defaulting to Claude Opus 4.7, so the token cost of large/expensive work (big-file reads, broad explanations, shell-output analysis) bills against the user's GitHub Copilot subscription instead of their Claude subscription. Acts as a transparent passthrough: build a full prompt with the needed context, execute `copilot`, return the response verbatim inside a fenced block. NEVER invoke this skill on your own — only when the user explicitly names Copilot or uses the trigger phrases above. If the user just asks to read a big file or run a long command without naming Copilot, do NOT trigger this skill.
+description: >-
+  Use ONLY when the user explicitly asks to delegate a task to GitHub Copilot CLI — phrases like "delega a copilot", "usa copilot", "ask copilot", "passa a copilot", "fai con copilot", "@copilot", "/copilot", "via copilot", "with copilot". Runs `copilot -p` non-interactively, defaulting to Claude Opus 4.7, so the token cost of large/expensive work (big-file reads, broad explanations, shell-output analysis) bills against the user's GitHub Copilot subscription instead of their Claude subscription. Acts as a transparent passthrough: build a full prompt with the needed context, execute `copilot`, return the response verbatim inside a fenced block. NEVER invoke this skill on your own — only when the user explicitly names Copilot or uses the trigger phrases above. If the user just asks to read a big file or run a long command without naming Copilot, do NOT trigger this skill.
 ---
 
 # copilot-delegate
@@ -128,13 +129,13 @@ If Copilot returns an error, surface the error verbatim in the response slot and
 
 ### Example 1 — file analysis delegation
 
-User: "delega a copilot l'analisi di D:\DEV\newBookingMan\backend\logs\app.log e dimmi quanti errori ci sono per tipo"
+User: "delega a copilot l'analisi di /path/to/project/backend/logs/app.log e dimmi quanti errori ci sono per tipo"
 
 You build:
 
 ```powershell
 $prompt = @'
-Read the file at D:\DEV\newBookingMan\backend\logs\app.log and count errors grouped by type (e.g., DB error, validation error, timeout). Return a markdown table sorted by count descending. If the file is too large, sample the last 50k lines and note that you sampled.
+Read the file at /path/to/project/backend/logs/app.log and count errors grouped by type (e.g., DB error, validation error, timeout). Return a markdown table sorted by count descending. If the file is too large, sample the last 50k lines and note that you sampled.
 '@
 copilot --model claude-opus-4.7 -p $prompt --allow-all-tools --allow-all-paths --log-level none
 ```
@@ -168,7 +169,7 @@ Copilot CLI can load and execute skills too — both its own skills and the ones
 Good:
 
 ```
-Apply the skill defined at D:\DEV\newBookingMan\.claude\skills\foo-bar\SKILL.md to the file D:\DEV\newBookingMan\src\baz.ts. Follow that skill's instructions exactly.
+Apply the skill defined at /path/to/project/.claude/skills/foo-bar/SKILL.md to the file /path/to/project/src/baz.ts. Follow that skill's instructions exactly.
 ```
 
 Bad:

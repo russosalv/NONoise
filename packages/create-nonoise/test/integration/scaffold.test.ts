@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { scaffold } from '../../src/scaffold.js';
+import { MVP_SKILL_BUNDLE } from '../../src/skill-bundle.js';
 import type { ProjectContext } from '../../src/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -70,32 +71,7 @@ describe('scaffold() integration', () => {
     await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
-    const expected = [
-      'vscode-config-generator',
-      'docs-md-generator',
-      'playwright-cli',
-      'frontend-design',
-      'skill-finder',
-      'design-md-generator',
-      'bmad-advanced-elicitation',
-      'bmad-agent-analyst',
-      'bmad-agent-architect',
-      'bmad-agent-tech-writer',
-      'bmad-agent-ux-designer',
-      'quint-fpf',
-      'arch-brainstorm',
-      'arch-decision',
-      'sprint-manifest',
-      'atr',
-      'reverse-engineering',
-      'requirements-ingest',
-      'spec-to-workitem',
-      'ops-skill-builder',
-      'observability-debug',
-      'polly',
-      'c4-doc-writer',
-    ];
-    for (const name of expected) {
+    for (const name of MVP_SKILL_BUNDLE) {
       const content = await readFile(
         join(projectPath, '.claude', 'skills', name, 'SKILL.md'),
         'utf8',

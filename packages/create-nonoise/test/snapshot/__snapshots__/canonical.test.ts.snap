@@ -4460,6 +4460,324 @@ Use comments sparingly — the DSL is already declarative. Reserve comments for 
 4. **Redefining the same identifier** — DSL allows extending with \`!extend\` but a second \`=\` line throws. If you need to add relationships to an existing element, use the identifier directly: \`msAuth -> db "Reads"\`.
 5. **Forgetting the \`views\` block** — the model alone won't render anything; the CLI needs at least one view declaration.
 ",
+  ".claude/skills/codex-delegate/SKILL.md": "---
+name: codex-delegate
+description: Use ONLY when the user explicitly asks Claude to delegate, hand over, pass, or send work to Codex CLI - phrases like "delega a codex", "usa codex", "handover a codex", "passa a codex", "ask codex", "@codex", "/codex", "via codex", or "with codex". Runs \`codex exec\` non-interactively and returns Codex's final answer verbatim. NEVER invoke this skill unless the user explicitly names Codex or Codex CLI as the delegate.
+allowed-tools: Bash(codex:*)
+---
+
+# codex-delegate
+
+User-invoked passthrough from Claude to Codex CLI. The user owns the trigger; Claude owns the briefing, execution, and verbatim return.
+
+## When to invoke
+
+Invoke **only** when the user's message explicitly names Codex or Codex CLI as the delegate, for example:
+
+- "delega a codex ...", "passa a codex ...", "usa codex per ...", "fai fare a codex ..."
+- "handover a codex ...", "hand off to codex ...", "send this to codex ..."
+- "ask codex ...", "with codex ...", "via codex ..."
+- "@codex ...", "/codex ..."
+- "usa codex cli ...", "fallo con codex cli ..."
+
+## When NOT to invoke
+
+- The user asks Claude to do the task directly and does not explicitly request Codex.
+- The user mentions Codex in discussion, not as an instruction to delegate.
+- The task depends on Claude's unsaved in-memory state. Save the needed context to disk first or ask one short clarification.
+- The task requires Claude-only tools, MCP servers, or session state that Codex CLI cannot access.
+
+If intent is ambiguous, ask one short question. Do not guess.
+
+## How to run it
+
+Use \`codex exec\` in non-interactive mode. Prefer stdin for the prompt so newlines, quotes, backticks, and \`$\` survive intact.
+
+\`\`\`bash
+codex exec \\
+  --cd /path/to/project \\
+  --sandbox workspace-write \\
+  --ask-for-approval never \\
+  --color never \\
+  --output-last-message /dev/stdout \\
+  - <<'EOF'
+<full prompt text>
+EOF
+\`\`\`
+
+Use the current repository root for \`--cd\` unless the user explicitly gives another workspace. \`--ask-for-approval never\` is deliberate for non-interactive execution: if Codex needs something outside its sandbox, it should fail and report that instead of hanging for approval.
+
+### Optional flags
+
+- \`--model <name>\` when the user names a Codex/OpenAI model. Pass the exact model string they requested.
+- \`--sandbox read-only\` for analysis-only delegations where Codex must not edit files.
+- \`--sandbox danger-full-access\` only if the user explicitly asks for unrestricted local execution and accepts the risk.
+- \`--search\` only if the user explicitly asks Codex to use live web search.
+- \`--add-dir <path>\` when the user wants Codex to access an additional local directory.
+- \`--ephemeral\` when the user wants no Codex session saved.
+
+## Building the prompt
+
+Create a self-contained prompt for a fresh Codex session. Include:
+
+1. **Task**: what the user wants Codex to do.
+2. **Context**: repo path, relevant file paths, constraints from the conversation, and whether edits are allowed.
+3. **Output contract**: exact answer format, whether to summarize or patch files, and what verification Codex should run.
+
+Do not paste huge files into the prompt. Give absolute paths and tell Codex what to inspect. That keeps Claude-side tokens low and lets Codex use the local workspace directly.
+
+If a skill should guide Codex, reference it by full absolute path:
+
+\`\`\`text
+Apply the skill at /absolute/path/to/SKILL.md. Resolve sibling files relative to that skill directory.
+\`\`\`
+
+## Returning the response
+
+Return Codex's final answer **verbatim**, wrapped exactly like this:
+
+\`\`\`text
+---
+codex-model: <model if specified, otherwise default>
+prompt: <one-line summary of what Claude asked, <=120 chars>
+---
+<verbatim final answer printed by codex exec>
+\`\`\`
+
+Do not rewrite, translate, correct, summarize, or add commentary. The user asked for Codex's answer, not Claude's interpretation.
+
+If \`codex exec\` fails, return the error text verbatim in the response slot and stop. Do not silently retry with broader permissions, and do not fall back to doing the delegated task locally unless the user asks.
+
+## Examples
+
+### Analysis delegation
+
+User: "delega a codex l'analisi di backend/src/bookings e dimmi dove manca structureId"
+
+Prompt:
+
+\`\`\`text
+In /path/to/project, inspect backend/src/bookings for database queries that may miss tenant filtering by structureId. Do not edit files. Return findings as markdown bullets with file paths and line numbers.
+\`\`\`
+
+Command:
+
+\`\`\`bash
+codex exec --cd /path/to/project --sandbox read-only --ask-for-approval never --color never --output-last-message /dev/stdout - <<'EOF'
+In /path/to/project, inspect backend/src/bookings for database queries that may miss tenant filtering by structureId. Do not edit files. Return findings as markdown bullets with file paths and line numbers.
+EOF
+\`\`\`
+
+### Implementation handoff
+
+User: "handover a codex: sistema i test frontend falliti"
+
+Prompt:
+
+\`\`\`text
+In /path/to/project, run the relevant frontend tests, identify the failures, and make the smallest code changes needed to fix them. Respect existing worktree changes and do not revert user edits. Report changed files and verification commands.
+\`\`\`
+
+Use \`--sandbox workspace-write\` for this case.
+
+## Edge cases
+
+- **Prompt contains \`EOF\`**: use a different heredoc delimiter such as \`CODEX_PROMPT\`.
+- **Long-running task**: allow a long shell timeout. If Codex times out, return the timeout/error output.
+- **Codex not authenticated**: return the auth error verbatim and tell the user to run \`codex login\` interactively.
+- **Edits requested**: after Codex finishes, Claude may inspect \`git diff\` only to report changed files if needed, but must not alter Codex's result unless the user asks.
+- **Dirty worktree**: tell Codex to preserve unrelated changes and not revert files it did not need to touch.
+",
+  ".claude/skills/copilot-delegate/SKILL.md": "---
+name: copilot-delegate
+description: >-
+  Use ONLY when the user explicitly asks to delegate a task to GitHub Copilot CLI — phrases like "delega a copilot", "usa copilot", "ask copilot", "passa a copilot", "fai con copilot", "@copilot", "/copilot", "via copilot", "with copilot". Runs \`copilot -p\` non-interactively, defaulting to Claude Opus 4.7, so the token cost of large/expensive work (big-file reads, broad explanations, shell-output analysis) bills against the user's GitHub Copilot subscription instead of their Claude subscription. Acts as a transparent passthrough: build a full prompt with the needed context, execute \`copilot\`, return the response verbatim inside a fenced block. NEVER invoke this skill on your own — only when the user explicitly names Copilot or uses the trigger phrases above. If the user just asks to read a big file or run a long command without naming Copilot, do NOT trigger this skill.
+---
+
+# copilot-delegate
+
+A user-invoked passthrough to GitHub Copilot CLI. The user owns the trigger; you own the execution and the verbatim return.
+
+## When to invoke
+
+Invoke **only** when the user's message explicitly names Copilot or uses one of these trigger patterns (Italian and English mixed, since the user works in both):
+
+- "delega a copilot ...", "fai con copilot ...", "passa a copilot ...", "usa copilot per ..."
+- "ask copilot ...", "with copilot ...", "via copilot ...", "have copilot ..."
+- "@copilot ...", "/copilot ..."
+- An explicit model handle that only makes sense via Copilot: "chiedi a sonnet via copilot", "use sonnet-4.5 through copilot"
+
+## When NOT to invoke
+
+- The user asks you (Claude) to do the task directly, even if it's expensive. The whole point of this skill is delegation chosen by the user — token cost alone is not a trigger.
+- The user mentions Copilot in a non-imperative way ("Copilot scrive male i test" → discussion, not delegation).
+- The task is something only the current Claude session can do (relies on this conversation's mid-flight state, in-memory variables, or files only this session has produced and not yet saved).
+- The task requires tools that Copilot doesn't have access to in headless mode (e.g., your project's MCP servers configured only inside Claude Code).
+
+If you're unsure whether the user wants delegation, ask one short question. Don't guess.
+
+## Why this skill exists
+
+Some tasks are token-heavy on the input side: scanning long log files, summarizing big documents, broad codebase Q&A, explaining shell output. Running them through Claude burns the user's Claude subscription. The same Claude family (Opus 4.7, Sonnet 4.6/4.5/4, Haiku 4.5) plus GPT and Gemini are all reachable via GitHub Copilot CLI, where the cost lands on the Copilot subscription instead. This skill is the user's "send this elsewhere" lever.
+
+## Available models
+
+\`copilot --model <name>\` — confirmed working on this machine. Model name format uses **dots** (\`claude-opus-4.7\`), not dashes. The "cost" column is the GitHub Copilot premium-request multiplier the user pays per call.
+
+| Shortcut    | \`--model\` value           | Cost   | Notes                                              |
+|-------------|---------------------------|--------|----------------------------------------------------|
+| (none)      | \`claude-opus-4.7\`         | 7.5x   | **Default.** Most capable Claude. Use sparingly — expensive on the Copilot quota. |
+| \`opus\`      | \`claude-opus-4.7\`         | 7.5x   | Same as default.                                   |
+| \`sonnet\`    | \`claude-sonnet-4.6\`       | 1x     | Best price/perf Claude. Good first choice if Opus is overkill. |
+| \`sonnet45\`  | \`claude-sonnet-4.5\`       | 1x     |                                                    |
+| \`sonnet4\`   | \`claude-sonnet-4\`         | 1x     |                                                    |
+| \`haiku\`     | \`claude-haiku-4.5\`        | 0.33x  | Cheapest/fastest Claude. Good for simple delegations. |
+| \`gpt\`       | \`gpt-5.4\`                 | 1x     | Copilot CLI's own default.                         |
+| \`gpt55\`     | \`gpt-5.5\`                 | 7.5x   | Most capable GPT. Same cost tier as Opus 4.7.      |
+| \`gpt52\`     | \`gpt-5.2\`                 | 1x     |                                                    |
+| \`gpt-mini\`  | \`gpt-5.4-mini\`            | 0.33x  | Cheap fast GPT.                                    |
+| \`gpt5-mini\` | \`gpt-5-mini\`              | 0x     | Free tier.                                         |
+| \`gpt41\`     | \`gpt-4.1\`                 | 0x     | Free tier.                                         |
+| \`codex\`     | \`gpt-5.3-codex\`           | 1x     | Code-tuned GPT.                                    |
+| \`codex2\`    | \`gpt-5.2-codex\`           | 1x     | Older code-tuned GPT.                              |
+
+**Cost-aware delegation:** if the user delegates a simple/cheap task with no model preference, prefer \`sonnet\` (1x) or \`haiku\` (0.33x) instead of the 7.5x default — and tell them you did. The whole point is saving on the Claude side without burning the Copilot quota unnecessarily. If they ask for "the best" or for Opus explicitly, use \`claude-opus-4.7\` without second-guessing.
+
+If the user names a model not in the table, pass the exact string they gave to \`--model\`. If Copilot rejects it, surface the error verbatim and stop.
+
+## How to run it
+
+On Windows the \`copilot\` shim sits behind a path with spaces (\`Code - Insiders\`), and the bash wrapper mishandles \`-p\` arguments. Use the **PowerShell** tool on Windows; use Bash on macOS/Linux. Always pass the prompt via a here-string so newlines, quotes, and \`$\` survive.
+
+### Windows (PowerShell)
+
+\`\`\`powershell
+$prompt = @'
+<full prompt text — see "Building the prompt" below>
+'@
+copilot --model claude-opus-4.7 -p $prompt --allow-all-tools --allow-all-paths --log-level none
+\`\`\`
+
+The closing \`'@\` MUST be at column 0. Single-quoted (\`@'...'@\`) so PowerShell doesn't expand \`$\` inside the prompt.
+
+### macOS / Linux (Bash)
+
+\`\`\`bash
+copilot --model claude-opus-4.7 \\
+  --allow-all-tools --allow-all-paths --log-level none \\
+  -p "$(cat <<'EOF'
+<full prompt text>
+EOF
+)"
+\`\`\`
+
+### Required flags (always include)
+
+- \`--allow-all-tools\` — required for non-interactive \`-p\` mode.
+- \`--allow-all-paths\` — let Copilot read whatever files the prompt references.
+- \`--log-level none\` — suppress noise; you want only the model's response.
+
+### Optional flags (use when relevant)
+
+- \`--add-dir <path>\` — narrow file access to one directory instead of \`--allow-all-paths\`. Use when the user wants to scope the delegation tightly.
+- \`--effort high\` — if the user asks for a thorough analysis. Default reasoning effort is fine for most things.
+- \`--allow-all-urls\` — only if the task explicitly requires web fetching.
+
+## Building the prompt
+
+You are constructing a single self-contained prompt for a fresh Copilot session that has none of this conversation's context. Treat it like briefing a smart colleague who just walked in.
+
+Include:
+
+1. **The task itself** — exactly what the user asked, in clear terms.
+2. **The context Copilot needs** — file paths it should read (Copilot can read files itself if you give absolute paths and \`--allow-all-paths\` is set), relevant constraints from this conversation, the format of the expected answer.
+3. **Output expectations** — if the user wants a list, ask for a list. If they want code, ask for code. If they want a one-line answer, say so. Copilot has no idea what "concise" means in your shared context.
+
+Do not paste huge file contents into the prompt — point to the path and let Copilot read it. That's the whole point: keep tokens off the Claude side.
+
+## Returning the response
+
+Return the response **verbatim**, wrapped in this exact block. No prose before or after, no editorializing, no "Copilot says:" preamble.
+
+\`\`\`
+---
+copilot-model: <the model you used>
+prompt: <one-line summary of what you asked, ≤120 chars>
+---
+<response from copilot, byte-for-byte>
+\`\`\`
+
+Trim only:
+- The trailing \`Changes / Requests / Tokens\` summary block that Copilot CLI prints after the response (it's CLI metadata, not part of the answer).
+- ANSI color escape sequences if present.
+
+Do **not** rewrite, summarize, translate, or "fix" Copilot's response. The user explicitly chose to delegate; they want the other model's answer, not your interpretation of it.
+
+If Copilot returns an error, surface the error verbatim in the response slot and stop — don't retry silently or fall back to doing the task yourself.
+
+## Examples
+
+### Example 1 — file analysis delegation
+
+User: "delega a copilot l'analisi di /path/to/project/backend/logs/app.log e dimmi quanti errori ci sono per tipo"
+
+You build:
+
+\`\`\`powershell
+$prompt = @'
+Read the file at /path/to/project/backend/logs/app.log and count errors grouped by type (e.g., DB error, validation error, timeout). Return a markdown table sorted by count descending. If the file is too large, sample the last 50k lines and note that you sampled.
+'@
+copilot --model claude-opus-4.7 -p $prompt --allow-all-tools --allow-all-paths --log-level none
+\`\`\`
+
+Then return:
+
+\`\`\`
+---
+copilot-model: claude-opus-4.7
+prompt: Count errors by type in app.log, return markdown table sorted desc.
+---
+<verbatim copilot output>
+\`\`\`
+
+### Example 2 — explicit model choice
+
+User: "ask copilot with haiku: spiegami la differenza tra BullMQ e RabbitMQ in 5 righe"
+
+You use \`--model claude-haiku-4.5\` (the \`haiku\` shortcut), build a short prompt, run, return verbatim.
+
+### Example 3 — refused delegation
+
+User: "delega a copilot la lettura di quella variabile in memoria che abbiamo creato prima"
+
+You decline (politely): Copilot has no access to this session's in-memory state. Ask the user whether to write it to disk first or do the read locally.
+
+## Passing skills to Copilot
+
+Copilot CLI can load and execute skills too — both its own skills and the ones in this repo (e.g. \`.claude/skills/*/SKILL.md\`). When the user asks to delegate a task that involves a specific skill, **always reference the skill by its full absolute path** in the prompt, not by name alone. Copilot's skill discovery may differ from Claude's, and a bare name (\`use the foo skill\`) can resolve to nothing or to the wrong skill.
+
+Good:
+
+\`\`\`
+Apply the skill defined at /path/to/project/.claude/skills/foo-bar/SKILL.md to the file /path/to/project/src/baz.ts. Follow that skill's instructions exactly.
+\`\`\`
+
+Bad:
+
+\`\`\`
+Use the foo-bar skill on src/baz.ts.
+\`\`\`
+
+If the skill itself references other files (templates, helper scripts), include their absolute paths too, or tell Copilot the skill's directory so it can resolve siblings.
+
+## Edge cases
+
+- **Prompt contains backticks or \`'@\` patterns**: switch to a temp file. Write the prompt to \`$env:TEMP\\copilot-prompt.txt\` (or \`/tmp/copilot-prompt.txt\`), then \`copilot ... -p (Get-Content -Raw $env:TEMP\\copilot-prompt.txt)\`. Delete the temp file after.
+- **Long-running delegation**: pass \`timeout\` ~600000ms (10 min) to the shell tool. If Copilot hangs longer, kill and report.
+- **User asks for a model not in the table**: pass the literal string they gave. If Copilot errors out, return the error verbatim — don't substitute a different model without asking.
+- **User asks "Opus" specifically**: use \`claude-opus-4.7\` (it's the default anyway). Note that it costs 7.5x premium requests — if the task is trivial, suggest \`sonnet\` (1x) before launching.
+- **Stale credentials / not logged in**: Copilot will print an auth error. Surface it verbatim and tell the user to run \`copilot\` once interactively to authenticate.
+",
   ".claude/skills/design-md-generator/SKILL.md": "---
 name: design-md-generator
 description: Generates a DESIGN.md design-system document for the current project following the Stitch DESIGN.md format popularized by getdesign.md (VoltAgent/awesome-design-md). Use when the user asks to "create a design.md", "generate design system docs", "write DESIGN.md", "bootstrap UI style guide", "document the design system for AI agents", or when starting a frontend project and no design spec exists yet. Can start from scratch via guided Q&A or clone an existing community DESIGN.md as a starting point.
@@ -5347,6 +5665,206 @@ Interpret creatively and make unexpected choices that feel genuinely designed fo
 **IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
 
 Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+",
+  ".claude/skills/gemini-delegate/SKILL.md": "---
+name: gemini-delegate
+description: Use ONLY when the user explicitly asks Claude to delegate, hand over, pass, or send work to Gemini CLI — phrases like "delega a gemini", "usa gemini", "passa a gemini", "fai con gemini", "ask gemini", "@gemini", "/gemini", "via gemini", "with gemini". Runs \`gemini -p\` non-interactively and returns Gemini's answer verbatim. The point is to offload token-heavy work (long file analysis, broad codebase Q&A, big log summaries) to the user's Gemini account quota instead of the Claude subscription. NEVER invoke this skill unless the user explicitly names Gemini or Gemini CLI as the delegate.
+allowed-tools: Bash(gemini:*)
+---
+
+# gemini-delegate
+
+User-invoked passthrough from Claude to Gemini CLI. The user owns the trigger; Claude owns the briefing, execution, and verbatim return.
+
+## When to invoke
+
+Invoke **only** when the user's message explicitly names Gemini or Gemini CLI as the delegate, for example:
+
+- "delega a gemini ...", "passa a gemini ...", "usa gemini per ...", "fai fare a gemini ..."
+- "handover a gemini ...", "hand off to gemini ...", "send this to gemini ..."
+- "ask gemini ...", "with gemini ...", "via gemini ..."
+- "@gemini ...", "/gemini ..."
+- "usa gemini cli ...", "fallo con gemini cli ..."
+- Explicit model handle that only makes sense via Gemini: "chiedi a gemini-2.5-pro", "use flash through gemini"
+
+## When NOT to invoke
+
+- The user asks Claude to do the task directly and does not explicitly request Gemini.
+- The user mentions Gemini in discussion, not as an instruction to delegate.
+- The task depends on Claude's unsaved in-memory state. Save the needed context to disk first or ask one short clarification.
+- The task requires Claude-only tools, MCP servers, or session state that Gemini CLI cannot access.
+
+If intent is ambiguous, ask one short question. Do not guess.
+
+## Why this skill exists
+
+Some tasks are token-heavy on the input side: scanning long log files, summarizing big documents, broad codebase Q&A, explaining shell output. Running them through Claude burns the user's Claude subscription. Gemini CLI bills against the user's Google AI / Gemini quota (generous free tier on personal accounts), so this skill is the user's "send this elsewhere" lever when they want to save Claude tokens.
+
+## Available models
+
+\`gemini --model <name>\` — pass the exact Gemini model string. If the user does not specify a model, omit \`-m\` and let the CLI use its default.
+
+| Shortcut    | \`--model\` value           | Notes                                                              |
+|-------------|---------------------------|--------------------------------------------------------------------|
+| (none)      | *(CLI default)*           | Whatever Gemini CLI ships as default (typically a Pro tier).       |
+| \`pro\`       | \`gemini-2.5-pro\`          | Most capable 2.5 Gemini. Good for analysis and codebase Q&A.        |
+| \`flash\`     | \`gemini-2.5-flash\`        | Fast/cheap. Good first choice for simple delegations.              |
+| \`flash-lite\`| \`gemini-2.5-flash-lite\`   | Cheapest/fastest. Trivial summaries, classification.               |
+| \`pro3\`      | \`gemini-3-pro\`            | Latest Pro tier (if available on this account).                    |
+| \`flash3\`    | \`gemini-3-flash\`          | Latest Flash tier (if available on this account).                  |
+
+**Cost-aware delegation:** if the user delegates a simple/cheap task with no model preference, prefer \`flash\` over the default Pro tier — and tell them you did. If they ask for "the best" or name a Pro/3 tier explicitly, use that string without second-guessing.
+
+If the user names a model not in the table, pass the exact string they gave to \`-m\`. If Gemini rejects it, surface the error verbatim and stop.
+
+## How to run it
+
+Use \`gemini -p\` in non-interactive (headless) mode. Prefer stdin for the prompt so newlines, quotes, backticks, and \`$\` survive intact. The prompt passed via \`-p\` is appended to whatever arrives on stdin, so the heredoc pattern below works cleanly.
+
+### macOS / Linux (Bash)
+
+\`\`\`bash
+gemini \\
+  --approval-mode plan \\
+  --output-format text \\
+  --skip-trust \\
+  -p "$(cat <<'EOF'
+<full prompt text>
+EOF
+)"
+\`\`\`
+
+### Windows (PowerShell)
+
+\`\`\`powershell
+$prompt = @'
+<full prompt text — see "Building the prompt" below>
+'@
+gemini --approval-mode plan --output-format text --skip-trust -p $prompt
+\`\`\`
+
+The closing \`'@\` MUST be at column 0. Single-quoted (\`@'...'@\`) so PowerShell doesn't expand \`$\` inside the prompt.
+
+### Approval mode (choose per task)
+
+\`--approval-mode\` controls what Gemini may do without prompting. Pick the most restrictive mode that fits the task:
+
+| Mode         | What it allows                                | Use when                                    |
+|--------------|-----------------------------------------------|---------------------------------------------|
+| \`plan\`       | Read-only. No edits, no shell side-effects.   | Analysis, Q&A, summaries (DEFAULT here).    |
+| \`auto_edit\`  | Auto-approves edit tools.                     | User asked Gemini to modify files.          |
+| \`yolo\`       | Auto-approves everything (incl. shell).       | Only if user explicitly accepts the risk.   |
+| \`default\`    | Prompts for each action — hangs in headless.  | Never use with \`-p\`.                        |
+
+Never pass \`-y / --yolo\` or \`--approval-mode yolo\` unless the user explicitly opts in.
+
+### Other useful flags
+
+- \`-m, --model <name>\` — when the user names a Gemini model. Pass the exact string.
+- \`--include-directories <path>\` — add extra workspace directories Gemini can read. Use when context lives outside the current repo.
+- \`--skip-trust\` — trust the current workspace for this session (avoids the trust prompt in headless mode).
+- \`-o, --output-format json\` — only if the user explicitly wants structured JSON.
+- \`-e, --extensions <name>\` — pin which Gemini CLI extensions are loaded for this run.
+- \`-s, --sandbox\` — run the session inside Gemini's Docker sandbox. Use for untrusted code execution.
+
+## Building the prompt
+
+Create a self-contained prompt for a fresh Gemini session that has none of this conversation's context. Treat it like briefing a smart colleague who just walked in.
+
+Include:
+
+1. **Task** — exactly what the user asked, in clear terms.
+2. **Context** — repo path, absolute file paths Gemini should read, relevant constraints from this conversation, and whether edits are allowed.
+3. **Output contract** — exact answer format (list, table, code, one-liner). Gemini has no idea what "concise" means in your shared context.
+
+Do not paste huge file contents into the prompt. Give absolute paths and tell Gemini what to inspect — that keeps Claude-side tokens low and lets Gemini read the file itself. If the path is outside the current working directory, add it via \`--include-directories\`.
+
+If a skill should guide Gemini, reference it by full absolute path:
+
+\`\`\`text
+Apply the skill at /absolute/path/to/SKILL.md. Resolve sibling files relative to that skill directory.
+\`\`\`
+
+Gemini's skill discovery differs from Claude's, so a bare name (\`use the foo skill\`) can resolve to nothing or to the wrong skill.
+
+## Returning the response
+
+Return Gemini's answer **verbatim**, wrapped exactly like this. No prose before or after, no editorializing, no "Gemini says:" preamble.
+
+\`\`\`text
+---
+gemini-model: <model if specified, otherwise "default">
+prompt: <one-line summary of what Claude asked, <=120 chars>
+---
+<verbatim final answer printed by gemini -p>
+\`\`\`
+
+Trim only:
+- Any CLI metadata / token-usage footer Gemini prints after the response.
+- ANSI color escape sequences if present.
+
+Do **not** rewrite, summarize, translate, or "fix" Gemini's response. The user explicitly chose to delegate; they want the other model's answer, not Claude's interpretation of it.
+
+If Gemini returns an error, surface the error verbatim in the response slot and stop — don't retry silently, don't broaden permissions, and don't fall back to doing the task yourself.
+
+## Examples
+
+### Example 1 — file analysis delegation
+
+User: "delega a gemini l'analisi di /path/to/project/backend/logs/app.log e dimmi quanti errori ci sono per tipo"
+
+You build:
+
+\`\`\`bash
+gemini --approval-mode plan --output-format text --skip-trust -p "$(cat <<'EOF'
+Read the file at /path/to/project/backend/logs/app.log and count errors grouped by type (e.g., DB error, validation error, timeout). Return a markdown table sorted by count descending. If the file is too large, sample the last 50k lines and note that you sampled.
+EOF
+)"
+\`\`\`
+
+Then return:
+
+\`\`\`text
+---
+gemini-model: default
+prompt: Count errors by type in app.log, return markdown table sorted desc.
+---
+<verbatim gemini output>
+\`\`\`
+
+### Example 2 — explicit model choice
+
+User: "ask gemini with flash: spiegami la differenza tra BullMQ e RabbitMQ in 5 righe"
+
+You use \`-m gemini-2.5-flash\` (the \`flash\` shortcut), build a short prompt, run with \`--approval-mode plan\`, return verbatim.
+
+### Example 3 — implementation handoff
+
+User: "handover a gemini: sistema i test frontend falliti"
+
+Prompt:
+
+\`\`\`text
+In /path/to/project, run the relevant frontend tests, identify the failures, and make the smallest code changes needed to fix them. Respect existing worktree changes and do not revert user edits. Report changed files and verification commands.
+\`\`\`
+
+Use \`--approval-mode auto_edit\` for this case (Gemini needs to write files).
+
+### Example 4 — refused delegation
+
+User: "delega a gemini la lettura di quella variabile in memoria che abbiamo creato prima"
+
+You decline (politely): Gemini has no access to this session's in-memory state. Ask the user whether to write it to disk first or do the read locally.
+
+## Edge cases
+
+- **Prompt contains \`EOF\`**: use a different heredoc delimiter such as \`GEMINI_PROMPT\`.
+- **Prompt contains backticks or \`'@\` patterns on Windows**: switch to a temp file. Write the prompt to \`$env:TEMP\\gemini-prompt.txt\` (or \`/tmp/gemini-prompt.txt\`), then read it with \`Get-Content -Raw\` / \`cat\` and pipe into \`gemini -p\` via stdin. Delete the temp file after.
+- **Long-running delegation**: pass \`timeout\` ~600000ms (10 min) to the shell tool. If Gemini hangs longer, kill and report.
+- **User asks for a model not in the table**: pass the literal string they gave. If Gemini errors out, return the error verbatim — don't substitute a different model without asking.
+- **Stale credentials / not logged in**: Gemini will print an auth error. Surface it verbatim and tell the user to run \`gemini\` once interactively to authenticate.
+- **Trust prompt blocks the session**: include \`--skip-trust\` on every headless run, otherwise Gemini hangs waiting for workspace trust confirmation.
+- **Free-tier rate limit hit**: surface the rate-limit error verbatim; suggest waiting or switching to a \`flash\` model (cheaper quota).
 ",
   ".claude/skills/impeccable/adapt/SKILL.md": "---
 name: adapt
@@ -30249,12 +30767,15 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/c4-doc-writer/references/c4-levels-primer.md",
   ".claude/skills/c4-doc-writer/references/install-structurizr-cli.md",
   ".claude/skills/c4-doc-writer/references/structurizr-dsl-cheatsheet.md",
+  ".claude/skills/codex-delegate/SKILL.md",
+  ".claude/skills/copilot-delegate/SKILL.md",
   ".claude/skills/design-md-generator/SKILL.md",
   ".claude/skills/docs-md-generator/SKILL.md",
   ".claude/skills/docs-md-generator/references/managed-blocks-protocol.md",
   ".claude/skills/docs-md-generator/references/mode-prompts.md",
   ".claude/skills/docs-md-generator/references/output-templates.md",
   ".claude/skills/frontend-design/SKILL.md",
+  ".claude/skills/gemini-delegate/SKILL.md",
   ".claude/skills/impeccable/adapt/SKILL.md",
   ".claude/skills/impeccable/animate/SKILL.md",
   ".claude/skills/impeccable/audit/SKILL.md",

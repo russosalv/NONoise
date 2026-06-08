@@ -1,5 +1,11 @@
 # create-nonoise
 
+## 1.6.0
+
+### Minor Changes
+
+- Bundle the three single-model delegate skills — `copilot-delegate`, `gemini-delegate`, and `codex-delegate` — alongside the existing `swarm-router`, so scaffolded projects can delegate a task to one specific AI CLI (Copilot / Gemini / Codex) directly, not only via the swarm router. Internally the `MVP_SKILL_BUNDLE` list, previously duplicated between `scaffold.ts` and `upgrade.ts` (and already drifted), is consolidated into a single source of truth at `src/skill-bundle.ts` that both code paths and the integration test import, so adding a skill can no longer silently miss a registration point.
+
 ## 1.5.0
 
 ### Minor Changes

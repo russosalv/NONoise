@@ -5,33 +5,7 @@ import { installSkills, installVendor } from './skill-installer.js';
 import { installGraphify, formatReport, type InstallReport } from './graphify-install.js';
 import type { AiTools, AiToolKey } from './types.js';
 import { FLAG_TO_AI_TOOL } from './types.js';
-
-const MVP_SKILL_BUNDLE = [
-  'vscode-config-generator',
-  'docs-md-generator',
-  'playwright-cli',
-  'frontend-design',
-  'skill-finder',
-  'design-md-generator',
-  'bmad-advanced-elicitation',
-  'bmad-agent-analyst',
-  'bmad-agent-architect',
-  'bmad-agent-tech-writer',
-  'bmad-agent-ux-designer',
-  'quint-fpf',
-  'arch-brainstorm',
-  'arch-decision',
-  'arch-sync',
-  'sprint-manifest',
-  'atr',
-  'reverse-engineering',
-  'requirements-ingest',
-  'spec-to-workitem',
-  'ops-skill-builder',
-  'observability-debug',
-  'polly',
-  'c4-doc-writer',
-] as const;
+import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
 
 export type UpgradeOptions = {
   /** Target project directory. Defaults to process.cwd(). */

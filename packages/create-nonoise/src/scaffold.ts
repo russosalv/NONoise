@@ -8,6 +8,7 @@ import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills, installVendor } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
 import { installGraphify, formatReport } from './graphify-install.js';
+import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
 
 function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
   return (
@@ -19,34 +20,6 @@ function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
   );
 }
 
-
-const MVP_SKILL_BUNDLE = [
-  'vscode-config-generator',
-  'docs-md-generator',
-  'playwright-cli',
-  'frontend-design',
-  'skill-finder',
-  'design-md-generator',
-  'bmad-advanced-elicitation',
-  'bmad-agent-analyst',
-  'bmad-agent-architect',
-  'bmad-agent-tech-writer',
-  'bmad-agent-ux-designer',
-  'quint-fpf',
-  'arch-brainstorm',
-  'arch-decision',
-  'arch-sync',
-  'sprint-manifest',
-  'atr',
-  'reverse-engineering',
-  'requirements-ingest',
-  'spec-to-workitem',
-  'ops-skill-builder',
-  'observability-debug',
-  'polly',
-  'c4-doc-writer',
-  'swarm-router',
-] as const;
 
 export type ScaffoldPaths = {
   templatesRoot: string;
