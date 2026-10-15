@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import type { AiTools, AiToolKey } from './types.js';
 import type { GraphifyInstallContext, InstallReport } from './graphify-install.js';
 
@@ -14,15 +14,33 @@ export type Outcome = Command & { ok: boolean; output: string };
 export function commandText(c: Command): string {
   return [c.bin, ...c.args].map(s => /^[a-zA-Z0-9_@./:=,-]+$/.test(s) ? s : JSON.stringify(s)).join(' ');
 }
+/** Retry only installers and only recognizable transient transport failures. */
 export function run(c: Command, cwd: string): Outcome {
-  try {
-    const output = execFileSync(c.bin, c.args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120_000 });
-    return { ...c, ok: true, output: output.trim() };
-  } catch (error) {
-    const e = error as { stderr?: Buffer | string; message?: string };
-    return { ...c, ok: false, output: e.stderr?.toString().trim() || e.message || String(error) };
+  const installer = (c.bin === 'npx' && c.args.includes('impeccable') && c.args.includes('install'))
+    || (c.bin === 'uv' && c.args[0] === 'tool' && c.args[1] === 'install')
+    || (['claude', 'codex', 'copilot'].includes(c.bin) && c.args[0] === 'plugin'
+      && (['add', 'install'].includes(c.args[1] ?? '') || c.args.slice(1, 3).join(' ') === 'marketplace add'));
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const output = execFileSync(c.bin, c.args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120_000 });
+      return { ...c, ok: true, output: output.trim() };
+    } catch (error) {
+      const e = error as { stdout?: Buffer | string; stderr?: Buffer | string; message?: string; code?: string };
+      const output = [e.stdout?.toString().trim(), e.stderr?.toString().trim(), e.message, e.code].filter(Boolean).join('\n') || String(error);
+      const network = /\b(?:EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH)\b|dns (?:failed|failure)|(?:could not|couldn't|failed to) resolve|resolve dns name|timed?\s*out|timeout|temporary failure in name resolution|(?:HTTP(?:\/\d(?:\.\d)?)?|status(?: code)?|server returned(?: status)?)[:\s]+5\d\d\b|\b50[234] (?:Bad Gateway|Service Unavailable|Gateway Time)/i.test(output);
+      if (!installer || !network || attempt >= 2) return { ...c, ok: false, output };
+      const delay = 1000 * (attempt + 1);
+      console.log(`[native] RETRY ${attempt + 2}/3 in ${delay}ms: ${commandText(c)}\n  ${output}`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
+    }
   }
 }
+const claudePlugins = [
+  { id: 'superpowers@nonoise', marketplace: 'nonoise', repo: MARKETPLACE },
+  { id: 'document-skills@anthropic-agent-skills', marketplace: 'anthropic-agent-skills', repo: 'anthropics/skills' },
+  { id: 'skill-creator@claude-plugins-official', marketplace: 'claude-plugins-official', repo: 'anthropics/claude-plugins-official' },
+];
+const obsoletePlugin = 'example-skills@anthropic-agent-skills';
 function json(path: string): any { return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}; }
 function save(path: string, value: unknown): void {
   const content = JSON.stringify(value, null, 2) + '\n';
@@ -46,15 +64,13 @@ export function configureNativeVendors(projectPath: string, ai: AiTools): void {
     if (!settings.hooks.SessionStart.length) delete settings.hooks.SessionStart;
   }
 
-  settings.extraKnownMarketplaces = { ...settings.extraKnownMarketplaces,
-    nonoise: { source: { source: 'github', repo: MARKETPLACE } },
-    'anthropic-agent-skills': { source: { source: 'github', repo: 'anthropics/skills' } },
-  };
-  settings.enabledPlugins = { ...settings.enabledPlugins,
-    'superpowers@nonoise': true,
-    'document-skills@anthropic-agent-skills': true,
-    'example-skills@anthropic-agent-skills': true,
-  };
+  settings.extraKnownMarketplaces ??= {};
+  settings.enabledPlugins ??= {};
+  delete settings.enabledPlugins[obsoletePlugin];
+  for (const plugin of claudePlugins) {
+    settings.extraKnownMarketplaces[plugin.marketplace] = { source: { source: 'github', repo: plugin.repo } };
+    settings.enabledPlugins[plugin.id] = true;
+  }
   save(path, settings);
 }
 const providers: Record<AiToolKey, string> = { claudeCode: 'claude', copilot: 'github', codex: 'codex', cursor: 'cursor', geminiCli: 'gemini' };
@@ -62,6 +78,12 @@ const skillRoots: Record<AiToolKey, string> = { claudeCode: '.claude', copilot: 
 const graphRoots: Record<AiToolKey, string> = { ...skillRoots, copilot: '.copilot', codex: '.codex' };
 export function nativePlan(ai: AiTools): Command[] {
   const plan: Command[] = [];
+  if (ai.claudeCode) {
+    for (const plugin of claudePlugins) plan.push(
+      { bin: 'claude', args: ['plugin', 'marketplace', 'add', plugin.repo] },
+      { bin: 'claude', args: ['plugin', 'install', plugin.id, '--scope', 'project'] },
+    );
+  }
   for (const bin of ['codex', 'copilot'] as const) {
     if (!ai[bin]) continue;
     plan.push({ bin, args: ['plugin', 'marketplace', 'add', MARKETPLACE] },
@@ -73,6 +95,22 @@ export function nativePlan(ai: AiTools): Command[] {
 }
 export function installNativeVendors(projectPath: string, ai: AiTools, protectedPaths: string[] = []): Outcome[] {
   const outcomes: Outcome[] = [];
+  if (ai.claudeCode) {
+    const listed = run({ bin: 'claude', args: ['plugin', 'list', '--json'] }, projectPath);
+    // Remove only this project's old installation, never a user's global plugin.
+    if (pluginEntries(listed.output).some(p => pluginId(p) === obsoletePlugin && inProject(p, projectPath))) {
+      const c = { bin: 'claude', args: ['plugin', 'uninstall', obsoletePlugin, '--scope', 'project'] };
+      let result = run(c, projectPath);
+      if (result.ok) {
+        const after = run({ bin: 'claude', args: ['plugin', 'list', '--json'] }, projectPath);
+        if (!after.ok || pluginEntries(after.output).some(p => pluginId(p) === obsoletePlugin && inProject(p, projectPath))) {
+          result = { ...c, ok: false, output: `Plugin removal not confirmed. ${after.output}` };
+        }
+      }
+      outcomes.push(result);
+      console.log(`[native] ${result.ok ? 'OK' : 'PENDING'} ${commandText(c)}${result.ok ? '' : '\n  ' + result.output}`);
+    }
+  }
   for (const c of nativePlan(ai)) {
     if (c.bin === 'npx' && protectedPaths.some(p => (p === '.claude/skills/impeccable' || p.startsWith('.claude/skills/impeccable/')) && existsSync(join(projectPath, p)))) {
       const result = { ...c, ok: false, output: 'Preserved modified legacy impeccable files; resolve these before installing.' };
@@ -84,13 +122,19 @@ export function installNativeVendors(projectPath: string, ai: AiTools, protected
       let found = false;
       try {
         const data = JSON.parse(registered.output);
-        found = (Array.isArray(data) ? data : data.marketplaces ?? []).some((m: { name: string }) => m.name === 'nonoise');
+        found = (Array.isArray(data) ? data : data.marketplaces ?? []).some((m: { name: string }) => m.name === (claudePlugins.find(p => p.repo === c.args[3])?.marketplace ?? 'nonoise'));
       } catch { /* add below */ }
       result = found ? { ...c, ok: true, output: 'Marketplace already registered' } : run(c, projectPath);
-    } else result = run(c, projectPath);
-    if (result.ok && c.args[0] === 'plugin' && ['add', 'install'].includes(c.args[1] ?? '')) {
+    } else if (c.args[0] === 'plugin' && ['add', 'install'].includes(c.args[1] ?? '')) {
       const listed = run({ bin: c.bin, args: ['plugin', 'list', '--json'] }, projectPath);
-      if (!listed.ok || !hasInstalledPlugin(listed.output, c.args[2]!)) {
+      result = listed.ok && hasInstalledPlugin(listed.output, c.args[2]!, c.bin === 'claude' ? projectPath : undefined)
+        ? { ...c, ok: true, output: 'Plugin already installed' } : run(c, projectPath);
+    } else result = run(c, projectPath);
+    if (c.args[0] === 'plugin' && ['add', 'install'].includes(c.args[1] ?? '')) {
+      const listed = run({ bin: c.bin, args: ['plugin', 'list', '--json'] }, projectPath);
+      if (listed.ok && hasInstalledPlugin(listed.output, c.args[2]!, c.bin === 'claude' ? projectPath : undefined)) {
+        result = { ...c, ok: true, output: listed.output };
+      } else if (result.ok) {
         result = { ...c, ok: false, output: `Installer completed but plugin list did not confirm ${c.args[2]}. ${listed.output}` };
       }
     }
@@ -149,15 +193,22 @@ export function installNativeGraphify(ctx: GraphifyInstallContext): InstallRepor
   return report;
 }
 
-export function hasInstalledPlugin(output: string, plugin: string): boolean {
+function pluginEntries(output: string): any[] {
   try {
     const data = JSON.parse(output);
     const entries = Array.isArray(data) ? data : data.installed ?? data.plugins ?? [];
-    return entries.some((p: any) =>
-      (p.id === plugin || p.pluginId === plugin || `${p.name}@${p.marketplaceName ?? p.marketplace}` === plugin)
-      && p.enabled !== false && p.installed !== false
-      && Boolean(p.installPath || p.installedPath || p.installed || p.status === 'installed' || p.source === 'live' || p.source === 'installed'));
-  } catch { return false; }
+    return Array.isArray(entries) ? entries : [];
+  } catch { return []; }
+}
+function pluginId(p: any): string { return p.id ?? p.pluginId ?? `${p.name}@${p.marketplaceName ?? p.marketplace}`; }
+function inProject(p: any, projectPath: string): boolean {
+  return p.scope === 'project' && typeof p.projectPath === 'string' && resolve(p.projectPath) === resolve(projectPath);
+}
+export function hasInstalledPlugin(output: string, plugin: string, projectPath?: string): boolean {
+  return pluginEntries(output).some(p => pluginId(p) === plugin
+    && (!projectPath || (inProject(p, projectPath) && p.projectEnabled !== false))
+    && p.enabled !== false && p.installed !== false
+    && Boolean(p.installPath || p.installedPath || p.installed || p.status === 'installed' || p.source === 'live' || p.source === 'installed'));
 }
 
 /** Only filesystem reads and CLI list operations. Never installs or refreshes. */
@@ -181,10 +232,10 @@ export function doctor(projectPath: string): string[] {
     if (key === 'claudeCode' || key === 'codex' || key === 'copilot') {
       const bin = key === 'claudeCode' ? 'claude' : key;
       const listed = run({ bin, args: ['plugin', 'list', '--json'] }, projectPath);
-      const plugins = key === 'claudeCode' ? ['superpowers@nonoise', 'document-skills@anthropic-agent-skills', 'example-skills@anthropic-agent-skills'] : ['superpowers@nonoise'];
+      const plugins = key === 'claudeCode' ? claudePlugins.map(p => p.id) : ['superpowers@nonoise'];
       for (const plugin of plugins) {
-        const installed = listed.ok && hasInstalledPlugin(listed.output, plugin);
-        lines.push(`${plugin}: ${installed ? 'installed' : 'missing/unverified'} — ${bin} plugin marketplace add ${plugin.includes('anthropic') ? 'anthropics/skills' : MARKETPLACE}; ${bin} plugin ${bin === 'codex' ? 'add' : 'install'} ${plugin}`);
+        const installed = listed.ok && hasInstalledPlugin(listed.output, plugin, bin === 'claude' ? projectPath : undefined);
+        lines.push(`${plugin}: ${installed ? 'installed' : 'missing/unverified'} — ${bin} plugin marketplace add ${claudePlugins.find(p => p.id === plugin)?.repo ?? MARKETPLACE}; ${bin} plugin ${bin === 'codex' ? 'add' : 'install'} ${plugin}${bin === 'claude' ? ' --scope project' : ''}`);
       }
       if (!listed.ok) lines.push(`list error: ${listed.output}`);
     } else lines.push(`superpowers: no native plugin channel for ${key}; use --vendor-mode embed`);

@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn(), execSync: vi.fn() }));
 import { execFileSync } from 'node:child_process';
-import { configureNativeVendors, nativePlan, doctor, installNativeGraphify, installNativeVendors } from '../../src/native-vendor.js';
+import { configureNativeVendors, nativePlan, doctor, installNativeGraphify, installNativeVendors, run, hasInstalledPlugin } from '../../src/native-vendor.js';
 import { replaceManagedBlock } from '../../src/managed-block.js';
 import { migrateLegacyVendors } from '../../src/vendor-migration.js';
 import { scaffold } from '../../src/scaffold.js';
@@ -197,4 +197,99 @@ it('preserves instruction bytes even when upstream graphify replaces a legacy se
   expect(installNativeGraphify({ ...ai, projectPath: dir, bundledSkillsRoot: '/missing' }).claudeHook).toBe('ok');
   for (const file of ['CLAUDE.md', 'AGENTS.md', '.github/copilot-instructions.md']) expect(readFileSync(join(dir, file), 'utf8')).toBe(original);
   expect(readFileSync(join(dir, '.claude/skills/graphify/SKILL.md'), 'utf8')).toBe('native graphify');
+});
+
+
+describe('Claude project installation corrections', () => {
+  it('installs and verifies all three plugins in the current project', () => {
+    const installed: any[] = [];
+    mocked.mockImplementation((bin, args) => {
+      const a = args as string[];
+      if (a.join(' ') === 'plugin marketplace list --json') return '[]';
+      if (a.join(' ') === 'plugin list --json') return JSON.stringify(installed);
+      if (a[1] === 'install') {
+        expect(a.slice(3)).toEqual(['--scope', 'project']);
+        installed.push({ id: a[2], scope: 'project', projectPath: dir, enabled: true, projectEnabled: true, installPath: '/cache/plugin' });
+      }
+      return 'ok';
+    });
+    const results = installNativeVendors(dir, ai);
+    expect(results.every(r => r.ok)).toBe(true);
+    expect(installed.map(p => p.id)).toEqual(['superpowers@nonoise', 'document-skills@anthropic-agent-skills', 'skill-creator@claude-plugins-official']);
+    expect(mocked.mock.calls.filter(([, a]) => a?.slice(0, 3).join(' ') === 'plugin marketplace add').map(([, a]) => a?.[3]))
+      .toEqual(['russosalv/NONoise', 'anthropics/skills', 'anthropics/claude-plugins-official']);
+  });
+  it('does not confuse a registered NONoise marketplace with the other two', () => {
+    mocked.mockImplementation((bin, args) => args?.join(' ') === 'plugin marketplace list --json' ? '[{"name":"nonoise"}]' : '[]');
+    installNativeVendors(dir, ai);
+    expect(mocked.mock.calls.filter(([, a]) => a?.slice(0, 3).join(' ') === 'plugin marketplace add').map(([, a]) => a?.[3]))
+      .toEqual(['anthropics/skills', 'anthropics/claude-plugins-official']);
+  });
+  it('requires registry confirmation after an apparently successful installer', () => {
+    mocked.mockReturnValue('[]');
+    const results = installNativeVendors(dir, ai);
+    expect(results.filter(r => r.bin === 'claude' && r.args[1] === 'install')).toHaveLength(3);
+    expect(results.filter(r => r.args[1] === 'install').every(r => !r.ok && r.output.includes('did not confirm'))).toBe(true);
+  });
+  it('ignores plugins installed for another project', () => {
+    expect(hasInstalledPlugin(JSON.stringify([{ id: 'superpowers@nonoise', enabled: true, installPath: '/cache', scope: 'project', projectPath: '/elsewhere' }]), 'superpowers@nonoise', dir)).toBe(false);
+  });
+  it('replaces example-skills declarations preserving unrelated settings', () => {
+    put('.claude/settings.json', JSON.stringify({ enabledPlugins: { 'example-skills@anthropic-agent-skills': true, 'mine@local': true } }));
+    configureNativeVendors(dir, ai);
+    const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
+    expect(settings.enabledPlugins).toEqual({ 'mine@local': true, 'superpowers@nonoise': true, 'document-skills@anthropic-agent-skills': true, 'skill-creator@claude-plugins-official': true });
+    expect(settings.extraKnownMarketplaces['claude-plugins-official'].source.repo).toBe('anthropics/claude-plugins-official');
+  });
+  it('uninstalls obsolete project records, even when their declaration is gone', () => {
+    let obsolete = true;
+    mocked.mockImplementation((bin, args) => {
+      if (args?.[1] === 'uninstall') { expect(args).toEqual(['plugin', 'uninstall', 'example-skills@anthropic-agent-skills', '--scope', 'project']); obsolete = false; return 'ok'; }
+      if (args?.join(' ') === 'plugin list --json') return JSON.stringify(obsolete ? [{ id: 'example-skills@anthropic-agent-skills', scope: 'project', projectPath: dir, enabled: false, installPath: '/cache' }] : []);
+      return '[]';
+    });
+    installNativeVendors(dir, ai); expect(obsolete).toBe(false);
+  });
+  it('doctor recommends the dedicated channel and project scope', () => {
+    put('nonoise.config.json', JSON.stringify({ vendorMode: 'native', aiTools: ai }));
+    const lines = doctor(dir).join('\n');
+    expect(lines).toContain('skill-creator@claude-plugins-official: missing/unverified');
+    expect(lines).toContain('claude plugin marketplace add anthropics/claude-plugins-official');
+    expect(lines).toContain('claude plugin install skill-creator@claude-plugins-official --scope project');
+    expect(lines).not.toContain('example-skills');
+  });
+});
+
+describe('bounded external network retries', () => {
+  afterEach(() => vi.restoreAllMocks());
+  const commands = [
+    { bin: 'npx', args: ['--yes', 'impeccable', 'install'] },
+    { bin: 'claude', args: ['plugin', 'marketplace', 'add', 'russosalv/NONoise'] },
+    { bin: 'copilot', args: ['plugin', 'install', 'superpowers@nonoise'] },
+    { bin: 'codex', args: ['plugin', 'add', 'superpowers@nonoise'] },
+    { bin: 'uv', args: ['tool', 'install', 'graphifyy==0.9.91'] },
+  ];
+  it.each(commands)('retries $bin DNS errors twice with increasing backoff', c => {
+    const wait = vi.spyOn(Atomics, 'wait').mockReturnValue('timed-out');
+    mocked.mockImplementationOnce(() => { throw { stdout: "Download failed: Could not verify skill bundle: Dns Failed: resolve dns name 'impeccable.style:443' Try again" }; })
+      .mockImplementationOnce(() => { throw { stderr: 'HTTP 503 Service Unavailable' }; }).mockReturnValue('installed');
+    expect(run(c, dir).ok).toBe(true);
+    expect(mocked).toHaveBeenCalledTimes(3);
+    expect(wait.mock.calls.map(a => a[3])).toEqual([1000, 2000]);
+  });
+  it('exhausts timeouts after exactly three attempts preserving the error', () => {
+    vi.spyOn(Atomics, 'wait').mockReturnValue('timed-out');
+    mocked.mockImplementation(() => { throw { code: 'ETIMEDOUT', message: 'spawnSync npx ETIMEDOUT' }; });
+    expect(run(commands[0]!, dir)).toMatchObject({ ok: false, output: expect.stringContaining('ETIMEDOUT') });
+    expect(mocked).toHaveBeenCalledTimes(3);
+  });
+  it.each(['ENOENT', 'Invalid plugin manifest', 'HTTP 401 Unauthorized', 'HTTP 404 Not Found'])('does not retry permanent error %s', message => {
+    mocked.mockImplementation(() => { throw new Error(message); });
+    expect(run(commands[0]!, dir).ok).toBe(false); expect(mocked).toHaveBeenCalledTimes(1);
+  });
+  it('does not retry read-only list commands', () => {
+    mocked.mockImplementation(() => { throw new Error('HTTP 503'); });
+    expect(run({ bin: 'claude', args: ['plugin', 'list', '--json'] }, dir).ok).toBe(false);
+    expect(mocked).toHaveBeenCalledTimes(1);
+  });
 });

@@ -99,12 +99,18 @@ No state is persisted across turns. No auto-trigger.
         "source": "github",
         "repo": "anthropics/skills"
       }
+    },
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
     }
   },
   "enabledPlugins": {
     "superpowers@nonoise": true,
     "document-skills@anthropic-agent-skills": true,
-    "example-skills@anthropic-agent-skills": true
+    "skill-creator@claude-plugins-official": true
   }
 }
 ",
