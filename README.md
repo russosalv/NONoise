@@ -142,7 +142,7 @@ Upgrade refreshes NONoise skills and only the instruction text inside
 outside the markers survive; older files gain a block after their title.
 Known, unmodified 1.6.0 vendor files are removed by SHA-256 comparison; changed
 or user-added files are preserved and listed. Superpowers stays pinned to
-commit `bb92a77741419a4ab5f06e711a283343f1ada0c3` (7.0.0); other vendors follow
+commit `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7); other vendors follow
 upstream, except the required graphify runtime pin `graphifyy==0.9.91`.
 Claude plugins are installed immediately at project scope and verified in the
 registry; skill-creator uses its dedicated official plugin. Network failures get

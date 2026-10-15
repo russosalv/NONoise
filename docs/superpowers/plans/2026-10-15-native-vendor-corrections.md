@@ -14,3 +14,9 @@
 
 ## Review focus
 Registry entries for a different project must not suppress installation; non-network failures must not retry; stdout errors and spawn timeouts must be recognized; old 18-folder hashes must survive sync; repeated upstream installation must not change project bytes.
+
+## Review decisions
+- Tighten retry classification: plugin/dependency resolution failures are permanent. Regression tests reproduced the failure before correction.
+- Apply hash-based cleanup to embed upgrades too, preserving modified/user files.
+- Retain the original native Superpowers 5.0.7 pin. The brief requests refreshed embed snapshots (7.0.0), not a native dependency version migration; avoids silently changing existing native installs. Both copies contain all referenced names.
+- Upstream whitespace is preserved byte-for-byte; diff-check warnings inside vendor/lean copies are provenance, not local edits.

@@ -176,7 +176,7 @@ describe('native integration regressions', () => {
     const claude = JSON.parse(readFileSync(resolve('../../.claude-plugin/marketplace.json'), 'utf8'));
     const copilot = JSON.parse(readFileSync(resolve('../../.github/plugin/marketplace.json'), 'utf8'));
     expect(claude).toEqual(copilot);
-    expect(claude.plugins.find((p: any) => p.name === 'superpowers').source).toEqual({ source: 'url', url: 'https://github.com/obra/superpowers.git', sha: 'bb92a77741419a4ab5f06e711a283343f1ada0c3' });
+    expect(claude.plugins.find((p: any) => p.name === 'superpowers').source).toEqual({ source: 'url', url: 'https://github.com/obra/superpowers.git', sha: 'b55764852ac78870e65c6565fb585b6cd8b3c5c9' });
     const plugin = JSON.parse(readFileSync(resolve('../skills/.claude-plugin/plugin.json'), 'utf8'));
     expect(plugin.skills).toHaveLength(28);
     expect(plugin.skills.every((p: string) => !p.includes('vendor') && !p.includes('graphify'))).toBe(true);
@@ -283,7 +283,7 @@ describe('bounded external network retries', () => {
     expect(run(commands[0]!, dir)).toMatchObject({ ok: false, output: expect.stringContaining('ETIMEDOUT') });
     expect(mocked).toHaveBeenCalledTimes(3);
   });
-  it.each(['ENOENT', 'Invalid plugin manifest', 'HTTP 401 Unauthorized', 'HTTP 404 Not Found'])('does not retry permanent error %s', message => {
+  it.each(['ENOENT', 'Invalid plugin manifest', 'HTTP 401 Unauthorized', 'HTTP 404 Not Found', 'Failed to resolve plugin: invalid plugin manifest', 'Failed to resolve dependencies: incompatible versions'])('does not retry permanent error %s', message => {
     mocked.mockImplementation(() => { throw new Error(message); });
     expect(run(commands[0]!, dir).ok).toBe(false); expect(mocked).toHaveBeenCalledTimes(1);
   });
@@ -292,4 +292,14 @@ describe('bounded external network retries', () => {
     expect(run({ bin: 'claude', args: ['plugin', 'list', '--json'] }, dir).ok).toBe(false);
     expect(mocked).toHaveBeenCalledTimes(1);
   });
+});
+
+it('embed upgrade removes recognized obsolete impeccable skills and keeps user files', async () => {
+  put('nonoise.config.json', JSON.stringify({ frameworkVersion: '1.6.0', aiTools: ai, template: 'single-project' }));
+  put('.claude/skills/impeccable/audit/SKILL.md', readFileSync(resolve('test/fixtures/legacy-impeccable/audit.md'), 'utf8'));
+  put('.claude/skills/impeccable/user/SKILL.md', 'personal skill');
+  await runUpgrade({ targetPath: dir, ...paths, vendorMode: 'embed' });
+  expect(existsSync(join(dir, '.claude/skills/impeccable/audit'))).toBe(false);
+  expect(readFileSync(join(dir, '.claude/skills/impeccable/SKILL.md'), 'utf8')).toContain('name: impeccable');
+  expect(readFileSync(join(dir, '.claude/skills/impeccable/user/SKILL.md'), 'utf8')).toBe('personal skill');
 });

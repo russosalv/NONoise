@@ -85,7 +85,7 @@ vendor snapshots for this fallback; native scaffolds do not copy them.
 
 | Component | Native setup |
 |---|---|
-| Superpowers | `superpowers@nonoise` via the NONoise marketplace; Git URL + immutable SHA `bb92a77741419a4ab5f06e711a283343f1ada0c3` (7.0.0) |
+| Superpowers | `superpowers@nonoise` via the NONoise marketplace; Git URL + immutable SHA `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7) |
 | Claude documents / skill creator | `document-skills@anthropic-agent-skills` from `anthropics/skills`; `skill-creator@claude-plugins-official` from `anthropics/claude-plugins-official` |
 | Impeccable | `npx --yes impeccable install --yes --providers=claude,codex,github --scope=project` (selected providers only); one `/impeccable` skill with subcommands |
 | Graphify | `uv tool install --force graphifyy==0.9.91`, then `graphify install --project --platform claude` (also `codex`, `copilot`, `cursor`, `gemini` as selected) |
@@ -418,3 +418,8 @@ upstream installer, keeping user prose and NONoise markers intact while allowing
 native skills, references and hooks to be installed. Use `--graphify-only` for a
 forced repair through this protection. Successful native installs have a local
 version/hash receipt so repeated upgrades do not rewrite graphify backup files.
+
+The native Superpowers dependency remains at the existing 5.0.7 immutable pin;
+the refreshed offline embed snapshot is 7.0.0. All seven concrete Superpowers
+skill names referenced by NONoise exist in both versions. Changing an existing
+native installation version is intentionally outside this embed refresh.

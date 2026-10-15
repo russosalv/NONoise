@@ -151,7 +151,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   const configPath = join(targetPath, 'nonoise.config.json');
   const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, 'utf8')) : {};
   const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
-  const migration = vendorMode === 'native' && config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
+  const migration = config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
     ? await migrateLegacyVendors(targetPath) : { removed: [], preserved: [] };
   const protectedPaths = [...new Set<string>([...(config.preservedVendorFiles ?? []), ...migration.preserved])];
   for (const file of migration.removed) console.log(`[upgrade] removed: ${file}`);

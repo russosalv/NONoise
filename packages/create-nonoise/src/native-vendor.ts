@@ -8,7 +8,7 @@ import type { AiTools, AiToolKey } from './types.js';
 import type { GraphifyInstallContext, InstallReport } from './graphify-install.js';
 
 export const MARKETPLACE = 'russosalv/NONoise';
-export const SUPERPOWERS_SHA = 'bb92a77741419a4ab5f06e711a283343f1ada0c3';
+export const SUPERPOWERS_SHA = 'b55764852ac78870e65c6565fb585b6cd8b3c5c9';
 export type Command = { bin: string; args: string[] };
 export type Outcome = Command & { ok: boolean; output: string };
 export function commandText(c: Command): string {
@@ -27,7 +27,7 @@ export function run(c: Command, cwd: string): Outcome {
     } catch (error) {
       const e = error as { stdout?: Buffer | string; stderr?: Buffer | string; message?: string; code?: string };
       const output = [e.stdout?.toString().trim(), e.stderr?.toString().trim(), e.message, e.code].filter(Boolean).join('\n') || String(error);
-      const network = /\b(?:EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH)\b|dns (?:failed|failure)|(?:could not|couldn't|failed to) resolve|resolve dns name|timed?\s*out|timeout|temporary failure in name resolution|(?:HTTP(?:\/\d(?:\.\d)?)?|status(?: code)?|server returned(?: status)?)[:\s]+5\d\d\b|\b50[234] (?:Bad Gateway|Service Unavailable|Gateway Time)/i.test(output);
+      const network = /\b(?:EAI_AGAIN|ENOTFOUND|ETIMEDOUT|ECONNRESET|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH)\b|dns (?:failed|failure)|(?:could not|couldn't|failed to) resolve (?:host(?:name)?|dns(?: name)?|address|name)\b|resolve dns name|timed?\s*out|timeout|temporary failure in name resolution|(?:HTTP(?:\/\d(?:\.\d)?)?|status(?: code)?|server returned(?: status)?)[:\s]+5\d\d\b|\b50[234] (?:Bad Gateway|Service Unavailable|Gateway Time)/i.test(output);
       if (!installer || !network || attempt >= 2) return { ...c, ok: false, output };
       const delay = 1000 * (attempt + 1);
       console.log(`[native] RETRY ${attempt + 2}/3 in ${delay}ms: ${commandText(c)}\n  ${output}`);
