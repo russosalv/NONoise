@@ -1,3 +1,12 @@
+# 1.7.0 (unreleased)
+
+- Default to native vendor installers for scaffold and upgrade; preserve the offline `--vendor-mode embed` fallback.
+- Declare Claude marketplaces/plugins and install selected Codex/Copilot, unified impeccable and pinned graphifyy 0.9.91 integrations with non-fatal recovery commands.
+- Add a NONoise marketplace and own-skills plugin; pin superpowers 5.0.7 by immutable SHA for all three harnesses.
+- Manage instruction blocks without replacing user prose; migrate only fingerprinted legacy vendor files and preserve modified files/symlinks.
+- Add read-only `doctor [path]`, native/migration/marker tests and real-container validation documentation.
+- Correct impeccable's upstream sync source to `plugin/skills`.
+
 # create-nonoise
 
 ## 1.6.0

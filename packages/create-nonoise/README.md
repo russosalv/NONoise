@@ -19,14 +19,14 @@ cd my-project
 > **GitHub Release fallback.** If the npm registry is temporarily unavailable, install the identical tarball from the GitHub Release:
 >
 > ```bash
-> npx https://github.com/russosalv/NONoise/releases/download/v1.6.0/create-nonoise-1.6.0.tgz my-project
+> npx https://github.com/russosalv/NONoise/releases/download/v1.7.0/create-nonoise-1.7.0.tgz my-project
 > ```
 
 The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then scaffolds:
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go.
 - **`docs/`** — six-folder source-of-truth hierarchy (architecture, requirements, calls, support, prd, sprints).
-- **`.claude/skills/`** — 40+ AI skills: Polly advisor, BMAD personas, Quint FPF validator, vendored [superpowers](https://github.com/obra/superpowers), design and ops packs.
+- **`.claude/skills/`** — 40+ AI skills: Polly advisor, BMAD personas, Quint FPF validator, native [superpowers](https://github.com/obra/superpowers), design and ops packs.
 - **Context files** for each selected tool — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.

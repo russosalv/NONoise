@@ -17,7 +17,7 @@ NONoise targets multiple AI coding assistants. Some are **first-class** (fully v
 | **Hooks** (pre/post tool-use) | Active (defined in `.claude/settings.json`) | No hook mechanism — relevant hooks are silent no-op |
 | **MCP servers** (`.mcp.json`) | Supported if user configures | Silent no-op |
 | **Worktrees** (`superpowers:using-git-worktrees`) | Active | Active (worktrees are a git feature, not tool-specific) |
-| **Namespacing for vendored** | `superpowers:<name>`, `impeccable:<name>` | Same files, referenced by path |
+| **Native vendors** | `superpowers:<name>` plugin; `/impeccable <subcommand>` | Native Copilot plugin skills and `.github/skills/impeccable/` |
 | **Memory integration** | `claude-mem` plugin mentioned by Polly (info-only) | Native memory features used by the user |
 
 ## Best-effort tier — Cursor, Gemini CLI, Codex
@@ -116,3 +116,18 @@ The `swarm-router` SKILL.md itself encodes the per-harness dispatch tables so th
 - [`polly.md`](polly.md) §Best-effort mode — what degrades when Polly runs outside Claude Code / Copilot.
 - [`skills-catalog.md`](skills-catalog.md) §Authoring a new skill — conventions that keep skills cross-tool.
 - `packages/skills/vendor/superpowers/skills/using-superpowers/references/copilot-tools.md`, `gemini-tools.md`, `codex-tools.md` — tool-equivalence mapping for the superpowers ecosystem, which NONoise inherits.
+
+## Native vendor delivery (1.7)
+
+NONoise's own skills stay in `.claude/skills/`. Vendor dependencies use their
+upstream installers; do not infer that `superpowers:*` is absent because a local
+folder is missing. Resolve it from the harness plugin registry. Codex and Copilot
+use `superpowers@nonoise`; the marketplace pins the same SHA as Claude.
+`create-nonoise doctor [path]` checks each selected harness without installing.
+
+Claude project settings declare the NONoise and Anthropic marketplaces and
+vendor plugins. Impeccable uses one skill with subcommands (providers `claude`,
+`codex`, `github`); graphify 0.9.91 uses `install --project --platform <platform>`.
+Codex graphify 0.9.91 lands under `.codex/skills/`, impeccable under `.agents/skills/`; Copilot graphify
+uses `.copilot/skills/`. Offline `--vendor-mode embed` retains the old layout.
+See [installation](installation.md#native-vendor-installation-and-upgrades-17).

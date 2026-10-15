@@ -17,7 +17,7 @@ This document covers two distinct audiences:
 
 Optional (scaffolded but advisor-only — you install if and when you need them):
 
-- **graphify** — for brownfield codebases. The `create-nonoise` scaffolder installs the `graphifyy` Python package automatically at project creation time (via `uv tool install "graphifyy>=0.7.0"`); no on-demand install step is needed.
+- **graphify** — for brownfield codebases. The `create-nonoise` scaffolder installs the `graphifyy` Python package automatically at project creation time (via `uv tool install "graphifyy==0.9.91"`); no on-demand install step is needed.
 - **LlamaCloud API key** — if using `tools/md-extractor/` for PDF / DOCX ingestion. The tool prompts for the key; the scaffold does not store it.
 - **Playwright** — installed automatically the first time `atr` runs; brings its own browsers.
 - **Voice-to-text** — Wispr Flow / Handy / Superwhisper / native Copilot transcription. Polly mentions; you install. See [`external-tools.md`](external-tools.md).
@@ -40,7 +40,7 @@ Then the scaffold runs, bundling:
 
 - `src/` — empty placeholder for your code.
 - `docs/` — the six-folder source-of-truth tree (see [`docs-hierarchy.md`](docs-hierarchy.md)).
-- `.claude/skills/` — the full skill library (Polly + specialists + vendored superpowers + impeccable + skill-creator + pptx tooling). See [`skills-catalog.md`](skills-catalog.md).
+- `.claude/skills/` — the NONoise skill library (Polly + specialists); third-party skills use native installers by default. See [`skills-catalog.md`](skills-catalog.md).
 - `.claude/commands/` + `.claude/settings.json` (Claude Code selected).
 - `CLAUDE.md` (Claude Code selected).
 - `.github/copilot-instructions.md` (Copilot selected).
@@ -70,15 +70,77 @@ Invoke Polly whenever you're unsure what to do next:
 
 Polly reads `.nonoise/sdlc-flow.md`, detects your current phase, and produces a one-shot 4-block message: where you are, what skill to engage next, a copy-pasteable prompt, and an offer to delegate. One message per invocation.
 
-### Updating a scaffolded project (roadmap)
+### Native vendor installation and upgrades (1.7)
 
-Future CLI commands (not in v1):
+```bash
+npx create-nonoise my-project --yes --ai claude-code,copilot,codex
+npx create-nonoise --upgrade my-project
+npx create-nonoise doctor my-project
+npx create-nonoise offline-project --vendor-mode embed --yes
+```
 
-- `nonoise update --check` — compares local manifest in `nonoise.config.json` with the upstream registry; prints "N updates available".
-- `nonoise update` — applies a specific update the user opts into.
-- `nonoise add <pack>` — adds a new optional pack to an existing project.
+`native` is the default for new projects and upgrades, including legacy projects.
+`embed` must be explicitly selected for an offline upgrade. The CLI still bundles
+vendor snapshots for this fallback; native scaffolds do not copy them.
 
-Design principle (per review feedback in `todo.txt`): **automatic check yes, automatic apply no.** Auto-updates break reproducibility and trust; check + manual apply is the right compromise.
+| Component | Native setup |
+|---|---|
+| Superpowers | `superpowers@nonoise` via the NONoise marketplace; Git URL + immutable SHA `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7) |
+| Claude documents / skill creator | `document-skills@anthropic-agent-skills` and `example-skills@anthropic-agent-skills`, from `anthropics/skills` |
+| Impeccable | `npx --yes impeccable install --yes --providers=claude,codex,github --scope=project` (selected providers only); one `/impeccable` skill with subcommands |
+| Graphify | `uv tool install --force graphifyy==0.9.91`, then `graphify install --project --platform claude` (also `codex`, `copilot`, `cursor`, `gemini` as selected) |
+
+Claude's `.claude/settings.json` merges `extraKnownMarketplaces` and
+`enabledPlugins`, so teammates can approve the declared installs when opening
+the project. Unrelated settings are preserved. To install immediately:
+
+```bash
+claude plugin marketplace add russosalv/NONoise
+claude plugin install superpowers@nonoise --scope project
+claude plugin marketplace add anthropics/skills
+claude plugin install document-skills@anthropic-agent-skills --scope project
+claude plugin install example-skills@anthropic-agent-skills --scope project
+```
+
+For Codex/Copilot the CLI runs `plugin marketplace add russosalv/NONoise`, then
+`codex plugin add superpowers@nonoise` / `copilot plugin install superpowers@nonoise`.
+Already registered marketplaces are reused. Missing commands and installer failures
+are non-fatal and printed with exact retry commands. `doctor [path]` only reads
+project files and native `plugin list --json` / `uv tool list` output; catalog
+availability is not reported as installation. Disabled or unconfirmed plugins
+are reported as missing/unverified. Codex/Copilot have no Anthropic plugin channel
+configured here; use Claude or the explicit embed fallback for pptx/skill-creator.
+Cursor/Gemini have native impeccable/graphify installers but no superpowers plugin
+channel in this CLI; use embed if they need that pack.
+
+The repo also exposes its 28 own skills as `nonoise@nonoise` for all three plugin
+CLIs. Installing that plugin is optional for scaffold users, who already have
+the same NONoise skills locally. For local marketplace development use `/work`
+or your checkout path instead of `russosalv/NONoise`. No publication is part of
+the 1.7 development change; remote marketplace installation needs this branch
+released upstream first. The release tarball URL becomes available on release.
+
+Upgrade preserves text outside NONoise markers in CLAUDE.md, AGENTS.md and
+`.github/copilot-instructions.md`. Files without markers retain their entire old
+content and receive a current block after the title. An incomplete block is an
+error rather than permission to overwrite text. User preferences stay outside
+the managed block. Skill names and workflows are unchanged.
+
+Legacy cleanup checks frozen SHA-256 fingerprints of 1.6.0 vendor files,
+including namespaced and flat impeccable layouts, ancillary superpowers files,
+and graphify platform copies. It deletes only exact matches and empty vendor
+directories, never traverses symlinks, and lists removals and modifications.
+Preserved modified vendor files are recorded in `preservedVendorFiles`; native
+installers that would overwrite those impeccable/graphify paths are deferred.
+Resolve those files and remove the corresponding entries to enable installation.
+New user files are never inferred to belong to NONoise from their name alone.
+Run upgrade twice to check stable project output.
+
+Graphify's native skill performs semantic extraction with the harness model;
+NONoise no longer provides its own native-mode copy. For VS Code, optional
+`graphify vscode install` and `code --install-extension renaissance-geek.impeccable`
+remain separate editor choices. Codex impeccable hooks require approval in `/hooks`
+inside the harness, as upstream documents.
 
 ---
 
@@ -311,7 +373,7 @@ This `docs/` folder doubles as the source material for the public site at [NONoi
 | CLI test snapshots fail unexpectedly | a vendored pack bumped | `git diff packages/skills/vendor/` to see; update snapshots deliberately |
 | Scaffolded project is missing a skill | `bundle-assets.mjs` didn't pick it up | check the glob; sometimes a new top-level folder needs explicit inclusion |
 | Polly can't find the SDLC flow | `.nonoise/sdlc-flow.md` missing | Polly falls back to the embedded default and mentions the missing file; create one from `packages/skills/polly/references/sdlc-flow.default.md` |
-| `graphify .` produces an empty report | graphify binary not installed or not on PATH | re-run `create-nonoise` in the project, or install manually: `uv tool install "graphifyy>=0.7.0"` |
+| `graphify .` produces an empty report | graphify binary not installed or not on PATH | re-run `create-nonoise` in the project, or install manually: `uv tool install "graphifyy==0.9.91"` |
 
 ---
 
@@ -324,3 +386,20 @@ The framework is MIT-licensed (see `LICENSE` — landing with the first tagged r
 - Attribution in marketing / slides / case studies that reference the architecture or methodology.
 
 Full attribution terms in `ATTRIBUTION.md` (landing with the first tagged release).
+
+### Verified upstream compatibility notes
+
+The 1.7 container checks used Claude Code 2.1.300, Codex 0.162.1 and Copilot 1.0.98.
+The common marketplace uses `source: "url"` plus `sha`; Codex 0.162.1 did not
+resolve the `source: "github"` form. Do not put a raw SHA in `ref`: Copilot
+passes it to `git clone --branch`. SHA-only Git URL sources worked in all three.
+Copilot 1.0.98 prunes remote plugin entries when their marketplace is registered
+as a live local directory. For local validation, register through Git transport;
+normal deployment uses the hosted repository. See [container validation](native-vendor-validation.md).
+
+Graphify 0.9.91 can replace a legacy `## graphify` section through the end of an
+instruction file. NONoise preserves existing instruction-file bytes around the
+upstream installer, keeping user prose and NONoise markers intact while allowing
+native skills, references and hooks to be installed. Use `--graphify-only` for a
+forced repair through this protection. Successful native installs have a local
+version/hash receipt so repeated upgrades do not rewrite graphify backup files.

@@ -29,7 +29,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** — a library of **40+ AI skills**: Polly advisor, BMAD-derived personas, Quint FPF validator, vendored [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
+- **`.claude/skills/`** — a library of **28 NONoise skills plus native vendor integrations**: Polly advisor, BMAD-derived personas, Quint FPF validator, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.
@@ -66,7 +66,7 @@ You never pick the wrong skill. You always know the next step.
 
 **Canonical architectures beat exotic ones** because they're already in the parametric memory of every frontier LLM. NONoise's architectural skills push toward DDD, Clean Architecture, CQRS, standard REST — and only allow deviations that survive a formal Quint FPF validation. Every token you spend re-teaching the LLM your bespoke abstraction is a token it isn't spending on your actual problem.
 
-**Local tooling, no service.** Everything runs inside your AI tool of choice. No server, no telemetry, no account. Skills are plain Markdown; a `git clone` carries them between projects. External tools (issue trackers, voice recorders, memory systems) are mentioned by Polly at the right moment — not wired, not required.
+**Local tooling, no service.** Everything runs inside your AI tool of choice. No server, no telemetry, no account. NONoise skills are plain Markdown; a `git clone` carries them between projects. Vendor plugins are installed through each harness; Claude project settings declare the dependencies for teammates. External tools (issue trackers, voice recorders, memory systems) are mentioned by Polly at the right moment — not wired, not required.
 
 ### Multi-model orchestration with swarm-router
 
@@ -111,7 +111,7 @@ claude           # Claude Code CLI
 > **GitHub Release fallback.** If the npm registry is temporarily unavailable for this package, you can install the exact same tarball directly from the GitHub Release attached to each tag:
 >
 > ```bash
-> npx https://github.com/russosalv/NONoise/releases/download/v1.6.0/create-nonoise-1.6.0.tgz my-project
+> npx https://github.com/russosalv/NONoise/releases/download/v1.7.0/create-nonoise-1.7.0.tgz my-project
 > ```
 
 Invoke Polly whenever you're unsure what to do next:
@@ -128,34 +128,24 @@ A full walkthrough of the SDLC lives in [`docs/sdlc.md`](docs/sdlc.md); Polly's 
 
 ## Upgrading an existing NONoise project
 
-Bundled skills (`reverse-engineering`, `polly`, `arch-*`, etc.) are copied into your project at scaffold time and stay frozen at that version — they don't follow `npm` updates of `create-nonoise`. To pick up improvements (e.g. hardened anti-pattern guards, new skills), run the **upgrade** path on an existing project:
+Version 1.7 defaults to native vendor installation. NONoise's own skills remain local.
 
 ```bash
-# Interactive: detects an existing nonoise.config.json and asks
-npx create-nonoise@latest path/to/existing-project
-
-# Direct, non-interactive
-npx create-nonoise@latest --upgrade path/to/existing-project
+npx create-nonoise@latest --upgrade path/to/project
+npx create-nonoise@latest doctor path/to/project
+# Offline fallback: bundled vendor snapshots
+npx create-nonoise my-project --vendor-mode embed
 ```
 
-What `--upgrade` does:
-
-- **Refreshes all bundled skills** under `<project>/.claude/skills/` (overwrites — pick up the latest `SKILL.md` files for `reverse-engineering`, `polly`, BMAD agents, the `superpowers` and `impeccable` vendor packs, etc.).
-- **Refreshes the project-local graphify skills** (`.claude/skills/graphify/`, `.copilot/skills/graphify/`, `.agents/skills/graphify/`) so any cloning teammate gets the subagent-dispatch flow without touching `ANTHROPIC_API_KEY`. Stamp file `.graphify_skill_version` tells `--upgrade` whether the bundled copy is newer than the version on disk.
-- **Re-runs the graphify install** so `<project>/CLAUDE.md` and `<project>/.claude/settings.json` get the current `PreToolUse` hook.
-- **Does NOT touch templates** — `CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md` keep your local edits.
-- **Does NOT touch `nonoise.config.json`** — your AI-tools selection survives the upgrade.
-
-Two narrower variants:
-
-```bash
-# Only repair the graphify CLI integration (no skill refresh)
-npx create-nonoise@latest --graphify-only path/to/existing-project
-
-# In Claude Code, build/refresh the project's knowledge graph (uses your IDE's
-# model, no external API key) — every NONoise project ships this slash command
-/index .
-```
+Upgrade refreshes NONoise skills and only the instruction text inside
+`<!-- nonoise:begin vX.Y.Z -->` / `<!-- nonoise:end -->`. Existing instructions
+outside the markers survive; older files gain a block after their title.
+Known, unmodified 1.6.0 vendor files are removed by SHA-256 comparison; changed
+or user-added files are preserved and listed. Superpowers stays pinned to
+commit `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7); other vendors follow
+upstream, except the required graphify runtime pin `graphifyy==0.9.91`.
+Failed/missing installers leave exact retry commands and do not stop scaffolding.
+See [installation](docs/installation.md) for plugin setup and `doctor` details.
 
 Auto-detection guard: when you pass a positional path that already contains a `nonoise.config.json`, the CLI **never silently scaffolds over it**. Without `--yes` it prompts (Upgrade / Graphify-only / Cancel); with `--yes` it aborts and prints the explicit `--upgrade` / `--graphify-only` commands you should run instead.
 
