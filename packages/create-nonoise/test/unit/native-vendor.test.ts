@@ -277,6 +277,12 @@ describe('bounded external network retries', () => {
     expect(mocked).toHaveBeenCalledTimes(3);
     expect(wait.mock.calls.map(a => a[3])).toEqual([1000, 2000]);
   });
+  it.each(['fatal: unable to access repo: The requested URL returned error: 500', 'HTTP Error 502: Bad Gateway', '500 Internal Server Error'])('retries HTTP server transport error %s', message => {
+    vi.spyOn(Atomics, 'wait').mockReturnValue('timed-out');
+    mocked.mockImplementationOnce(() => { throw { stderr: message }; }).mockReturnValue('installed');
+    expect(run(commands[1]!, dir).ok).toBe(true);
+    expect(mocked).toHaveBeenCalledTimes(2);
+  });
   it('exhausts timeouts after exactly three attempts preserving the error', () => {
     vi.spyOn(Atomics, 'wait').mockReturnValue('timed-out');
     mocked.mockImplementation(() => { throw { code: 'ETIMEDOUT', message: 'spawnSync npx ETIMEDOUT' }; });
