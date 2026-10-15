@@ -2,8 +2,9 @@
 // Append known embed bytes; never replace historical ownership hashes.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
-import { resolve, join } from 'node:path';
-const root = resolve(import.meta.dirname, '..');
+import { resolve, join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const target = join(root, 'packages/create-nonoise/src/legacy-vendor-hashes.ts');
 const previous = readFileSync(target, 'utf8');
 const hashes = JSON.parse(previous.slice(previous.indexOf('=') + 1).trim().replace(/;$/, ''));

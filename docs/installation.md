@@ -128,6 +128,12 @@ configured here; use Claude or the explicit embed fallback for pptx/skill-creato
 Cursor/Gemini have native impeccable/graphify installers but no superpowers plugin
 channel in this CLI; use embed if they need that pack.
 
+
+The native Superpowers dependency remains at the existing 5.0.7 immutable pin;
+the refreshed offline embed snapshot is 7.0.0. All seven concrete Superpowers
+skill names referenced by NONoise exist in both versions. Changing an existing
+native installation version is intentionally outside this embed refresh.
+
 The repo also exposes its 28 own skills as `nonoise@nonoise` for all three plugin
 CLIs. Installing that plugin is optional for scaffold users, who already have
 the same NONoise skills locally. For local marketplace development use `/work`
@@ -220,13 +226,11 @@ NONoise-frmw/
 │   │   ├── sprint-manifest/
 │   │   ├── vscode-config-generator/
 │   │   └── vendor/
-│   │       ├── superpowers/           # 14 skills from obra/superpowers
-│   │       │   ├── agents/
-│   │       │   ├── commands/
+│   │       ├── superpowers/           # 15 skills from obra/superpowers
 │   │       │   ├── hooks/
 │   │       │   ├── skills/
 │   │       │   └── VENDOR.json        # Pinned commit
-│   │       ├── impeccable/            # Impeccable design pack
+│   │       ├── impeccable/            # One unified Impeccable skill
 │   │       ├── skill-creator/         # Anthropic's meta-skill
 │   │       └── pptx/                  # Office tooling
 │   └── templates/
@@ -282,7 +286,7 @@ pnpm --filter create-nonoise run build
 ### Tests
 
 ```bash
-pnpm --filter create-nonoise exec vitest run       # 47 CLI tests (at time of writing)
+pnpm --filter create-nonoise exec vitest run       # CLI tests (unit, integration, snapshot)
 pnpm -r run test                                   # every package's tests
 pnpm -r run typecheck                              # typecheck all
 ```
@@ -292,10 +296,12 @@ The CLI test suite is a snapshot-based integration suite: it scaffolds projects 
 ### Refresh vendored packs
 
 ```bash
-node scripts/sync-vendor.mjs
+node scripts/sync-vendor.mjs --all
+node scripts/sync-graphify-platform-skills.mjs
+node scripts/update-vendor-hashes.mjs
 ```
 
-Pulls the latest from upstream (obra/superpowers, impeccable, skill-creator, pptx) pinned to the commits in each `VENDOR.json`. To bump a pin, edit the `commit` field in `packages/skills/vendor/<pack>/VENDOR.json`, re-run the sync, re-run tests, commit the resulting diff.
+Fetches each configured upstream `ref` (Superpowers, Impeccable, skill-creator, pptx and Graphify), writes the fetched revision to `VENDOR.json`, and refreshes its scoped contents. The second command refreshes the lean Graphify files shipped in the package; the third appends current ownership hashes without dropping historical migration entries. Re-run tests and review the resulting diff before committing.
 
 **Review tip.** Vendor diffs are large; use `git diff --stat packages/skills/vendor/` to get a sense of scope. Read the upstream changelogs before bumping.
 
@@ -418,8 +424,3 @@ upstream installer, keeping user prose and NONoise markers intact while allowing
 native skills, references and hooks to be installed. Use `--graphify-only` for a
 forced repair through this protection. Successful native installs have a local
 version/hash receipt so repeated upgrades do not rewrite graphify backup files.
-
-The native Superpowers dependency remains at the existing 5.0.7 immutable pin;
-the refreshed offline embed snapshot is 7.0.0. All seven concrete Superpowers
-skill names referenced by NONoise exist in both versions. Changing an existing
-native installation version is intentionally outside this embed refresh.
