@@ -81,7 +81,7 @@ describe('runGraphifyOnly', () => {
     });
 
     try {
-      const result = runGraphifyOnly({ targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
+      const result = runGraphifyOnly({ vendorMode: 'embed', targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.source).toBe('config');
       expect(result.aiTools.claudeCode).toBe(true);
       expect(result.aiTools.copilot).toBe(true);
@@ -99,7 +99,7 @@ describe('runGraphifyOnly', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nonoise-graphify-only-noconfig-'));
     happyPathExec();
     try {
-      const result = runGraphifyOnly({ targetPath: dir, aiCsv: 'claude-code', skillsRoot: BUNDLED_SKILLS_ROOT });
+      const result = runGraphifyOnly({ vendorMode: 'embed', targetPath: dir, aiCsv: 'claude-code', skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.source).toBe('flag');
       expect(result.aiTools.claudeCode).toBe(true);
       expect(result.aiTools.copilot).toBe(false);
@@ -116,7 +116,7 @@ describe('runGraphifyOnly', () => {
     });
     happyPathExec();
     try {
-      const result = runGraphifyOnly({ targetPath: dir, aiCsv: 'copilot', skillsRoot: BUNDLED_SKILLS_ROOT });
+      const result = runGraphifyOnly({ vendorMode: 'embed', targetPath: dir, aiCsv: 'copilot', skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.source).toBe('merged');
       expect(result.aiTools.claudeCode).toBe(true);
       expect(result.aiTools.copilot).toBe(true);
@@ -128,7 +128,7 @@ describe('runGraphifyOnly', () => {
   it('throws when no config and no --ai flag', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nonoise-graphify-only-bare-'));
     try {
-      expect(() => runGraphifyOnly({ targetPath: dir })).toThrow(
+      expect(() => runGraphifyOnly({ vendorMode: 'embed', targetPath: dir })).toThrow(
         /No nonoise\.config\.json found/,
       );
     } finally {
@@ -142,7 +142,7 @@ describe('runGraphifyOnly', () => {
       aiTools: { claudeCode: false, copilot: false, codex: false, cursor: false, geminiCli: false },
     });
     try {
-      expect(() => runGraphifyOnly({ targetPath: dir })).toThrow(
+      expect(() => runGraphifyOnly({ vendorMode: 'embed', targetPath: dir })).toThrow(
         /No AI tools enabled/,
       );
     } finally {
@@ -153,7 +153,7 @@ describe('runGraphifyOnly', () => {
   it('throws on unknown AI tool flag', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nonoise-graphify-only-bad-'));
     try {
-      expect(() => runGraphifyOnly({ targetPath: dir, aiCsv: 'claude-code,bogus-tool' }))
+      expect(() => runGraphifyOnly({ vendorMode: 'embed', targetPath: dir, aiCsv: 'claude-code,bogus-tool' }))
         .toThrow(/Unknown AI tool flag/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -164,7 +164,7 @@ describe('runGraphifyOnly', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nonoise-graphify-only-bad-json-'));
     writeFileSync(join(dir, 'nonoise.config.json'), '{ not valid json', 'utf8');
     try {
-      expect(() => runGraphifyOnly({ targetPath: dir })).toThrow(
+      expect(() => runGraphifyOnly({ vendorMode: 'embed', targetPath: dir })).toThrow(
         /Could not parse nonoise\.config\.json/,
       );
     } finally {
@@ -187,7 +187,7 @@ describe('runGraphifyOnly', () => {
       throw new Error(`Unexpected: ${cmd}`);
     });
     try {
-      const result = runGraphifyOnly({ targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
+      const result = runGraphifyOnly({ vendorMode: 'embed', targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.exitCode).toBe(0);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -210,7 +210,7 @@ describe('runGraphifyOnly', () => {
       throw new Error(`Unexpected: ${cmd}`);
     });
     try {
-      const result = runGraphifyOnly({ targetPath: dir, skillsRoot: emptyRoot });
+      const result = runGraphifyOnly({ vendorMode: 'embed', targetPath: dir, skillsRoot: emptyRoot });
       expect(result.exitCode).toBe(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });

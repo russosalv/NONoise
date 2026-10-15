@@ -6,7 +6,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const exec = promisify(execFile);
+// Test the missing-tools path without modifying developer-global plugin registries.
+const execAsync = promisify(execFile);
+const exec = (_node: string, args: string[], opts: { cwd: string }) => execAsync(process.execPath, args, { ...opts, env: { ...process.env, PATH: '/nonexistent-nonoise-test-bin' } });
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const PKG_ROOT = resolve(__dirname, '..', '..');
@@ -51,7 +53,11 @@ describe('CLI via bin shim', () => {
   });
 
   it('--yes --ai claude-code produces a project with CLAUDE.md', async () => {
-    await exec('node', [BIN, 'demo', '--yes', '--ai', 'claude-code', '--no-git'], { cwd: parent });
+    const { stdout } = await exec('node', [BIN, 'demo', '--yes', '--ai', 'claude-code', '--no-git'], { cwd: parent });
+    expect(stdout).toContain('PENDING npx --yes impeccable install --yes --providers=claude --scope=project');
+    const { stdout: status } = await exec('node', [BIN, 'doctor', 'demo'], { cwd: parent });
+    expect(status).toContain('vendor-mode native');
+    expect(status).toContain('missing/unverified');
     const claude = await readFile(join(parent, 'demo', 'CLAUDE.md'), 'utf8');
     expect(claude).toContain('demo');
   }, 60_000);

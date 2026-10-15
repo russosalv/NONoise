@@ -297,7 +297,7 @@ describe('scaffold() — Polly & superpowers wiring', () => {
   });
 
   it('installs vendored superpowers skill for Copilot-only but NOT the Claude-only commands', async () => {
-    await scaffold(buildCtx({ aiTools: buildAi({ copilot: true }) }), {
+    await scaffold(buildCtx({ vendorMode: 'embed', aiTools: buildAi({ copilot: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
     const spSkill = await readFile(
@@ -311,7 +311,7 @@ describe('scaffold() — Polly & superpowers wiring', () => {
   });
 
   it('installs vendored superpowers skills+commands+agents+hooks when Claude is selected', async () => {
-    await scaffold(buildCtx({ aiTools: buildAi({ claudeCode: true }) }), {
+    await scaffold(buildCtx({ vendorMode: 'embed', aiTools: buildAi({ claudeCode: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
     const subtrees = ['skills', 'commands', 'agents', 'hooks'];

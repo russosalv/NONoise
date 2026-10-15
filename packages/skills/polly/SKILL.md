@@ -55,7 +55,7 @@ If `.nonoise/sdlc-flow.md` is missing or unreadable, read `references/sdlc-flow.
 
 ## Fallback — missing skill
 
-If the skill suggested for the next phase is not installed at `.claude/skills/<name>/`, follow `references/fallback-messages.md` to give the user the three-way option (skip / manual / install).
+Resolve NONoise skills at `.claude/skills/<name>/` and vendor skills through the harness native plugin/skill registry (for example `superpowers:<name>`). In embed mode vendor skills are local. If the suggested skill is unavailable in both locations, follow `references/fallback-messages.md` to give the user the three-way option (skip / manual / install).
 
 ## Multi-repo workspaces
 

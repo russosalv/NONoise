@@ -1,4 +1,7 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { configureNativeVendors, installNativeVendors } from './native-vendor.js';
+import { migrateLegacyVendors } from './vendor-migration.js';
+import { updateManagedFiles } from './managed-block.js';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installSkills, installVendor } from './skill-installer.js';
@@ -8,6 +11,8 @@ import { FLAG_TO_AI_TOOL } from './types.js';
 import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
 
 export type UpgradeOptions = {
+  vendorMode?: 'native' | 'embed';
+  templatesRoot?: string;
   /** Target project directory. Defaults to process.cwd(). */
   targetPath?: string;
   /** CSV of AI tool flags — overrides values from nonoise.config.json. */
@@ -27,6 +32,8 @@ export type UpgradeResult = {
   skillsRefreshed: number;
   vendorPacksRefreshed: string[];
   graphifyReport: InstallReport;
+  removed: string[];
+  preserved: string[];
   exitCode: number;
 };
 
@@ -91,8 +98,7 @@ function defaultSkillsRoot(): string {
 /**
  * Re-runs the post-scaffold parts that need to stay in sync with the
  * shipped create-nonoise version: bundled skills + graphify integration.
- * Templates (CLAUDE.md, AGENTS.md, etc.) are left alone — they are
- * project-customised after scaffold and would clobber user edits.
+ * Instruction files refresh only their managed block; custom prose is preserved.
  */
 export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   const targetPath = resolve(opts.targetPath ?? process.cwd());
@@ -141,6 +147,16 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
 
   const skillsRoot = opts.skillsRoot ?? defaultSkillsRoot();
 
+  const vendorMode = opts.vendorMode ?? 'native';
+  const configPath = join(targetPath, 'nonoise.config.json');
+  const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, 'utf8')) : {};
+  const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+  const migration = vendorMode === 'native' && config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
+    ? await migrateLegacyVendors(targetPath) : { removed: [], preserved: [] };
+  const protectedPaths = [...new Set<string>([...(config.preservedVendorFiles ?? []), ...migration.preserved])];
+  for (const file of migration.removed) console.log(`[upgrade] removed: ${file}`);
+  for (const file of migration.preserved) console.log(`[upgrade] preserved user file: ${file}`);
+
   // Step 1 — refresh MVP skill bundle (overwrite=true so updated SKILL.md
   // files reach existing projects).
   await installSkills({
@@ -152,7 +168,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
 
   // Step 2 — refresh vendor packs (superpowers, impeccable). Same flag.
   const vendorPacksRefreshed: string[] = [];
-  for (const namespace of ['superpowers', 'impeccable'] as const) {
+  for (const namespace of (vendorMode === 'embed' ? ['superpowers', 'impeccable'] : [])) {
     const vendorSourcePath = join(skillsRoot, 'vendor', namespace);
     if (!existsSync(vendorSourcePath)) continue;
     await installVendor({
@@ -165,6 +181,15 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     vendorPacksRefreshed.push(namespace);
   }
 
+  if (vendorMode === 'embed') {
+    await installSkills({ skillsRoot: join(skillsRoot, 'vendor'), projectPath: targetPath, skillNames: ['pptx', 'skill-creator'], overwrite: true });
+  } else {
+    configureNativeVendors(targetPath, aiTools);
+    installNativeVendors(targetPath, aiTools, protectedPaths);
+  }
+  await updateManagedFiles({ ...config, projectName: config.projectName ?? targetPath.split(/[\\/]/).pop(), projectPath: targetPath, template: config.template ?? 'single-project', aiTools, frameworkVersion: version }, opts.templatesRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', 'templates'));
+  writeFileSync(configPath, JSON.stringify({ ...config, frameworkVersion: version, vendorMode, aiTools, preservedVendorFiles: protectedPaths, skills: [...MVP_SKILL_BUNDLE] }, null, 2) + '\n');
+
   console.log(
     `[upgrade] skills:    ${MVP_SKILL_BUNDLE.length} bundled skill(s) refreshed, ` +
     `${vendorPacksRefreshed.length} vendor pack(s) refreshed (${vendorPacksRefreshed.join(', ') || 'none'})`,
@@ -174,6 +199,8 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   const graphifyReport = installGraphify({
     projectPath: targetPath,
     bundledSkillsRoot: skillsRoot,
+    vendorMode,
+    protectedPaths,
     claudeCode: aiTools.claudeCode,
     copilot: aiTools.copilot,
     codex: aiTools.codex,
@@ -181,9 +208,9 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     geminiCli: aiTools.geminiCli,
   });
   console.log('\n[upgrade] graphify install summary:\n' + formatReport(graphifyReport) + '\n');
+  console.log(`[upgrade] migration summary: ${migration.removed.length} known file(s) removed; ${migration.preserved.length} modified/user file(s) preserved (listed above).`);
 
-  // Project-local skills are the new contract. Global hook failures are
-  // tolerated as long as we wrote the project-local files.
+  // Native installer failures are recoverable; embed requires bundled skill sources.
   const projectLocalFailed =
     graphifyReport.projectLocal.source === 'unavailable' ||
     graphifyReport.projectLocal.errors.length > 0;
@@ -193,6 +220,8 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     targetPath,
     aiTools,
     source,
+    removed: migration.removed,
+    preserved: migration.preserved,
     skillsRefreshed: MVP_SKILL_BUNDLE.length,
     vendorPacksRefreshed,
     graphifyReport,

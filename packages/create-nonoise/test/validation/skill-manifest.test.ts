@@ -18,7 +18,7 @@ describe('skill manifest validation', () => {
   it('every skill has a SKILL.md with valid frontmatter', async () => {
     const entries = await readdir(SKILLS_ROOT, { withFileTypes: true });
     const skillDirs = entries
-      .filter((e) => e.isDirectory() && !GROUPING_DIRS.has(e.name))
+      .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !GROUPING_DIRS.has(e.name))
       .map((e) => e.name);
     expect(skillDirs.length).toBeGreaterThan(0);
 

@@ -13,6 +13,7 @@ import type {
 import { templateForWorkspace } from './types.js';
 
 export type CliFlags = {
+  vendorMode?: 'native' | 'embed';
   positionalDir?: string;
   template?: TemplateName;
   workspaceKind?: WorkspaceKind;
@@ -186,6 +187,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
     aiTools,
     gitInit,
     frameworkVersion,
+    vendorMode: flags.vendorMode ?? 'native',
     repos,
     multiRepoConfigured,
     user,

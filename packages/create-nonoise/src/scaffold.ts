@@ -8,6 +8,8 @@ import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills, installVendor } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
 import { installGraphify, formatReport } from './graphify-install.js';
+import { configureNativeVendors, installNativeVendors } from './native-vendor.js';
+import { updateManagedFiles } from './managed-block.js';
 import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
 
 function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
@@ -65,21 +67,30 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
       projectPath: ctx.projectPath,
       skillNames: Array.from(MVP_SKILL_BUNDLE),
     });
-    await installVendor({
-      vendorSourcePath: join(paths.skillsRoot, 'vendor', 'superpowers'),
-      projectPath: ctx.projectPath,
-      namespace: 'superpowers',
-      installClaudeSpecific: ctx.aiTools.claudeCode,
-    });
-    await installVendor({
-      vendorSourcePath: join(paths.skillsRoot, 'vendor', 'impeccable'),
-      projectPath: ctx.projectPath,
-      namespace: 'impeccable',
-      installClaudeSpecific: ctx.aiTools.claudeCode,
-    });
+    if (ctx.vendorMode === 'embed') {
+      await installVendor({
+        vendorSourcePath: join(paths.skillsRoot, 'vendor', 'superpowers'),
+        projectPath: ctx.projectPath,
+        namespace: 'superpowers',
+        installClaudeSpecific: ctx.aiTools.claudeCode,
+      });
+      await installVendor({
+        vendorSourcePath: join(paths.skillsRoot, 'vendor', 'impeccable'),
+        projectPath: ctx.projectPath,
+        namespace: 'impeccable',
+        installClaudeSpecific: ctx.aiTools.claudeCode,
+      });
+      for (const name of ['pptx', 'skill-creator']) {
+        await installSkills({ skillsRoot: join(paths.skillsRoot, 'vendor'), projectPath: ctx.projectPath, skillNames: [name] });
+      }
+    } else {
+      configureNativeVendors(ctx.projectPath, ctx.aiTools);
+      if (paths.runGraphifyInstall) installNativeVendors(ctx.projectPath, ctx.aiTools);
+    }
   }
 
   await rewriteNonoiseConfig(ctx, paths, renderCtx);
+  await updateManagedFiles(ctx, paths.templatesRoot);
 
   if (ctx.template === 'multi-repo' && ctx.repos && ctx.repos.length > 0) {
     await writeRepositoriesJson(ctx.projectPath, ctx.repos);
@@ -90,6 +101,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     const report = installGraphify({
       projectPath: ctx.projectPath,
       bundledSkillsRoot: paths.skillsRoot,
+      vendorMode: ctx.vendorMode ?? 'native',
       claudeCode: ctx.aiTools.claudeCode,
       copilot: ctx.aiTools.copilot,
       codex: ctx.aiTools.codex,
@@ -147,7 +159,10 @@ async function rewriteNonoiseConfig(
   const tpl = Handlebars.compile(src, { noEscape: true });
   const rendered = tpl(renderCtx);
   const destPath = join(ctx.projectPath, 'nonoise.config.json');
-  await writeFile(destPath, rendered, 'utf8');
+  const config = JSON.parse(rendered);
+  config.vendorMode = ctx.vendorMode ?? 'native';
+  config.skills = [...MVP_SKILL_BUNDLE];
+  await writeFile(destPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 }
 
 function nativePath(p: string): string {

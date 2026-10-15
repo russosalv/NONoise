@@ -14,6 +14,7 @@ import {
 } from './prompts.js';
 import { printBanner } from './banner.js';
 import { runGraphifyOnly } from './graphify-only.js';
+import { doctor } from './native-vendor.js';
 import { runUpgrade } from './upgrade.js';
 import type { CliFlags } from './prompts.js';
 import type { TemplateName, WorkspaceKind } from './types.js';
@@ -30,13 +31,15 @@ export async function main(): Promise<void> {
     return;
   }
 
+  if (flags.doctor) { doctor(resolve(flags.positionalDir ?? '.')); return; }
+
   // Direct CLI flag wins — no prompts, no banner.
   if (flags.upgrade) {
-    await runUpgradeAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai });
+    await runUpgradeAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai, vendorMode: flags.vendorMode });
     return;
   }
   if (flags.graphifyOnly) {
-    runGraphifyOnlyAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai });
+    runGraphifyOnlyAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai, vendorMode: flags.vendorMode });
     return;
   }
 
@@ -63,9 +66,9 @@ export async function main(): Promise<void> {
         return;
       }
       if (action === 'upgrade') {
-        await runUpgradeAndExit({ targetPath: candidatePath, aiCsv: flags.ai });
+        await runUpgradeAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode });
       } else {
-        runGraphifyOnlyAndExit({ targetPath: candidatePath, aiCsv: flags.ai });
+        runGraphifyOnlyAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode });
       }
       return;
     }
@@ -81,7 +84,7 @@ export async function main(): Promise<void> {
     if (!aiCsv && !existsSync(resolve(targetPath, 'nonoise.config.json'))) {
       aiCsv = await askAiCsvForExistingProject();
     }
-    runGraphifyOnlyAndExit({ targetPath, aiCsv });
+    runGraphifyOnlyAndExit({ targetPath, aiCsv, vendorMode: flags.vendorMode });
     return;
   }
   if (mode === 'upgrade') {
@@ -90,7 +93,7 @@ export async function main(): Promise<void> {
     if (!aiCsv && !existsSync(resolve(targetPath, 'nonoise.config.json'))) {
       aiCsv = await askAiCsvForExistingProject();
     }
-    await runUpgradeAndExit({ targetPath, aiCsv });
+    await runUpgradeAndExit({ targetPath, aiCsv, vendorMode: flags.vendorMode });
     return;
   }
 
@@ -113,7 +116,7 @@ export async function main(): Promise<void> {
   }
 }
 
-function runGraphifyOnlyAndExit(opts: { targetPath?: string; aiCsv?: string }): void {
+function runGraphifyOnlyAndExit(opts: { targetPath?: string; aiCsv?: string; vendorMode?: 'native' | 'embed' }): void {
   try {
     const result = runGraphifyOnly(opts);
     if (result.exitCode !== 0) process.exit(result.exitCode);
@@ -124,7 +127,7 @@ function runGraphifyOnlyAndExit(opts: { targetPath?: string; aiCsv?: string }): 
   }
 }
 
-async function runUpgradeAndExit(opts: { targetPath?: string; aiCsv?: string }): Promise<void> {
+async function runUpgradeAndExit(opts: { targetPath?: string; aiCsv?: string; vendorMode?: 'native' | 'embed' }): Promise<void> {
   try {
     const result = await runUpgrade(opts);
     if (result.exitCode !== 0) process.exit(result.exitCode);
@@ -140,6 +143,7 @@ type ParsedFlags = CliFlags & {
   version?: boolean;
   graphifyOnly?: boolean;
   upgrade?: boolean;
+  doctor?: boolean;
 };
 
 function parseArgv(args: string[]): ParsedFlags {
@@ -152,7 +156,13 @@ function parseArgv(args: string[]): ParsedFlags {
     else if (a === '--yes' || a === '-y') out.yes = true;
     else if (a === '--no-git') out.noGit = true;
     else if (a === '--graphify-only') out.graphifyOnly = true;
+    else if (a === 'doctor' && i === 0) out.doctor = true;
     else if (a === '--upgrade') out.upgrade = true;
+    else if (a === '--vendor-mode') {
+      const value = args[++i];
+      if (value !== 'native' && value !== 'embed') throw new Error('Invalid --vendor-mode: use native or embed');
+      out.vendorMode = value;
+    }
     else if (a === '--template') {
       const raw = args[++i];
       if (raw !== 'single-project' && raw !== 'multi-repo') {
@@ -190,6 +200,7 @@ function printHelp(): void {
 
 Usage:
   create-nonoise [directory] [options]
+  create-nonoise doctor [path]
   create-nonoise --upgrade [path] [--ai <csv>]
   create-nonoise --graphify-only [path] [--ai <csv>]
 
@@ -199,6 +210,7 @@ When run with no arguments, asks interactively whether you want to:
   3. Force-install graphify only (narrow, idempotent fix)
 
 Options:
+  --vendor-mode <mode> native (default): upstream installers; embed: offline bundled copies
   --workspace <kind>  Workspace: new | existing-single | existing-multi (asked interactively if omitted)
   --template <name>   Template: single-project | multi-repo (back-compat; inferred from --workspace if present)
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
@@ -216,8 +228,8 @@ Maintenance:
                       re-copies all bundled skills (overwriting old SKILL.md
                       files) and re-runs the graphify install. Reads aiTools
                       from nonoise.config.json. Templates (CLAUDE.md,
-                      AGENTS.md, etc.) are NOT touched — they may have local
-                      customisation. Pass --ai to override AI tool selection.
+                      AGENTS.md, etc.) update only their NONoise managed block.
+                      User content outside the markers is preserved. Pass --ai to override AI tool selection.
 
   --graphify-only [path]
                       Narrow path: only re-runs the graphify install step on

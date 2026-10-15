@@ -102,7 +102,7 @@ describe('runUpgrade', () => {
   it('throws when no nonoise.config.json and no --ai flag', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'nonoise-upgrade-bare-'));
     try {
-      await expect(runUpgrade({ targetPath: dir })).rejects.toThrow(
+      await expect(runUpgrade({ vendorMode: 'embed', targetPath: dir })).rejects.toThrow(
         /No nonoise\.config\.json found/,
       );
     } finally {
@@ -114,7 +114,7 @@ describe('runUpgrade', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nonoise-upgrade-bad-json-'));
     writeFileSync(join(dir, 'nonoise.config.json'), '{ not valid json', 'utf8');
     try {
-      await expect(runUpgrade({ targetPath: dir })).rejects.toThrow(
+      await expect(runUpgrade({ vendorMode: 'embed', targetPath: dir })).rejects.toThrow(
         /Could not parse nonoise\.config\.json/,
       );
     } finally {
@@ -128,7 +128,7 @@ describe('runUpgrade', () => {
       aiTools: { claudeCode: false, copilot: false, codex: false, cursor: false, geminiCli: false },
     });
     try {
-      await expect(runUpgrade({ targetPath: dir })).rejects.toThrow(/No AI tools enabled/);
+      await expect(runUpgrade({ vendorMode: 'embed', targetPath: dir })).rejects.toThrow(/No AI tools enabled/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -138,7 +138,7 @@ describe('runUpgrade', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nonoise-upgrade-bad-ai-'));
     try {
       await expect(
-        runUpgrade({ targetPath: dir, aiCsv: 'claude-code,bogus-tool' }),
+        runUpgrade({ vendorMode: 'embed', targetPath: dir, aiCsv: 'claude-code,bogus-tool' }),
       ).rejects.toThrow(/Unknown AI tool flag/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -162,7 +162,7 @@ describe('runUpgrade', () => {
     const realRoot = BUNDLED_SKILLS_ROOT;
     happyPathExec();
     try {
-      const result = await runUpgrade({
+      const result = await runUpgrade({ vendorMode: 'embed',
         targetPath: dir,
         skillsRoot: realRoot,
       });
@@ -199,7 +199,7 @@ describe('runUpgrade', () => {
       throw new Error(`Unexpected: ${cmd}`);
     });
     try {
-      const result = await runUpgrade({
+      const result = await runUpgrade({ vendorMode: 'embed',
         targetPath: dir,
         skillsRoot: realRoot,
       });
@@ -235,7 +235,7 @@ describe('runUpgrade', () => {
       throw new Error(`Unexpected: ${cmd}`);
     });
     try {
-      const result = await runUpgrade({
+      const result = await runUpgrade({ vendorMode: 'embed',
         targetPath: dir,
         skillsRoot: skillsRootCopy,
       });
@@ -252,7 +252,7 @@ describe('runUpgrade', () => {
     const realRoot = BUNDLED_SKILLS_ROOT;
     happyPathExec();
     try {
-      const result = await runUpgrade({
+      const result = await runUpgrade({ vendorMode: 'embed',
         targetPath: dir,
         aiCsv: 'claude-code',
         skillsRoot: realRoot,
@@ -274,7 +274,7 @@ describe('runUpgrade', () => {
     const realRoot = BUNDLED_SKILLS_ROOT;
     happyPathExec();
     try {
-      const result = await runUpgrade({
+      const result = await runUpgrade({ vendorMode: 'embed',
         targetPath: dir,
         aiCsv: 'copilot',
         skillsRoot: realRoot,

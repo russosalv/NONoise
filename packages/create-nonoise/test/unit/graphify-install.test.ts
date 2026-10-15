@@ -56,6 +56,7 @@ function populateBundle(opts: { version?: string; files?: readonly string[] } = 
 
 function baseCtx(overrides: Partial<Parameters<typeof installGraphify>[0]> = {}) {
   return {
+    vendorMode: 'embed' as const,
     projectPath,
     bundledSkillsRoot,
     claudeCode: false,

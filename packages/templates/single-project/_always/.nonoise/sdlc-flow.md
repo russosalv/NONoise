@@ -189,3 +189,5 @@ Esegui l'Acceptance Test Run per <feature>. Produci testbook + Playwright run + 
 ```prompt (en)
 Run the Acceptance Test Run for <feature>. Produce testbook + Playwright run + report under docs/atr/. Proceed.
 ```
+
+Vendor skill identifiers such as `superpowers:writing-plans` resolve through the native harness plugin registry by default; only `--vendor-mode embed` requires a local vendor directory. Use `create-nonoise doctor` to check availability.

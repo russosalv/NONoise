@@ -18,7 +18,7 @@ const COPILOT_DESCRIPTION_LIMIT = 1024;
 async function listNativeSkills(): Promise<string[]> {
   const entries = await readdir(SKILLS_ROOT, { withFileTypes: true });
   return entries
-    .filter((e) => e.isDirectory() && !EXCLUDED_DIRS.has(e.name))
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.') && !EXCLUDED_DIRS.has(e.name))
     .map((e) => e.name)
     .sort();
 }

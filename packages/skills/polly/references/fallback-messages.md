@@ -12,7 +12,7 @@ Never block the SDLC on a missing skill. A partial walkthrough beats a
 hard stop.
 
 **Note**: the MVP bundle auto-installs every skill Polly references
-(including `superpowers:*` vendored from `obra/superpowers`). Fallback
+(including `superpowers:*` installed from the pinned NONoise marketplace, or embedded from `obra/superpowers`). Fallback
 kicks in only when the user manually removed a skill from
 `.claude/skills/` or is running in a non-standard setup.
 

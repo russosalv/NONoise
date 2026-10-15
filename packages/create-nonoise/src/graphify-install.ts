@@ -1,8 +1,13 @@
+import { preserveInstructionFiles } from './managed-block.js';
+import { installNativeGraphify } from './native-vendor.js';
 import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 export type GraphifyInstallContext = {
+  vendorMode?: 'native' | 'embed';
+  protectedPaths?: string[];
+  force?: boolean;
   /** Project root where graphify integration lands. */
   projectPath: string;
   /**
@@ -26,7 +31,7 @@ export type GraphifyInstallContext = {
 
 export type ProjectLocalReport = {
   /** Where the skill content was sourced from. */
-  source: 'bundled' | 'installed-fresher' | 'unavailable';
+  source: 'bundled' | 'installed-fresher' | 'unavailable' | 'native';
   /** Source version used (graphifyy x.y.z) when known. */
   sourceVersion?: string;
   /** Destination paths actually written/refreshed. */
@@ -52,7 +57,7 @@ export type InstallReport = {
   hints: string[];
 };
 
-const GRAPHIFYY_PIN = 'graphifyy>=0.7.0';
+export const GRAPHIFYY_PIN = 'graphifyy==0.9.91';
 const GRAPHIFYY_MIN = '0.7.0';
 
 function probePython(): { found: boolean; version?: string } {
@@ -101,7 +106,9 @@ function probeGraphifyyVersion(): { found: boolean; version?: string } {
 }
 
 function runQuiet(cmd: string, cwd?: string): void {
-  execSync(cmd, { stdio: 'ignore', cwd });
+  const execute = () => { execSync(cmd, { stdio: 'ignore', cwd }); };
+  if (cwd && cmd.startsWith('graphify ')) preserveInstructionFiles(cwd, execute);
+  else execute();
 }
 
 function olderThan(version: string, target: string): boolean {
@@ -388,6 +395,7 @@ function wireGeminiHook(cwd: string): InstallReport['geminiHook'] {
 // ---------- Orchestrator ----------
 
 export function installGraphify(ctx: GraphifyInstallContext): InstallReport {
+  if (ctx.vendorMode !== 'embed') return installNativeGraphify(ctx);
   const hints: string[] = [];
 
   // Step 1 — write project-local skill files FIRST. This is independent of
@@ -556,7 +564,7 @@ export function formatReport(r: InstallReport): string {
       ? 'unavailable'
       : `${pl.written.length} file(s) written from ${pl.source}` +
         (pl.sourceVersion ? ` (v${pl.sourceVersion})` : '') +
-        (pl.skipped.length > 0 ? `, ${pl.skipped.length} skipped (newer stamp)` : '') +
+        (pl.skipped.length > 0 ? `, ${pl.skipped.length} already current` : '') +
         (pl.errors.length > 0 ? `, ${pl.errors.length} error(s)` : '');
 
   const lines = [

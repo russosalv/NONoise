@@ -6,6 +6,7 @@ import type { AiTools, AiToolKey } from './types.js';
 import { FLAG_TO_AI_TOOL } from './types.js';
 
 export type GraphifyOnlyOptions = {
+  vendorMode?: 'native' | 'embed';
   /** Target project directory. Defaults to process.cwd(). */
   targetPath?: string;
   /** CSV of AI tool flags (claude-code,copilot,…) — overrides values from nonoise.config.json. */
@@ -136,6 +137,8 @@ export function runGraphifyOnly(opts: GraphifyOnlyOptions): GraphifyOnlyResult {
   const report = installGraphify({
     projectPath: targetPath,
     bundledSkillsRoot: opts.skillsRoot ?? defaultSkillsRoot(),
+    vendorMode: opts.vendorMode ?? 'native',
+    force: true,
     claudeCode: aiTools.claudeCode,
     copilot: aiTools.copilot,
     codex: aiTools.codex,

@@ -25,7 +25,10 @@ export type UserConfig = {
   localeLabel?: string;  // Human label (English, Italian, …) — optional, used for prose
 };
 
+export type VendorMode = 'native' | 'embed';
+
 export type ProjectContext = {
+  vendorMode?: VendorMode;
   projectName: string;
   projectPath: string;
   template: TemplateName;
