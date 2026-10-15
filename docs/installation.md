@@ -85,26 +85,41 @@ vendor snapshots for this fallback; native scaffolds do not copy them.
 
 | Component | Native setup |
 |---|---|
-| Superpowers | `superpowers@nonoise` via the NONoise marketplace; Git URL + immutable SHA `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7) |
-| Claude documents / skill creator | `document-skills@anthropic-agent-skills` and `example-skills@anthropic-agent-skills`, from `anthropics/skills` |
+| Superpowers | `superpowers@nonoise` via the NONoise marketplace; Git URL + immutable SHA `bb92a77741419a4ab5f06e711a283343f1ada0c3` (7.0.0) |
+| Claude documents / skill creator | `document-skills@anthropic-agent-skills` from `anthropics/skills`; `skill-creator@claude-plugins-official` from `anthropics/claude-plugins-official` |
 | Impeccable | `npx --yes impeccable install --yes --providers=claude,codex,github --scope=project` (selected providers only); one `/impeccable` skill with subcommands |
 | Graphify | `uv tool install --force graphifyy==0.9.91`, then `graphify install --project --platform claude` (also `codex`, `copilot`, `cursor`, `gemini` as selected) |
 
 Claude's `.claude/settings.json` merges `extraKnownMarketplaces` and
 `enabledPlugins`, so teammates can approve the declared installs when opening
-the project. Unrelated settings are preserved. To install immediately:
+the project. Unrelated settings are preserved. Scaffold and upgrade also execute
+the following commands immediately when Claude is available, then confirm each
+installation with `claude plugin list --json` in the current project:
 
 ```bash
 claude plugin marketplace add russosalv/NONoise
 claude plugin install superpowers@nonoise --scope project
 claude plugin marketplace add anthropics/skills
 claude plugin install document-skills@anthropic-agent-skills --scope project
-claude plugin install example-skills@anthropic-agent-skills --scope project
+claude plugin marketplace add anthropics/claude-plugins-official
+claude plugin install skill-creator@claude-plugins-official --scope project
+claude plugin list --json
 ```
 
 For Codex/Copilot the CLI runs `plugin marketplace add russosalv/NONoise`, then
 `codex plugin add superpowers@nonoise` / `copilot plugin install superpowers@nonoise`.
-Already registered marketplaces are reused. Missing commands and installer failures
+Already registered marketplaces and confirmed installations are reused.
+Transient DNS, connection, timeout and HTTP 5xx failures in marketplace/plugin,
+impeccable and uv installers get two retries, after 1 and 2 seconds. Other errors
+return immediately. The old `example-skills` declaration and any installation
+scoped to this project are removed during native upgrade; unrelated plugins remain.
+The official [standalone skill-creator plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
+avoids installing the other example skills and their conflicting frontend-design.
+Embed snapshots were refreshed on 2026-10-15: impeccable is one skill, superpowers
+is 7.0.0 (skills and hooks; upstream no longer ships commands or agents). Historical
+1.6.0 hashes, including all 18 impeccable directories, remain available for migration.
+After vendor refreshes run `node scripts/sync-graphify-platform-skills.mjs` and
+`node scripts/update-vendor-hashes.mjs` to update lean assets and append ownership hashes. Missing commands and installer failures
 are non-fatal and printed with exact retry commands. `doctor [path]` only reads
 project files and native `plugin list --json` / `uv tool list` output; catalog
 availability is not reported as installation. Disabled or unconfirmed plugins

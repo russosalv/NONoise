@@ -176,7 +176,7 @@ describe('native integration regressions', () => {
     const claude = JSON.parse(readFileSync(resolve('../../.claude-plugin/marketplace.json'), 'utf8'));
     const copilot = JSON.parse(readFileSync(resolve('../../.github/plugin/marketplace.json'), 'utf8'));
     expect(claude).toEqual(copilot);
-    expect(claude.plugins.find((p: any) => p.name === 'superpowers').source).toEqual({ source: 'url', url: 'https://github.com/obra/superpowers.git', sha: 'b55764852ac78870e65c6565fb585b6cd8b3c5c9' });
+    expect(claude.plugins.find((p: any) => p.name === 'superpowers').source).toEqual({ source: 'url', url: 'https://github.com/obra/superpowers.git', sha: 'bb92a77741419a4ab5f06e711a283343f1ada0c3' });
     const plugin = JSON.parse(readFileSync(resolve('../skills/.claude-plugin/plugin.json'), 'utf8'));
     expect(plugin.skills).toHaveLength(28);
     expect(plugin.skills.every((p: string) => !p.includes('vendor') && !p.includes('graphify'))).toBe(true);

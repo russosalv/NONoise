@@ -5,8 +5,8 @@
   "scope": [
     "."
   ],
-  "commit": "00d485659af82982aef0328d0419c49a2716d123",
-  "fetchedAt": "2026-04-18T13:54:41.265Z",
+  "commit": "abf5779cabc20147fd9c013fa4705088c200bf8a",
+  "fetchedAt": "2026-10-15T13:46:13.481Z",
   "license": "see upstream LICENSE",
-  "notes": "Upstream now ships one impeccable skill with subcommands. Bundled legacy snapshot remains available for offline embed; sync refreshes from plugin/skills."
+  "notes": "Unified impeccable skill with subcommands, synced from plugin/skills; legacy 18-folder hashes retained for migration."
 }

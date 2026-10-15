@@ -53,7 +53,10 @@ export async function installVendor(opts: InstallVendorOptions): Promise<void> {
   const skillsSrc = (await dirExists(nestedSkillsSrc)) ? nestedSkillsSrc : vendorSourcePath;
   const skillsDest = join(projectPath, '.claude', 'skills', namespace);
   await mkdir(skillsDest, { recursive: true });
-  for (const name of await readdir(skillsSrc)) {
+  const unified = join(skillsSrc, namespace);
+  if (await isSkillDir(unified)) {
+    await cp(unified, skillsDest, { recursive: true, force, errorOnExist: false });
+  } else for (const name of await readdir(skillsSrc)) {
     const candidate = join(skillsSrc, name);
     if (!(await isSkillDir(candidate))) continue;
     await cp(candidate, join(skillsDest, name), {

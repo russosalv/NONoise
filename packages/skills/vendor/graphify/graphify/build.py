@@ -24,25 +24,71 @@ from __future__ import annotations
 import json
 import re
 import sys
+import unicodedata
 from pathlib import Path
 import networkx as nx
 from .validate import validate_extraction
 
 
+# Synonym mapper for known invalid file_type values that LLM subagents commonly
+# emit. Keeps semantic intent close (markdown→document, tool→code) and falls
+# back to "concept" for any other invalid value (see #840).
+_FILE_TYPE_SYNONYMS = {
+    "markdown": "document",
+    "text": "document",
+    "tool": "code",
+    "library": "code",
+    "pattern": "concept",
+    "principle": "concept",
+    "constraint": "concept",
+    "tech": "concept",
+    "technology": "concept",
+    "data-source": "concept",
+    "data_source": "concept",
+    "gotcha": "concept",
+    "framework": "concept",
+}
+
+
 def _normalize_id(s: str) -> str:
-    """Normalize an ID string the same way extract._make_id does.
+    r"""Normalize an ID string the same way extract._make_id does.
 
     Used to reconcile edge endpoints when the LLM generates IDs with slightly
-    different punctuation or casing than the AST extractor.
+    different punctuation or casing than the AST extractor. Must stay in sync
+    with extract._make_id — NFKC normalization, \w with re.UNICODE, underscore
+    collapse, and casefold must all match (#811).
     """
-    cleaned = re.sub(r"[^a-zA-Z0-9]+", "_", s)
-    return cleaned.strip("_").lower()
+    s = unicodedata.normalize("NFKC", s)
+    cleaned = re.sub(r"[^\w]+", "_", s, flags=re.UNICODE)
+    cleaned = re.sub(r"_+", "_", cleaned)
+    return cleaned.strip("_").casefold()
 
 
 def _norm_source_file(p: str | None) -> str | None:
     """Normalize path separators to forward slashes so Windows backslash paths
     and POSIX paths from semantic subagents resolve to the same node identity."""
     return p.replace("\\", "/") if p else p
+
+
+def edge_data(G: nx.Graph, u: str, v: str) -> dict:
+    """Return one edge attribute dict for (u, v), tolerating MultiGraph.
+
+    For MultiGraph/MultiDiGraph there can be multiple parallel edges;
+    this returns the first one (sufficient for callers that only need
+    relation/confidence for rendering). Fixes #796.
+    """
+    raw = G[u][v]
+    if isinstance(G, (nx.MultiGraph, nx.MultiDiGraph)):
+        return next(iter(raw.values()), {})
+    return raw
+
+
+def edge_datas(G: nx.Graph, u: str, v: str) -> list[dict]:
+    """Return every edge attribute dict for (u, v); always a list."""
+    raw = G[u][v]
+    if isinstance(G, (nx.MultiGraph, nx.MultiDiGraph)):
+        return list(raw.values())
+    return [raw]
 
 
 def build_from_json(extraction: dict, *, directed: bool = False) -> nx.Graph:
@@ -79,6 +125,9 @@ def build_from_json(extraction: dict, *, directed: bool = False) -> nx.Graph:
         # trigger spurious "invalid file_type 'None'" validator warnings (#660).
         if node.get("file_type") in (None, ""):
             node["file_type"] = "concept"
+        ft = node.get("file_type", "")
+        if ft and ft not in {"code", "document", "paper", "image", "rationale", "concept"}:
+            node["file_type"] = _FILE_TYPE_SYNONYMS.get(ft, "concept")
 
     errors = validate_extraction(extraction)
     # Dangling edges (stdlib/external imports) are expected - only warn about real schema errors.
@@ -222,25 +271,25 @@ def build_merge(
 ) -> nx.Graph:
     """Load existing graph.json, merge new chunks into it, and save back.
 
-    Never replaces — only grows (or prunes deleted-file nodes via prune_sources).
+    Never replaces - only grows (or prunes deleted-file nodes via prune_sources).
     Safe to call repeatedly: existing nodes and edges are preserved.
     """
-    from networkx.readwrite import json_graph as _jg
-
     graph_path = Path(graph_path)
     if graph_path.exists():
+        # Read JSON directly instead of going through node_link_graph().
+        # The latter rebuilds an undirected nx.Graph and then enumerating
+        # edges() yields endpoints based on node insertion order, which
+        # silently flips directional edges (e.g. `calls`) when the callee
+        # was inserted before the caller. The _src/_tgt direction-preserving
+        # attrs are popped before saving in export.py, so going through the
+        # NetworkX round-trip loses direction permanently (#760).
         data = json.loads(graph_path.read_text(encoding="utf-8"))
-        try:
-            existing_G = _jg.node_link_graph(data, edges="links")
-        except TypeError:
-            existing_G = _jg.node_link_graph(data)
-        # Reconstruct as a plain extraction dict so build() can merge it
-        existing_nodes = [{"id": n, **existing_G.nodes[n]} for n in existing_G.nodes]
-        existing_edges = [
-            {"source": u, "target": v, **d} for u, v, d in existing_G.edges(data=True)
-        ]
+        links_key = "links" if "links" in data else "edges"
+        existing_nodes = list(data.get("nodes", []))
+        existing_edges = list(data.get(links_key, []))
         base = [{"nodes": existing_nodes, "edges": existing_edges}]
     else:
+        existing_nodes = []
         base = []
 
     all_chunks = base + list(new_chunks)

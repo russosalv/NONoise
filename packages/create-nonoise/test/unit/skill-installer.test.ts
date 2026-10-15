@@ -71,3 +71,17 @@ describe('installSkills', () => {
     ).rejects.toThrow(/skill-missing/);
   });
 });
+
+it('installs a unified vendor skill directly at its namespace with references', async () => {
+  const { installVendor } = await import('../../src/skill-installer.js');
+  const dir = await mkdtemp(join(tmpdir(), 'nonoise-unified-'));
+  try {
+    const source = join(dir, 'vendor'); const project = join(dir, 'project');
+    await mkdir(join(source, 'impeccable/reference'), { recursive: true });
+    await writeFile(join(source, 'impeccable/SKILL.md'), 'unified upstream skill');
+    await writeFile(join(source, 'impeccable/reference/audit.md'), 'audit reference');
+    await installVendor({ vendorSourcePath: source, projectPath: project, namespace: 'impeccable', installClaudeSpecific: false });
+    expect(await readFile(join(project, '.claude/skills/impeccable/SKILL.md'), 'utf8')).toBe('unified upstream skill');
+    expect(await readFile(join(project, '.claude/skills/impeccable/reference/audit.md'), 'utf8')).toBe('audit reference');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

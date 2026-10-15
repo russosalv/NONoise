@@ -310,14 +310,15 @@ describe('scaffold() — Polly & superpowers wiring', () => {
     ).rejects.toThrow();
   });
 
-  it('installs vendored superpowers skills+commands+agents+hooks when Claude is selected', async () => {
+  it('installs current superpowers skills and hooks and matches upstream optional directories', async () => {
     await scaffold(buildCtx({ vendorMode: 'embed', aiTools: buildAi({ claudeCode: true }) }), {
       templatesRoot: TEMPLATES_ROOT, skillsRoot: SKILLS_ROOT,
     });
     const subtrees = ['skills', 'commands', 'agents', 'hooks'];
     for (const sub of subtrees) {
-      const s = await stat(join(projectPath, '.claude', sub, 'superpowers'));
-      expect(s.isDirectory(), `.claude/${sub}/superpowers should be a directory`).toBe(true);
+      const sourceExists = await stat(join(SKILLS_ROOT, 'vendor/superpowers', sub)).then(s => s.isDirectory()).catch(() => false);
+      const destinationExists = await stat(join(projectPath, '.claude', sub, 'superpowers')).then(s => s.isDirectory()).catch(() => false);
+      expect(destinationExists, `.claude/${sub}/superpowers must match upstream`).toBe(sourceExists);
     }
   });
 });

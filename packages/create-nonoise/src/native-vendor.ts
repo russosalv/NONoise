@@ -8,7 +8,7 @@ import type { AiTools, AiToolKey } from './types.js';
 import type { GraphifyInstallContext, InstallReport } from './graphify-install.js';
 
 export const MARKETPLACE = 'russosalv/NONoise';
-export const SUPERPOWERS_SHA = 'b55764852ac78870e65c6565fb585b6cd8b3c5c9';
+export const SUPERPOWERS_SHA = 'bb92a77741419a4ab5f06e711a283343f1ada0c3';
 export type Command = { bin: string; args: string[] };
 export type Outcome = Command & { ok: boolean; output: string };
 export function commandText(c: Command): string {
