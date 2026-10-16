@@ -1,0 +1,80 @@
+{
+  "repository": "https://github.com/affaan-m/ECC",
+  "commit": "b92f181b3b748d1abbc2afd94af6aa7d8c8fca29",
+  "agents": {
+    "silent-failure-hunter": [],
+    "security-reviewer": [],
+    "csharp-reviewer": [
+      "dotnet"
+    ],
+    "typescript-reviewer": [
+      "typescript",
+      "angular"
+    ],
+    "database-reviewer": [],
+    "build-error-resolver": [],
+    "pr-test-analyzer": [],
+    "spec-miner": [],
+    "code-simplifier": [],
+    "refactor-cleaner": []
+  },
+  "rules": {
+    "common": [],
+    "csharp": [
+      "dotnet"
+    ],
+    "typescript": [
+      "typescript",
+      "angular"
+    ],
+    "angular": [
+      "angular"
+    ],
+    "web": [
+      "web",
+      "angular"
+    ]
+  },
+  "skills": {
+    "change-impact": [],
+    "module-regression": [],
+    "inherit-legacy-style": [],
+    "brownfield-retrospective": [],
+    "verification-loop": [],
+    "intent-driven-development": [],
+    "production-audit": [],
+    "code-tour": [],
+    "dotnet-patterns": [
+      "dotnet"
+    ],
+    "csharp-testing": [
+      "dotnet"
+    ],
+    "angular-developer": [
+      "angular"
+    ],
+    "database-migrations": [
+      "dotnet",
+      "typescript",
+      "angular",
+      "web"
+    ],
+    "api-design": [
+      "dotnet",
+      "typescript",
+      "angular",
+      "web"
+    ],
+    "contract-first": [
+      "dotnet",
+      "typescript",
+      "angular",
+      "web"
+    ],
+    "e2e-testing": [
+      "typescript",
+      "angular",
+      "web"
+    ]
+  }
+}
