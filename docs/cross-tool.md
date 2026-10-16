@@ -102,7 +102,7 @@ Tier breakdown for `swarm-router` specifically:
 
 | Mode | Claude Code (first-class) | Copilot / Gemini CLI / Codex (best-effort) |
 |---|---|---|
-| **1 — single** | `Skill` tool invokes the matching `*-delegate` skill | Shell-out: `gemini -p`, `codex exec`, `copilot -p` |
+| **1 — single** | `Skill` tool invokes the matching `*-delegate` skill; Codex via the official `codex@openai-codex` plugin (`/codex:rescue`) | Shell-out: `gemini -p`, `codex exec`, `copilot -p` |
 | **2 — sequential** | Chain of `Skill` invocations, intermediate file on disk | Chained shell calls, intermediate file on disk |
 | **3 — parallel fan-out** | N parallel tool calls in one message | N background shell processes + `wait`, output to `/tmp/swarm/<role>.out` |
 | **4 — parallel-team** | Native `Agent` tool — in-process parallel subagents, each with its own context window; cap N ≤ 4 | Shell-parallel background processes + `wait`; cap N ≤ 3; **no native file-ownership enforcement** — boundaries are prompt-only and must be audited via `git status` afterwards |

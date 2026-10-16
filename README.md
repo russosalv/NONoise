@@ -29,7 +29,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** — a library of **28 NONoise skills plus native vendor integrations**: Polly advisor, BMAD-derived personas, Haft FPF validator, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
+- **`.claude/skills/`** — a library of **27 NONoise skills plus native vendor integrations** (Codex delegation via the official `codex@openai-codex` plugin): Polly advisor, BMAD-derived personas, Haft FPF validator, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.

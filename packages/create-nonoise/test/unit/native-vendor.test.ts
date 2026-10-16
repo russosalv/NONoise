@@ -4,12 +4,13 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn(), execSync: vi.fn() }));
 import { execFileSync } from 'node:child_process';
-import { configureNativeVendors, nativePlan, doctor, installNativeGraphify, installNativeVendors, run, hasInstalledPlugin } from '../../src/native-vendor.js';
+import { configureEmbedPlugins, configureNativeVendors, nativePlan, doctor, installNativeGraphify, installNativeVendors, run, hasInstalledPlugin } from '../../src/native-vendor.js';
 import { replaceManagedBlock } from '../../src/managed-block.js';
 import { migrateLegacyVendors } from '../../src/vendor-migration.js';
 import { scaffold } from '../../src/scaffold.js';
 import { runUpgrade } from '../../src/upgrade.js';
 import type { AiTools } from '../../src/types.js';
+import { MVP_SKILL_BUNDLE } from '../../src/skill-bundle.js';
 const ai: AiTools = { claudeCode: true, copilot: false, codex: false, cursor: false, geminiCli: false };
 const paths = { templatesRoot: resolve('../templates'), skillsRoot: resolve('../skills') };
 const mocked = vi.mocked(execFileSync);
@@ -182,7 +183,8 @@ describe('native integration regressions', () => {
     expect(claude).toEqual(copilot);
     expect(claude.plugins.find((p: any) => p.name === 'superpowers').source).toEqual({ source: 'url', url: 'https://github.com/obra/superpowers.git', sha: 'b55764852ac78870e65c6565fb585b6cd8b3c5c9' });
     const plugin = JSON.parse(readFileSync(resolve('../skills/.claude-plugin/plugin.json'), 'utf8'));
-    expect(plugin.skills).toHaveLength(28);
+    expect(plugin.skills).toEqual(MVP_SKILL_BUNDLE.map(name => `./${name}`));
+    expect(JSON.parse(readFileSync(resolve('../skills/.codex-plugin/plugin.json'), 'utf8')).skills).toEqual(plugin.skills);
     expect(plugin.skills.every((p: string) => !p.includes('vendor') && !p.includes('graphify'))).toBe(true);
   });
 });
@@ -219,20 +221,20 @@ describe('Claude project installation corrections', () => {
     });
     const results = installNativeVendors(dir, ai);
     expect(results.every(r => r.ok)).toBe(true);
-    expect(installed.map(p => p.id)).toEqual(['superpowers@nonoise', 'document-skills@anthropic-agent-skills', 'skill-creator@claude-plugins-official']);
+    expect(installed.map(p => p.id)).toEqual(['superpowers@nonoise', 'document-skills@anthropic-agent-skills', 'skill-creator@claude-plugins-official', 'codex@openai-codex']);
     expect(mocked.mock.calls.filter(([, a]) => a?.slice(0, 3).join(' ') === 'plugin marketplace add').map(([, a]) => a?.[3]))
-      .toEqual(['russosalv/NONoise', 'anthropics/skills', 'anthropics/claude-plugins-official']);
+      .toEqual(['russosalv/NONoise', 'anthropics/skills', 'anthropics/claude-plugins-official', 'openai/codex-plugin-cc']);
   });
-  it('does not confuse a registered NONoise marketplace with the other two', () => {
+  it('does not confuse a registered NONoise marketplace with the others', () => {
     mocked.mockImplementation((bin, args) => args?.join(' ') === 'plugin marketplace list --json' ? '[{"name":"nonoise"}]' : '[]');
     installNativeVendors(dir, ai);
     expect(mocked.mock.calls.filter(([, a]) => a?.slice(0, 3).join(' ') === 'plugin marketplace add').map(([, a]) => a?.[3]))
-      .toEqual(['anthropics/skills', 'anthropics/claude-plugins-official']);
+      .toEqual(['anthropics/skills', 'anthropics/claude-plugins-official', 'openai/codex-plugin-cc']);
   });
   it('requires registry confirmation after an apparently successful installer', () => {
     mocked.mockReturnValue('[]');
     const results = installNativeVendors(dir, ai);
-    expect(results.filter(r => r.bin === 'claude' && r.args[1] === 'install')).toHaveLength(3);
+    expect(results.filter(r => r.bin === 'claude' && r.args[1] === 'install')).toHaveLength(4);
     expect(results.filter(r => r.args[1] === 'install').every(r => !r.ok && r.output.includes('did not confirm'))).toBe(true);
   });
   it('ignores plugins installed for another project', () => {
@@ -242,7 +244,7 @@ describe('Claude project installation corrections', () => {
     put('.claude/settings.json', JSON.stringify({ enabledPlugins: { 'example-skills@anthropic-agent-skills': true, 'mine@local': true } }));
     configureNativeVendors(dir, ai);
     const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
-    expect(settings.enabledPlugins).toEqual({ 'mine@local': true, 'superpowers@nonoise': true, 'document-skills@anthropic-agent-skills': true, 'skill-creator@claude-plugins-official': true });
+    expect(settings.enabledPlugins).toEqual({ 'mine@local': true, 'superpowers@nonoise': true, 'document-skills@anthropic-agent-skills': true, 'skill-creator@claude-plugins-official': true, 'codex@openai-codex': true });
     expect(settings.extraKnownMarketplaces['claude-plugins-official'].source.repo).toBe('anthropics/claude-plugins-official');
   });
   it('uninstalls obsolete project records, even when their declaration is gone', () => {
@@ -312,4 +314,27 @@ it('embed upgrade removes recognized obsolete impeccable skills and keeps user f
   expect(existsSync(join(dir, '.claude/skills/impeccable/audit'))).toBe(false);
   expect(readFileSync(join(dir, '.claude/skills/impeccable/SKILL.md'), 'utf8')).toContain('name: impeccable');
   expect(readFileSync(join(dir, '.claude/skills/impeccable/user/SKILL.md'), 'utf8')).toBe('personal skill');
+});
+
+describe('official Codex plugin for Claude Code', () => {
+  it('native mode declares and plans codex@openai-codex from openai/codex-plugin-cc', () => {
+    configureNativeVendors(dir, ai);
+    const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
+    expect(settings.enabledPlugins['codex@openai-codex']).toBe(true);
+    expect(settings.extraKnownMarketplaces['openai-codex'].source.repo).toBe('openai/codex-plugin-cc');
+    expect(nativePlan(ai).map(c => c.args.join(' '))).toContain('plugin install codex@openai-codex --scope project');
+  });
+  it('embed mode declares only the Codex plugin, offline, preserving user settings', () => {
+    put('.claude/settings.json', JSON.stringify({ enabledPlugins: { 'mine@local': true } }));
+    configureEmbedPlugins(dir, ai);
+    const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
+    expect(settings.enabledPlugins).toEqual({ 'mine@local': true, 'codex@openai-codex': true });
+    expect(Object.keys(settings.extraKnownMarketplaces)).toEqual(['openai-codex']);
+    expect(mocked).not.toHaveBeenCalled();
+  });
+  it('is not declared when Claude Code is not selected', () => {
+    configureEmbedPlugins(dir, { ...ai, claudeCode: false, codex: true });
+    expect(existsSync(join(dir, '.claude/settings.json'))).toBe(false);
+    expect(nativePlan({ ...ai, claudeCode: false, codex: true }).some(c => c.args.includes('codex@openai-codex'))).toBe(false);
+  });
 });

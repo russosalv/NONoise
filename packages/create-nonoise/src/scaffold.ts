@@ -6,10 +6,10 @@ import Handlebars from 'handlebars';
 import { execFileSync, execSync } from 'node:child_process';
 import type { ProjectContext, HandlebarsRenderContext, RepoEntry } from './types.js';
 import { resolveTemplateFiles } from './template-resolver.js';
-import { installSkills, installVendor } from './skill-installer.js';
+import { installSkills, installVendor, nonoiseSkillDirs } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
 import { installGraphify, formatReport } from './graphify-install.js';
-import { configureNativeVendors, installNativeVendors } from './native-vendor.js';
+import { configureEmbedPlugins, configureNativeVendors, installNativeVendors } from './native-vendor.js';
 import { updateManagedFiles } from './managed-block.js';
 import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
 
@@ -63,11 +63,14 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   }
 
   if (hasAnyAiTool(ctx.aiTools)) {
-    await installSkills({
-      skillsRoot: paths.skillsRoot,
-      projectPath: ctx.projectPath,
-      skillNames: Array.from(MVP_SKILL_BUNDLE),
-    });
+    for (const targetDir of nonoiseSkillDirs(ctx.aiTools)) {
+      await installSkills({
+        skillsRoot: paths.skillsRoot,
+        projectPath: ctx.projectPath,
+        skillNames: Array.from(MVP_SKILL_BUNDLE),
+        targetDir,
+      });
+    }
     if (ctx.vendorMode === 'embed') {
       await installVendor({
         vendorSourcePath: join(paths.skillsRoot, 'vendor', 'superpowers'),
@@ -84,6 +87,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
       for (const name of ['pptx', 'skill-creator']) {
         await installSkills({ skillsRoot: join(paths.skillsRoot, 'vendor'), projectPath: ctx.projectPath, skillNames: [name] });
       }
+      configureEmbedPlugins(ctx.projectPath, ctx.aiTools);
     } else {
       configureNativeVendors(ctx.projectPath, ctx.aiTools);
       if (paths.runGraphifyInstall) installNativeVendors(ctx.projectPath, ctx.aiTools);

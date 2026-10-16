@@ -1,6 +1,8 @@
-import { access, cp, stat, mkdir, readdir } from 'node:fs/promises';
+import { access, cp, stat, mkdir, readdir, lstat, readFile, rm } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
 import { join } from 'node:path';
+import type { AiTools } from './types.js';
 
 export type InstallSkillsOptions = {
   skillsRoot: string;
@@ -12,10 +14,20 @@ export type InstallSkillsOptions = {
    * is false (scaffold behaviour: never clobber pre-existing files).
    */
   overwrite?: boolean;
+  /** Project-relative skills directory. Default `.claude/skills`. */
+  targetDir?: string;
 };
 
+/**
+ * Skill directories that must receive the NONoise bundle. `.claude/skills` is
+ * the canonical copy; Codex and Copilot CLI read repo skills from `.agents/skills`.
+ */
+export function nonoiseSkillDirs(ai: AiTools): string[] {
+  return ['.claude/skills', ...(ai.codex || ai.copilot ? ['.agents/skills'] : [])];
+}
+
 export async function installSkills(opts: InstallSkillsOptions): Promise<void> {
-  const destBase = join(opts.projectPath, '.claude', 'skills');
+  const destBase = join(opts.projectPath, opts.targetDir ?? join('.claude', 'skills'));
   const force = opts.overwrite === true;
 
   for (const name of opts.skillNames) {
@@ -102,4 +114,36 @@ async function isSkillDir(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Skills NONoise no longer ships, with the SHA-256 of every SKILL.md it ever shipped. */
+const RETIRED_SKILLS: Record<string, string[]> = {
+  // Replaced by OpenAI's official Claude Code plugin `codex@openai-codex`.
+  'codex-delegate': ['06711719de4393b9d4e7b4959ddf58a04bdd996ef02f5b601223c3ba9e6d4345'],
+};
+
+/**
+ * Removes retired NONoise skills only when they are pristine (a single
+ * SKILL.md matching a shipped hash, no symlinks). Anything else is preserved.
+ */
+export async function removeRetiredSkills(projectPath: string): Promise<{ removed: string[]; preserved: string[] }> {
+  const removed: string[] = [], preserved: string[] = [];
+  for (const dir of ['.claude/skills', '.agents/skills']) {
+    for (const [name, hashes] of Object.entries(RETIRED_SKILLS)) {
+      const rel = `${dir}/${name}`;
+      const path = join(projectPath, rel);
+      let info;
+      try { info = await lstat(path); } catch { continue; }
+      // A link to a copy removed above is now dangling: drop the link, never its target.
+      if (info.isSymbolicLink() && !(await stat(path).then(() => true, () => false))) {
+        await rm(path); removed.push(rel); continue;
+      }
+      const entries = info.isDirectory() && !info.isSymbolicLink() ? await readdir(path) : [];
+      const pristine = entries.length === 1 && entries[0] === 'SKILL.md'
+        && (await lstat(join(path, 'SKILL.md'))).isFile()
+        && hashes.includes(createHash('sha256').update(await readFile(join(path, 'SKILL.md'))).digest('hex'));
+      if (pristine) { await rm(path, { recursive: true }); removed.push(rel); } else preserved.push(rel);
+    }
+  }
+  return { removed, preserved };
 }

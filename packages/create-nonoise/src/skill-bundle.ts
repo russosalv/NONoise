@@ -38,5 +38,4 @@ export const MVP_SKILL_BUNDLE = [
   'swarm-router',
   'copilot-delegate',
   'gemini-delegate',
-  'codex-delegate',
 ] as const;

@@ -1,12 +1,12 @@
 import { migrateQuint } from './quint-migration.js';
 import { installHaft } from './haft.js';
-import { configureNativeVendors, installNativeVendors } from './native-vendor.js';
+import { configureEmbedPlugins, configureNativeVendors, installNativeVendors } from './native-vendor.js';
 import { migrateLegacyVendors } from './vendor-migration.js';
 import { updateManagedFiles } from './managed-block.js';
 import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { installSkills, installVendor } from './skill-installer.js';
+import { installSkills, installVendor, nonoiseSkillDirs, removeRetiredSkills } from './skill-installer.js';
 import { installGraphify, formatReport, type InstallReport } from './graphify-install.js';
 import type { AiTools, AiToolKey } from './types.js';
 import { FLAG_TO_AI_TOOL } from './types.js';
@@ -164,12 +164,20 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
 
   // Step 1 — refresh MVP skill bundle (overwrite=true so updated SKILL.md
   // files reach existing projects).
-  await installSkills({
-    skillsRoot,
-    projectPath: targetPath,
-    skillNames: Array.from(MVP_SKILL_BUNDLE),
-    overwrite: true,
-  });
+  for (const targetDir of nonoiseSkillDirs(aiTools)) {
+    await installSkills({
+      skillsRoot,
+      projectPath: targetPath,
+      skillNames: Array.from(MVP_SKILL_BUNDLE),
+      overwrite: true,
+      targetDir,
+    });
+  }
+  const retired = await removeRetiredSkills(targetPath);
+  migration.removed.push(...retired.removed);
+  migration.preserved.push(...retired.preserved);
+  for (const file of retired.removed) console.log(`[upgrade] removed retired skill: ${file}`);
+  for (const file of retired.preserved) console.log(`[upgrade] preserved modified retired skill: ${file} (codex-delegate is replaced by the codex@openai-codex plugin)`);
 
   // Step 2 — refresh vendor packs (superpowers, impeccable). Same flag.
   const vendorPacksRefreshed: string[] = [];
@@ -188,6 +196,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
 
   if (vendorMode === 'embed') {
     await installSkills({ skillsRoot: join(skillsRoot, 'vendor'), projectPath: targetPath, skillNames: ['pptx', 'skill-creator'], overwrite: true });
+    configureEmbedPlugins(targetPath, aiTools);
   } else {
     configureNativeVendors(targetPath, aiTools);
     installNativeVendors(targetPath, aiTools, protectedPaths);

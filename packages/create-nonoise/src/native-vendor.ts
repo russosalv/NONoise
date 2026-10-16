@@ -36,10 +36,13 @@ export function run(c: Command, cwd: string): Outcome {
     }
   }
 }
+/** OpenAI's official Codex plugin for Claude Code; replaces the former codex-delegate skill. */
+export const CODEX_PLUGIN = { id: 'codex@openai-codex', marketplace: 'openai-codex', repo: 'openai/codex-plugin-cc' };
 const claudePlugins = [
   { id: 'superpowers@nonoise', marketplace: 'nonoise', repo: MARKETPLACE },
   { id: 'document-skills@anthropic-agent-skills', marketplace: 'anthropic-agent-skills', repo: 'anthropics/skills' },
   { id: 'skill-creator@claude-plugins-official', marketplace: 'claude-plugins-official', repo: 'anthropics/claude-plugins-official' },
+  CODEX_PLUGIN,
 ];
 const obsoletePlugin = 'example-skills@anthropic-agent-skills';
 function json(path: string): any { return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}; }
@@ -72,6 +75,17 @@ export function configureNativeVendors(projectPath: string, ai: AiTools): void {
     settings.extraKnownMarketplaces[plugin.marketplace] = { source: { source: 'github', repo: plugin.repo } };
     settings.enabledPlugins[plugin.id] = true;
   }
+  save(path, settings);
+}
+/** Embed mode stays offline: declare the Codex plugin so Claude Code offers it on first trust. */
+export function configureEmbedPlugins(projectPath: string, ai: AiTools): void {
+  if (!ai.claudeCode) return;
+  const path = join(projectPath, '.claude/settings.json');
+  const settings = json(path);
+  settings.extraKnownMarketplaces ??= {};
+  settings.enabledPlugins ??= {};
+  settings.extraKnownMarketplaces[CODEX_PLUGIN.marketplace] = { source: { source: 'github', repo: CODEX_PLUGIN.repo } };
+  settings.enabledPlugins[CODEX_PLUGIN.id] = true;
   save(path, settings);
 }
 const providers: Record<AiToolKey, string> = { claudeCode: 'claude', copilot: 'github', codex: 'codex', cursor: 'cursor', geminiCli: 'gemini' };
@@ -222,8 +236,9 @@ export function doctor(projectPath: string): string[] {
   for (const key of Object.keys(providers) as AiToolKey[]) {
     if (!ai[key]) continue;
     lines.push(`[${key}]`);
-    const missing = MVP_SKILL_BUNDLE.filter(name => !existsSync(join(projectPath, '.claude/skills', name, 'SKILL.md')));
-    lines.push(`NONoise skills: ${MVP_SKILL_BUNDLE.length - missing.length}/${MVP_SKILL_BUNDLE.length} installed${missing.length ? ' — missing: ' + missing.join(', ') + '; create-nonoise --upgrade ' + projectPath : ''}`);
+    const skillDir = key === 'codex' || key === 'copilot' ? '.agents/skills' : '.claude/skills';
+    const missing = MVP_SKILL_BUNDLE.filter(name => !existsSync(join(projectPath, skillDir, name, 'SKILL.md')));
+    lines.push(`NONoise skills (${skillDir}): ${MVP_SKILL_BUNDLE.length - missing.length}/${MVP_SKILL_BUNDLE.length} installed${missing.length ? ' — missing: ' + missing.join(', ') + '; create-nonoise --upgrade ' + projectPath : ''}`);
     if (config.vendorMode !== 'native') {
       for (const name of ['superpowers', 'impeccable', 'pptx', 'skill-creator']) lines.push(`${name}: ${existsSync(join(projectPath, '.claude/skills', name)) ? 'embedded' : 'missing'} — create-nonoise --upgrade --vendor-mode embed ${projectPath}`);
       const graphify = existsSync(join(projectPath, key === 'codex' ? '.agents' : graphRoots[key], 'skills/graphify/SKILL.md'));

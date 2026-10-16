@@ -29,7 +29,6 @@
     "./c4-doc-writer",
     "./swarm-router",
     "./copilot-delegate",
-    "./gemini-delegate",
-    "./codex-delegate"
+    "./gemini-delegate"
   ]
 }

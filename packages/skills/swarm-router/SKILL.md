@@ -106,10 +106,10 @@ Claude Code is the reference implementation — every primitive maps cleanly.
 | Claude (self)       | In-session work. No delegation needed.                                                     |
 | Claude via Copilot  | Invoke `copilot-delegate` skill via `Skill` tool, `--model claude-opus-4.7\|sonnet\|haiku`. |
 | Gemini              | Invoke `gemini-delegate` skill via `Skill` tool. Use `--approval-mode plan` for read-only. |
-| Codex CLI           | Invoke `codex-delegate` skill via `Skill` tool. Use `--sandbox read-only` for audits.       |
+| Codex CLI           | Official `codex@openai-codex` plugin: `/codex:rescue` to hand off a task (subagent `codex:codex-rescue`), `/codex:review` or `/codex:adversarial-review` for read-only audits, `/codex:status`/`/codex:result` to collect background jobs. |
 | GPT via Copilot     | Invoke `copilot-delegate` skill, `--model gpt-5.5\|gpt-5.4\|gpt-5.3-codex\|...`.            |
 | Free tier (Copilot) | Invoke `copilot-delegate` skill, `--model gpt-4.1` or `gpt-5-mini` (0× cost).               |
-| **Mode 4 subagents**| Spawn N parallel subagents via the `Agent` tool — **send all `Agent` calls in one message** so they run concurrently. Each subagent is a fresh Claude with its own context; in its prompt, instruct it to invoke the matching `*-delegate` skill for its specialist work. Cap N ≤ 4. |
+| **Mode 4 subagents**| Spawn N parallel subagents via the `Agent` tool — **send all `Agent` calls in one message** so they run concurrently. Each subagent is a fresh Claude with its own context; in its prompt, instruct it to invoke the matching `*-delegate` skill (or, for Codex, the `codex:codex-rescue` subagent from the official plugin) for its specialist work. Cap N ≤ 4. |
 
 ### When the orchestrator is GitHub Copilot
 
@@ -295,7 +295,7 @@ Lead Claude decomposes into 3 disjoint subtasks with file ownership boundaries, 
 - `[backend-specialist]` — Claude in-session subagent (no further delegation). Owns `backend/src/rates/*`.
 - `[a11y-reviewer]` — Codex specialty. Read-only on the frontend file once it exists.
 
-Each subagent prompt explicitly instructs which `*-delegate` skill to invoke for its specialist work. Lead aggregates with a Synthesis section listing integration points and cost breakdown.
+Each subagent prompt explicitly instructs which `*-delegate` skill (or the Codex plugin's `codex:codex-rescue` subagent) to invoke for its specialist work. Lead aggregates with a Synthesis section listing integration points and cost breakdown.
 
 ### Example 7 — parallel-team in Copilot (shell-parallel dev swarm)
 

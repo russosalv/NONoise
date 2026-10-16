@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile, symlink } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { installSkills } from '../../src/skill-installer.js';
+import { installSkills, nonoiseSkillDirs, removeRetiredSkills } from '../../src/skill-installer.js';
 
 describe('installSkills', () => {
   let skillsDir: string;
@@ -84,4 +86,51 @@ it('installs a unified vendor skill directly at its namespace with references', 
     expect(await readFile(join(project, '.claude/skills/impeccable/SKILL.md'), 'utf8')).toBe('unified upstream skill');
     expect(await readFile(join(project, '.claude/skills/impeccable/reference/audit.md'), 'utf8')).toBe('audit reference');
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+describe('NONoise skill directories per harness', () => {
+  const none = { claudeCode: false, copilot: false, codex: false, cursor: false, geminiCli: false };
+  it('always targets .claude/skills and adds .agents/skills for Codex or Copilot CLI', () => {
+    expect(nonoiseSkillDirs({ ...none, claudeCode: true })).toEqual(['.claude/skills']);
+    expect(nonoiseSkillDirs({ ...none, codex: true })).toEqual(['.claude/skills', '.agents/skills']);
+    expect(nonoiseSkillDirs({ ...none, copilot: true })).toEqual(['.claude/skills', '.agents/skills']);
+  });
+  it('installs into a custom targetDir', async () => {
+    const skills = await mkdtemp(join(tmpdir(), 'nonoise-skills-'));
+    const project = await mkdtemp(join(tmpdir(), 'nonoise-proj-'));
+    await mkdir(join(skills, 'polly')); await writeFile(join(skills, 'polly', 'SKILL.md'), 'Polly');
+    await installSkills({ skillsRoot: skills, projectPath: project, skillNames: ['polly'], targetDir: '.agents/skills' });
+    expect(await readFile(join(project, '.agents/skills/polly/SKILL.md'), 'utf8')).toBe('Polly');
+    await rm(skills, { recursive: true, force: true }); await rm(project, { recursive: true, force: true });
+  });
+});
+
+describe('removeRetiredSkills (codex-delegate → codex@openai-codex plugin)', () => {
+  const shipped = fileURLToPath(new URL('../fixtures/retired-skills/codex-delegate/SKILL.md', import.meta.url));
+  let project: string;
+  beforeEach(async () => { project = await mkdtemp(join(tmpdir(), 'nonoise-retired-')); });
+  afterEach(async () => { await rm(project, { recursive: true, force: true }); });
+
+  it('removes a pristine shipped copy and a link left dangling by that removal', async () => {
+    await mkdir(join(project, '.claude/skills/codex-delegate'), { recursive: true });
+    await writeFile(join(project, '.claude/skills/codex-delegate/SKILL.md'), await readFile(shipped));
+    await mkdir(join(project, '.agents/skills'), { recursive: true });
+    await symlink('../../.claude/skills/codex-delegate', join(project, '.agents/skills/codex-delegate'));
+    const result = await removeRetiredSkills(project);
+    expect(result).toEqual({ removed: ['.claude/skills/codex-delegate', '.agents/skills/codex-delegate'], preserved: [] });
+    expect(existsSync(join(project, '.claude/skills/codex-delegate'))).toBe(false);
+  });
+  it('preserves a modified copy or one with extra files', async () => {
+    await mkdir(join(project, '.claude/skills/codex-delegate'), { recursive: true });
+    await writeFile(join(project, '.claude/skills/codex-delegate/SKILL.md'), 'my edits');
+    await mkdir(join(project, '.agents/skills/codex-delegate'), { recursive: true });
+    await writeFile(join(project, '.agents/skills/codex-delegate/SKILL.md'), await readFile(shipped));
+    await writeFile(join(project, '.agents/skills/codex-delegate/notes.md'), 'mine');
+    const result = await removeRetiredSkills(project);
+    expect(result.removed).toEqual([]);
+    expect(result.preserved).toEqual(['.claude/skills/codex-delegate', '.agents/skills/codex-delegate']);
+  });
+  it('is a no-op when nothing retired is present', async () => {
+    expect(await removeRetiredSkills(project)).toEqual({ removed: [], preserved: [] });
+  });
 });
