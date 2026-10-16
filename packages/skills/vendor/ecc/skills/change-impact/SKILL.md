@@ -64,7 +64,7 @@ Prefer evidence from real imports and calls, routes, schemas, configuration, gen
 
 ## Routing Rules
 
-- Architecture, databases, authentication, deployment topology, or long-lived technical strategy: check `arch-decision` and the ADR set.
+- Architecture, databases, authentication, deployment topology, or long-lived technical strategy: check `arch-decision` and canonical `.haft/` decision artifacts.
 - Cross-client interfaces: update the single contract source managed by `contract-first`, then plan consumer, provider, and integration evidence.
 - Requirements, business rules, risks, or bugs: keep success criteria in the Spec/Issue and use `atr` to link TEST-IDs.
 - Module behavior or dependency changes: run `module-regression` after implementation.

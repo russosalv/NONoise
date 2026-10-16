@@ -56,4 +56,4 @@ await connection.QueryAsync<Order>(sql, new { customerId });
 
 ## References
 
-See skill: `security-reviewer` for broader application security review checklists.
+Use the `security-reviewer` agent for broader application security review checklists.

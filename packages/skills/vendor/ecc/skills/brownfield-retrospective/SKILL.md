@@ -8,7 +8,7 @@ metadata:
 
 # Brownfield Retrospective
 
-Run ECC's engineering process retroactively against a project that was built without it. Pick any slice of an existing codebase, audit what exists, reconstruct how it got there, extract a four-axis gap register, then execute the fixes forward through the standard ECC pipeline.
+Run ECC's engineering process retroactively against a project that was built without it. Pick any slice of an existing codebase, audit what exists, reconstruct how it got there, extract a four-axis gap register, then execute the fixes forward through the NONoise workflow.
 
 The workflow is slice-first: no whole-repo onboarding is required before it is useful, and every phase is re-enterable from a durable artifact on disk. Start in the middle, work backwards, then move forward.
 
@@ -23,7 +23,7 @@ The workflow is slice-first: no whole-repo onboarding is required before it is u
 
 ## When Not to Use
 
-- Greenfield work with no existing code — use `planner` and `superpowers:test-driven-development` directly
+- Greenfield work with no existing code — use `superpowers:writing-plans` and `superpowers:test-driven-development` directly
 - Onboarding to spec-driven development without the redesign loop — the `spec-miner` agent does that on its own
 - A launch go/no-go production-readiness pass — use `production-audit`
 - Security-only sweeps — use `security-reviewer`
@@ -40,7 +40,7 @@ All artifacts are written inside the audited project, under `docs/retro/<slice>/
 | `reconstructed-spec.md` | 2 | What the code actually does today (Requirements + Invariants). |
 | `target-design.md` | 4 | Target shape for the slice and the fix sequence. |
 
-Backfilled decisions go to `docs/adr/` per the `arch-decision` skill. In NONoise, `reconstructed-spec.md` may instead be `docs/architecture/specs/<capability>/spec.md` produced by `spec-miner`.
+Reconstruct decision evidence through `arch-decision` and Haft, retaining canonical `.haft/` records. Link the resulting artifact IDs from the retrospective; do not create a second decision register. Behavioral specifications may use `docs/architecture/specs/<capability>/spec.md` produced by `spec-miner`.
 
 ## How It Works
 
@@ -85,8 +85,8 @@ Work backwards from the present state to the decisions that produced it.
    - Largest and most reverted commits — where the design changed under pressure
    - Churn hotspots — files changed far more often than neighbors
    - Dead ends — branches or scaffolding that never shipped
-3. Decision inventory: list the significant decisions frozen into the code (stack and framework choices, data model, boundaries, error strategy, state management). Check each against `docs/adr/`, README, and comments. Every decision with no written record is itself a pre-existing thinking gap — record it in Phase 3, do not silently backfill it here.
-4. Where behavior is opaque, use `code-explorer` to trace execution paths before guessing at intent.
+3. Decision inventory: list the significant decisions frozen into the code (stack and framework choices, data model, boundaries, error strategy, state management). Check each against canonical `.haft/` records, README, and comments. Every decision with no written record is itself a pre-existing thinking gap — record it in Phase 3, do not silently backfill it here.
+4. Where behavior is opaque, use `reverse-engineering` to trace execution paths before guessing at intent.
 
 ### Phase 3 — Gap Analysis (Four Axes)
 
@@ -116,8 +116,8 @@ Register format (the table is the skill's durable output):
 
 Turn the register into a sequenced plan. Follow the project's existing task and approval authority. Keep the register as audit evidence linked to that system; do not create competing canonical task state. Confirm scope and obtain project-required approval before a rewrite, technology replacement, migration, or other material change.
 
-1. Run `architect` or `code-architect` over the `P0` and `P1` rows to produce `target-design.md`: target shape for the slice, the fix sequence, and an explicit "what does not change" list to protect working behavior.
-2. Backfill retro-ADRs for every undocumented decision from Phase 2. Mark them as reconstructed (`status: proposed (reconstructed)`, date of the retro, note the original decision predates the record). Separate observed history from inferred intent, and have the project owner confirm a decision before marking it accepted. Never present a backfilled ADR as if it were written at decision time.
+1. Run `arch-brainstorm` over the `P0` and `P1` rows to produce `target-design.md`: target shape for the slice, the fix sequence, and an explicit "what does not change" list to protect working behavior.
+2. Send undocumented decisions from Phase 2 through `arch-decision` and Haft. Distinguish observed history from inferred intent, record reconstructed status and the retrospective date in the canonical artifacts, and link their IDs. Keep any accepted binding under the existing project authority; never present reconstructed evidence as contemporaneous or create a parallel ADR directory.
 3. Triage every register row into one of: `fix-forward` (repair in place), `rewrite` (replace the slice), `leave-documented` (wont-fix). A `wont-fix` must record its reason in the register — a wont-fix with a reason closes the thinking gap; a silent one reopens it.
 4. Sequence the backlog: `P0` first, then interleave quick wins with larger repairs to keep momentum.
 
@@ -126,19 +126,19 @@ Turn the register into a sequenced plan. Follow the project's existing task and 
 Work the register through the standard ECC pipeline, one row per session as a baseline pace:
 
 ```text
-planner (scope the row)
-  → tdd-guide (failing test first — for a legacy gap the first test
+superpowers:writing-plans (scope the row)
+  → superpowers:test-driven-development (failing test first — for a legacy gap the first test
     usually encodes the missing invariant from reconstructed-spec.md)
   → implement
-  → code-reviewer
+  → superpowers:requesting-code-review
   → security-reviewer (if the row touches input, auth, or data)
-  → doc-updater + ADR (if the decision changed)
+  → bmad-agent-tech-writer + arch-decision / Haft (if the decision changed)
   → conventional commit
   → mark the register row done
 ```
 
 - Update `gap-register.md` statuses as rows close; the register is the durable state, not the conversation.
-- On session boundaries, hand off through the project's memory mechanism (`unified-memory`, context carriers) so the next session resumes from the register alone.
+- On session boundaries, hand off through the existing sprint manifest and linked retrospective artifacts so the next session resumes from the register alone.
 
 ### Phase 6 — Closure and Re-Audit
 
@@ -171,7 +171,7 @@ Any session can start in the middle. Read `docs/retro/<slice>/gap-register.md` f
 ## Related Skills
 
 - `reverse-engineering` — recon baseline for Phase 1
-- `arch-decision` — retro-ADR backfill in Phase 4
+- `arch-decision` and Haft — canonical reconstructed decisions in Phase 4
 - `superpowers:test-driven-development` — Phase 5 execution discipline
 - `verification-loop` — Phase 6 closure
 - `production-audit` — launch-readiness lens (complementary, later)

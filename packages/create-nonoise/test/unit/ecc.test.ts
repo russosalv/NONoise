@@ -99,3 +99,16 @@ it('removes only pristine ECC files when changing to no stack', () => {
   expect(() => readFileSync(join(project, '.codex/agents/csharp-reviewer.toml'))).toThrow();
   expect(readFileSync(join(project, edited), 'utf8')).toBe('My reviewer');
 });
+it('routes imported workflows only to included capabilities and canonical Haft records', () => {
+  const vendor = join(root, 'vendor/ecc');
+  for (const file of ['agents/build-error-resolver.md', 'agents/spec-miner.md', 'skills/brownfield-retrospective/SKILL.md', 'skills/production-audit/SKILL.md']) {
+    const text = readFileSync(join(vendor, file), 'utf8');
+    expect(text, file).not.toMatch(/(?<![\w:-])(?:planner|architect|code-architect|tdd-guide|code-reviewer|code-explorer|doc-updater|unified-memory|deployment-patterns)(?![\w-])/);
+  }
+  const retro = readFileSync(join(vendor, 'skills/brownfield-retrospective/SKILL.md'), 'utf8');
+  expect(retro).not.toContain('docs/adr/');
+  expect(retro).not.toContain('Backfill retro-ADRs');
+  expect(retro).toContain('canonical `.haft/`');
+  expect(retro).toContain('arch-decision');
+  expect(readFileSync(join(vendor, 'rules/csharp/security.md'), 'utf8')).not.toContain('skill: `security-reviewer`');
+});

@@ -201,8 +201,8 @@ Next action: Want me to patch webhook idempotency first?
 
 ## See Also
 
-- Skill: `security-reviewer`
-- Skill: `deployment-patterns`
+- Agent: `security-reviewer`
+- Use the project deployment documentation and `ops-skill-builder` for operational procedures.
 - Skill: `e2e-testing`
 - Skill: `superpowers:test-driven-development`
 - Skill: `verification-loop`

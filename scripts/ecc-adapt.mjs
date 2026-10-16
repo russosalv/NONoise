@@ -50,6 +50,35 @@ export function adaptEcc(path, text) {
     text = text.replace('Run: /verify', 'Run the verification-loop skill')
       .replace('This skill complements PostToolUse hooks but provides deeper verification.', 'This skill complements superpowers:verification-before-completion: collect build, typecheck, test, security and diff evidence here; use that skill before claiming completion. No ECC hooks are installed.');
   }
+  if (path.startsWith('agents/') || path === 'skills/brownfield-retrospective/SKILL.md') {
+    const capabilities = {
+      'planner': 'superpowers:writing-plans',
+      'architect': 'arch-brainstorm',
+      'code-architect': 'arch-brainstorm',
+      'tdd-guide': 'superpowers:test-driven-development',
+      'code-reviewer': 'superpowers:requesting-code-review',
+      'code-explorer': 'reverse-engineering',
+      'doc-updater': 'bmad-agent-tech-writer',
+      'unified-memory': 'sprint-manifest',
+    };
+    for (const [from, to] of Object.entries(capabilities)) {
+      text = text.replace(new RegExp(`(?<![\\w:-])${from}(?![\\w-])`, 'g'), to);
+    }
+  }
+  text = text.replaceAll('Skill: `security-reviewer`', 'Agent: `security-reviewer`')
+    .replaceAll('See skill: `security-reviewer`', 'Use the `security-reviewer` agent')
+    .replace('- Skill: `deployment-patterns`', '- Use the project deployment documentation and `ops-skill-builder` for operational procedures.');
+  if (path === 'skills/brownfield-retrospective/SKILL.md') {
+    text = text.replace('`arch-brainstorm` or `arch-brainstorm`', '`arch-brainstorm`');
+    text = text.replace(/^Backfilled decisions go to .*$/m, 'Reconstruct decision evidence through `arch-decision` and Haft, retaining canonical `.haft/` records. Link the resulting artifact IDs from the retrospective; do not create a second decision register. Behavioral specifications may use `docs/architecture/specs/<capability>/spec.md` produced by `spec-miner`.');
+    text = text.replaceAll('`docs/adr/`', 'canonical `.haft/` records');
+    text = text.replace(/^2\. Backfill retro-ADRs.*$/m, '2. Send undocumented decisions from Phase 2 through `arch-decision` and Haft. Distinguish observed history from inferred intent, record reconstructed status and the retrospective date in the canonical artifacts, and link their IDs. Keep any accepted binding under the existing project authority; never present reconstructed evidence as contemporaneous or create a parallel ADR directory.');
+    text = text.replace('standard ECC pipeline', 'NONoise workflow')
+      .replace('bmad-agent-tech-writer + ADR (if the decision changed)', 'bmad-agent-tech-writer + arch-decision / Haft (if the decision changed)')
+      .replace("the project's memory mechanism (`sprint-manifest`, context carriers)", "the existing sprint manifest and linked retrospective artifacts")
+      .replace('`arch-decision` — retro-ADR backfill in Phase 4', '`arch-decision` and Haft — canonical reconstructed decisions in Phase 4');
+  }
+  if (path === 'skills/change-impact/SKILL.md') text = text.replace('`arch-decision` and the ADR set', '`arch-decision` and canonical `.haft/` decision artifacts');
   text = text.replace(/^Note: ECC-managed installs.*$/m, 'Commit attribution follows the project and CLI settings; NONoise does not change global attribution settings.');
   text = text.replace('Hooks catch issues immediately; this skill provides comprehensive review.', 'Record the actual commands and their results before delivery.');
   text = text.replace('an persistent project-instruction reference', 'a persistent project-instruction reference');

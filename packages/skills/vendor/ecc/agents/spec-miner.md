@@ -170,7 +170,7 @@ Write the `description` in the frontmatter to include a summary of the module's 
 3. **`#### Scenario:` uses exactly 4 hashtags** — NONoise tooling depends on this depth.
 4. **`<!-- -->` comments are metadata**, not documentation. They MUST be machine-parseable: `<!-- key: value -->`. One key-value per line. The keys `deferred` and `uncertainty` are document-level metadata that carry their payload after the colon: `<!-- deferred: file1.md, file2.md -->`, `<!-- uncertainty: <reason> -->`.
 5. **`entities`** lists domain entity names as they appear in code (camelCase or PascalCase).
-6. **`enforced`** uses format `FileName.methodName()` — precise enough for code-explorer to jump to.
+6. **`enforced`** uses format `FileName.methodName()` — precise enough for reverse-engineering to jump to.
 7. **`id`** is the stable anchor for delta matching. It is derived from `enforced` (the most upstream enforcement point). When `enforced` is available, `id` MUST be set. It does NOT change when the human-readable Requirement name changes. If `enforced` is unknown, `id` is omitted.
 8. **`depends_on` / `triggers`** reference other Requirement names within the SAME spec file only. Do not record cross-module or async event-driven dependencies — those are not statically traceable and belong in cross-capability spec references, not here.
 9. **Every Requirement MUST have at least one Scenario.**
@@ -201,8 +201,8 @@ Write the `description` in the frontmatter to include a summary of the module's 
 ## Integration with Other Agents
 
 - **This agent is fully self-sufficient.** It does not require `reverse-engineering` or any other agent to run first.
-- **After you run**: `code-explorer` will use your specs as the primary information source — checking `Last verified` freshness before trusting
-- **Future changes**: `planner` will add `## ADDED Requirements` blocks; `tdd-guide` will read `#### Scenario:` blocks to generate test skeletons; `code-reviewer` will grep `<!-- enforced: -->` to verify implementation still matches spec; MODIFIED Requirements will match by `<!-- id: -->`, not by name
+- **After you run**: `reverse-engineering` will use your specs as the primary information source — checking `Last verified` freshness before trusting
+- **Future changes**: `superpowers:writing-plans` will add `## ADDED Requirements` blocks; `superpowers:test-driven-development` will read `#### Scenario:` blocks to generate test skeletons; `superpowers:requesting-code-review` will grep `<!-- enforced: -->` to verify implementation still matches spec; MODIFIED Requirements will match by `<!-- id: -->`, not by name
 
 ## Anti-Patterns
 
