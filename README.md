@@ -29,7 +29,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** — a library of **28 NONoise skills plus native vendor integrations**: Polly advisor, BMAD-derived personas, Quint FPF validator, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
+- **`.claude/skills/`** — a library of **28 NONoise skills plus native vendor integrations**: Polly advisor, BMAD-derived personas, Haft FPF validator, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.
@@ -64,7 +64,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 You never pick the wrong skill. You always know the next step.
 
-**Canonical architectures beat exotic ones** because they're already in the parametric memory of every frontier LLM. NONoise's architectural skills push toward DDD, Clean Architecture, CQRS, standard REST — and only allow deviations that survive a formal Quint FPF validation. Every token you spend re-teaching the LLM your bespoke abstraction is a token it isn't spending on your actual problem.
+**Canonical architectures beat exotic ones** because they're already in the parametric memory of every frontier LLM. NONoise's architectural skills push toward DDD, Clean Architecture, CQRS, standard REST — and only allow deviations that survive a formal Haft FPF validation. Every token you spend re-teaching the LLM your bespoke abstraction is a token it isn't spending on your actual problem.
 
 **Local tooling, no service.** Everything runs inside your AI tool of choice. No server, no telemetry, no account. NONoise skills are plain Markdown; a `git clone` carries them between projects. Vendor plugins are installed through each harness; Claude project settings declare the dependencies for teammates. External tools (issue trackers, voice recorders, memory systems) are mentioned by Polly at the right moment — not wired, not required.
 
@@ -201,3 +201,20 @@ MIT (see `LICENSE`, landing with the first tagged release). Use of the framework
 ## Author
 
 NONoise was created by **Alessandro Russo** ([@russosalv](https://github.com/russosalv)) as a lesson-learned, packaged and open-sourced so the method — not just one implementation — outlives the project it was born in.
+
+## Haft powers FPF
+
+NONoise 1.7.0 requires Haft for FPF work in native and embed modes. Scaffold and
+upgrade install the SHA-256-verified `russosalv/haft` fork `v9.1.1-nonoise.1` once
+per machine in `~/.local/bin`, then initialize selected hosts non-interactively.
+This temporary fork fixes upstream v9.1.0 initialization dates; the fork release
+is not published yet, so validation uses `NONOISE_HAFT_BASE_URL` with a local
+release server. Windows users need WSL.
+
+`quint-fpf` is the stable adapter name for Haft's `h-*` skills. Architecture
+reviews persist ProblemCards, variants and decisions in `.haft/`; the explicit
+Phase 5.5 operator choice precedes decision binding. PRDs link the returned IDs
+and paths; old audit records are preserved. Without Haft MCP, FPF work stops
+with `create-nonoise --upgrade .` / `create-nonoise doctor .`, without fallback.
+See [installation](docs/installation.md#haft-required-fpf-runtime-170) and
+[cross-tool integration](docs/cross-tool.md#haft-fpf-integration).

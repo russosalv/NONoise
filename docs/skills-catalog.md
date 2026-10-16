@@ -128,26 +128,20 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 
 ### `arch-decision`
 - **SKILL.md:** [`packages/skills/arch-decision/SKILL.md`](../packages/skills/arch-decision/SKILL.md)
-- **Provenance:** custom NONoise.
-- **Purpose:** Step 2 of the architecture workflow — formal Quint FPF validation of a draft PRD. Runs the six-phase structured-reasoning cycle to audit the decision; updates the PRD frontmatter to `status: validated` (ship it) or `status: rejected` (back to brainstorm). Produces a per-phase audit folder at `docs/prd/<area>/audit/NN-<study>-fpf/` (co-located with the PRD, deletable in one `rm -rf`), whose `05-decision.md` is the Design Rationale Record. Produces an ADR at `docs/architecture/decisions/<ADR-N>.md`.
-- **Triggers:** Polly's Step 7; manual "validate this PRD".
-- **Reads:** `docs/prd/<area>/<feature>.md` (draft); `docs/architecture/01-constraints.md`; sibling `audit/NN-<study>-fpf/00-context.md` when resuming a partial cycle.
-- **Writes:** same PRD (status update), `docs/prd/<area>/audit/NN-<study>-fpf/` (six per-phase markdown files), `docs/architecture/decisions/`.
-- **Phase:** Architecture.
-- **Phase 5.5 gate:** between the algorithmic verdict (Phase 5) and the frontmatter write (Phase 6), the skill presents a mandatory recap + 4-action choice (approve / reject / go-back / force-validated). Action 5 "Edit audit" is a process loop. Action 4 (force-validated) records `validated_by: human-override` in `05-decision.md` and propagates the marker into the PRD's `validated_by` field.
+- **Purpose:** Review a draft PRD through Haft ProblemCard, variants and parity comparison; Phase 5.5 is the explicit operator request needed to bind a DecisionRecord.
+- **Reads:** draft PRD, architectural constraints and exact Haft records when resuming.
+- **Writes:** canonical `.haft/` records through Haft; PRD status and `haft.problems`, `haft.solutions`, `haft.decisions` IDs/root-relative paths. Projects an architecture impact checklist into the PRD after acceptance.
+- **Gate:** human choice precedes binding; accepting risks cannot bypass kernel gates. No duplicate audit folder and no automatic architecture sync.
 
 ### `quint-fpf`
 - **SKILL.md:** [`packages/skills/quint-fpf/SKILL.md`](../packages/skills/quint-fpf/SKILL.md)
-- **Provenance:** custom NONoise.
-- **Purpose:** First Principles Framework. A six-phase structured reasoning cycle with an audit trail and bias checks. Six main commands (`q0-init`, `q1-hypothesize`, `q1-add`, `q2-verify`, `q3-validate`, `q4-audit`, `q5-decide`) plus support commands (`q-actualize`, `q-decay`, `q-query`, `q-reset`, `q-status`). Every phase writes a dedicated markdown file (`00-context.md` … `05-decision.md`) under a single per-cycle folder, in both tooled (quint MCP present) and conversational modes. Invoked by `arch-decision` but also usable standalone for any "I need to think from first principles about X" situation.
-- **Triggers:** `arch-decision` invokes it (passing `--target docs/prd/<area>/audit/NN-<study>-fpf/`); manual `/q0-init` to start a fresh cycle (auto-derives a slug → `docs/fpf/<slug>/`).
-- **Reads:** whatever the cycle hypothesises about (a PRD, a requirement, a decision); the active cycle's `00-context.md` to locate the output folder across phases.
-- **Writes:** per-phase markdown trail under `docs/fpf/<slug>/` (standalone) or the caller-supplied `--target` folder (e.g. `docs/prd/<area>/audit/NN-<study>-fpf/`). In tooled mode, also `.quint/knowledge/`, `.quint/decisions/` via MCP.
-- **Phase:** Architecture (primary) / ad-hoc reasoning (secondary).
+- **Purpose:** Stable NONoise adapter name for Haft's independent `h-*` capabilities and MCP tools. Requires a connected `haft` server; otherwise stops with installation/doctor commands.
+- **Reads:** current question, project records and FPF retrieved from the binary.
+- **Writes:** only the canonical records needed by the current use through Haft; does not copy FPF text or maintain a parallel register.
 
 ### `bmad-agent-architect`
 - **SKILL.md:** [`packages/skills/bmad-agent-architect/SKILL.md`](../packages/skills/bmad-agent-architect/SKILL.md)
-- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (direct integration with `arch-brainstorm` / `arch-decision`, Quint FPF as default validator, bias toward canonical patterns).
+- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (direct integration with `arch-brainstorm` / `arch-decision`, Haft FPF as default validator, bias toward canonical patterns).
 - **Purpose:** *Alex* persona — system architect. Drives the `arch-brainstorm` → `arch-decision` → source-of-truth loop. Opinionated about canonical patterns, parametric memory, symmetry, local deducibility. Refuses opaque binary dependencies.
 - **Triggers:** Polly's Steps 6-7 (persona layer on top of the skills); manual "engage Alex" / "start the architect".
 - **Reads / writes:** same surface as `arch-brainstorm` and `arch-decision`.
@@ -167,8 +161,8 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 
 - **SKILL.md:** [`packages/skills/arch-sync/SKILL.md`](../packages/skills/arch-sync/SKILL.md)
 - **Triggers:** suggested by Polly after `arch-decision` PASS (the architect picks "Sì — invoco arch-sync" at the post-finalize menu); manual phrases like "arch-sync `<prd-path>`", "project the validated PRD into docs/architecture/", "sync architecture from `<prd-path>`", "recepisci il PRD validato `<path>`".
-- **Purpose:** Generic, opt-in projector of the Phase 6 "Impact on `docs/architecture/`" checklist into actual file writes. Reads the validated PRD plus the FPF audit folder (specifically `05-decision.md`), parses bullets in the strict `[file: NN.md]` format, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under `docs/architecture/sync-reports/`. Stack-neutral — knows no target constraints, never validates anything, never reads source code.
-- **Reads:** the validated PRD (`docs/prd/<area>/NN-*.md` with `status: validated`); the FPF audit folder (`docs/prd/<area>/audit/NN-*-fpf/`), specifically `05-decision.md` with `verdict: PASS` AND `human_verdict ∈ { approve, force-validated }`.
+- **Purpose:** Generic, opt-in projector of the Phase 6 "Impact on `docs/architecture/`" checklist into actual file writes. Reads the validated PRD checklist and its exact Haft decision references, parses bullets in the strict `[file: NN.md]` format, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under `docs/architecture/sync-reports/`. Stack-neutral — knows no target constraints, never validates anything, never reads source code.
+- **Reads:** the validated PRD and its `haft.decisions` IDs/paths; exact records must support the accepted choice and proposed effects.
 - **Writes:** files under `docs/architecture/` (per the parsed checklist, with per-file confirmation); a sync report at `docs/architecture/sync-reports/YYYY-MM-DD-<area>-<study>.md`.
 - **Provenance:** custom NONoise — generic distillation of the Andreani `andreani-arch-docs` mode M (sync-from-validated-prd), stack-neutral and content-agnostic. Project-locked sync skills (with target constraints / registries / debt registers) coexist alongside it.
 

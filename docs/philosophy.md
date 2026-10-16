@@ -22,7 +22,7 @@ In the age of coding agents, the limiting factor is not the model's capability. 
 **Five sources of noise** the framework attacks systematically:
 
 1. **Uncoordinated developers.** Each senior has their own prompt library, their own skill folder, their own mental model of "the right way". Nothing is shared; nothing is reviewed. New hires pick up habits by osmosis. → **Fix:** skills in `.claude/skills/` are committed, versioned, and reviewed in PR. A senior's prompt library becomes a file anyone can read and extend.
-2. **Exotic architectures the AI doesn't recognise.** The LLM has read standard patterns thousands of times; your bespoke abstraction zero. Every session you pay the context-injection tax to re-teach the model what you've built. → **Fix:** `arch-brainstorm` and `arch-decision` push toward canonical patterns; exotic deviations require a formal Quint FPF first-principles audit.
+2. **Exotic architectures the AI doesn't recognise.** The LLM has read standard patterns thousands of times; your bespoke abstraction zero. Every session you pay the context-injection tax to re-teach the model what you've built. → **Fix:** `arch-brainstorm` and `arch-decision` push toward canonical patterns; exotic deviations require a formal Haft FPF first-principles audit.
 3. **Repositories with no context.** The AI opens your codebase and has to guess what Entity X, UseCase Y, and the "Adapters" folder mean. → **Fix:** every scaffolded project has `CLAUDE.md`, `AGENTS.md`, and `.github/copilot-instructions.md` generated from one source, so every tool reads the same project glossary, the same conventions, the same "do / don't".
 4. **Code hidden in compiled packages.** The agent sees signatures, not behaviour. It can navigate types but cannot reason about implementation. → **Fix:** the framework's architectural guidance defaults to `ProjectReference` in .NET, source-over-binary in every language, and calls out binary-only vendor lock as a red flag in `arch-decision`.
 5. **Documents written for humans the AI misreads.** Stream-of-consciousness call transcripts, slide decks that assume you were in the room, acceptance criteria that only make sense to someone who lived through the last sprint. → **Fix:** `requirements-ingest` turns raw PDFs / DOCX / emails / transcripts into structured, AI-readable requirement files with explicit signals (functional, business rule, UI, out-of-scope, open-question). `bmad-advanced-elicitation` stress-tests drafts before they become sprint input.
@@ -41,7 +41,7 @@ Canonical patterns (Repository, CQRS, Clean Architecture, DDD, MVC, observer, ev
 **Practical consequences:**
 
 - `arch-brainstorm` explicitly surfaces canonical-pattern options first. Exotic options are listed only when the canonical set has been eliminated by constraint.
-- `arch-decision` runs a Quint FPF six-phase audit (Initialize → Abduct → Deduce → Induce → Audit → Decide) on any exotic decision. If the pattern isn't in the LLM's training data, the team must be able to defend it from first principles or it doesn't ship.
+- `arch-decision` runs a Haft-backed review (ProblemCard, variants, parity comparison and operator-bound DecisionRecord) on any exotic decision. If the pattern isn't in the LLM's training data, the team must be able to defend it from first principles or it doesn't ship.
 - Context files (`CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md`) have strict length budgets — 500 lines at repo root, 200 per service. Beyond that, instructions get systematically ignored by the model. The framework will refuse to scaffold context files longer than the budget and will use progressive disclosure (skill description ≈ 80 tokens of discovery, full body loaded only on activation).
 - The `docs-md-generator` skill keeps the three context files coherent from one source of truth — because drift between files is another tax on attention.
 
@@ -109,7 +109,7 @@ NONoise explicitly refuses to automate two categories:
 - **LSP / plugin installation.** When a step needs an LSP server or an editor plugin, Polly *prints the install command* for the user to copy-paste. It does not invoke `npm install -g` or `code --install-extension` on the user's behalf. Reason: the user's tooling environment is theirs; auto-modifying it without consent is bad posture, especially in enterprise contexts with strict endpoint policy.
 - **Voice input tools.** Polly mentions Wispr Flow, Handy, Superwhisper, and Copilot's built-in transcription at the right moment. It never downloads them, never installs them, never configures them. Reason: voice tools have side effects on microphone access, global hotkeys, and OS permissions — all of which deserve the user's explicit decision.
 
-Other categories — Superpowers skills, BMAD-derived personas, Quint, Graphify, Polly herself — **are** auto-installed, because they are plain Markdown inside the project itself. No system-wide side effects. No opt-in needed.
+NONoise skills and personas are project-local Markdown. Native vendor integrations also install their required runtimes: Haft is a shared user executable with a local project ledger, while Graphify uses its Python tool environment. See the installation guide for the footprint and offline behavior.
 
 See [`external-tools.md`](external-tools.md) for the full advisor-only list.
 
@@ -118,7 +118,7 @@ See [`external-tools.md`](external-tools.md) for the full advisor-only list.
 Restating §2 in operational terms:
 
 - If the pattern is in every LLM's training data (DDD, Clean Arch, CQRS, Repository, standard REST, MVC, observer, strategy, event-sourcing, hexagonal, BFF, saga, outbox), prefer it. The LLM will generate correct idiomatic code zero-shot.
-- If the pattern is unusual (a custom event bus, a bespoke aggregate boundary rule, a "we-always-do-it-this-way" convention), require a Quint FPF audit.
+- If the pattern is unusual (a custom event bus, a bespoke aggregate boundary rule, a "we-always-do-it-this-way" convention), require a Haft FPF audit.
 - Binary-only vendor dependencies are a yellow flag. The LLM sees signatures but can't reason about behaviour. Prefer source dependencies (`ProjectReference` in .NET, Git submodule or workspace package in Node/Python, vendored source trees where licence permits).
 
 **What this does for the team.** A junior + small model is productive on canonical patterns because the LLM carries the idiom. The same junior + same model on an exotic architecture is a source of bugs because every decision requires an explanation the LLM doesn't have the memory for.

@@ -424,3 +424,71 @@ upstream installer, keeping user prose and NONoise markers intact while allowing
 native skills, references and hooks to be installed. Use `--graphify-only` for a
 forced repair through this protection. Successful native installs have a local
 version/hash receipt so repeated upgrades do not rewrite graphify backup files.
+
+## Haft: required FPF runtime (1.7.0)
+
+Scaffold and `--upgrade` install Haft in both native and embed modes. The temporary
+MIT fork `russosalv/haft`, pinned to `v9.1.1-nonoise.1`, fixes the validity dates
+that make upstream v9.1.0 initialization fail after 2026-09-18 (upstream #122).
+The fork release is not published yet; default GitHub downloads will remain
+pending until publication. Maintainers can change `HAFT_REPO` and `HAFT_VERSION`
+in `src/haft.ts` to return to the corrected upstream.
+
+Supported assets are `haft-linux-amd64.tar.gz`, `haft-linux-arm64.tar.gz` and
+`haft-darwin-arm64.tar.gz`, checked against release `checksums.txt` (SHA-256).
+Native Windows requires WSL; macOS Intel has no asset in this release set.
+The ~170 MB executable lives in `~/.local/bin/haft`, shared by all projects,
+without root access or a project-local binary copy. A matching `haft --version`
+reuses the installed binary; a checksum failure cannot replace it. Network
+failures retry up to three times with 1s/2s waits; permanent HTTP failures and
+checksum failures are not retried. Downloads stage outside the project.
+
+If needed, add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile.
+No shell profile is changed automatically. Recover an incomplete setup with:
+
+```sh
+create-nonoise --upgrade /path/to/project
+create-nonoise doctor /path/to/project
+```
+
+The new single-project scaffold already creates its initial Git commit.
+Multi-repo/existing workspaces with `--yes` retain their prior no-Git default. Haft runs after it,
+with `init --local` and explicit selected harness flags, never an interactive
+menu. For `--no-git`, missing Git identity, an empty repository or upgrade outside
+a Git root, NONoise prints `git init`, `git add .`, `git commit` and the upgrade
+command; it does not make an extra commit on the user's behalf. After the commit,
+rerun upgrade. Successful init is recorded in `.nonoise/haft.json`; unchanged
+upgrades reuse it. Missing host carriers trigger repair.
+
+Version `.haft/` Markdown records, `project.yaml`, its `.gitignore`, host MCP
+configs and `h-*` skills. Keep Haft's own `.haft/.gitignore` for transient review
+and migration state; do not ignore `.haft/` wholesale. SQLite lives outside the
+repository in `~/.haft/projects/<id>/`; backing up the full Haft state requires
+both locations. The FPF text stays in the executable and is queried through
+`haft fpf query|lookup|inspect` or `haft_query(action="fpf")`.
+
+Offline embed still scaffolds bundled NONoise skills and reports the exact
+recovery command if Haft cannot be downloaded. FPF operations then stop until
+Haft MCP is connected; there is no conversational substitute. `doctor` reports
+platform/version, per-harness MCP/skills/blocks and the read-only
+`haft spec status --json` result. Workflow readiness is not a health verdict.
+
+Upgrade removes only hash-recognized old q* copies (including legacy slash
+command locations). Modified files and symlinks stay. Neither 1.6.0 nor 8b500d0
+shipped `.quint` data, so existing `.quint/` directories are conservatively
+preserved, including empty ones. During init, NONoise temporarily shields the
+entry from Haft's own automatic `.quint` migration and restores it in `finally`.
+A process crash can leave a `.nonoise-quint-preserved-*` directory containing
+`original`; retain it and restore that entry to `.quint` before retrying. Historical `docs/prd/*/audit/*-fpf/` data stays;
+new reviews link `.haft/` records instead of creating another audit register.
+
+For unpublished-release validation only, serve the prepared artifacts locally:
+
+```sh
+python3 -m http.server 8765 --bind 127.0.0.1 --directory /haft-release
+NONOISE_HAFT_BASE_URL=http://127.0.0.1:8765 create-nonoise demo --yes --ai claude-code,copilot,codex
+```
+
+`NONOISE_HAFT_BASE_URL` replaces the release asset directory, including
+`checksums.txt`. Use a trusted release mirror; the checksum confirms transfer
+integrity, not an independent publisher signature.

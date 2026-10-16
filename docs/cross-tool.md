@@ -131,3 +131,44 @@ vendor plugins. Impeccable uses one skill with subcommands (providers `claude`,
 Codex graphify 0.9.91 lands under `.codex/skills/`, impeccable under `.agents/skills/`; Copilot graphify
 uses `.copilot/skills/`. Offline `--vendor-mode embed` retains the old layout.
 See [installation](installation.md#native-vendor-installation-and-upgrades-17).
+
+## Haft FPF integration
+
+Haft is required in both vendor modes. Claude and Codex use upstream-generated
+project carriers; Copilot CLI is configured by NONoise and reuses Haft's agent
+skill output, with no second skill distribution:
+
+| Harness | Explicit init flags (plus `--local`) | MCP | Skills |
+|---|---|---|---|
+| Claude Code | `--claude` | `.mcp.json` → `haft serve` | `.claude/skills/h-*` |
+| Codex | `--codex` | `.codex/config.toml` → `haft serve` | `.agents/skills/h-*` |
+| Copilot CLI | `--agents` unless Codex already selected | shared `.mcp.json` → `haft serve` | same `.agents/skills/h-*` |
+
+Verified discovery contracts with installed Copilot CLI 1.0.98:
+`copilot mcp --help`, `copilot skill --help`, `copilot mcp list --json` and
+`copilot skill list --json`. Workspace MCP sources require folder trust; a clean
+home can list skills while returning no MCP servers until trust is granted.
+Review the project and use the interactive trust flow, then
+`copilot mcp get haft --json`. In this container, the isolated fixture grants
+trust by adding the project to `trustedFolders` in `~/.copilot/config.json`,
+as documented by GitHub. CLI 1.0.98 rejects `copilot config trustedFolders`
+with `Unknown settings key segment "trustedFolders" at "<root>"`.
+NONoise does not grant trust or log in on the user's behalf. See the
+[official CLI reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#mcp-server-loading-priority).
+For prompt-mode sessions the CLI also documents
+`GITHUB_COPILOT_PROMPT_MODE_WORKSPACE_MCP=true`. A discovery listing alone is not
+an authenticated model-to-tool execution test.
+
+Both `<!-- haft:start -->` / `<!-- haft:end -->` and the NONoise managed block
+coexist in project instructions. Each installer owns only its own block.
+`quint-fpf` retains its name as an adapter, routes to `h-frame`, `h-explore`,
+`h-compare`, `h-decide`, `h-verify`, `h-status` or `h-reason`, and stops if Haft MCP
+is unavailable. The Phase 5.5 operator choice in `arch-decision` supplies the
+explicit binding request required by `h-decide`; a comparison does not bind.
+PRDs keep root-relative IDs/paths to `.haft/` even after sprint promotion.
+
+Codex also loads project `.codex/config.toml` only for trusted projects (see
+[official configuration precedence](https://learn.chatgpt.com/docs/config-file/config-basic#configuration-precedence)).
+For these isolated fixtures, `~/.codex/config.toml` has a project entry with
+`trust_level = "trusted"`; NONoise never grants trust automatically.
+`claude mcp list` may report pending approval until the user approves the server.

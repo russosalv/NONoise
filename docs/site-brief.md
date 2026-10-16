@@ -185,8 +185,8 @@ pillars: {
       t: { it: "Pattern standard", en: "Standard patterns" },
       s: { it: "Memoria parametrica > context injection", en: "Parametric memory > context injection" },
       b: {
-        it: "I pattern ad alta frequenza (DDD, Repository, CQRS, Clean Architecture, hexagonal, BFF, saga, outbox) sono nella memoria parametrica dell'LLM: generazione zero-shot, zero token di descrizione. I pattern esotici forzano in-context learning, consumano token, competono per l'attenzione. arch-brainstorm li elenca per primi; arch-decision + quint-fpf auditano le deviazioni in sei fasi strutturate.",
-        en: "High-frequency training-data patterns (DDD, Repository, CQRS, Clean Architecture, hexagonal, BFF, saga, outbox) live in the LLM's parametric memory: zero-shot generation, zero description tokens. Exotic patterns force in-context learning, consume tokens, compete for attention. arch-brainstorm lists them first; arch-decision + quint-fpf audit deviations via a six-phase structured cycle.",
+        it: "I pattern ad alta frequenza (DDD, Repository, CQRS, Clean Architecture, hexagonal, BFF, saga, outbox) sono nella memoria parametrica dell'LLM: generazione zero-shot, zero token di descrizione. I pattern esotici forzano in-context learning, consumano token, competono per l'attenzione. arch-brainstorm li elenca per primi; arch-decision + quint-fpf auditano le deviazioni con Haft, confronto di parità e scelta esplicita umana.",
+        en: "High-frequency training-data patterns (DDD, Repository, CQRS, Clean Architecture, hexagonal, BFF, saga, outbox) live in the LLM's parametric memory: zero-shot generation, zero description tokens. Exotic patterns force in-context learning, consume tokens, compete for attention. arch-brainstorm lists them first; arch-decision + quint-fpf audit deviations through Haft parity comparison and an explicit operator choice.",
       },
       tags: ["DDD", "CQRS", "Clean Arch", "arch-brainstorm", "quint-fpf"],
     },
@@ -241,8 +241,8 @@ phases: {
       n: "02",
       t: { it: "Architettura", en: "Architecture" },
       d: {
-        it: "Brainstorm pattern canonici → PRD draft → validazione formale Quint FPF (6 fasi) → ADR → diagrammi C4 vivi via Structurizr DSL. Skill: arch-brainstorm, arch-decision, quint-fpf, bmad-agent-architect (Alex), c4-doc-writer.",
-        en: "Canonical-pattern brainstorm → draft PRD → formal Quint FPF validation (6 phases) → ADR → living C4 diagrams via Structurizr DSL. Skills: arch-brainstorm, arch-decision, quint-fpf, bmad-agent-architect (Alex), c4-doc-writer.",
+        it: "Brainstorm pattern canonici → PRD draft → validazione formale Haft FPF → DecisionRecord → diagrammi C4 vivi via Structurizr DSL. Skill: arch-brainstorm, arch-decision, quint-fpf, bmad-agent-architect (Alex), c4-doc-writer.",
+        en: "Canonical-pattern brainstorm → draft PRD → formal Haft FPF validation → DecisionRecord → living C4 diagrams via Structurizr DSL. Skills: arch-brainstorm, arch-decision, quint-fpf, bmad-agent-architect (Alex), c4-doc-writer.",
       },
       dur: "[pair]",
     },
@@ -395,8 +395,8 @@ skills: {
       s: { it: "PRD draft → validazione formale → ADR", en: "Draft PRD → formal validation → ADR" },
       items: [
         { k: "arch-brainstorm", d: { it: "Dialogo pattern-canonici-first · produce PRD draft", en: "Canonical-first dialogue · produces draft PRD" } },
-        { k: "arch-decision", d: { it: "Quint FPF validation · aggiorna status PRD + ADR", en: "Quint FPF validation · updates PRD status + ADR" } },
-        { k: "quint-fpf", d: { it: "Six-phase FPF: abduce → deduce → induce → audit → decide", en: "Six-phase FPF: abduce → deduce → induce → audit → decide" } },
+        { k: "arch-decision", d: { it: "Haft FPF validation · aggiorna status PRD + ADR", en: "Haft FPF validation · updates PRD status + ADR" } },
+        { k: "quint-fpf", d: { it: "Haft FPF adapter: frame, explore, compare, decide, verify", en: "Haft FPF adapter: frame, explore, compare, decide, verify" } },
         { k: "bmad-agent-architect", d: { it: "Alex — architect persona · niente binary deps · simmetria", en: "Alex — architect persona · no binary deps · symmetry" } },
         { k: "c4-doc-writer", d: { it: "C4 vivi via Structurizr DSL · rigenera Mermaid/PlantUML", en: "Living C4 via Structurizr DSL · regenerates Mermaid/PlantUML" } },
       ],

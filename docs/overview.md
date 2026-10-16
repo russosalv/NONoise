@@ -23,7 +23,7 @@ That's day one. Every subsequent day, you or any teammate can open the project i
 - **Not a code generator.** None of the skills write production code without human involvement. The architecture skills produce PRDs; the sprint skills produce manifests; the implementation skills wrap `superpowers:*` planning and execution under human review with test-driven development. The framework's job is to tell you *what to do next* and *which skill to engage*, not to pretend it can finish your feature alone.
 - **Not opinionated about your stack.** `src/` is empty on purpose. Pick .NET, Node, Python, Rust, Go, Flutter, Elixir — whatever your team likes. The SDLC flow, the docs hierarchy, and most of the skills are stack-agnostic. A few skills (`vscode-config-generator`, `playwright-cli`, `frontend-design`) are stack-aware and detect what they need.
 - **Not a service.** Everything runs locally inside your AI tool of choice. No server, no telemetry, no account, no API key required for the framework itself. (Your AI tool still needs its own API key; the framework does not add another.)
-- **Not a monolithic methodology.** NONoise integrates several open-source bodies of work — Brian Madigan's `superpowers` skills, a persona extraction inspired by `bmad-method`, the Quint First Principles Framework, the Impeccable design skills — and adds orchestration on top. It is not "yet another proprietary SDLC" invented from scratch.
+- **Not a monolithic methodology.** NONoise integrates several open-source bodies of work — Brian Madigan's `superpowers` skills, a persona extraction inspired by `bmad-method`, Haft as the First Principles Framework engine, the Impeccable design skills — and adds orchestration on top. It is not "yet another proprietary SDLC" invented from scratch.
 
 ## Who it's for
 
@@ -70,7 +70,7 @@ After NONoise:
 - `npx create-nonoise` gives every new project the same starting shape, regardless of who scaffolds it.
 - The context files are generated from one source of truth, stay coherent, and are reviewed in PR.
 - Requirements go into `docs/requirements/` via the `requirements-ingest` skill; meeting transcripts go into `docs/calls/`.
-- Architecture decisions are PRDs under `docs/prd/<area>/` with frontmatter showing `draft` → `validated` / `rejected`; validation goes through the Quint FPF.
+- Architecture decisions are PRDs under `docs/prd/<area>/` with frontmatter showing `draft` → `validated` / `rejected`; validation goes through the Haft FPF.
 - Every skill is in `.claude/skills/` in every project. If a senior develops a new skill, it propagates by being committed, not by Slack screenshot.
 - "How do we start?" is a three-word answer: `npx create-nonoise`.
 
