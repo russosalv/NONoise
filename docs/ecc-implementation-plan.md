@@ -15,8 +15,18 @@
 - A repeated upgrade must leave bytes and ownership unchanged, including conflicts.
 
 ## Tasks
-- [ ] Snapshot: select 10 agents, 15 skills and five rule groups; exclude hook instructions; record every source and adaptation. Build a manual git-object-based updater with preview diff and reproducibility check.
-- [ ] Conversion/selection: test parseStack, selectEcc and renderEccFiles against actual YAML/TOML expectations, then implement. Preserve Claude tools; map Copilot tools; Codex standalone agents inherit model/permissions.
-- [ ] Installation: test missing/edited files, repeated upgrades, symlinks and missing ownership; implement installEcc/doctorEcc using SHA-256. Connect scaffold, flags/prompts/config and upgrade. Protect modified existing NONoise skills using shipped historical hashes.
-- [ ] Workflow: update Polly, ATR, reverse engineering, sprint manifest, verification loop, template managed blocks, catalog, README and 1.7.0 changelog.
-- [ ] Verification: full npm test/typecheck/build, real /projects/p7-* scaffolds, npm 1.6.0 upgrade, repeated upgrade, CLI offline discovery/validation; record exact limits. Final review and fixes, graphify update if available, final local commit and Italian report <=40 lines in /out/final5.md.
+- [x] Snapshot: select 10 agents, 15 skills and five rule groups; exclude hook instructions; record every source and adaptation. Build a manual git-object-based updater with preview diff and reproducibility check.
+- [x] Conversion/selection: test parseStack, selectEcc and renderEccFiles against actual YAML/TOML expectations, then implement. Preserve Claude tools; map Copilot tools; Codex standalone agents inherit model/permissions.
+- [x] Installation: test missing/edited files, repeated upgrades, symlinks and missing ownership; implement installEcc/doctorEcc using SHA-256. Connect scaffold, flags/prompts/config and upgrade. Protect modified existing NONoise skills using shipped historical hashes.
+- [x] Workflow: update Polly, ATR, reverse engineering, sprint manifest, verification loop, template managed blocks, catalog, README and 1.7.0 changelog.
+- [x] Verification: full npm test/typecheck/build, real /projects/p7-* scaffolds, npm 1.6.0 upgrade, repeated upgrade, CLI offline discovery/validation; record exact limits. Final review and fixes, graphify update if available, final local commit and Italian report <=40 lines in /out/final5.md.
+
+## Execution record
+
+- Snapshot: 10 agents, 27 rule files (hook files excluded), 15 skills with 36 support files; reproducibility check clean.
+- Conversion/selection/ownership: implemented and exercised with real CLI upgrades; 220 tests green, typecheck/build green.
+- Ruling: Angular includes TypeScript and web rules; cross-stack database/API/contract skills require any nonempty stack. This makes implied dependencies usable; change the manifest if a future product policy requires narrower selections.
+- Ruling: the supplied disposable branch is the working isolation boundary; the explicit no-confirmation instruction supersedes interactive skill review gates. No integration beyond local commits.
+- Independent review: fixed residual ECC dependencies and duplicate ADR guidance with a RED→GREEN regression; corrected related agent/skill labels. No deferred findings within scope.
+- Real 1.6.0 and baseline 1.7.0 upgrades preserve custom files and repeat with zero byte changes. Discovery verified on all three actual CLIs without model inference.
+- See docs/ecc-validation-goal5.md and /out for evidence; final Italian report is /out/final5.md.
