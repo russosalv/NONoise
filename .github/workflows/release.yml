@@ -40,6 +40,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r run typecheck
       - run: pnpm -r run build
+      - name: Tests, including skill-host-compat
+        run: pnpm test
 
       - name: Pack (dry audit of tarball)
         run: |

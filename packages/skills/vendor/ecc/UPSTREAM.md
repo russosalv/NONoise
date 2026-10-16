@@ -9,12 +9,14 @@ Refresh: `node scripts/update-ecc.mjs /path/to/ECC <commit>`; preview with `--dr
 ## Adaptations
 
 - Every copied file records its upstream path and commit.
+- Standalone hooks in hooks/ are separately maintained NONoise adaptations with per-file attribution; refresh preserves them, and --check only verifies the generated agents/rules/skills snapshot.
 - Hook rule files are excluded; legacy-style uses instruction references, verification-loop complements Superpowers.
-- ECC planning/TDD/review/onboarding/ADR/test references route to NONoise/Superpowers or included agents and skills. No ECC orchestration, learning, dashboard, hook or duplicate lifecycle system is installed.
+- ECC planning/TDD/review/onboarding/ADR/test references route to NONoise/Superpowers or included agents and skills. No ECC orchestration, learning, dashboard or duplicate lifecycle system is installed. Optional NONoise hook adapters are selected separately by the install profile.
 - common/agents.md describes only this selection. Non-imported reviewer and related-skill dependencies are removed.
 - spec-miner writes docs/architecture/specs/<capability>/spec.md and retains read-only shell guardrails; no OpenSpec dependency.
 - TypeScript reviewer uses its included React checklist; security/database reviewers use included guidance.
 - Harness emitters convert metadata, rule paths and relative links; Claude model is inherited, Copilot/Codex do not inherit Anthropic model names. Codex permissions inherit from the parent.
+- mcp-dependency-review stays static and project-scoped; adds Claude/Codex/Copilot config paths, TOML handling and NONoise capability fallbacks without executing servers.
 - Stack mapping is recorded in manifest.json: empty eligibility means always; Angular includes TypeScript and web rules; cross-stack API/database/contract skills require any stack, E2E requires a JS/web stack.
 
 ## Files copied
@@ -104,6 +106,7 @@ Refresh: `node scripts/update-ecc.mjs /path/to/ECC <commit>`; preview with `--dr
 - skills/e2e-testing/SKILL.md
 - skills/inherit-legacy-style/SKILL.md
 - skills/intent-driven-development/SKILL.md
+- skills/mcp-dependency-review/SKILL.md
 - skills/module-regression/SKILL.md
 - skills/module-regression/templates/REGRESSION.example.md
 - skills/production-audit/SKILL.md

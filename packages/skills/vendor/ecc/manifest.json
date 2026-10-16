@@ -75,6 +75,7 @@
       "typescript",
       "angular",
       "web"
-    ]
+    ],
+    "mcp-dependency-review": []
   }
 }

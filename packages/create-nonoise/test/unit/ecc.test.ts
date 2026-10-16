@@ -22,14 +22,14 @@ describe('ECC selection and conversion', () => {
     const s = selectEcc(root, []);
     expect(s.agents).toHaveLength(8);
     expect(s.agents).not.toContain('csharp-reviewer');
-    expect(s.skills).toHaveLength(8);
+    expect(s.skills).toHaveLength(9);
     expect(s.rules).toEqual(['common']);
   });
   it('selects dotnet and angular dependencies without duplicate skills', () => {
     const s = selectEcc(root, ['dotnet', 'angular']);
     expect(s.agents).toHaveLength(10);
     expect(s.rules).toEqual(['common', 'csharp', 'typescript', 'angular', 'web']);
-    expect(s.skills).toHaveLength(15);
+    expect(s.skills).toHaveLength(16);
     expect(selectEcc(root, ['typescript']).skills).not.toContain('dotnet-patterns');
   });
   it('emits native metadata, quoted TOML and rewritten rule links', () => {

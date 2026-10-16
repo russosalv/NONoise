@@ -83,5 +83,12 @@ export function adaptEcc(path, text) {
   text = text.replace('Hooks catch issues immediately; this skill provides comprehensive review.', 'Record the actual commands and their results before delivery.');
   text = text.replace('an persistent project-instruction reference', 'a persistent project-instruction reference');
   text = text.replace('- See hooks for automatic detection', '- Check the changed files manually or with the project lint command');
+  if (path === 'skills/mcp-dependency-review/SKILL.md') {
+    text = text.replace('Use when reviewing .mcp.json, Cursor, VS Code, Claude, Windsurf, or other repo-scoped MCP config.', 'Use when reviewing NONoise project MCP configuration for Claude, Codex, Copilot, or another host.');
+    text = text.replace('## When to Activate', '## NONoise host scope\n\nUse the current host’s available file-reading and search tools. No ECC plugin, runtime, slash command, or external scanner is required. In NONoise, inspect project-local `.mcp.json` (Claude and Copilot CLI) and `.codex/config.toml` (Codex `[mcp_servers.<name>]` entries). Parse the actual JSON or TOML format as data; never source it or execute configured commands. Additional supported host paths below are discovery candidates only, not instructions to create configuration.\n\nREA uses an exact `rea-agents@6.5.0` selector; review it using the same rules as every other server. This skill does not install or enable REA. Use `rea-setup` when installed for a requested REA setup. Preserve secret environment values and never include them in reports.\n\n## When to Activate');
+    text = text.replace('.mcp.json\n.github/mcp.json', '.mcp.json\n.codex/config.toml\n.github/mcp.json');
+    text = text.replace('Read JSON or configuration text', 'Read JSON, TOML, or configuration text');
+    text = text.replace(/## Related Skills[\s\S]*?(?=## Further Reading)/, '## Related NONoise capabilities\n\n- `security-reviewer` agent, when installed — broader application-security review.\n- `production-audit`, when installed — deployment and production-readiness checks.\n- If a capability is absent from `.nonoise/ecc/index.md`, use the checklist in this skill directly; do not assume an ECC runtime is available.\n\n');
+  }
   return text;
 }
