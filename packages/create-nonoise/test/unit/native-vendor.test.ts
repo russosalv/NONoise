@@ -306,11 +306,11 @@ describe('bounded external network retries', () => {
   });
 });
 
-it('embed upgrade removes recognized obsolete impeccable skills and keeps user files', async () => {
+it('explicit profile migration removes recognized obsolete impeccable skills and keeps user files', async () => {
   put('nonoise.config.json', JSON.stringify({ frameworkVersion: '1.6.0', aiTools: ai, template: 'single-project' }));
   put('.claude/skills/impeccable/audit/SKILL.md', readFileSync(resolve('test/fixtures/legacy-impeccable/audit.md'), 'utf8'));
   put('.claude/skills/impeccable/user/SKILL.md', 'personal skill');
-  await runUpgrade({ targetPath: dir, ...paths, vendorMode: 'embed' });
+  await runUpgrade({ targetPath: dir, ...paths, vendorMode: 'embed', profile: 'core' });
   expect(existsSync(join(dir, '.claude/skills/impeccable/audit'))).toBe(false);
   expect(readFileSync(join(dir, '.claude/skills/impeccable/SKILL.md'), 'utf8')).toContain('name: impeccable');
   expect(readFileSync(join(dir, '.claude/skills/impeccable/user/SKILL.md'), 'utf8')).toBe('personal skill');
@@ -367,4 +367,13 @@ it('embed upgrades preserve modified vendor skills and are byte-idempotent from 
   put('.claude/skills/graphify/.graphify_skill_version', '0.7.19');
   await runUpgrade({ targetPath: dir, ...paths, vendorMode: 'embed' });
   expect(readFileSync(join(dir, 'nonoise.config.json'), 'utf8')).toBe(config);
+});
+it('refuses linked Claude settings before native/embed writers can modify outside files', () => {
+  const outside = join(dir, 'user-settings.json');
+  writeFileSync(outside, '{"permissions":{"allow":["Read"]}}');
+  mkdirSync(join(dir, '.claude'));
+  symlinkSync(outside, join(dir, '.claude/settings.json'));
+  expect(() => configureNativeVendors(dir, ai)).toThrow(/Unsafe.*settings/);
+  expect(() => configureEmbedPlugins(dir, ai)).toThrow(/Unsafe.*settings/);
+  expect(readFileSync(outside, 'utf8')).toBe('{"permissions":{"allow":["Read"]}}');
 });

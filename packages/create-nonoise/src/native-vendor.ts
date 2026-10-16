@@ -1,9 +1,12 @@
+import { safeAssetPath } from './managed-assets.js';
 import { doctorEcc } from './ecc.js';
 import { fileURLToPath } from 'node:url';
 import { doctorHaft } from './haft.js';
 import { preserveInstructionFiles } from './managed-block.js';
 import { createHash } from 'node:crypto';
-import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
+import { parseProfile, resolveProfile } from './profiles.js';
+import { doctorHooks } from './hooks.js';
+import { doctorRea } from './rea.js';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, lstatSync, statSync, readdirSync, readlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -70,6 +73,7 @@ function save(path: string, value: unknown): void {
 }
 export function configureNativeVendors(projectPath: string, ai: AiTools): void {
   if (!ai.claudeCode) return;
+  if (!safeAssetPath(projectPath, '.claude/settings.json')) throw new Error('Unsafe Claude settings path; existing files preserved.');
   const path = join(projectPath, '.claude/settings.json');
   const settings = json(path);
   // Remove only the exact obsolete hook emitted by NONoise 1.6.0.
@@ -94,6 +98,7 @@ export function configureNativeVendors(projectPath: string, ai: AiTools): void {
 /** Embed mode stays offline: declare the Codex plugin so Claude Code offers it on first trust. */
 export function configureEmbedPlugins(projectPath: string, ai: AiTools): void {
   if (!ai.claudeCode) return;
+  if (!safeAssetPath(projectPath, '.claude/settings.json')) throw new Error('Unsafe Claude settings path; existing files preserved.');
   const path = join(projectPath, '.claude/settings.json');
   const settings = json(path);
   settings.extraKnownMarketplaces ??= {};
@@ -247,6 +252,9 @@ export function doctor(projectPath: string): string[] {
   const config = json(path);
   const lines = [`NONoise doctor: ${projectPath} (vendor-mode ${config.vendorMode ?? 'embed/legacy'})`];
   const ai: AiTools = config.aiTools;
+  const skillsRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../skills');
+  const selected = resolveProfile(skillsRoot, parseProfile(config.profile), config.stack ?? [], { withRea: config.withRea, legacy: config.legacyProfileCompatibility === true || config.profile === undefined });
+  lines.push(`Profile: ${selected.profile}${config.legacyProfileCompatibility || config.profile === undefined ? ' (legacy compatibility)' : ''}; stack: ${(config.stack ?? []).join(',') || 'none'}; hooks: ${selected.hooks.join(', ') || 'none'}`);
   // Inspect links themselves; never recurse through linked directories (including
   // valid links back to an ancestor or to skills outside this project).
   function checkSkillLinks(relativePath: string): void {
@@ -284,8 +292,9 @@ export function doctor(projectPath: string): string[] {
     lines.push(`[${key}]`);
     for (const root of new Set([skillRoots[key], graphRoots[key]])) checkSkillLinks(`${root}/skills`);
     const skillDir = key === 'codex' || key === 'copilot' ? '.agents/skills' : '.claude/skills';
-    const missing = MVP_SKILL_BUNDLE.filter(name => !existsSync(join(projectPath, skillDir, name, 'SKILL.md')));
-    lines.push(`NONoise skills (${skillDir}): ${MVP_SKILL_BUNDLE.length - missing.length}/${MVP_SKILL_BUNDLE.length} installed${missing.length ? ' — missing: ' + missing.join(', ') + '; create-nonoise --upgrade ' + projectPath : ''}`);
+    const missing = selected.nativeSkills.filter(name => !existsSync(join(projectPath, skillDir, name, 'SKILL.md')));
+    lines.push(`NONoise skills (${skillDir}): ${selected.nativeSkills.length - missing.length}/${selected.nativeSkills.length} installed${missing.length ? ' — missing: ' + missing.join(', ') + '; create-nonoise --upgrade ' + projectPath : ''}`);
+    if (!selected.vendors) continue;
     if (config.vendorMode !== 'native') {
       for (const name of ['superpowers', 'impeccable', 'pptx', 'skill-creator']) lines.push(`${name}: ${existsSync(join(projectPath, '.claude/skills', name)) ? 'embedded' : 'missing'} — create-nonoise --upgrade --vendor-mode embed ${projectPath}`);
       const graphify = existsSync(join(projectPath, key === 'codex' ? '.agents' : graphRoots[key], 'skills/graphify/SKILL.md'));
@@ -309,7 +318,9 @@ export function doctor(projectPath: string): string[] {
     lines.push(`graphify: ${graphify && /graphifyy v0\.9\.91\b/.test(version.output) ? 'installed 0.9.91' : 'missing/wrong version'} — uv tool install --force graphifyy==0.9.91; graphify install --project --platform ${key === 'copilot' ? 'copilot' : providers[key]}`);
     if (key !== 'claudeCode') lines.push('pptx, skill-creator: no native channel for this harness (available through Claude plugins or --vendor-mode embed)');
   }
-  lines.push(...doctorEcc(resolve(dirname(fileURLToPath(import.meta.url)), '../skills'), projectPath, ai, config.stack ?? []));
-  lines.push(...doctorHaft(projectPath, ai));
+  lines.push(...doctorEcc(skillsRoot, projectPath, ai, config.stack ?? [], selected.ecc));
+  lines.push(...doctorHooks(skillsRoot, projectPath, ai, selected.hooks));
+  lines.push(...doctorRea(projectPath, ai, selected.rea));
+  if (selected.vendors) lines.push(...doctorHaft(projectPath, ai));
   console.log(lines.join('\n')); return lines;
 }

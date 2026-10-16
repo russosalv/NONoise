@@ -7,6 +7,7 @@ import { digest, installManagedAssets, safeAssetPath, readAssetHashes } from './
 
 export const STACKS = ['dotnet', 'typescript', 'angular', 'web'] as const;
 export type Stack = typeof STACKS[number];
+export type EccSelection = { agents: string[]; rules: string[]; skills: string[] };
 type Manifest = { repository: string; commit: string; agents: Record<string, Stack[]>; rules: Record<string, Stack[]>; skills: Record<string, Stack[]> };
 export function parseStack(csv: string): Stack[] {
   const values = csv.split(',').map(s => s.trim()).filter(Boolean);
@@ -31,9 +32,9 @@ function walk(root: string, prefix = ''): string[] {
 }
 
 /** Pure conversion from the one pinned source tree; no per-harness copies are maintained. */
-export function renderEccFiles(root: string, ai: AiTools, stack: readonly string[]): Record<string, string> {
+export function renderEccFiles(root: string, ai: AiTools, stack: readonly string[], selected?: EccSelection): Record<string, string> {
   if (!Object.values(ai).some(Boolean)) return {};
-  const data = manifest(root), selection = selectEcc(root, stack), vendor = join(root, 'vendor/ecc');
+  const data = manifest(root), selection = selected ?? selectEcc(root, stack), vendor = join(root, 'vendor/ecc');
   const files: Record<string, string> = {};
   const provenance = `Source: ${data.repository} | Commit: ${data.commit} | MIT | Adapted for NONoise.`;
   for (const name of selection.agents) {
@@ -77,8 +78,8 @@ export function renderEccFiles(root: string, ai: AiTools, stack: readonly string
   for (const name of ['LICENSE', 'UPSTREAM.md']) files[`.nonoise/ecc/${name}`] = readFileSync(join(vendor, name), 'utf8');
   return files;
 }
-export function installEcc(root: string, project: string, ai: AiTools, stack: readonly string[]): { written: string[]; preserved: string[] } {
-  const files = renderEccFiles(root, ai, stack);
+export function installEcc(root: string, project: string, ai: AiTools, stack: readonly string[], selected?: EccSelection, preserveExisting = false): { written: string[]; preserved: string[] } {
+  const files = renderEccFiles(root, ai, stack, selected);
   const inventory = '.nonoise/ecc/files.json';
   if (!safeAssetPath(project, inventory)) throw new Error('Unsafe ECC inventory');
   const path = join(project, inventory), hashes = readAssetHashes(project);
@@ -86,18 +87,18 @@ export function installEcc(root: string, project: string, ai: AiTools, stack: re
   const previous: string[] = existsSync(path) && digest(readFileSync(path)) === hashes[inventory]
     ? JSON.parse(readFileSync(path, 'utf8')) : [];
   const preserved: string[] = [];
-  for (const file of previous.filter(p => !Object.hasOwn(files, p))) {
+  for (const file of previous.filter(p => !preserveExisting && !Object.hasOwn(files, p))) {
     if (!safeAssetPath(project, file)) { preserved.push(file); continue; }
     if (!existsSync(join(project, file))) continue;
     if (digest(readFileSync(join(project, file))) === hashes[file]) unlinkSync(join(project, file));
     else preserved.push(file);
   }
-  files[inventory] = JSON.stringify([...new Set([...Object.keys(files), ...preserved])].sort(), null, 2) + '\n';
+  files[inventory] = JSON.stringify([...new Set([...Object.keys(files), ...(preserveExisting ? previous : []), ...preserved])].sort(), null, 2) + '\n';
   const result = installManagedAssets(project, files);
   return { written: result.written, preserved: [...preserved, ...result.preserved] };
 }
-export function doctorEcc(root: string, project: string, ai: AiTools, stack: readonly string[]): string[] {
-  const files = renderEccFiles(root, ai, stack), issues: string[] = [];
+export function doctorEcc(root: string, project: string, ai: AiTools, stack: readonly string[], selected?: EccSelection): string[] {
+  const files = renderEccFiles(root, ai, stack, selected), issues: string[] = [];
   for (const [file, content] of Object.entries(files)) {
     if (!safeAssetPath(project, file)) issues.push(`ECC unsafe: ${file}`);
     else if (!existsSync(join(project, file))) issues.push(`ECC missing: ${file}`);

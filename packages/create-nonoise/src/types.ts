@@ -28,6 +28,8 @@ export type UserConfig = {
 export type VendorMode = 'native' | 'embed';
 
 export type ProjectContext = {
+  profile?: import('./profiles.js').Profile;
+  withRea?: boolean;
   vendorMode?: VendorMode;
   stack?: import('./ecc.js').Stack[];
   projectName: string;

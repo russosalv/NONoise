@@ -1,4 +1,6 @@
-import { installEcc, selectEcc } from './ecc.js';
+import { existsSync } from 'node:fs';
+import { safeAssetPath } from './managed-assets.js';
+import { installEcc } from './ecc.js';
 import { installHaft } from './haft.js';
 import { mkdir, writeFile, readFile, cp } from 'node:fs/promises';
 import { dirname, join, posix, sep } from 'node:path';
@@ -12,7 +14,9 @@ import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
 import { installGraphify, formatReport } from './graphify-install.js';
 import { configureEmbedPlugins, configureNativeVendors, installNativeVendors } from './native-vendor.js';
 import { updateManagedFiles } from './managed-block.js';
-import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
+import { resolveProfile } from './profiles.js';
+import { installHooks } from './hooks.js';
+import { configureRea, installRea } from './rea.js';
 
 function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
   return (
@@ -32,6 +36,10 @@ export type ScaffoldPaths = {
 };
 
 export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promise<void> {
+  if (ctx.aiTools.claudeCode && !safeAssetPath(ctx.projectPath, '.claude/settings.json')) throw new Error('Unsafe Claude settings path; existing files preserved.');
+  const selected = resolveProfile(paths.skillsRoot, ctx.profile, ctx.stack ?? [], { withRea: ctx.withRea });
+  if (selected.rea && !(ctx.aiTools.claudeCode || ctx.aiTools.codex || ctx.aiTools.copilot)) throw new Error('REA requires Claude Code, Codex or Copilot as a selected host.');
+  ctx = { ...ctx, profile: selected.profile, withRea: selected.rea };
   const templateDir = join(paths.templatesRoot, ctx.template);
 
   const resolved = await resolveTemplateFiles(templateDir, ctx.aiTools);
@@ -50,6 +58,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   };
 
   for (const file of resolved) {
+    if (file.destPath === '.claude/settings.json' && (!selected.vendors || existsSync(join(ctx.projectPath, file.destPath)))) continue;
     const destAbs = join(ctx.projectPath, nativePath(file.destPath));
     await mkdir(dirname(destAbs), { recursive: true });
 
@@ -68,12 +77,12 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
       await installSkills({
         skillsRoot: paths.skillsRoot,
         projectPath: ctx.projectPath,
-        skillNames: Array.from(MVP_SKILL_BUNDLE),
+        skillNames: [...selected.nativeSkills],
         targetDir,
         managed: true,
       });
     }
-    if (ctx.vendorMode === 'embed') {
+    if (selected.vendors && ctx.vendorMode === 'embed') {
       await installVendor({
         vendorSourcePath: join(paths.skillsRoot, 'vendor', 'superpowers'),
         projectPath: ctx.projectPath,
@@ -90,13 +99,19 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
         await installSkills({ skillsRoot: join(paths.skillsRoot, 'vendor'), projectPath: ctx.projectPath, skillNames: [name] });
       }
       configureEmbedPlugins(ctx.projectPath, ctx.aiTools);
-    } else {
+    } else if (selected.vendors) {
       configureNativeVendors(ctx.projectPath, ctx.aiTools);
       if (paths.runGraphifyInstall) installNativeVendors(ctx.projectPath, ctx.aiTools);
     }
   }
 
-  installEcc(paths.skillsRoot, ctx.projectPath, ctx.aiTools, ctx.stack ?? []);
+  installEcc(paths.skillsRoot, ctx.projectPath, ctx.aiTools, ctx.stack ?? [], selected.ecc);
+  installHooks(paths.skillsRoot, ctx.projectPath, ctx.aiTools, selected.hooks);
+  if (selected.rea) {
+    const configured = configureRea(ctx.projectPath, ctx.aiTools);
+    const installed = installRea(paths.skillsRoot, ctx.projectPath, ctx.aiTools);
+    for (const file of [...configured.preserved, ...installed.preserved]) console.log(`[rea] preserved conflicting user file: ${file}`);
+  }
   await rewriteNonoiseConfig(ctx, paths, renderCtx);
   await updateManagedFiles(ctx, paths.templatesRoot);
 
@@ -105,7 +120,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     cloneRequestedRepos(ctx.projectPath, ctx.repos);
   }
 
-  if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
+  if (selected.vendors && paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
     const report = installGraphify({
       projectPath: ctx.projectPath,
       bundledSkillsRoot: paths.skillsRoot,
@@ -122,7 +137,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   if (ctx.gitInit) {
     runGitInit(ctx.projectPath);
   }
-  if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
+  if (selected.vendors && paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
     const haft = await installHaft(ctx.projectPath, ctx.aiTools);
     // Haft needs a commit before `haft init`; record its files in a second commit of the repo we created.
     if (ctx.gitInit && haft.ok) runGitCommit(ctx.projectPath, 'chore: initialize Haft via create-nonoise');
@@ -175,7 +190,10 @@ async function rewriteNonoiseConfig(
   const config = JSON.parse(rendered);
   config.vendorMode = ctx.vendorMode ?? 'native';
   config.stack = ctx.stack ?? [];
-  config.skills = [...MVP_SKILL_BUNDLE, ...(hasAnyAiTool(ctx.aiTools) ? selectEcc(paths.skillsRoot, config.stack).skills : [])];
+  const selected = resolveProfile(paths.skillsRoot, ctx.profile, config.stack, { withRea: ctx.withRea });
+  config.profile = selected.profile;
+  config.withRea = selected.rea;
+  config.skills = [...selected.nativeSkills, ...(hasAnyAiTool(ctx.aiTools) ? selected.ecc.skills : []), ...(selected.rea ? ['reverse-engineer-anything'] : [])];
   await writeFile(destPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 }
 

@@ -1,4 +1,4 @@
-import { installEcc, parseStack, selectEcc } from './ecc.js';
+import { installEcc, parseStack } from './ecc.js';
 import { migrateQuint } from './quint-migration.js';
 import { installHaft } from './haft.js';
 import { configureEmbedPlugins, configureNativeVendors, installNativeVendors } from './native-vendor.js';
@@ -11,9 +11,13 @@ import { installSkills, installVendor, nonoiseSkillDirs, removeRetiredSkills } f
 import { installGraphify, formatReport, type InstallReport } from './graphify-install.js';
 import type { AiTools, AiToolKey } from './types.js';
 import { FLAG_TO_AI_TOOL } from './types.js';
-import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
+import { parseProfile, resolveProfile } from './profiles.js';
+import { installHooks } from './hooks.js';
+import { configureRea, installRea } from './rea.js';
 
 export type UpgradeOptions = {
+  profile?: string;
+  withRea?: boolean;
   stack?: string;
   vendorMode?: 'native' | 'embed';
   templatesRoot?: string;
@@ -151,14 +155,20 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
 
   const skillsRoot = opts.skillsRoot ?? defaultSkillsRoot();
 
-  const vendorMode = opts.vendorMode ?? 'native';
   const configPath = join(targetPath, 'nonoise.config.json');
   const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, 'utf8')) : {};
+  const vendorMode = opts.vendorMode ?? config.vendorMode ?? 'native';
+  const profile = parseProfile(opts.profile ?? config.profile);
+  const legacyProfileCompatibility = opts.profile === undefined && (config.legacyProfileCompatibility === true || config.profile === undefined);
   const stack = parseStack(opts.stack ?? (config.stack ?? []).join(','));
+  const selected = resolveProfile(skillsRoot, profile, stack, { withRea: opts.withRea ?? config.withRea, legacy: legacyProfileCompatibility });
+  if (selected.rea && !(aiTools.claudeCode || aiTools.codex || aiTools.copilot)) throw new Error('REA requires Claude Code, Codex or Copilot as a selected host.');
   const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
-  const migration = config.vendorMigrationVersion !== 1 && config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
+  // Profile-less 1.6/1.7 projects are an additive migration: even retired files remain.
+  const preserveLegacyFiles = legacyProfileCompatibility && (config.legacyProfileCompatibility === true || /^1\.[67]\./.test(String(config.frameworkVersion)));
+  const migration = !preserveLegacyFiles && config.vendorMigrationVersion !== 1 && config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
     ? await migrateLegacyVendors(targetPath) : { removed: [], preserved: [] };
-  const quintMigration = await migrateQuint(targetPath);
+  const quintMigration = preserveLegacyFiles ? { removed: [], preserved: [] } : await migrateQuint(targetPath);
   migration.removed.push(...quintMigration.removed);
   migration.preserved.push(...quintMigration.preserved);
   const protectedPaths = [...new Set<string>([...(config.preservedVendorFiles ?? []), ...migration.preserved])];
@@ -171,13 +181,13 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     await installSkills({
       skillsRoot,
       projectPath: targetPath,
-      skillNames: Array.from(MVP_SKILL_BUNDLE),
+      skillNames: [...selected.nativeSkills],
       overwrite: true,
       targetDir,
       managed: true,
     });
   }
-  const retired = await removeRetiredSkills(targetPath);
+  const retired = preserveLegacyFiles ? { removed: [], preserved: [] } : await removeRetiredSkills(targetPath);
   migration.removed.push(...retired.removed);
   migration.preserved.push(...retired.preserved);
   for (const file of retired.removed) console.log(`[upgrade] removed retired skill: ${file}`);
@@ -185,7 +195,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
 
   // Step 2 — refresh vendor packs (superpowers, impeccable). Same flag.
   const vendorPacksRefreshed: string[] = [];
-  for (const namespace of (vendorMode === 'embed' ? ['superpowers', 'impeccable'] : [])) {
+  for (const namespace of (selected.vendors && vendorMode === 'embed' ? ['superpowers', 'impeccable'] : [])) {
     const vendorSourcePath = join(skillsRoot, 'vendor', namespace);
     if (!existsSync(vendorSourcePath)) continue;
     await installVendor({
@@ -199,26 +209,34 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     vendorPacksRefreshed.push(namespace);
   }
 
-  if (vendorMode === 'embed') {
+  if (selected.vendors && vendorMode === 'embed') {
     await installSkills({ skillsRoot: join(skillsRoot, 'vendor'), projectPath: targetPath, skillNames: ['pptx', 'skill-creator'], overwrite: true, managed: true });
     configureEmbedPlugins(targetPath, aiTools);
-  } else {
+  } else if (selected.vendors) {
     configureNativeVendors(targetPath, aiTools);
     installNativeVendors(targetPath, aiTools, protectedPaths);
   }
-  const ecc = installEcc(skillsRoot, targetPath, aiTools, stack);
+  const ecc = installEcc(skillsRoot, targetPath, aiTools, stack, selected.ecc, opts.stack === undefined && opts.profile === undefined);
+  const hooks = installHooks(skillsRoot, targetPath, aiTools, selected.hooks);
+  migration.preserved.push(...hooks.preserved);
+  if (selected.rea) {
+    const configured = configureRea(targetPath, aiTools);
+    const installed = installRea(skillsRoot, targetPath, aiTools);
+    migration.preserved.push(...configured.preserved, ...installed.preserved);
+    for (const file of [...configured.preserved, ...installed.preserved]) console.log(`[rea] preserved conflicting user file: ${file}`);
+  }
   migration.preserved.push(...ecc.preserved);
   for (const file of ecc.preserved) console.log(`[upgrade] preserved user file: ${file}`);
-  await updateManagedFiles({ ...config, stack, projectName: config.projectName ?? targetPath.split(/[\\/]/).pop(), projectPath: targetPath, template: config.template ?? 'single-project', aiTools, frameworkVersion: version }, opts.templatesRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', 'templates'));
-  writeFileSync(configPath, JSON.stringify({ ...config, frameworkVersion: version, vendorMode, aiTools, stack, vendorMigrationVersion: 1, preservedVendorFiles: protectedPaths, skills: [...MVP_SKILL_BUNDLE, ...selectEcc(skillsRoot, stack).skills] }, null, 2) + '\n');
+  await updateManagedFiles({ ...config, stack, profile, withRea: selected.rea, projectName: config.projectName ?? targetPath.split(/[\\/]/).pop(), projectPath: targetPath, template: config.template ?? 'single-project', aiTools, frameworkVersion: version }, opts.templatesRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', 'templates'));
+  writeFileSync(configPath, JSON.stringify({ ...config, frameworkVersion: version, vendorMode, aiTools, stack, profile, withRea: selected.rea, legacyProfileCompatibility, vendorMigrationVersion: 1, preservedVendorFiles: protectedPaths, skills: [...new Set([...(legacyProfileCompatibility ? config.skills ?? [] : []), ...selected.nativeSkills, ...selected.ecc.skills, ...(selected.rea ? ['reverse-engineer-anything'] : [])])] }, null, 2) + '\n');
 
   console.log(
-    `[upgrade] skills:    ${MVP_SKILL_BUNDLE.length} bundled skill(s) refreshed, ` +
+    `[upgrade] skills:    ${selected.nativeSkills.length} bundled skill(s) refreshed, ` +
     `${vendorPacksRefreshed.length} vendor pack(s) refreshed (${vendorPacksRefreshed.join(', ') || 'none'})`,
   );
 
   // Step 3 — re-install graphify integration with the latest CLI version.
-  const graphifyReport = installGraphify({
+  const graphifyReport: InstallReport = selected.vendors ? installGraphify({
     projectPath: targetPath,
     bundledSkillsRoot: skillsRoot,
     vendorMode,
@@ -228,11 +246,11 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     codex: aiTools.codex,
     cursor: aiTools.cursor,
     geminiCli: aiTools.geminiCli,
-  });
+  }) : { python: { found: false }, uv: { found: false }, graphifyy: 'skipped', projectLocal: { source: 'bundled', written: [], skipped: [], errors: [] }, claudeHook: 'skipped', copilotHook: 'skipped', codexHook: 'skipped', cursorHook: 'skipped', geminiHook: 'skipped', hints: ['External runtimes are not selected by the minimal profile.'] };
   console.log('\n[upgrade] graphify install summary:\n' + formatReport(graphifyReport) + '\n');
   console.log(`[upgrade] migration summary: ${migration.removed.length} known file(s) removed; ${migration.preserved.length} modified/user file(s) preserved (listed above).`);
 
-  await installHaft(targetPath, aiTools);
+  if (selected.vendors) await installHaft(targetPath, aiTools);
 
   // Native installer failures are recoverable; embed requires bundled skill sources.
   const projectLocalFailed =
@@ -246,7 +264,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     source,
     removed: migration.removed,
     preserved: migration.preserved,
-    skillsRefreshed: MVP_SKILL_BUNDLE.length,
+    skillsRefreshed: selected.nativeSkills.length,
     vendorPacksRefreshed,
     graphifyReport,
     exitCode: failed ? 1 : 0,

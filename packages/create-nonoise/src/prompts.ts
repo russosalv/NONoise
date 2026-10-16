@@ -1,3 +1,4 @@
+import { PROFILES, parseProfile, type Profile } from './profiles.js';
 import { parseStack, STACKS, type Stack } from './ecc.js';
 import { intro, outro, text, select, multiselect, confirm, isCancel, cancel, spinner, note } from '@clack/prompts';
 import { execFileSync } from 'node:child_process';
@@ -14,6 +15,8 @@ import type {
 import { templateForWorkspace } from './types.js';
 
 export type CliFlags = {
+  profile?: string;
+  withRea?: boolean;
   vendorMode?: 'native' | 'embed';
   stack?: string;
   positionalDir?: string;
@@ -165,6 +168,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
   const template = templateForWorkspace(workspaceKind);
   const aiTools = await askAiTools(flags);
   const stack = await askStack(flags);
+  const profile = await askProfile(flags);
 
   let repos: RepoEntry[] | undefined;
   let multiRepoConfigured: boolean | undefined;
@@ -189,6 +193,8 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
     workspaceKind,
     aiTools,
     stack,
+    profile,
+    withRea: flags.withRea ?? false,
     gitInit,
     frameworkVersion,
     vendorMode: flags.vendorMode ?? 'native',
@@ -615,4 +621,16 @@ export async function askStack(flags: CliFlags): Promise<Stack[]> {
   });
   abortIfCancel(selected);
   return parseStack((selected as string[]).join(','));
+}
+
+async function askProfile(flags: CliFlags): Promise<Profile> {
+  if (flags.profile !== undefined) return parseProfile(flags.profile);
+  if (flags.yes) return 'core';
+  const selected = await select({
+    message: 'Installation profile',
+    initialValue: 'core',
+    options: Object.entries(PROFILES).map(([value, profile]) => ({ value, label: value, hint: profile.description })),
+  });
+  if (isCancel(selected)) { cancel('Cancelled'); process.exit(0); }
+  return parseProfile(selected as string);
 }

@@ -111,7 +111,7 @@ claude           # Claude Code CLI
 > **GitHub Release fallback.** If the npm registry is temporarily unavailable for this package, you can install the exact same tarball directly from the GitHub Release attached to each tag:
 >
 > ```bash
-> npx https://github.com/russosalv/NONoise/releases/download/v1.7.0/create-nonoise-1.7.0.tgz my-project
+> npx https://github.com/russosalv/NONoise/releases/download/v1.8.0/create-nonoise-1.8.0.tgz my-project
 > ```
 
 Invoke Polly whenever you're unsure what to do next:
@@ -183,7 +183,7 @@ Prerequisites: **Node `>=20`**, **pnpm `9.12.0`** (pinned via `packageManager`).
 ```bash
 pnpm install                                           # workspace deps
 pnpm --filter create-nonoise run build                 # build CLI + bundle assets
-pnpm --filter create-nonoise exec vitest run           # full CLI suite (206 tests at 1.7.0)
+pnpm --filter create-nonoise exec vitest run           # full CLI suite, including host compatibility
 pnpm -r run test                                       # every package's tests
 pnpm -r run typecheck                                  # typecheck all
 node scripts/sync-vendor.mjs                           # refresh vendored superpowers
@@ -222,8 +222,24 @@ with `create-nonoise --upgrade .` / `create-nonoise doctor .`, without fallback.
 See [installation](docs/installation.md#haft-required-fpf-runtime-170) and
 [cross-tool integration](docs/cross-tool.md#haft-fpf-integration).
 
-### Stack-specific agents and rules (1.7.0)
+### Stack-specific agents and rules (1.8.0)
 
-Use `--stack dotnet,angular`, `--stack typescript` or `--stack none` with the wizard or `--upgrade`. The choice is saved in `nonoise.config.json`. Common ECC agents/rules and eight process skills always ship; language rules, reviewers and stack skills follow the selection. ECC is a pinned local MIT snapshot, never an auto-updating plugin. Upgrades preserve modified agents, rules and NONoise/ECC skills using SHA-256 ownership; `doctor` reports missing or modified ECC files.
+Use `--stack dotnet,angular`, `--stack typescript` or `--stack none` with the wizard or `--upgrade`. The choice is saved in `nonoise.config.json`. The profile selects common ECC agents/rules and process skills; language rules, reviewers and stack skills follow `--stack`. Minimal excludes ECC capabilities. ECC is a pinned local MIT snapshot, never an auto-updating plugin. Upgrades preserve modified agents, rules and NONoise/ECC skills using SHA-256 ownership; `doctor` reports missing or modified ECC files.
 
 [Full stack mapping and update procedure](docs/ecc-integration.md).
+
+### Installation profiles, optional hooks and REA (1.8.0)
+
+```sh
+npx create-nonoise app --yes --profile developer --stack dotnet --ai claude-code,codex,copilot
+npx create-nonoise --upgrade app --profile security
+npx create-nonoise --upgrade app --with-rea
+```
+
+Choose `minimal`, `core` (default), `developer`, `security`, `brownfield` or `full`.
+The saved profile drives scaffold, upgrade and doctor; older projects retain their
+previous capabilities. Safety and formatting hooks are optional, standalone Node
+scripts. REA 6.5.0 is enabled by `--with-rea` or brownfield/full, using only project
+MCP configuration and compact schemas (172 tools; Node >=22.19).
+
+See [profile table](docs/install-profiles.md), [verified hook formats](docs/hooks-compatibility.md), and [REA activation](docs/rea-integration.md).

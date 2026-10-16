@@ -53,7 +53,7 @@ describe('CLI via bin shim', () => {
   });
 
   it('persists --stack and upgrades without changing edited assets', async () => {
-    await exec('node', [BIN, 'stacked', '--yes', '--ai', 'copilot,codex', '--stack', 'dotnet,angular', '--no-git'], { cwd: parent });
+    await exec('node', [BIN, 'stacked', '--yes', '--profile', 'security', '--ai', 'copilot,codex', '--stack', 'dotnet,angular', '--no-git'], { cwd: parent });
     const root = join(parent, 'stacked');
     const config = JSON.parse(await readFile(join(root, 'nonoise.config.json'), 'utf8'));
     expect(config.stack).toEqual(['dotnet', 'angular']);
@@ -89,6 +89,19 @@ describe('CLI via bin shim', () => {
     const cop = await readFile(join(parent, 'demo', '.github', 'copilot-instructions.md'), 'utf8');
     expect(cop).toContain('demo');
   }, 60_000);
+
+  it('accepts profile/REA flags, reports the saved profile and rejects invalid profiles', async () => {
+    await exec('node', [BIN, 'rea-minimal', '--yes', '--profile', 'minimal', '--with-rea', '--ai', 'claude-code,codex,copilot', '--no-git'], { cwd: parent });
+    const root = join(parent, 'rea-minimal');
+    const config = JSON.parse(await readFile(join(root, 'nonoise.config.json'), 'utf8'));
+    expect(config.profile).toBe('minimal');
+    expect(config.withRea).toBe(true);
+    expect(JSON.parse(await readFile(join(root, '.mcp.json'), 'utf8')).mcpServers.rea.args).toEqual(['-y', 'rea-agents@6.5.0', 'mcp']);
+    const { stdout } = await exec('node', [BIN, 'doctor', root], { cwd: parent });
+    expect(stdout).toContain('Profile: minimal');
+    expect(stdout).toContain('172 tools');
+    for (const args of [['--profile', 'unknown'], ['--profile']]) await expect(exec('node', [BIN, ...args], { cwd: parent })).rejects.toMatchObject({ stderr: expect.stringMatching(/profile/) });
+  });
 
   it('--version prints a semver', async () => {
     const { stdout } = await exec('node', [BIN, '--version'], { cwd: parent });

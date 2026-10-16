@@ -1,13 +1,22 @@
 # create-nonoise
 
-## 1.7.0
+## 1.8.0
 
 ### Minor Changes
 
+- Add six persisted installation profiles (`minimal`, `core`, `developer`, `security`, `brownfield`, `full`) from one declarative catalog shared by scaffold, upgrade and doctor. Keep stack selection and legacy 1.6/1.7 capabilities without implicit removals.
+- Add seven optional ECC-derived standalone Node hooks, protected by ownership hashes and merged into supported project host configurations; include platform-specific permission limitations in compatibility documentation.
+- Add opt-in project-local REA (`--with-rea`, brownfield/full): pinned `rea-agents@6.5.0`, compact schemas, Codex startup timeout, upstream skill provenance, conservative JSON/TOML merges and diagnostics. No `rea setup` or global REA configuration.
+- Add `rea-setup` and brownfield routing from reverse-engineering and Polly: one confirmation covers installation and authorized analysis; already connected REA is used directly.
+- Add `mcp-dependency-review` and CI checks for all shipped skill frontmatter and converted Claude/Codex/Copilot agents.
 - Add a manually pinned MIT ECC snapshot: 10 agents, common/C#/TypeScript/Angular/web rules, 8 process and 7 stack skills, with source provenance and a reproducible diffing updater.
 - Add interactive stack selection and `--stack`; generate Claude Markdown, Copilot agent/instruction profiles and Codex 0.162 standalone TOML agents from one source.
 - Preserve modified NONoise/ECC assets through SHA-256 ownership, including upgrades from 1.6.0; remove only pristine deselected ECC files and extend doctor with agent/rule/skill diagnostics.
 - Route Polly, ATR/sprint closure, reverse engineering and risky sprint tasks to the new capabilities; pair verification-loop with Superpowers completion checks.
+
+## 1.7.0
+
+### Minor Changes
 
 - Require Haft FPF in both vendor modes: pinned temporary MIT fork `russosalv/haft` v9.1.1-nonoise.1, verified SHA-256 downloads, machine-wide user install, retries, WSL guidance and explicit per-harness initialization. The fork is published at `russosalv/haft` (linux-amd64, linux-arm64, darwin-arm64); `NONOISE_HAFT_BASE_URL` supports local release rehearsal.
 - Configure Copilot CLI MCP and reuse Haft-generated `.agents/skills`; preserve both Haft and NONoise instruction blocks across upgrades.

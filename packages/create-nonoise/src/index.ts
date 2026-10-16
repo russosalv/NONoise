@@ -1,3 +1,4 @@
+import { parseProfile } from './profiles.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,7 +36,7 @@ export async function main(): Promise<void> {
 
   // Direct CLI flag wins — no prompts, no banner.
   if (flags.upgrade) {
-    await runUpgradeAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai, vendorMode: flags.vendorMode, stack: flags.stack });
+    await runUpgradeAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai, vendorMode: flags.vendorMode, stack: flags.stack, profile: flags.profile, withRea: flags.withRea });
     return;
   }
   if (flags.graphifyOnly) {
@@ -66,7 +67,7 @@ export async function main(): Promise<void> {
         return;
       }
       if (action === 'upgrade') {
-        await runUpgradeAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode, stack: flags.stack });
+        await runUpgradeAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode, stack: flags.stack, profile: flags.profile, withRea: flags.withRea });
       } else {
         runGraphifyOnlyAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode });
       }
@@ -93,7 +94,7 @@ export async function main(): Promise<void> {
     if (!aiCsv && !existsSync(resolve(targetPath, 'nonoise.config.json'))) {
       aiCsv = await askAiCsvForExistingProject();
     }
-    await runUpgradeAndExit({ targetPath, aiCsv, vendorMode: flags.vendorMode, stack: flags.stack });
+    await runUpgradeAndExit({ targetPath, aiCsv, vendorMode: flags.vendorMode, stack: flags.stack, profile: flags.profile, withRea: flags.withRea });
     return;
   }
 
@@ -127,7 +128,7 @@ function runGraphifyOnlyAndExit(opts: { targetPath?: string; aiCsv?: string; ven
   }
 }
 
-async function runUpgradeAndExit(opts: { targetPath?: string; aiCsv?: string; vendorMode?: 'native' | 'embed'; stack?: string }): Promise<void> {
+async function runUpgradeAndExit(opts: { targetPath?: string; aiCsv?: string; vendorMode?: 'native' | 'embed'; stack?: string; profile?: string; withRea?: boolean }): Promise<void> {
   try {
     const result = await runUpgrade(opts);
     if (result.exitCode !== 0) process.exit(result.exitCode);
@@ -177,6 +178,12 @@ function parseArgv(args: string[]): ParsedFlags {
       }
       out.workspaceKind = raw as WorkspaceKind;
     }
+    else if (a === '--with-rea') out.withRea = true;
+    else if (a === '--profile') {
+      const value = args[++i];
+      if (value === undefined || value.startsWith('--')) throw new Error('Missing --profile value');
+      out.profile = parseProfile(value);
+    }
     else if (a === '--stack') {
       const value = args[++i];
       if (value === undefined || value.startsWith('--')) throw new Error('Missing --stack value');
@@ -218,6 +225,8 @@ Options:
   --vendor-mode <mode> native (default): upstream installers; embed: offline bundled copies
   --workspace <kind>  Workspace: new | existing-single | existing-multi (asked interactively if omitted)
   --template <name>   Template: single-project | multi-repo (back-compat; inferred from --workspace if present)
+  --profile <name>    minimal|core|developer|security|brownfield|full (default core)
+  --with-rea          Enable pinned REA MCP and skill in this project only
   --stack <csv>       dotnet,typescript,angular,web or none (default); saved for upgrades
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
   --user-name <name>  Developer name (used by AI to address you; default: git user.name)
