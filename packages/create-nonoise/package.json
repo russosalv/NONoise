@@ -1,7 +1,7 @@
 {
   "name": "create-nonoise",
   "version": "1.7.0",
-  "description": "SDLC bootstrapper — scaffolds projects with skills, agents, and tools",
+  "description": "SDLC bootstrapper \u2014 scaffolds projects with skills, agents, and tools",
   "type": "module",
   "repository": {
     "type": "git",
@@ -35,7 +35,8 @@
   "dependencies": {
     "@clack/prompts": "^0.7.0",
     "handlebars": "^4.7.8",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "smol-toml": "1.4.2"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

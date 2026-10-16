@@ -31,6 +31,7 @@ Read `.nonoise/ecc/index.md` when present and check `nonoise.config.json` before
 
 | Situation | Suggested installed capability |
 |---|---|
+| Source-less .NET DLL/EXE, Electron/app.asar, HAR/SAZ, SQLite, APK, native binary, firmware, or an app/site without source | `rea-setup` if project REA is absent; `reverse-engineer-anything` if already configured and connected |
 | Brownfield discovery | `spec-miner`, then `inherit-legacy-style`; `code-tour` for a navigable tour |
 | Existing design needs reassessment | `brownfield-retrospective`, with `reverse-engineering` |
 | Unclear intent or risky task | `intent-driven-development` or `change-impact` before implementation |
@@ -41,6 +42,8 @@ Read `.nonoise/ecc/index.md` when present and check `nonoise.config.json` before
 | Cleanup | `code-simplifier` or `refactor-cleaner`, followed by `module-regression` |
 | Acceptance / sprint closure | `atr`, `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter`, installed language reviewer |
 | Release readiness | `verification-loop` with `superpowers:verification-before-completion`, then `production-audit`; `e2e-testing` for web journeys |
+
+For REA recommendations, say why the artifact needs it in one sentence and hand off to `rea-setup` for its single combined installation/target-authorization confirmation. Polly remains advisor-only: do not install or ask that confirmation while producing advice. A connected REA server can be used directly by the receiving analysis skill.
 
 Do not propose missing stack skills as installed, install packages, or launch agents while advising. A missing ECC index means this project needs `create-nonoise --upgrade .`; keep the existing fallback behavior.
 

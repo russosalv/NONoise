@@ -39,10 +39,12 @@ export const LEGACY_SKILL_HASHES: Record<string, string[]> = {
     "4b615fc6329e524634fd0eac1b26b1cd7a49bb6c4fa357f88b42a5de615e1b11"
   ],
   ".claude/skills/atr/SKILL.md": [
-    "63f8c24a9e7a96f3c08c873cb9cfa563ac1f8b3d777e2b6478b9f8c37683ddd7"
+    "63f8c24a9e7a96f3c08c873cb9cfa563ac1f8b3d777e2b6478b9f8c37683ddd7",
+    "8a1328527be6b20b63f62b07148ee7288b634d5d85c052db4b75b59d8e375f07"
   ],
   ".agents/skills/atr/SKILL.md": [
-    "63f8c24a9e7a96f3c08c873cb9cfa563ac1f8b3d777e2b6478b9f8c37683ddd7"
+    "63f8c24a9e7a96f3c08c873cb9cfa563ac1f8b3d777e2b6478b9f8c37683ddd7",
+    "8a1328527be6b20b63f62b07148ee7288b634d5d85c052db4b75b59d8e375f07"
   ],
   ".claude/skills/atr/references/paseo.md": [
     "9a3c23dd259ed25217a064deece22af504e707b7d4f9e7a6672e0cd8c6ecb15f"
@@ -354,11 +356,13 @@ export const LEGACY_SKILL_HASHES: Record<string, string[]> = {
   ],
   ".claude/skills/polly/SKILL.md": [
     "6e7a5bf6728b911a8f91a82c1d21a8d7cc768d00e95ebf52d928b5f9dad948a9",
-    "f08ea59bd169e410968580d57d0f16f01e83a60d79fa80ca9b7cfa3a00c71546"
+    "f08ea59bd169e410968580d57d0f16f01e83a60d79fa80ca9b7cfa3a00c71546",
+    "951f2b6f4c032dbfe4b35ea9f6ff167d12e6578c9403206d7c8086b181e7dbb2"
   ],
   ".agents/skills/polly/SKILL.md": [
     "6e7a5bf6728b911a8f91a82c1d21a8d7cc768d00e95ebf52d928b5f9dad948a9",
-    "f08ea59bd169e410968580d57d0f16f01e83a60d79fa80ca9b7cfa3a00c71546"
+    "f08ea59bd169e410968580d57d0f16f01e83a60d79fa80ca9b7cfa3a00c71546",
+    "951f2b6f4c032dbfe4b35ea9f6ff167d12e6578c9403206d7c8086b181e7dbb2"
   ],
   ".claude/skills/polly/references/external-tools.md": [
     "925667e9f57e7eceb39d2801432c9dac6a65b995bbbdb20bdaf078489c252f76"
@@ -382,11 +386,13 @@ export const LEGACY_SKILL_HASHES: Record<string, string[]> = {
   ],
   ".claude/skills/polly/references/sdlc-flow.default.md": [
     "3d8b120880ab247a2000be5b4e1fc618c730a0f881049ca4027a87a93e9d79c4",
-    "a63e87c1e8e9fa5519b8e499fad265a6003e6169d9af3ef7bbebed22d2042b9c"
+    "a63e87c1e8e9fa5519b8e499fad265a6003e6169d9af3ef7bbebed22d2042b9c",
+    "0f6f9d4d2e40eedc34c7c512b378be49b0add8b017bd29876bca1ee6df91905a"
   ],
   ".agents/skills/polly/references/sdlc-flow.default.md": [
     "3d8b120880ab247a2000be5b4e1fc618c730a0f881049ca4027a87a93e9d79c4",
-    "a63e87c1e8e9fa5519b8e499fad265a6003e6169d9af3ef7bbebed22d2042b9c"
+    "a63e87c1e8e9fa5519b8e499fad265a6003e6169d9af3ef7bbebed22d2042b9c",
+    "0f6f9d4d2e40eedc34c7c512b378be49b0add8b017bd29876bca1ee6df91905a"
   ],
   ".claude/skills/quint-fpf/SKILL.md": [
     "84b468ab01cadd176ea57f93fa4d9a7c8b94e8d83e1f62e9dcc61021d1fb9cd2",
@@ -417,10 +423,12 @@ export const LEGACY_SKILL_HASHES: Record<string, string[]> = {
     "447b4155e3fe8f09249a92145a5cfcf82c07b46f481c9cdd215d221837035bf1"
   ],
   ".claude/skills/reverse-engineering/SKILL.md": [
-    "4d97d8531555f26e6701308f5b17ddef37475e15b30c87fb0791acbeeb7a216e"
+    "4d97d8531555f26e6701308f5b17ddef37475e15b30c87fb0791acbeeb7a216e",
+    "857d73b4b15c08d2e27bc8c915c1e4970f2ec0f4941c9a76c8c776130ee85538"
   ],
   ".agents/skills/reverse-engineering/SKILL.md": [
-    "4d97d8531555f26e6701308f5b17ddef37475e15b30c87fb0791acbeeb7a216e"
+    "4d97d8531555f26e6701308f5b17ddef37475e15b30c87fb0791acbeeb7a216e",
+    "857d73b4b15c08d2e27bc8c915c1e4970f2ec0f4941c9a76c8c776130ee85538"
   ],
   ".claude/skills/reverse-engineering/references/changelog-entry.md": [
     "8902aa85111716c877181106073154bbb5ebb298f0f42c426d7077f4f2a551c4"
@@ -504,11 +512,13 @@ export const LEGACY_SKILL_HASHES: Record<string, string[]> = {
   ],
   ".claude/skills/sprint-manifest/SKILL.md": [
     "525b206ae5c0d9341226dc6110ce8e09288c44cd7439eec26d08567c7d3c6605",
-    "c2e6db18f2ad2a7df2fcc0f3e3dfca6ad2ae14ccec95307cb2b14ef48641c924"
+    "c2e6db18f2ad2a7df2fcc0f3e3dfca6ad2ae14ccec95307cb2b14ef48641c924",
+    "5e6550c4e6cf0cf309966aaba369e9872c68974193832dfe30badb5e30c03c09"
   ],
   ".agents/skills/sprint-manifest/SKILL.md": [
     "525b206ae5c0d9341226dc6110ce8e09288c44cd7439eec26d08567c7d3c6605",
-    "c2e6db18f2ad2a7df2fcc0f3e3dfca6ad2ae14ccec95307cb2b14ef48641c924"
+    "c2e6db18f2ad2a7df2fcc0f3e3dfca6ad2ae14ccec95307cb2b14ef48641c924",
+    "5e6550c4e6cf0cf309966aaba369e9872c68974193832dfe30badb5e30c03c09"
   ],
   ".claude/skills/swarm-router/SKILL.md": [
     "883d04bc4bd86d3056ea4a53a8aa398dba993177a38ef6b2201ce59bea206eef",

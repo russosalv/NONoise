@@ -84,6 +84,31 @@ The dossier lives in `docs/support/` — the NONoise convention for research / s
 
 ---
 
+## REA artifact routing
+
+Before checking Graphify prerequisites, inspect the supplied target. For .NET
+`.dll`/`.exe` without `.csproj` or source, `app.asar`/Electron applications,
+`.har`/`.saz` traffic captures, SQLite databases, APKs, native binaries, firmware,
+or “how does this app/site work without code?”, route to `rea-setup` when the
+project has no REA registration. It explains why REA helps and obtains one
+combined installation/target-authorization confirmation before any install.
+When REA is already configured and connected, invoke `reverse-engineer-anything`
+directly within the authorized scope; do not repeat activation consent. An
+existing registration without connected tools needs restart/reconnection or
+client approval, not repeated installation.
+
+For artifact-only investigations, REA Evidence replaces the source-graph input:
+use the relevant shipped-artifact tools, retain evidence IDs/paths, limitations,
+and unknowns. Do not send raw executables, captures or databases to Graphify or
+block this path on Graphify availability. Apply Graphify prerequisites and
+indexing steps only to actual source/document inputs when those are present.
+Keep `.meta/graphify-index.json` accurate: no REA result counts as an indexed
+source graph; record a source-less run when source indexing did not occur.
+This route changes evidence collection only: retain the explicit save boundary,
+read-only target handling, incremental chapters and dossier versioning below.
+For ordinary repositories with complete source, keep the Graphify workflow;
+REA is optional and should not be installed merely because a repo is old.
+
 ## Brownfield support from the ECC snapshot
 
 Read `.nonoise/ecc/index.md` to discover installed support. During initial analysis, use `spec-miner` to extract evidence-backed behavior into `docs/architecture/specs/<capability>/spec.md` and `inherit-legacy-style` to record real code conventions before proposing changes. Preserve the dossier's incremental update rules and link these artifacts instead of copying them into a second lifecycle system.
