@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn(), execSync: vi.fn() }));
 import { execFileSync } from 'node:child_process';
-import { configureEmbedPlugins, configureNativeVendors, nativePlan, doctor, installNativeGraphify, installNativeVendors, run, hasInstalledPlugin } from '../../src/native-vendor.js';
+import { MARKETPLACE_REF, marketplaceSource, configureEmbedPlugins, configureNativeVendors, nativePlan, doctor, installNativeGraphify, installNativeVendors, run, hasInstalledPlugin } from '../../src/native-vendor.js';
 import { replaceManagedBlock } from '../../src/managed-block.js';
 import { migrateLegacyVendors } from '../../src/vendor-migration.js';
 import { scaffold } from '../../src/scaffold.js';
@@ -223,7 +223,7 @@ describe('Claude project installation corrections', () => {
     expect(results.every(r => r.ok)).toBe(true);
     expect(installed.map(p => p.id)).toEqual(['superpowers@nonoise', 'document-skills@anthropic-agent-skills', 'skill-creator@claude-plugins-official', 'codex@openai-codex']);
     expect(mocked.mock.calls.filter(([, a]) => a?.slice(0, 3).join(' ') === 'plugin marketplace add').map(([, a]) => a?.[3]))
-      .toEqual(['russosalv/NONoise', 'anthropics/skills', 'anthropics/claude-plugins-official', 'openai/codex-plugin-cc']);
+      .toEqual([`russosalv/NONoise#${MARKETPLACE_REF}`, 'anthropics/skills', 'anthropics/claude-plugins-official', 'openai/codex-plugin-cc']);
   });
   it('does not confuse a registered NONoise marketplace with the others', () => {
     mocked.mockImplementation((bin, args) => args?.join(' ') === 'plugin marketplace list --json' ? '[{"name":"nonoise"}]' : '[]');
@@ -336,5 +336,23 @@ describe('official Codex plugin for Claude Code', () => {
     configureEmbedPlugins(dir, { ...ai, claudeCode: false, codex: true });
     expect(existsSync(join(dir, '.claude/settings.json'))).toBe(false);
     expect(nativePlan({ ...ai, claudeCode: false, codex: true }).some(c => c.args.includes('codex@openai-codex'))).toBe(false);
+  });
+});
+
+describe('NONoise marketplace pinned to the CLI release tag', () => {
+  const version = JSON.parse(readFileSync(resolve('package.json'), 'utf8')).version;
+  it('defaults to v<cli version>', () => expect(MARKETPLACE_REF).toBe(`v${version}`));
+  it('uses each harness ref syntax; Copilot stays unpinned', () => {
+    expect(marketplaceSource('claude', 'russosalv/NONoise', 'v9.9.9')).toBe('russosalv/NONoise#v9.9.9');
+    expect(marketplaceSource('codex', 'russosalv/NONoise', 'v9.9.9')).toBe('russosalv/NONoise@v9.9.9');
+    expect(marketplaceSource('copilot', 'russosalv/NONoise', 'v9.9.9')).toBe('russosalv/NONoise');
+    expect(marketplaceSource('claude', 'openai/codex-plugin-cc')).toBe('openai/codex-plugin-cc');
+  });
+  it('pins the nonoise marketplace in Claude settings and in the Codex plan', () => {
+    configureNativeVendors(dir, ai);
+    const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
+    expect(settings.extraKnownMarketplaces.nonoise.source).toEqual({ source: 'github', repo: 'russosalv/NONoise', ref: MARKETPLACE_REF });
+    expect(settings.extraKnownMarketplaces['openai-codex'].source).toEqual({ source: 'github', repo: 'openai/codex-plugin-cc' });
+    expect(nativePlan({ ...ai, claudeCode: false, codex: true }).map(c => c.args.join(' '))).toContain(`plugin marketplace add russosalv/NONoise@${MARKETPLACE_REF}`);
   });
 });

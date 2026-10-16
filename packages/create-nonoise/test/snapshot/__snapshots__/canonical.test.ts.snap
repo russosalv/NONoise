@@ -13966,7 +13966,8 @@ No state is persisted across turns. No auto-trigger.
     "nonoise": {
       "source": {
         "source": "github",
-        "repo": "russosalv/NONoise"
+        "repo": "russosalv/NONoise",
+        "ref": "v1.7.0"
       }
     },
     "anthropic-agent-skills": {

@@ -9,6 +9,18 @@ import type { AiTools, AiToolKey } from './types.js';
 import type { GraphifyInstallContext, InstallReport } from './graphify-install.js';
 
 export const MARKETPLACE = 'russosalv/NONoise';
+/**
+ * Git ref of the NONoise marketplace this CLI reads: the release tag of its own
+ * version, so a CLI never installs plugins from a newer or older manifest.
+ * NONOISE_MARKETPLACE_REF overrides it (maintainers validating a branch).
+ */
+export const MARKETPLACE_REF = process.env.NONOISE_MARKETPLACE_REF
+  ?? `v${JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version}`;
+/** CLI source string: Claude uses `repo#ref`, Codex `repo@ref`; Copilot has no ref syntax. */
+export function marketplaceSource(bin: string, repo: string, ref?: string): string {
+  if (!ref || bin === 'copilot') return repo;
+  return bin === 'codex' ? `${repo}@${ref}` : `${repo}#${ref}`;
+}
 export const SUPERPOWERS_SHA = 'b55764852ac78870e65c6565fb585b6cd8b3c5c9';
 export type Command = { bin: string; args: string[] };
 export type Outcome = Command & { ok: boolean; output: string };
@@ -37,9 +49,9 @@ export function run(c: Command, cwd: string): Outcome {
   }
 }
 /** OpenAI's official Codex plugin for Claude Code; replaces the former codex-delegate skill. */
-export const CODEX_PLUGIN = { id: 'codex@openai-codex', marketplace: 'openai-codex', repo: 'openai/codex-plugin-cc' };
-const claudePlugins = [
-  { id: 'superpowers@nonoise', marketplace: 'nonoise', repo: MARKETPLACE },
+export const CODEX_PLUGIN: { id: string; marketplace: string; repo: string; ref?: string } = { id: 'codex@openai-codex', marketplace: 'openai-codex', repo: 'openai/codex-plugin-cc' };
+const claudePlugins: Array<{ id: string; marketplace: string; repo: string; ref?: string }> = [
+  { id: 'superpowers@nonoise', marketplace: 'nonoise', repo: MARKETPLACE, ref: MARKETPLACE_REF },
   { id: 'document-skills@anthropic-agent-skills', marketplace: 'anthropic-agent-skills', repo: 'anthropics/skills' },
   { id: 'skill-creator@claude-plugins-official', marketplace: 'claude-plugins-official', repo: 'anthropics/claude-plugins-official' },
   CODEX_PLUGIN,
@@ -72,7 +84,7 @@ export function configureNativeVendors(projectPath: string, ai: AiTools): void {
   settings.enabledPlugins ??= {};
   delete settings.enabledPlugins[obsoletePlugin];
   for (const plugin of claudePlugins) {
-    settings.extraKnownMarketplaces[plugin.marketplace] = { source: { source: 'github', repo: plugin.repo } };
+    settings.extraKnownMarketplaces[plugin.marketplace] = { source: { source: 'github', repo: plugin.repo, ...(plugin.ref ? { ref: plugin.ref } : {}) } };
     settings.enabledPlugins[plugin.id] = true;
   }
   save(path, settings);
@@ -95,13 +107,13 @@ export function nativePlan(ai: AiTools): Command[] {
   const plan: Command[] = [];
   if (ai.claudeCode) {
     for (const plugin of claudePlugins) plan.push(
-      { bin: 'claude', args: ['plugin', 'marketplace', 'add', plugin.repo] },
+      { bin: 'claude', args: ['plugin', 'marketplace', 'add', marketplaceSource('claude', plugin.repo, plugin.ref)] },
       { bin: 'claude', args: ['plugin', 'install', plugin.id, '--scope', 'project'] },
     );
   }
   for (const bin of ['codex', 'copilot'] as const) {
     if (!ai[bin]) continue;
-    plan.push({ bin, args: ['plugin', 'marketplace', 'add', MARKETPLACE] },
+    plan.push({ bin, args: ['plugin', 'marketplace', 'add', marketplaceSource(bin, MARKETPLACE, MARKETPLACE_REF)] },
       { bin, args: ['plugin', bin === 'codex' ? 'add' : 'install', 'superpowers@nonoise'] });
   }
   const selected = (Object.keys(providers) as AiToolKey[]).filter(k => ai[k]).map(k => providers[k]);
@@ -137,7 +149,7 @@ export function installNativeVendors(projectPath: string, ai: AiTools, protected
       let found = false;
       try {
         const data = JSON.parse(registered.output);
-        found = (Array.isArray(data) ? data : data.marketplaces ?? []).some((m: { name: string }) => m.name === (claudePlugins.find(p => p.repo === c.args[3])?.marketplace ?? 'nonoise'));
+        found = (Array.isArray(data) ? data : data.marketplaces ?? []).some((m: { name: string }) => m.name === (claudePlugins.find(p => p.repo === c.args[3]!.replace(/[#@].*$/, ''))?.marketplace ?? 'nonoise'));
       } catch { /* add below */ }
       result = found ? { ...c, ok: true, output: 'Marketplace already registered' } : run(c, projectPath);
     } else if (c.args[0] === 'plugin' && ['add', 'install'].includes(c.args[1] ?? '')) {
@@ -251,7 +263,7 @@ export function doctor(projectPath: string): string[] {
       const plugins = key === 'claudeCode' ? claudePlugins.map(p => p.id) : ['superpowers@nonoise'];
       for (const plugin of plugins) {
         const installed = listed.ok && hasInstalledPlugin(listed.output, plugin, bin === 'claude' ? projectPath : undefined);
-        lines.push(`${plugin}: ${installed ? 'installed' : 'missing/unverified'} — ${bin} plugin marketplace add ${claudePlugins.find(p => p.id === plugin)?.repo ?? MARKETPLACE}; ${bin} plugin ${bin === 'codex' ? 'add' : 'install'} ${plugin}${bin === 'claude' ? ' --scope project' : ''}`);
+        lines.push(`${plugin}: ${installed ? 'installed' : 'missing/unverified'} — ${bin} plugin marketplace add ${(p => marketplaceSource(bin, p?.repo ?? MARKETPLACE, p ? p.ref : MARKETPLACE_REF))(claudePlugins.find(p => p.id === plugin))}; ${bin} plugin ${bin === 'codex' ? 'add' : 'install'} ${plugin}${bin === 'claude' ? ' --scope project' : ''}`);
       }
       if (!listed.ok) lines.push(`list error: ${listed.output}`);
     } else lines.push(`superpowers: no native plugin channel for ${key}; use --vendor-mode embed`);

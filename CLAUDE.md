@@ -34,7 +34,13 @@ Every version bump must also update the **GitHub Release tarball URL** embedded 
 https://github.com/russosalv/NONoise/releases/download/v<NEW>/create-nonoise-<NEW>.tgz
 ```
 
-Do it in the same commit as the `package.json` / `CHANGELOG.md` bump produced by `pnpm version`. Otherwise the fallback link points at a non-existent release until the next doc change.
+Do it in the same commit as the `package.json` / `CHANGELOG.md` bump produced by `pnpm version`.
+
+**Push the git tag `v<NEW>` before publishing to npm.** Native mode pins the NONoise plugin
+marketplace to the CLI's own release tag (`russosalv/NONoise#v<NEW>` for Claude,
+`russosalv/NONoise@v<NEW>` for Codex; Copilot has no ref syntax and reads the default branch).
+Without the tag, `superpowers@nonoise` cannot be installed. Maintainers can validate an untagged
+branch with `NONOISE_MARKETPLACE_REF=<branch>`. Otherwise the fallback link points at a non-existent release until the next doc change.
 
 ## Architecture — the big picture
 
