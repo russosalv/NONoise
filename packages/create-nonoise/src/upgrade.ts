@@ -1,3 +1,5 @@
+import { migrateQuint } from './quint-migration.js';
+import { installHaft } from './haft.js';
 import { configureNativeVendors, installNativeVendors } from './native-vendor.js';
 import { migrateLegacyVendors } from './vendor-migration.js';
 import { updateManagedFiles } from './managed-block.js';
@@ -153,6 +155,9 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
   const migration = config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
     ? await migrateLegacyVendors(targetPath) : { removed: [], preserved: [] };
+  const quintMigration = await migrateQuint(targetPath);
+  migration.removed.push(...quintMigration.removed);
+  migration.preserved.push(...quintMigration.preserved);
   const protectedPaths = [...new Set<string>([...(config.preservedVendorFiles ?? []), ...migration.preserved])];
   for (const file of migration.removed) console.log(`[upgrade] removed: ${file}`);
   for (const file of migration.preserved) console.log(`[upgrade] preserved user file: ${file}`);
@@ -209,6 +214,8 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   });
   console.log('\n[upgrade] graphify install summary:\n' + formatReport(graphifyReport) + '\n');
   console.log(`[upgrade] migration summary: ${migration.removed.length} known file(s) removed; ${migration.preserved.length} modified/user file(s) preserved (listed above).`);
+
+  await installHaft(targetPath, aiTools);
 
   // Native installer failures are recoverable; embed requires bundled skill sources.
   const projectLocalFailed =

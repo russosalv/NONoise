@@ -1,3 +1,4 @@
+import { installHaft } from './haft.js';
 import { mkdir, writeFile, readFile, cp } from 'node:fs/promises';
 import { dirname, join, posix, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -114,6 +115,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   if (ctx.gitInit) {
     runGitInit(ctx.projectPath);
   }
+  if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) await installHaft(ctx.projectPath, ctx.aiTools);
 }
 
 async function writeRepositoriesJson(projectPath: string, repos: RepoEntry[]): Promise<void> {

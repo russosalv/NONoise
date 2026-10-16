@@ -1,3 +1,4 @@
+import { doctorHaft } from './haft.js';
 import { preserveInstructionFiles } from './managed-block.js';
 import { createHash } from 'node:crypto';
 import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
@@ -246,5 +247,6 @@ export function doctor(projectPath: string): string[] {
     lines.push(`graphify: ${graphify && /graphifyy v0\.9\.91\b/.test(version.output) ? 'installed 0.9.91' : 'missing/wrong version'} — uv tool install --force graphifyy==0.9.91; graphify install --project --platform ${key === 'copilot' ? 'copilot' : providers[key]}`);
     if (key !== 'claudeCode') lines.push('pptx, skill-creator: no native channel for this harness (available through Claude plugins or --vendor-mode embed)');
   }
+  lines.push(...doctorHaft(projectPath, ai));
   console.log(lines.join('\n')); return lines;
 }

@@ -118,12 +118,16 @@ describe('safe legacy migration', () => {
 });
 
 describe('doctor', () => {
-  it('uses only list calls, distinguishes catalog from installed, and does not modify project files', () => {
+  it('uses only read-only calls, distinguishes catalog from installed, and does not modify project files', () => {
     const config = JSON.stringify({ vendorMode: 'native', aiTools: { ...ai, claudeCode: false, codex: true } }); put('nonoise.config.json', config);
     mocked.mockImplementation(bin => bin === 'codex' ? JSON.stringify({ installed: [], marketplaces: [{ plugins: [{ pluginId: 'superpowers@nonoise' }] }] }) : '');
     const lines = doctor(dir).join('\n'); expect(lines).toContain('superpowers@nonoise: missing/unverified');
     expect(lines).toContain('codex plugin add superpowers@nonoise'); expect(lines).not.toContain('[claudeCode]');
-    expect(mocked.mock.calls.every(([, args]) => args?.includes('list'))).toBe(true);
+    expect(mocked.mock.calls.every(([bin, args]) => bin === 'haft'
+      ? args?.join(' ') === '--version' || args?.join(' ') === 'spec status --json'
+      : bin === 'git' ? args?.[0] === 'rev-parse'
+      : args?.includes('list') || (bin === 'copilot' && args?.join(' ') === 'mcp get haft --json'))).toBe(true);
+    expect(lines).toContain('Haft expected');
     expect(readFileSync(join(dir, 'nonoise.config.json'), 'utf8')).toBe(config);
   });
   it('recognizes Codex installed records and disabled plugins', () => {

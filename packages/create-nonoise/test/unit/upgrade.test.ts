@@ -13,6 +13,8 @@ const BUNDLED_SKILLS_ROOT = resolve(__dirname, '..', '..', '..', 'skills');
 
 // Mock child_process so installGraphify (called transitively) doesn't actually
 // touch the host system.
+vi.mock('../../src/haft.js', () => ({ installHaft: vi.fn(async () => ({ ok: true, output: 'fixture' })) }));
+
 vi.mock('node:child_process', () => ({
   execSync: vi.fn(),
 }));
