@@ -1,6 +1,6 @@
 # Skill catalog — what ships in `.claude/skills/`
 
-NONoise bundles **40+ skills** in total: 25 NONoise-native skills under `packages/skills/`, plus 14 vendored from [obra/superpowers](https://github.com/obra/superpowers), plus the Impeccable design pack (Anthropic-origin), plus `skill-creator` (Anthropic-origin), plus PPTX tooling. All live under `.claude/skills/` in every scaffolded project. All are plain Markdown and work cross-tool (see [`cross-tool.md`](cross-tool.md)).
+NONoise bundles **40+ skills** in total: 27 NONoise-native skills from `packages/skills/`, plus 14 from [obra/superpowers](https://github.com/obra/superpowers), plus the Impeccable design pack, plus Anthropic's `skill-creator` and document skills (PPTX tooling). The NONoise-native skills are copied to `.claude/skills/` in every scaffolded project, and also to `.agents/skills/` when Codex or Copilot CLI is selected. Vendor packs are installed by their upstream installers and plugin registries by default (native mode); `--vendor-mode embed` copies the bundled snapshots into the project for offline use. Delegation from Claude Code to Codex uses OpenAI's official `codex@openai-codex` plugin (see [Vendor plugin — Codex](#vendor-plugin--codex-codexopenai-codex)). All skills are plain Markdown and work cross-tool (see [`cross-tool.md`](cross-tool.md)).
 
 This document is organised by **domain**. Each skill entry has:
 
@@ -19,9 +19,9 @@ Every skill under `packages/skills/` falls into one of three provenance tiers. T
 
 | Tier | Meaning | Count |
 |---|---|---:|
-| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 22 |
+| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 25 |
 | **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. The `graphify` tool is installed directly by `create-nonoise` at scaffold time (not a skill wrapper). | 2 |
-| **vendored** | Installed under a namespace, pinned by commit, refreshed via `scripts/sync-vendor.mjs`. Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
+| **vendored** | Installed under a namespace from the upstream installer or plugin (native, default) or from a snapshot pinned by commit and refreshed via `scripts/sync-vendor.mjs` (embed). Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
 
 The `graphify` tool itself is external (not a skill bundled under `packages/skills/`). The `create-nonoise` CLI installs the `graphifyy` Python package and wires the per-tool hooks at scaffold time.
 
@@ -44,6 +44,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 | [Vendored superpowers](#vendored-superpowers) | 14 | Planning / execution / review / worktrees |
 | [Vendored design pack](#vendored-impeccable-design-pack) | ~19 | UI/UX polish, audit, critique |
 | [Vendored skill-creator + tooling](#vendored-skill-creator--tooling) | 2+ | Meta-skill authoring and office tooling |
+| [Vendor plugin — Codex](#vendor-plugin--codex-codexopenai-codex) | plugin | Delegate tasks and reviews from Claude Code to Codex |
 
 > **Roadmap: core + optional packs.** The current scaffold installs every skill. Feedback from review suggested splitting into a minimal core (Polly + requirements + architecture + sprint + dev trio) plus optional packs (frontend pack, docs/analysis pack, ops pack, PM/architecture pack) chosen at scaffold time. That split is planned — see `todo.txt` at the repo root and `nonoise.config.json`'s future `packs` field.
 
@@ -69,7 +70,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **Provenance:** custom NONoise.
 - **Purpose:** routes / dispatches / fans-out / parallelizes a task across Claude / Codex / Gemini / Copilot's many models (Copilot is treated as a multiplexer reaching Opus, Sonnet, Haiku, GPT-5.x, plus free-tier `gpt-4.1` / `gpt-5-mini`). Classifies the task via a specialization matrix (UI → Gemini, review/security/DevOps → Codex, edge-case implementation → Claude, throwaway classification → Copilot free tier) and supports four execution modes: **single** dispatch, **sequential** pipeline, **parallel fan-out** for competing hypotheses, and **parallel-team** that splits a complex feature into N disjoint subtasks with explicit file-ownership boundaries. Cross-harness by design: first-class on Claude Code (native `Agent` + `Skill` tools for Mode 4), best-effort on Copilot / Gemini CLI / Codex CLI via shell-parallel background processes with documented caveats. Hierarchical orchestration only — there is no peer-to-peer messaging between different model CLIs.
 - **Triggers:** explicit user phrases only — `swarm: …`, `/swarm`, `usa lo swarm`, `instrada`, `fan-out`, `scegli il modello migliore per …`, `best model for …`, `second opinion da …`, `team mode`, `parallel-dev`, `sviluppa in parallelo`, `fai team`, `build with a team`. Same trigger phrases regardless of which AI harness is orchestrating; the skill reads its own "Harness-specific dispatch" section to pick the right mechanism.
-- **Reads:** the user's task description plus any context files the task references; per-harness it may shell out to `claude -p`, `gemini -p`, `codex exec`, `copilot -p` (or, on Claude Code, invoke the matching `*-delegate` skills via the `Skill` tool).
+- **Reads:** the user's task description plus any context files the task references; per-harness it may shell out to `claude -p`, `gemini -p`, `codex exec`, `copilot -p` (or, on Claude Code, invoke the matching `*-delegate` skills via the `Skill` tool, and Codex through the official `codex@openai-codex` plugin's `/codex:rescue`).
 - **Writes:** a single combined block with verbatim per-model outputs labelled by stage / worker role, an optional **Synthesis** section (mandatory for parallel-fanout and parallel-team), and — for parallel-team — a `file-ownership` block listing the paths each worker may write.
 - **Phase:** Cross-cutting — applicable in any SDLC step where mixing models adds value (UI work to Gemini, review / security to Codex, edge-case implementation to Claude, cheap classification to Copilot's free tier).
 
@@ -358,6 +359,13 @@ Use these after `frontend-design` produces the initial implementation to progres
 
 - **`skill-creator`** — Anthropic's meta-skill for authoring new skills from scratch, editing existing ones, running evals, benchmarking. Used by `ops-skill-builder` in the crystallise phase.
 - **PPTX tooling** (`packages/skills/vendor/pptx/`) — office-file-unpacking utilities (unpack, clean, duplicate-slide, redline-simplifier, slide-operations, merge-runs, schema-validation for DOCX / PPTX / XLSX). Useful when a team needs to manipulate Office artefacts programmatically (common for requirements-ingest on slide-deck source material).
+
+## Vendor plugin — Codex (`codex@openai-codex`)
+
+- **Source:** OpenAI's official Claude Code plugin, marketplace [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc). Not a NONoise skill; replaces the former `codex-delegate` skill (removed in 1.7.0).
+- **Installation:** Claude Code selected. Native mode installs it at project scope; embed mode only declares it in `.claude/settings.json`. `--upgrade` removes unmodified `codex-delegate` copies and preserves modified ones.
+- **Commands:** `/codex:rescue` (subagent `codex:codex-rescue`), `/codex:review`, `/codex:adversarial-review`, `/codex:status`, `/codex:result`, `/codex:cancel`, `/codex:transfer`, `/codex:setup`.
+- **Used by:** `swarm-router` (Codex dispatch on Claude Code) and any explicit request to hand work to Codex.
 
 ---
 

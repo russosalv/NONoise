@@ -115,7 +115,7 @@ hero: {
 ```
 40+ skills · entire SDLC
 6 phases · requirements → ops
-25 NONoise-native skills
+27 NONoise-native skills
 14 vendored superpowers
 2 first-class tools · Claude Code + Copilot
 Polly · greenfield + brownfield
@@ -366,8 +366,8 @@ Ten domains, ≥ 40 skills. Shape matches the existing `skills.domains[].items[]
 skills: {
   title: { it: "Catalogo skill — 40+", en: "Skill catalog — 40+" },
   sub: {
-    it: "25 native NoNoise + 14 superpowers vendored + pack design (Impeccable) + skill-creator + tooling. Tutte plain Markdown. Cross-tool. Progressive disclosure: ~80 token di discovery, body caricato solo all'attivazione.",
-    en: "25 NoNoise-native + 14 vendored superpowers + design pack (Impeccable) + skill-creator + tooling. All plain Markdown. Cross-tool. Progressive disclosure: ~80 discovery tokens, body loaded only on activation.",
+    it: "27 native NoNoise + 14 superpowers vendored + pack design (Impeccable) + skill-creator + tooling. Tutte plain Markdown. Cross-tool. Progressive disclosure: ~80 token di discovery, body caricato solo all'attivazione.",
+    en: "27 NoNoise-native + 14 vendored superpowers + design pack (Impeccable) + skill-creator + tooling. All plain Markdown. Cross-tool. Progressive disclosure: ~80 discovery tokens, body loaded only on activation.",
   },
   domains: [
     {
@@ -437,6 +437,7 @@ skills: {
         { k: "frontend-design", d: { it: "UI production-grade · nessun generic-AI look", en: "Production-grade UI · no generic-AI look" } },
         { k: "bmad-agent-ux-designer", d: { it: "Giulia — UX designer · DESIGN.md · critique", en: "Giulia — UX designer · DESIGN.md · critique" } },
         { k: "bmad-agent-tech-writer", d: { it: "Daniel — tech writer · READMEs · user guides · Mermaid", en: "Daniel — tech writer · READMEs · user guides · Mermaid" } },
+        { k: "codex@openai-codex", d: { it: "Plugin ufficiale OpenAI · /codex:rescue · /codex:review", en: "Official OpenAI plugin · /codex:rescue · /codex:review" } },
       ],
     },
     {

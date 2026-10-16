@@ -26,7 +26,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go.
 - **`docs/`** — six-folder source-of-truth hierarchy (architecture, requirements, calls, support, prd, sprints).
-- **`.claude/skills/`** — 40+ AI skills: Polly advisor, BMAD personas, Quint FPF validator, native [superpowers](https://github.com/obra/superpowers), design and ops packs.
+- **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — 27 NONoise skills plus vendor packs, 40+ in total: Polly advisor, BMAD personas, Haft FPF validator (`quint-fpf` adapter), native [superpowers](https://github.com/obra/superpowers), design and ops packs. Codex delegation from Claude Code uses OpenAI's official `codex@openai-codex` plugin.
 - **Context files** for each selected tool — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.
@@ -35,7 +35,9 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 ```bash
 npx create-nonoise [directory] [options]
+npx create-nonoise doctor [path]
 
+  --vendor-mode <mode>  native (default): upstream installers; embed: offline bundled copies
   --workspace <kind>    new | existing-single | existing-multi
   --template <name>     single-project | multi-repo   (default: single-project)
   --ai <csv>            claude-code,copilot,codex,cursor,gemini-cli
@@ -62,7 +64,7 @@ If you pass a positional path that already contains `nonoise.config.json`, the C
 
 ## Upgrading an existing project
 
-Bundled skills are copied at scaffold time and stay frozen at that version — `npm install -g create-nonoise` doesn't reach them. To pick up improvements (e.g. hardened anti-pattern guards on `reverse-engineering`, new skills, the `/index` slash command), run:
+NONoise skills are copied at scaffold time and stay frozen at that version — `npm install -g create-nonoise` doesn't reach them. To pick up improvements (e.g. hardened anti-pattern guards on `reverse-engineering`, new skills, the `/index` slash command), run:
 
 ```bash
 # Interactive (auto-detect)
@@ -70,14 +72,18 @@ npx create-nonoise@latest path/to/existing-project
 
 # Direct, non-interactive
 npx create-nonoise@latest --upgrade path/to/existing-project
+
+# Read-only health check (plugins, skills per harness, Haft, broken skill symlinks)
+npx create-nonoise@latest doctor path/to/existing-project
 ```
 
 What `--upgrade` does:
 
-- **Re-copies all bundled skills** under `<project>/.claude/skills/` (overwrites — picks up the latest `SKILL.md` files).
-- **Re-runs the graphify install** (`graphify claude install` / `graphify copilot install`) so `<project>/CLAUDE.md` and `.claude/settings.json` get the current hook.
-- **Does NOT touch templates** — `CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md` keep your edits.
-- **Does NOT touch `nonoise.config.json`**.
+- **Re-copies all NONoise skills** under `<project>/.claude/skills/` (and `.agents/skills/` when Codex or Copilot CLI is selected), picking up the latest `SKILL.md` files.
+- **Re-runs the vendor installers** — native mode by default (upstream plugins and installers, NONoise marketplace pinned to the CLI release tag), or the bundled snapshots with `--vendor-mode embed` — plus graphify and the Haft FPF runtime.
+- **Removes retired skills** — unmodified `codex-delegate` copies are removed (replaced by the `codex@openai-codex` plugin); modified copies and modified vendor files are preserved and listed.
+- **Updates only the NONoise managed block** in `CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md` — your edits outside the markers stay.
+- **Keeps your `nonoise.config.json` settings** — it only refreshes `frameworkVersion`, `vendorMode`, `aiTools`, the skill list and `preservedVendorFiles`.
 
 For the narrower repair path (only graphify, no skill refresh):
 

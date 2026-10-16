@@ -14,6 +14,8 @@ This document covers two distinct audiences:
 - **Node ≥ 20** — required to run `npx create-nonoise`.
 - **Git** — the scaffold initialises a Git repo.
 - **An AI tool with a project-level context mechanism.** V1 first-class: Claude Code or GitHub Copilot. V1 best-effort: Cursor, Gemini CLI, Codex. See [`cross-tool.md`](cross-tool.md).
+- **Haft** (required FPF runtime) — installed automatically by scaffold and `--upgrade` on Linux (amd64/arm64) and macOS arm64; Windows needs WSL. See [Haft: required FPF runtime](#haft-required-fpf-runtime-170).
+- **Network access to upstream installers** for the default native vendor mode (Claude/Codex/Copilot plugin CLIs, `npx`, `uv`); use `--vendor-mode embed` offline.
 
 Optional (scaffolded but advisor-only — you install if and when you need them):
 
@@ -41,6 +43,7 @@ Then the scaffold runs, bundling:
 - `src/` — empty placeholder for your code.
 - `docs/` — the six-folder source-of-truth tree (see [`docs-hierarchy.md`](docs-hierarchy.md)).
 - `.claude/skills/` — the NONoise skill library (Polly + specialists); third-party skills use native installers by default. See [`skills-catalog.md`](skills-catalog.md).
+- `.agents/skills/` — a copy of the NONoise skills when Codex or Copilot CLI is selected (the directory those harnesses read).
 - `.claude/commands/` + `.claude/settings.json` (Claude Code selected).
 - `CLAUDE.md` (Claude Code selected).
 - `.github/copilot-instructions.md` (Copilot selected).
@@ -79,9 +82,15 @@ npx create-nonoise doctor my-project
 npx create-nonoise offline-project --vendor-mode embed --yes
 ```
 
-`native` is the default for new projects and upgrades, including legacy projects.
-`embed` must be explicitly selected for an offline upgrade. The CLI still bundles
-vendor snapshots for this fallback; native scaffolds do not copy them.
+`native` is the default for new projects and upgrades, including legacy projects:
+vendor packs come from their upstream installers and plugin registries.
+`embed` is the offline fallback and must be explicitly selected, also for an
+upgrade. The CLI still bundles vendor snapshots for this fallback; native
+scaffolds do not copy them.
+
+NONoise's own 27 skills are copied to `.claude/skills/` and, when Codex or
+Copilot CLI is selected, also to `.agents/skills/` — the directory those
+harnesses read repository skills from. Both modes do this.
 
 #### Switching from native to embed
 
@@ -125,6 +134,7 @@ directory symlinks are checked but not traversed.
 | Claude documents / skill creator | `document-skills@anthropic-agent-skills` from `anthropics/skills`; `skill-creator@claude-plugins-official` from `anthropics/claude-plugins-official` |
 | Impeccable | `npx --yes impeccable install --yes --providers=claude,codex,github --scope=project` (selected providers only); one `/impeccable` skill with subcommands |
 | Graphify | `uv tool install --force graphifyy==0.9.91`, then `graphify install --project --platform claude` (also `codex`, `copilot`, `cursor`, `gemini` as selected) |
+| Codex delegation (Claude Code) | `codex@openai-codex`, OpenAI's official Claude Code plugin from marketplace `openai/codex-plugin-cc`; declared in `.claude/settings.json` in both modes, installed only in native mode |
 
 Claude's `.claude/settings.json` merges `extraKnownMarketplaces` and
 `enabledPlugins`, so teammates can approve the declared installs when opening
@@ -133,17 +143,35 @@ the following commands immediately when Claude is available, then confirm each
 installation with `claude plugin list --json` in the current project:
 
 ```bash
-claude plugin marketplace add russosalv/NONoise
+claude plugin marketplace add russosalv/NONoise#v1.7.0
 claude plugin install superpowers@nonoise --scope project
 claude plugin marketplace add anthropics/skills
 claude plugin install document-skills@anthropic-agent-skills --scope project
 claude plugin marketplace add anthropics/claude-plugins-official
 claude plugin install skill-creator@claude-plugins-official --scope project
+claude plugin marketplace add openai/codex-plugin-cc
+claude plugin install codex@openai-codex --scope project
 claude plugin list --json
 ```
 
-For Codex/Copilot the CLI runs `plugin marketplace add russosalv/NONoise`, then
-`codex plugin add superpowers@nonoise` / `copilot plugin install superpowers@nonoise`.
+For Codex the CLI runs `codex plugin marketplace add russosalv/NONoise@v1.7.0`,
+then `codex plugin add superpowers@nonoise`; for Copilot it runs
+`copilot plugin marketplace add russosalv/NONoise`, then
+`copilot plugin install superpowers@nonoise`.
+
+The NONoise marketplace is pinned to the CLI's own release tag
+(`russosalv/NONoise#v<version>` for Claude, `russosalv/NONoise@v<version>` for
+Codex), so a CLI never installs plugins from a newer or older manifest. Copilot
+has no ref syntax and reads the default branch. Maintainers validating an
+untagged branch can override the ref with `NONOISE_MARKETPLACE_REF=<branch>`.
+
+The Codex plugin replaces the former `codex-delegate` skill. In Claude Code it
+provides `/codex:rescue` (subagent `codex:codex-rescue`), `/codex:review`,
+`/codex:adversarial-review`, `/codex:status`, `/codex:result`, `/codex:cancel`,
+`/codex:transfer` and `/codex:setup`. Embed mode stays offline: the plugin is
+only declared in `.claude/settings.json`, and Claude Code offers it when the
+project is trusted. `--upgrade` removes `codex-delegate` copies that match the
+shipped version and preserves (and lists) modified ones.
 Already registered marketplaces and confirmed installations are reused.
 Transient DNS, connection, timeout and HTTP 5xx failures in marketplace/plugin,
 impeccable and uv installers get two retries, after 1 and 2 seconds. Other errors
@@ -158,7 +186,9 @@ After vendor refreshes run `node scripts/sync-graphify-platform-skills.mjs` and
 `node scripts/update-vendor-hashes.mjs` to update lean assets and append ownership hashes. Missing commands and installer failures
 are non-fatal and printed with exact retry commands. `doctor [path]` only reads
 project files and native `plugin list --json` / `uv tool list` output; catalog
-availability is not reported as installation. Disabled or unconfirmed plugins
+availability is not reported as installation. It checks the NONoise skills in
+the directory each selected harness reads (`.claude/skills` for Claude Code,
+`.agents/skills` for Codex and Copilot CLI). Disabled or unconfirmed plugins
 are reported as missing/unverified. Codex/Copilot have no Anthropic plugin channel
 configured here; use Claude or the explicit embed fallback for pptx/skill-creator.
 Cursor/Gemini have native impeccable/graphify installers but no superpowers plugin
@@ -170,12 +200,10 @@ the refreshed offline embed snapshot is 7.0.0. All seven concrete Superpowers
 skill names referenced by NONoise exist in both versions. Changing an existing
 native installation version is intentionally outside this embed refresh.
 
-The repo also exposes its 28 own skills as `nonoise@nonoise` for all three plugin
+The repo also exposes its own skills as `nonoise@nonoise` for all three plugin
 CLIs. Installing that plugin is optional for scaffold users, who already have
 the same NONoise skills locally. For local marketplace development use `/work`
-or your checkout path instead of `russosalv/NONoise`. No publication is part of
-the 1.7 development change; remote marketplace installation needs this branch
-released upstream first. The release tarball URL becomes available on release.
+or your checkout path instead of `russosalv/NONoise`.
 
 Upgrade preserves text outside NONoise markers in CLAUDE.md, AGENTS.md and
 `.github/copilot-instructions.md`. Files without markers retain their entire old
@@ -235,7 +263,7 @@ NONoise-frmw/
 │   │   ├── scripts/bundle-assets.mjs  # Pulls skills + templates into dist/
 │   │   ├── vitest.config.ts
 │   │   └── package.json
-│   ├── skills/                        # 25 NONoise-native skills
+│   ├── skills/                        # NONoise-native skills (27 shipped in scaffolds)
 │   │   ├── _shared/                   # Cross-skill references
 │   │   ├── arch-brainstorm/
 │   │   ├── arch-decision/
@@ -358,7 +386,7 @@ Fetches each configured upstream `ref` (Superpowers, Impeccable, skill-creator, 
 
 2. Add sub-assets under `packages/skills/<your-skill>/references/`, `assets/`, `scripts/` as needed.
 
-3. If the skill should ship in scaffolded projects, verify `packages/create-nonoise/scripts/bundle-assets.mjs` picks it up — it globs the skills directory, so most skills need no manual registration.
+3. If the skill should ship in scaffolded projects, add its name to `MVP_SKILL_BUNDLE` in `packages/create-nonoise/src/skill-bundle.ts` (the single source of truth used by scaffold and upgrade). `bundle-assets.mjs` copies the whole skills directory into the CLI, but only listed skills are installed.
 
 4. Rebuild and test:
 
@@ -375,9 +403,9 @@ Fetches each configured upstream `ref` (Superpowers, Impeccable, skill-creator, 
 
 ### Release
 
-1. `pnpm version` — applies any changesets, bumps versions.
-2. `pnpm release` — publishes to npm (CI-driven in most cases).
-3. Tag the release in Git; write release notes based on the changeset content.
+1. `pnpm version` — applies any changesets, bumps versions. In the same commit, update the GitHub Release tarball URL (`releases/download/v<NEW>/create-nonoise-<NEW>.tgz`) in `README.md` and `packages/create-nonoise/README.md`.
+2. Push the Git tag `v<NEW>` **before** publishing to npm: native mode pins the NONoise marketplace to that tag, so without it `superpowers@nonoise` cannot be installed.
+3. `pnpm release` — publishes to npm (CI-driven in most cases); write the GitHub release notes based on the changeset content and attach the tarball.
 4. Update `packages/skills/<modified>/VENDOR.json` pins if any vendored pack bumped.
 5. If a breaking change for scaffolded-project users, add a migration note to `docs/overview.md` §"Feedback incorporated".
 
@@ -431,6 +459,9 @@ This `docs/` folder doubles as the source material for the public site at [NONoi
 | Scaffolded project is missing a skill | `bundle-assets.mjs` didn't pick it up | check the glob; sometimes a new top-level folder needs explicit inclusion |
 | Polly can't find the SDLC flow | `.nonoise/sdlc-flow.md` missing | Polly falls back to the embedded default and mentions the missing file; create one from `packages/skills/polly/references/sdlc-flow.default.md` |
 | `graphify .` produces an empty report | graphify binary not installed or not on PATH | re-run `create-nonoise` in the project, or install manually: `uv tool install "graphifyy==0.9.91"` |
+| `superpowers@nonoise` install fails with an unknown ref | the CLI version's tag `v<version>` is missing from the repository | push the tag; for an untagged branch set `NONOISE_MARKETPLACE_REF=<branch>` |
+| After native → embed → native upgrades, `npx impeccable install` stays PENDING ("Preserved modified legacy impeccable files"); graphify likewise | known issue [#8](https://github.com/russosalv/NONoise/issues/8): files written by the native installers are recorded as preserved user files in `preservedVendorFiles` | delete `.claude/skills/impeccable` and `.agents/skills/impeccable` (graphify: its native skill folders), remove the matching entries from `preservedVendorFiles` in `nonoise.config.json`, rerun `--upgrade` |
+| `upgrade` reports a preserved `codex-delegate` skill | the skill was modified locally, so it is not removed | use the `codex@openai-codex` plugin instead and delete the folder once the local changes are no longer needed |
 
 ---
 

@@ -29,7 +29,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** — a library of **27 NONoise skills plus native vendor integrations** (Codex delegation via the official `codex@openai-codex` plugin): Polly advisor, BMAD-derived personas, Haft FPF validator, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
+- **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — a library of **27 NONoise skills plus native vendor integrations** (Codex delegation via the official `codex@openai-codex` plugin): Polly advisor, BMAD-derived personas, Haft FPF validator, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.
@@ -128,7 +128,7 @@ A full walkthrough of the SDLC lives in [`docs/sdlc.md`](docs/sdlc.md); Polly's 
 
 ## Upgrading an existing NONoise project
 
-Version 1.7 defaults to native vendor installation. NONoise's own skills remain local.
+Version 1.7 defaults to native vendor installation (upstream installers and plugins); `--vendor-mode embed` is the offline fallback. NONoise's own skills remain local, in `.claude/skills/` and, for Codex / Copilot CLI, `.agents/skills/`.
 
 ```bash
 npx create-nonoise@latest --upgrade path/to/project
@@ -148,6 +148,9 @@ Claude plugins are installed immediately at project scope and verified in the
 registry; skill-creator uses its dedicated official plugin. Network failures get
 two retries with increasing waits. Failed/missing installers leave exact recovery
 commands and do not stop scaffolding. Embed includes the current unified impeccable skill.
+The NONoise plugin marketplace is pinned to the CLI's release tag (`v<version>`).
+The `codex-delegate` skill is replaced by OpenAI's official `codex@openai-codex`
+plugin (`/codex:rescue`, `/codex:review`, …); upgrade removes unmodified copies.
 See [installation](docs/installation.md) for plugin setup and `doctor` details.
 
 Auto-detection guard: when you pass a positional path that already contains a `nonoise.config.json`, the CLI **never silently scaffolds over it**. Without `--yes` it prompts (Upgrade / Graphify-only / Cancel); with `--yes` it aborts and prints the explicit `--upgrade` / `--graphify-only` commands you should run instead.

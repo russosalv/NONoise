@@ -80,7 +80,7 @@ After NONoise:
 NONoise-frmw/
 ├── packages/
 │   ├── create-nonoise/              # The CLI
-│   ├── skills/                      # 25 NONoise-native skills + vendor/
+│   ├── skills/                      # 27 NONoise-native skills + vendor/
 │   └── templates/single-project/    # What gets scaffolded into user projects
 ├── docs/                            # This documentation (and site source material)
 ├── scripts/                         # Vendor sync, release tooling
@@ -94,9 +94,9 @@ See [`installation.md`](installation.md) §Repository layout for the full tree.
 This documentation explicitly incorporates feedback from an independent review (`todo.txt` at the repository root) that flagged four issues in the prior README:
 
 1. **Messaging.** The earlier framing called NONoise a "framework". We now use **bootstrapper** (primary) and "project operating system" (secondary). The word *framework* is retained only where it refers generically to a body of conventions, not to a runtime framework.
-2. **Doc coherence.** Earlier drafts mentioned "3 skill bundles" while the scaffold actually installs 25+14 = 39+ skills. This documentation reflects the actual count and organises them by domain (see [`skills-catalog.md`](skills-catalog.md)).
+2. **Doc coherence.** Earlier drafts mentioned "3 skill bundles" while the scaffold actually installs 27+14 = 41+ skills. This documentation reflects the actual count and organises them by domain (see [`skills-catalog.md`](skills-catalog.md)).
 3. **Overreach risk.** The review flagged that if NONoise keeps bundling more and more skills, it becomes "noise itself". The response is to move toward a **core + optional packs** model: core always installed (Polly + requirements + architecture + sprint + dev trio), optional packs explicitly selected at scaffold time (frontend pack, docs/analysis pack, ops pack, PM/architecture pack). That split is planned, not yet implemented — see [`skills-catalog.md`](skills-catalog.md) §Roadmap.
-4. **Vendor drift.** Vendored assets (superpowers, impeccable, skill-creator, pptx tooling, Polly's own vendored payloads) pin a commit in `VENDOR.json`. Snapshot tests fail when the vendored material changes; the response is a deliberate `node scripts/sync-vendor.mjs` + updated snapshot, reviewed in PR. Automatic updates on the user side are **not** enabled by design: the compromise is *automatic check, manual apply* (a future `nonoise update --check` + `nonoise update`).
+4. **Vendor drift.** Since 1.7.0, vendor packs are installed by their upstream installers by default (native mode); the offline `--vendor-mode embed` snapshots (superpowers, impeccable, skill-creator, pptx tooling, Polly's own vendored payloads) pin a commit in `VENDOR.json`. Snapshot tests fail when the vendored material changes; the response is a deliberate `node scripts/sync-vendor.mjs` + updated snapshot, reviewed in PR. Automatic updates on the user side are **not** enabled by design: the compromise is *automatic check, manual apply* (a future `nonoise update --check` + `nonoise update`).
 
 ## Where to read next
 

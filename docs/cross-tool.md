@@ -26,15 +26,15 @@ These tools read plain Markdown and can follow a SKILL.md by hand. NONoise write
 
 - **Cursor** — entry file `.cursor/rules.md`; the skill library is in `.claude/skills/` and Cursor users open the SKILL.md manually. Most skills work; slash commands and hooks do not.
 - **Gemini CLI** — entry file `GEMINI.md`. Gemini uses an `activate_skill` tool mechanism that differs from Claude Code's; NONoise ships the skills as Markdown under `.claude/skills/` and the Gemini context file points at them. Best-effort.
-- **Codex** — entry file `AGENTS.md` (the industry-standard file name many tools respect). Codex-style tools read `AGENTS.md` and the user points at skills manually.
+- **Codex** — entry file `AGENTS.md` (the industry-standard file name many tools respect). When Codex is selected, the NONoise skills are also installed in `.agents/skills/`, the directory Codex reads repository skills from.
 
 ### Support matrix — best-effort tier
 
 | Capability | Cursor | Gemini CLI | Codex |
 |---|---|---|---|
 | **Scaffold writes context file** | `.cursor/rules.md` | `GEMINI.md` | `AGENTS.md` |
-| **Launch Polly** | Read `.claude/skills/polly/SKILL.md` manually | Ask Gemini to activate `polly` skill | Read `.claude/skills/polly/SKILL.md` manually |
-| **Invoke a specialist skill** | Read its SKILL.md manually | Ask Gemini to activate the named skill | Read its SKILL.md manually |
+| **Launch Polly** | Read `.claude/skills/polly/SKILL.md` manually | Ask Gemini to activate `polly` skill | Ask Codex to use the `polly` skill (from `.agents/skills/`) |
+| **Invoke a specialist skill** | Read its SKILL.md manually | Ask Gemini to activate the named skill | Ask Codex to use the named skill from `.agents/skills/` |
 | **Hooks / slash commands / MCP** | Silent no-op | Silent no-op | Silent no-op |
 
 Most of the SDLC flow works in best-effort tier because skills are plain Markdown and the AI follows them conversationally. What degrades is slash-command ergonomics and hook-based validations.
@@ -119,14 +119,44 @@ The `swarm-router` SKILL.md itself encodes the per-harness dispatch tables so th
 
 ## Native vendor delivery (1.7)
 
-NONoise's own skills stay in `.claude/skills/`. Vendor dependencies use their
-upstream installers; do not infer that `superpowers:*` is absent because a local
-folder is missing. Resolve it from the harness plugin registry. Codex and Copilot
-use `superpowers@nonoise`; the marketplace pins the same SHA as Claude.
+Vendor dependencies use their upstream installers by default (`native` mode);
+`--vendor-mode embed` is the offline fallback with bundled snapshots. In native
+mode, do not infer that `superpowers:*` is absent because a local folder is
+missing: resolve it from the harness plugin registry. Codex and Copilot use
+`superpowers@nonoise`; the marketplace pins the same superpowers SHA as Claude.
 `create-nonoise doctor [path]` checks each selected harness without installing.
 
-Claude project settings declare the NONoise and Anthropic marketplaces and
-vendor plugins. Impeccable uses one skill with subcommands (providers `claude`,
+### Per-harness skill directories
+
+NONoise's own skills are always installed in `.claude/skills/`. When Codex or
+Copilot CLI is selected they are also installed in `.agents/skills/`, because
+those harnesses read repository skills from there. `doctor` checks the
+directory each selected harness reads:
+
+| Harness | NONoise skills read from |
+|---|---|
+| Claude Code | `.claude/skills/` |
+| Codex | `.agents/skills/` |
+| Copilot CLI | `.agents/skills/` |
+| Cursor / Gemini CLI | `.claude/skills/` (pointed to by the context file) |
+
+### Codex plugin for Claude Code
+
+Delegating work from Claude Code to Codex uses OpenAI's official plugin
+`codex@openai-codex` (marketplace `openai/codex-plugin-cc`), which replaces the
+former `codex-delegate` skill. Native mode installs it at project scope; embed
+mode only declares it in `.claude/settings.json`, so Claude Code offers it when
+the project is trusted. Commands: `/codex:rescue` (runs the `codex:codex-rescue`
+subagent), `/codex:review`, `/codex:adversarial-review`, `/codex:status`,
+`/codex:result`, `/codex:cancel`, `/codex:transfer`, `/codex:setup`.
+`--upgrade` removes unmodified `codex-delegate` copies and preserves modified ones.
+
+### Native vendor layout
+
+Claude project settings declare the NONoise, Anthropic and `openai-codex`
+marketplaces and vendor plugins. The NONoise marketplace is pinned to the CLI's
+release tag (`russosalv/NONoise#v<version>` for Claude, `@v<version>` for Codex;
+Copilot reads the default branch). Impeccable uses one skill with subcommands (providers `claude`,
 `codex`, `github`); graphify 0.9.91 uses `install --project --platform <platform>`.
 Codex graphify 0.9.91 lands under `.codex/skills/`, impeccable under `.agents/skills/`; Copilot graphify
 uses `.copilot/skills/`. Offline `--vendor-mode embed` retains the old layout.
