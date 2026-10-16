@@ -466,9 +466,14 @@ version/hash receipt so repeated upgrades do not rewrite graphify backup files.
 Scaffold and `--upgrade` install Haft in both native and embed modes. The temporary
 MIT fork `russosalv/haft`, pinned to `v9.1.1-nonoise.1`, fixes the validity dates
 that make upstream v9.1.0 initialization fail after 2026-09-18 (upstream #122).
-The fork release is not published yet; default GitHub downloads will remain
-pending until publication. Maintainers can change `HAFT_REPO` and `HAFT_VERSION`
-in `src/haft.ts` to return to the corrected upstream.
+The fork is published as a standalone repository (not a GitHub fork) at
+[`russosalv/haft` v9.1.1-nonoise.1](https://github.com/russosalv/haft/releases/tag/v9.1.1-nonoise.1).
+Linux assets are built outside CI; darwin-arm64 is built by the manual
+`nonoise-darwin.yml` workflow on a macOS runner, which appends its line to
+`checksums.txt`. The inherited upstream workflows are disabled in that repository.
+The fork adds schema migration 60: returning to upstream requires an upstream
+release that includes it. Maintainers can then change `HAFT_REPO` and `HAFT_VERSION`
+in `src/haft.ts`.
 
 Supported assets are `haft-linux-amd64.tar.gz`, `haft-linux-arm64.tar.gz` and
 `haft-darwin-arm64.tar.gz`, checked against release `checksums.txt` (SHA-256).

@@ -207,9 +207,9 @@ NONoise was created by **Alessandro Russo** ([@russosalv](https://github.com/rus
 NONoise 1.7.0 requires Haft for FPF work in native and embed modes. Scaffold and
 upgrade install the SHA-256-verified `russosalv/haft` fork `v9.1.1-nonoise.1` once
 per machine in `~/.local/bin`, then initialize selected hosts non-interactively.
-This temporary fork fixes upstream v9.1.0 initialization dates; the fork release
-is not published yet, so validation uses `NONOISE_HAFT_BASE_URL` with a local
-release server. Windows users need WSL.
+This temporary fork fixes upstream v9.1.0 initialization dates
+([release](https://github.com/russosalv/haft/releases/tag/v9.1.1-nonoise.1):
+linux-amd64, linux-arm64, darwin-arm64). Windows users need WSL.
 
 `quint-fpf` is the stable adapter name for Haft's `h-*` skills. Architecture
 reviews persist ProblemCards, variants and decisions in `.haft/`; the explicit
