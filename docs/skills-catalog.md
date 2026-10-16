@@ -1,6 +1,6 @@
 # Skill catalog — what ships in `.claude/skills/`
 
-NONoise bundles **40+ skills** in total: 27 NONoise-native skills from `packages/skills/`, plus 14 from [obra/superpowers](https://github.com/obra/superpowers), plus the Impeccable design pack, plus Anthropic's `skill-creator` and document skills (PPTX tooling). The NONoise-native skills are copied to `.claude/skills/` in every scaffolded project, and also to `.agents/skills/` when Codex or Copilot CLI is selected. Vendor packs are installed by their upstream installers and plugin registries by default (native mode); `--vendor-mode embed` copies the bundled snapshots into the project for offline use. Delegation from Claude Code to Codex uses OpenAI's official `codex@openai-codex` plugin (see [Vendor plugin — Codex](#vendor-plugin--codex-codexopenai-codex)). All skills are plain Markdown and work cross-tool (see [`cross-tool.md`](cross-tool.md)).
+NONoise bundles **40+ skills**, plus 8 always-installed ECC process skills and up to 7 ECC stack skills: 27 NONoise-native skills from `packages/skills/`, plus 14 from [obra/superpowers](https://github.com/obra/superpowers), plus the Impeccable design pack, plus Anthropic's `skill-creator` and document skills (PPTX tooling). The NONoise-native skills are copied to `.claude/skills/` in every scaffolded project, and also to `.agents/skills/` when Codex or Copilot CLI is selected. The ECC snapshot is always copied locally and updated only manually. Other vendor packs are installed by their upstream installers and plugin registries by default (native mode); `--vendor-mode embed` copies the bundled snapshots into the project for offline use. Delegation from Claude Code to Codex uses OpenAI's official `codex@openai-codex` plugin (see [Vendor plugin — Codex](#vendor-plugin--codex-codexopenai-codex)). All skills are plain Markdown and work cross-tool (see [`cross-tool.md`](cross-tool.md)).
 
 This document is organised by **domain**. Each skill entry has:
 
@@ -396,3 +396,27 @@ Per `todo.txt` feedback, the future scaffold will install only a **core** pack b
 Plus an **update** story: `nonoise update --check` (compares local manifest with registry, prints "3 updates available"), `nonoise update` / `nonoise add <pack>` (apply manually). Auto-check yes; auto-apply no — the principle is *the user decides when to apply*, because auto-update breaks reproducibility and trust.
 
 Not implemented yet. When implemented, the relevant bits of `nonoise.config.json` will carry a `packs` array with `name` + `version` + `source_commit` per installed pack.
+
+## ECC — curated manual snapshot
+
+[Selection and harness paths](ecc-integration.md) · [Source and adaptations](../packages/skills/vendor/ecc/UPSTREAM.md). MIT, commit `b92f181b3b748d1abbc2afd94af6aa7d8c8fca29`; no ECC plugin or hooks.
+
+| Skill | Trigger / input → output | Selection / phase |
+|---|---|---|
+| [change-impact](../packages/skills/vendor/ecc/skills/change-impact/SKILL.md) | Risky change; code/data/contracts → impact and validation scope | Always; planning |
+| [module-regression](../packages/skills/vendor/ecc/skills/module-regression/SKILL.md) | Module change; dependency evidence → regression ledger/results | Always; verification |
+| [inherit-legacy-style](../packages/skills/vendor/ecc/skills/inherit-legacy-style/SKILL.md) | Legacy onboarding; exemplar code → .ai-style-rules.md | Always; discovery |
+| [brownfield-retrospective](../packages/skills/vendor/ecc/skills/brownfield-retrospective/SKILL.md) | Reassess existing choices; code/history → evidence and decision handoff | Always; brownfield |
+| [verification-loop](../packages/skills/vendor/ecc/skills/verification-loop/SKILL.md) | Before delivery; build/types/tests/security/diff → evidence report | Always; completion with Superpowers |
+| [intent-driven-development](../packages/skills/vendor/ecc/skills/intent-driven-development/SKILL.md) | Clarify work; user intent/constraints → success criteria | Always; planning |
+| [production-audit](../packages/skills/vendor/ecc/skills/production-audit/SKILL.md) | Release readiness; implementation/operations → risk report | Always; release |
+| [code-tour](../packages/skills/vendor/ecc/skills/code-tour/SKILL.md) | Guided code exploration; repository → .tour files | Always; onboarding |
+| [dotnet-patterns](../packages/skills/vendor/ecc/skills/dotnet-patterns/SKILL.md) | .NET implementation; project conventions → implementation guidance | dotnet; development |
+| [csharp-testing](../packages/skills/vendor/ecc/skills/csharp-testing/SKILL.md) | C# test work; behavior → test strategy and checks | dotnet; verification |
+| [angular-developer](../packages/skills/vendor/ecc/skills/angular-developer/SKILL.md) | Angular work; project version → component/form/router guidance | angular; development |
+| [database-migrations](../packages/skills/vendor/ecc/skills/database-migrations/SKILL.md) | Schema evolution; schema/data → migration and rollback plan | Any stack; development |
+| [api-design](../packages/skills/vendor/ecc/skills/api-design/SKILL.md) | API design; consumers/resources → interface design | Any stack; design |
+| [contract-first](../packages/skills/vendor/ecc/skills/contract-first/SKILL.md) | Cross-boundary change; contract → provider/consumer evidence | Any stack; design |
+| [e2e-testing](../packages/skills/vendor/ecc/skills/e2e-testing/SKILL.md) | Browser journey; acceptance scenario → Playwright checks | typescript/angular/web; acceptance |
+
+The ten imported agents are documented in the selection table, separately from skills. Only the language reviewers selected by `--stack` are installed.

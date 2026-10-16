@@ -4,6 +4,11 @@
 
 ### Minor Changes
 
+- Add a manually pinned MIT ECC snapshot: 10 agents, common/C#/TypeScript/Angular/web rules, 8 process and 7 stack skills, with source provenance and a reproducible diffing updater.
+- Add interactive stack selection and `--stack`; generate Claude Markdown, Copilot agent/instruction profiles and Codex 0.162 standalone TOML agents from one source.
+- Preserve modified NONoise/ECC assets through SHA-256 ownership, including upgrades from 1.6.0; remove only pristine deselected ECC files and extend doctor with agent/rule/skill diagnostics.
+- Route Polly, ATR/sprint closure, reverse engineering and risky sprint tasks to the new capabilities; pair verification-loop with Superpowers completion checks.
+
 - Require Haft FPF in both vendor modes: pinned temporary MIT fork `russosalv/haft` v9.1.1-nonoise.1, verified SHA-256 downloads, machine-wide user install, retries, WSL guidance and explicit per-harness initialization. The fork is published at `russosalv/haft` (linux-amd64, linux-arm64, darwin-arm64); `NONOISE_HAFT_BASE_URL` supports local release rehearsal.
 - Configure Copilot CLI MCP and reuse Haft-generated `.agents/skills`; preserve both Haft and NONoise instruction blocks across upgrades.
 - Replace legacy Quint commands with the `quint-fpf` Haft adapter; move PRD review authority to the explicit Phase 5.5 operator request and canonical `.haft/` records.

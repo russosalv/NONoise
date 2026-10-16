@@ -45,6 +45,12 @@ This skill is **step 3** of the NONoise architectural workflow. It takes `valida
 
 ---
 
+## Risk and closure checks
+
+Use `change-impact` before breaking down risky tasks: CL1 uncertainty, migrations, authentication, cross-service contracts, public APIs or deployment changes. Record affected code/data/interfaces, downstream consumers, validation commands and rollback constraints in the acceptance notes. Keep the existing manifest and `arch-decision`/Haft ownership of decisions.
+
+At sprint closure, hand off to `atr` with `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter` and the installed language reviewer from `.nonoise/ecc/index.md`. Require `module-regression` evidence for affected consumers and pair `verification-loop` with `superpowers:verification-before-completion`.
+
 ## Golden rule — MACRO granularity (read twice)
 
 This is the most important rule of this skill. **Tasks and user stories must be VERTICAL FUNCTIONAL SLICES, not horizontal technical layers.**

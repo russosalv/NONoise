@@ -53,7 +53,7 @@ export async function askEntryMode(flags: CliFlags): Promise<EntryMode> {
       {
         value: 'upgrade' as EntryMode,
         label: 'Upgrade an existing NONoise project',
-        hint: 'Refresh bundled skills (overwrite) + re-install graphify',
+        hint: 'Refresh owned skills and ECC assets + re-install graphify',
       },
       {
         value: 'graphify-only' as EntryMode,
@@ -93,7 +93,7 @@ export async function askExistingProjectAction(targetPath: string): Promise<Exis
       {
         value: 'upgrade' as ExistingProjectAction,
         label: 'Upgrade',
-        hint: 'Refresh bundled skills (overwrite) + re-install graphify',
+        hint: 'Refresh owned skills and ECC assets + re-install graphify',
       },
       {
         value: 'graphify-only' as ExistingProjectAction,

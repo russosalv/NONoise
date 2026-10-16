@@ -84,6 +84,12 @@ The dossier lives in `docs/support/` — the NONoise convention for research / s
 
 ---
 
+## Brownfield support from the ECC snapshot
+
+Read `.nonoise/ecc/index.md` to discover installed support. During initial analysis, use `spec-miner` to extract evidence-backed behavior into `docs/architecture/specs/<capability>/spec.md` and `inherit-legacy-style` to record real code conventions before proposing changes. Preserve the dossier's incremental update rules and link these artifacts instead of copying them into a second lifecycle system.
+
+When changing an existing module, use `module-regression` to capture affected consumers and executable acceptance commands. Use `brownfield-retrospective` when the task includes reassessing historical choices; send architectural decisions through `arch-decision` and Haft. For discovery alone, stop at the requested analysis. These capabilities do not authorize implementation or hooks.
+
 ## Flow — 7 steps
 
 - **Step 0** — prerequisites

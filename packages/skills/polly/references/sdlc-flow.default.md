@@ -197,3 +197,7 @@ Run the Acceptance Test Run for <feature>. Produce testbook + Playwright run + r
 ```
 
 Vendor skill identifiers such as `superpowers:writing-plans` resolve through the native harness plugin registry by default; only `--vendor-mode embed` requires a local vendor directory. Use `create-nonoise doctor` to check availability.
+
+## Supporting checks from the ECC snapshot
+
+Read `.nonoise/ecc/index.md` for installed capabilities. Before risky sprint tasks use `change-impact`; for brownfield work use `spec-miner`, `inherit-legacy-style` and, when redesign is requested, `brownfield-retrospective`. Before acceptance use `module-regression`, `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter` and the installed language reviewer through `atr`. Final evidence comes from `verification-loop` alongside `superpowers:verification-before-completion`; release readiness uses `production-audit`. These checks support the existing phases and do not add a lifecycle.

@@ -52,6 +52,27 @@ describe('CLI via bin shim', () => {
     await rm(parent, { recursive: true, force: true });
   });
 
+  it('persists --stack and upgrades without changing edited assets', async () => {
+    await exec('node', [BIN, 'stacked', '--yes', '--ai', 'copilot,codex', '--stack', 'dotnet,angular', '--no-git'], { cwd: parent });
+    const root = join(parent, 'stacked');
+    const config = JSON.parse(await readFile(join(root, 'nonoise.config.json'), 'utf8'));
+    expect(config.stack).toEqual(['dotnet', 'angular']);
+    expect(config.skills).toContain('angular-developer');
+    expect(await readFile(join(root, '.codex/agents/csharp-reviewer.toml'), 'utf8')).toContain('developer_instructions =');
+    const { writeFile } = await import('node:fs/promises');
+    const edited = join(root, '.github/agents/security-reviewer.agent.md');
+    await writeFile(edited, 'User review instructions');
+    await exec('node', [BIN, '--upgrade', root], { cwd: parent });
+    expect(JSON.parse(await readFile(join(root, 'nonoise.config.json'), 'utf8')).stack).toEqual(['dotnet', 'angular']);
+    expect(await readFile(edited, 'utf8')).toBe('User review instructions');
+    const { stdout } = await exec('node', [BIN, 'doctor', root], { cwd: parent });
+    expect(stdout).toContain('ECC modified: .github/agents/security-reviewer.agent.md');
+    await exec('node', [BIN, '--upgrade', root, '--stack', 'none'], { cwd: parent });
+    expect(JSON.parse(await readFile(join(root, 'nonoise.config.json'), 'utf8')).stack).toEqual([]);
+    await expect(access(join(root, '.codex/agents/csharp-reviewer.toml'))).rejects.toThrow();
+    expect(await readFile(edited, 'utf8')).toBe('User review instructions');
+  });
+
   it('--yes --ai claude-code produces a project with CLAUDE.md', async () => {
     const { stdout } = await exec('node', [BIN, 'demo', '--yes', '--ai', 'claude-code', '--no-git'], { cwd: parent });
     expect(stdout).toContain('PENDING npx --yes impeccable install --yes --providers=claude --scope=project');

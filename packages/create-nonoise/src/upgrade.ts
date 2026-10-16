@@ -147,7 +147,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   console.log(`[upgrade] aiTools:   from ${source} → ` +
     `claude=${aiTools.claudeCode} copilot=${aiTools.copilot} ` +
     `codex=${aiTools.codex} cursor=${aiTools.cursor} gemini=${aiTools.geminiCli}`);
-  console.log(`[upgrade] mode:      refresh bundled skills (overwrite) + re-install graphify`);
+  console.log(`[upgrade] mode:      refresh owned skills + ECC assets + re-install graphify`);
 
   const skillsRoot = opts.skillsRoot ?? defaultSkillsRoot();
 
@@ -156,7 +156,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, 'utf8')) : {};
   const stack = parseStack(opts.stack ?? (config.stack ?? []).join(','));
   const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
-  const migration = config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
+  const migration = config.vendorMigrationVersion !== 1 && config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
     ? await migrateLegacyVendors(targetPath) : { removed: [], preserved: [] };
   const quintMigration = await migrateQuint(targetPath);
   migration.removed.push(...quintMigration.removed);
@@ -192,6 +192,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
       vendorSourcePath,
       projectPath: targetPath,
       namespace,
+      managed: true,
       installClaudeSpecific: aiTools.claudeCode,
       overwrite: true,
     });
@@ -199,7 +200,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   }
 
   if (vendorMode === 'embed') {
-    await installSkills({ skillsRoot: join(skillsRoot, 'vendor'), projectPath: targetPath, skillNames: ['pptx', 'skill-creator'], overwrite: true });
+    await installSkills({ skillsRoot: join(skillsRoot, 'vendor'), projectPath: targetPath, skillNames: ['pptx', 'skill-creator'], overwrite: true, managed: true });
     configureEmbedPlugins(targetPath, aiTools);
   } else {
     configureNativeVendors(targetPath, aiTools);
@@ -209,7 +210,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   migration.preserved.push(...ecc.preserved);
   for (const file of ecc.preserved) console.log(`[upgrade] preserved user file: ${file}`);
   await updateManagedFiles({ ...config, stack, projectName: config.projectName ?? targetPath.split(/[\\/]/).pop(), projectPath: targetPath, template: config.template ?? 'single-project', aiTools, frameworkVersion: version }, opts.templatesRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', 'templates'));
-  writeFileSync(configPath, JSON.stringify({ ...config, frameworkVersion: version, vendorMode, aiTools, stack, preservedVendorFiles: protectedPaths, skills: [...MVP_SKILL_BUNDLE, ...selectEcc(skillsRoot, stack).skills] }, null, 2) + '\n');
+  writeFileSync(configPath, JSON.stringify({ ...config, frameworkVersion: version, vendorMode, aiTools, stack, vendorMigrationVersion: 1, preservedVendorFiles: protectedPaths, skills: [...MVP_SKILL_BUNDLE, ...selectEcc(skillsRoot, stack).skills] }, null, 2) + '\n');
 
   console.log(
     `[upgrade] skills:    ${MVP_SKILL_BUNDLE.length} bundled skill(s) refreshed, ` +

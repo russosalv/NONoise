@@ -1,6 +1,7 @@
 import { installManagedAssets } from './managed-assets.js';
+import { LEGACY_VENDOR_HASHES } from './legacy-vendor-hashes.js';
 import { LEGACY_SKILL_HASHES } from './legacy-skill-hashes.js';
-import { access, cp, stat, mkdir, readdir, lstat, readFile, rm } from 'node:fs/promises';
+import { access, cp, stat, mkdir, readdir, lstat, readFile, rm, chmod } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
 import { join } from 'node:path';
@@ -49,16 +50,7 @@ export async function installSkills(opts: InstallSkillsOptions): Promise<void> {
     }
     const dest = join(destBase, name);
     if (opts.managed) {
-      const files: Record<string, Buffer> = {};
-      async function collect(dir: string, rel: string): Promise<void> {
-        for (const entry of await readdir(dir, { withFileTypes: true })) {
-          if (entry.isDirectory()) await collect(join(dir, entry.name), `${rel}/${entry.name}`);
-          else if (entry.isFile()) files[`${rel}/${entry.name}`] = await readFile(join(dir, entry.name));
-        }
-      }
-      await collect(src, `${opts.targetDir ?? '.claude/skills'}/${name}`);
-      const result = installManagedAssets(opts.projectPath, files, LEGACY_SKILL_HASHES);
-      for (const file of result.preserved) console.log(`[skills] preserved user file: ${file}`);
+      await copyManagedTree(src, opts.projectPath, `${opts.targetDir ?? '.claude/skills'}/${name}`, LEGACY_SKILL_HASHES);
     } else await cp(src, dest, { recursive: true, force, errorOnExist: false });
   }
 }
@@ -68,6 +60,7 @@ export type InstallVendorOptions = {
   projectPath: string;
   namespace: string;
   installClaudeSpecific: boolean;
+  managed?: boolean;
   /** See InstallSkillsOptions.overwrite. */
   overwrite?: boolean;
 };
@@ -79,14 +72,16 @@ export async function installVendor(opts: InstallVendorOptions): Promise<void> {
   const nestedSkillsSrc = join(vendorSourcePath, 'skills');
   const skillsSrc = (await dirExists(nestedSkillsSrc)) ? nestedSkillsSrc : vendorSourcePath;
   const skillsDest = join(projectPath, '.claude', 'skills', namespace);
-  await mkdir(skillsDest, { recursive: true });
+  if (!opts.managed) await mkdir(skillsDest, { recursive: true });
   const unified = join(skillsSrc, namespace);
   if (await isSkillDir(unified)) {
-    await cp(unified, skillsDest, { recursive: true, force, errorOnExist: false });
+    if (opts.managed) await copyManagedTree(unified, projectPath, `.claude/skills/${namespace}`, LEGACY_VENDOR_HASHES);
+    else await cp(unified, skillsDest, { recursive: true, force, errorOnExist: false });
   } else for (const name of await readdir(skillsSrc)) {
     const candidate = join(skillsSrc, name);
     if (!(await isSkillDir(candidate))) continue;
-    await cp(candidate, join(skillsDest, name), {
+    if (opts.managed) await copyManagedTree(candidate, projectPath, `.claude/skills/${namespace}/${name}`, LEGACY_VENDOR_HASHES);
+    else await cp(candidate, join(skillsDest, name), {
       recursive: true,
       force,
       errorOnExist: false,
@@ -99,9 +94,10 @@ export async function installVendor(opts: InstallVendorOptions): Promise<void> {
     const src = join(vendorSourcePath, sub);
     if (!(await dirExists(src))) continue;
     const dest = join(projectPath, '.claude', sub, namespace);
-    await mkdir(dest, { recursive: true });
+    if (!opts.managed) await mkdir(dest, { recursive: true });
     for (const name of await readdir(src)) {
-      await cp(join(src, name), join(dest, name), {
+      if (opts.managed) await copyManagedTree(join(src, name), projectPath, `.claude/${sub}/${namespace}/${name}`, LEGACY_VENDOR_HASHES);
+      else await cp(join(src, name), join(dest, name), {
         recursive: true,
         force,
         errorOnExist: false,
@@ -161,4 +157,17 @@ export async function removeRetiredSkills(projectPath: string): Promise<{ remove
     }
   }
   return { removed, preserved };
+}
+
+async function copyManagedTree(source: string, project: string, relative: string, historical: Record<string, string[]>): Promise<void> {
+  const files: Record<string, Buffer> = {}, modes: Record<string, number> = {};
+  async function collect(path: string, rel: string): Promise<void> {
+    const info = await lstat(path);
+    if (info.isDirectory()) for (const entry of await readdir(path)) await collect(join(path, entry), `${rel}/${entry}`);
+    else if (info.isFile()) { files[rel] = await readFile(path); modes[rel] = info.mode; }
+  }
+  await collect(source, relative);
+  const result = installManagedAssets(project, files, historical);
+  for (const file of result.written) await chmod(join(project, file), modes[file]!);
+  for (const file of result.preserved) console.log(`[skills] preserved user file: ${file}`);
 }

@@ -356,3 +356,15 @@ describe('NONoise marketplace pinned to the CLI release tag', () => {
     expect(nativePlan({ ...ai, claudeCode: false, codex: true }).map(c => c.args.join(' '))).toContain(`plugin marketplace add russosalv/NONoise@${MARKETPLACE_REF}`);
   });
 });
+
+it('embed upgrades preserve modified vendor skills and are byte-idempotent from 1.6', async () => {
+  put('nonoise.config.json', JSON.stringify({ frameworkVersion: '1.6.0', aiTools: ai, template: 'single-project' }));
+  put('.claude/skills/superpowers/brainstorming/SKILL.md', 'personal brainstorming');
+  await runUpgrade({ targetPath: dir, ...paths, vendorMode: 'embed' });
+  expect(readFileSync(join(dir, '.claude/skills/superpowers/brainstorming/SKILL.md'), 'utf8')).toBe('personal brainstorming');
+  const config = readFileSync(join(dir, 'nonoise.config.json'), 'utf8');
+  // Real graphify creates this stamp after migration/config writing on the first run.
+  put('.claude/skills/graphify/.graphify_skill_version', '0.7.19');
+  await runUpgrade({ targetPath: dir, ...paths, vendorMode: 'embed' });
+  expect(readFileSync(join(dir, 'nonoise.config.json'), 'utf8')).toBe(config);
+});

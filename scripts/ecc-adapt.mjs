@@ -22,6 +22,8 @@ export function adaptEcc(path, text) {
     .replace(/\*\*security-reviewer\*\* skill/g, '**security-reviewer** agent');
   // Related guidance that is not part of this snapshot must not become a dependency.
   text = text.split('\n').filter(line => !/^[-|].*`(?:frontend-patterns|backend-patterns|coding-standards|council|init|code-review|simplify)`/.test(line)).join('\n');
+  text = text.replace('see skill: `security-reviewer`', 'use the `security-reviewer` agent checklist and the `production-audit` skill');
+  text = text.replace('see skills: `database-migrations` and `database-migrations`.', 'see `database-migrations` when installed; otherwise use the checklist above.');
   if (path === 'agents/typescript-reviewer.md') {
     text = text.replace(/^> \*\*For React-specific review.*$/m, '> For React files, apply the React checklist below; no additional ECC reviewer is required.');
     text = text.replace(/^This repo does not yet ship.*$/m, 'Use the installed TypeScript rules and the project conventions for detailed TypeScript and JavaScript patterns.');

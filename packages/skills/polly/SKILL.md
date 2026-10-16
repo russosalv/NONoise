@@ -25,6 +25,25 @@ Open `.nonoise/sdlc-flow.md` in the project root. If it is missing, fall back to
 
 For each phase with a non-null `fingerprint`, check whether any file in the project matches that glob. The **current phase** is the last phase whose fingerprint is absent — i.e. walk the phases in order and stop at the first one that isn't done. If all phases have fingerprints present, the user is at "post-implementation" — point at the last phase (acceptance / observability / ops) or congratulate and suggest the dev trio loop for the next task.
 
+## Stack-aware recommendations
+
+Read `.nonoise/ecc/index.md` when present and check `nonoise.config.json` before recommending stack-specific capabilities. Keep the same four-block, one-shot response; include at most the next useful agent or skill in the recommendation and example prompt.
+
+| Situation | Suggested installed capability |
+|---|---|
+| Brownfield discovery | `spec-miner`, then `inherit-legacy-style`; `code-tour` for a navigable tour |
+| Existing design needs reassessment | `brownfield-retrospective`, with `reverse-engineering` |
+| Unclear intent or risky task | `intent-driven-development` or `change-impact` before implementation |
+| API or schema boundary changes | `api-design`, `contract-first`, `database-migrations`, `database-reviewer` |
+| .NET implementation/testing | `dotnet-patterns`, `csharp-testing`, `csharp-reviewer` |
+| Angular or TypeScript work | `angular-developer` where installed; `typescript-reviewer` |
+| Build failure | `build-error-resolver`, scoped to the project's actual build command |
+| Cleanup | `code-simplifier` or `refactor-cleaner`, followed by `module-regression` |
+| Acceptance / sprint closure | `atr`, `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter`, installed language reviewer |
+| Release readiness | `verification-loop` with `superpowers:verification-before-completion`, then `production-audit`; `e2e-testing` for web journeys |
+
+Do not propose missing stack skills as installed, install packages, or launch agents while advising. A missing ECC index means this project needs `create-nonoise --upgrade .`; keep the existing fallback behavior.
+
 ## Step 3 — Produce the 4-block output
 
 Render your single message in the user's language (`default_language` from the flow frontmatter, overridden by the user's current typing if clearly different). The message has exactly four blocks:

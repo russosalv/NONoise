@@ -1598,6 +1598,12 @@ Read \`references/templates.md\` → "Delegated Agent Prompt" for the full promp
 
 The backlog (\`backlog.md\`) is also written incrementally. On the first FAIL, the delegated agent creates the file with header. On subsequent FAILs, it appends entries. After all tests complete, the main agent reads the backlog and updates the total-failures count in the header.
 
+### Sprint closure review
+
+Before marking acceptance or a sprint complete, read \`.nonoise/ecc/index.md\` and request \`pr-test-analyzer\` for behavioral coverage, \`security-reviewer\` for security findings, and \`silent-failure-hunter\` for error propagation and fallbacks. Add \`csharp-reviewer\` for .NET changes and \`typescript-reviewer\` for TypeScript/Angular changes when installed. Scope every reviewer to the actual diff and acceptance criteria; collect all findings, resolve blockers and rerun the affected tests. Record reviewer name, scope, findings and validation evidence in the report. If delegation is unavailable, disclose that the review was performed inline.
+
+Run \`module-regression\` for affected downstream consumers and \`verification-loop\` for the final build/typecheck/test/security/diff evidence; use \`superpowers:verification-before-completion\` before asserting completion. Missing review or failing checks must remain visible in the acceptance result.
+
 ### After all sections complete
 
 1. Do a final read of each report file to verify completeness (all tests accounted for)
@@ -10029,6 +10035,25 @@ Open \`.nonoise/sdlc-flow.md\` in the project root. If it is missing, fall back 
 
 For each phase with a non-null \`fingerprint\`, check whether any file in the project matches that glob. The **current phase** is the last phase whose fingerprint is absent — i.e. walk the phases in order and stop at the first one that isn't done. If all phases have fingerprints present, the user is at "post-implementation" — point at the last phase (acceptance / observability / ops) or congratulate and suggest the dev trio loop for the next task.
 
+## Stack-aware recommendations
+
+Read \`.nonoise/ecc/index.md\` when present and check \`nonoise.config.json\` before recommending stack-specific capabilities. Keep the same four-block, one-shot response; include at most the next useful agent or skill in the recommendation and example prompt.
+
+| Situation | Suggested installed capability |
+|---|---|
+| Brownfield discovery | \`spec-miner\`, then \`inherit-legacy-style\`; \`code-tour\` for a navigable tour |
+| Existing design needs reassessment | \`brownfield-retrospective\`, with \`reverse-engineering\` |
+| Unclear intent or risky task | \`intent-driven-development\` or \`change-impact\` before implementation |
+| API or schema boundary changes | \`api-design\`, \`contract-first\`, \`database-migrations\`, \`database-reviewer\` |
+| .NET implementation/testing | \`dotnet-patterns\`, \`csharp-testing\`, \`csharp-reviewer\` |
+| Angular or TypeScript work | \`angular-developer\` where installed; \`typescript-reviewer\` |
+| Build failure | \`build-error-resolver\`, scoped to the project's actual build command |
+| Cleanup | \`code-simplifier\` or \`refactor-cleaner\`, followed by \`module-regression\` |
+| Acceptance / sprint closure | \`atr\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\`, installed language reviewer |
+| Release readiness | \`verification-loop\` with \`superpowers:verification-before-completion\`, then \`production-audit\`; \`e2e-testing\` for web journeys |
+
+Do not propose missing stack skills as installed, install packages, or launch agents while advising. A missing ECC index means this project needs \`create-nonoise --upgrade .\`; keep the existing fallback behavior.
+
 ## Step 3 — Produce the 4-block output
 
 Render your single message in the user's language (\`default_language\` from the flow frontmatter, overridden by the user's current typing if clearly different). The message has exactly four blocks:
@@ -10673,6 +10698,10 @@ Run the Acceptance Test Run for <feature>. Produce testbook + Playwright run + r
 \`\`\`
 
 Vendor skill identifiers such as \`superpowers:writing-plans\` resolve through the native harness plugin registry by default; only \`--vendor-mode embed\` requires a local vendor directory. Use \`create-nonoise doctor\` to check availability.
+
+## Supporting checks from the ECC snapshot
+
+Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
 ",
   ".agents/skills/production-audit/SKILL.md": "---
 # Source: https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/production-audit/SKILL.md | Commit: b92f181b3b748d1abbc2afd94af6aa7d8c8fca29 | MIT | Adapted for NONoise; see UPSTREAM.md.
@@ -12102,6 +12131,12 @@ The reverse-engineering skill does **not** belong to the "architectural" workflo
 The dossier lives in \`docs/support/\` — the NONoise convention for research / supporting docs / legacy analysis / anything that informs decisions without being a decision itself.
 
 ---
+
+## Brownfield support from the ECC snapshot
+
+Read \`.nonoise/ecc/index.md\` to discover installed support. During initial analysis, use \`spec-miner\` to extract evidence-backed behavior into \`docs/architecture/specs/<capability>/spec.md\` and \`inherit-legacy-style\` to record real code conventions before proposing changes. Preserve the dossier's incremental update rules and link these artifacts instead of copying them into a second lifecycle system.
+
+When changing an existing module, use \`module-regression\` to capture affected consumers and executable acceptance commands. Use \`brownfield-retrospective\` when the task includes reassessing historical choices; send architectural decisions through \`arch-decision\` and Haft. For discovery alone, stop at the requested analysis. These capabilities do not authorize implementation or hooks.
 
 ## Flow — 7 steps
 
@@ -14258,6 +14293,12 @@ This skill is **step 3** of the NONoise architectural workflow. It takes \`valid
 
 ---
 
+## Risk and closure checks
+
+Use \`change-impact\` before breaking down risky tasks: CL1 uncertainty, migrations, authentication, cross-service contracts, public APIs or deployment changes. Record affected code/data/interfaces, downstream consumers, validation commands and rollback constraints in the acceptance notes. Keep the existing manifest and \`arch-decision\`/Haft ownership of decisions.
+
+At sprint closure, hand off to \`atr\` with \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer from \`.nonoise/ecc/index.md\`. Require \`module-regression\` evidence for affected consumers and pair \`verification-loop\` with \`superpowers:verification-before-completion\`.
+
 ## Golden rule — MACRO granularity (read twice)
 
 This is the most important rule of this skill. **Tasks and user stories must be VERTICAL FUNCTIONAL SLICES, not horizontal technical layers.**
@@ -15684,7 +15725,7 @@ psql -c "SELECT indexrelname, idx_scan, idx_tup_read FROM pg_stat_user_indexes O
 
 ## Reference
 
-For detailed index patterns, schema design examples, connection management, concurrency strategies, JSONB patterns, and full-text search, see skills: \`database-migrations\` and \`database-migrations\`.
+For detailed index patterns, schema design examples, connection management, concurrency strategies, JSONB patterns, and full-text search, see \`database-migrations\` when installed; otherwise use the checklist above.
 
 ---
 
@@ -15971,7 +16012,7 @@ If you find a CRITICAL vulnerability:
 
 ## Reference
 
-For detailed vulnerability patterns, code examples, report templates, and PR review templates, see skill: \`security-reviewer\`.
+For detailed vulnerability patterns, code examples, report templates, and PR review templates, use the \`security-reviewer\` agent checklist and the \`production-audit\` skill.
 
 ---
 
@@ -18497,6 +18538,12 @@ Read \`references/templates.md\` → "Delegated Agent Prompt" for the full promp
 ### Backlog incremental updates
 
 The backlog (\`backlog.md\`) is also written incrementally. On the first FAIL, the delegated agent creates the file with header. On subsequent FAILs, it appends entries. After all tests complete, the main agent reads the backlog and updates the total-failures count in the header.
+
+### Sprint closure review
+
+Before marking acceptance or a sprint complete, read \`.nonoise/ecc/index.md\` and request \`pr-test-analyzer\` for behavioral coverage, \`security-reviewer\` for security findings, and \`silent-failure-hunter\` for error propagation and fallbacks. Add \`csharp-reviewer\` for .NET changes and \`typescript-reviewer\` for TypeScript/Angular changes when installed. Scope every reviewer to the actual diff and acceptance criteria; collect all findings, resolve blockers and rerun the affected tests. Record reviewer name, scope, findings and validation evidence in the report. If delegation is unavailable, disclose that the review was performed inline.
+
+Run \`module-regression\` for affected downstream consumers and \`verification-loop\` for the final build/typecheck/test/security/diff evidence; use \`superpowers:verification-before-completion\` before asserting completion. Missing review or failing checks must remain visible in the acceptance result.
 
 ### After all sections complete
 
@@ -26929,6 +26976,25 @@ Open \`.nonoise/sdlc-flow.md\` in the project root. If it is missing, fall back 
 
 For each phase with a non-null \`fingerprint\`, check whether any file in the project matches that glob. The **current phase** is the last phase whose fingerprint is absent — i.e. walk the phases in order and stop at the first one that isn't done. If all phases have fingerprints present, the user is at "post-implementation" — point at the last phase (acceptance / observability / ops) or congratulate and suggest the dev trio loop for the next task.
 
+## Stack-aware recommendations
+
+Read \`.nonoise/ecc/index.md\` when present and check \`nonoise.config.json\` before recommending stack-specific capabilities. Keep the same four-block, one-shot response; include at most the next useful agent or skill in the recommendation and example prompt.
+
+| Situation | Suggested installed capability |
+|---|---|
+| Brownfield discovery | \`spec-miner\`, then \`inherit-legacy-style\`; \`code-tour\` for a navigable tour |
+| Existing design needs reassessment | \`brownfield-retrospective\`, with \`reverse-engineering\` |
+| Unclear intent or risky task | \`intent-driven-development\` or \`change-impact\` before implementation |
+| API or schema boundary changes | \`api-design\`, \`contract-first\`, \`database-migrations\`, \`database-reviewer\` |
+| .NET implementation/testing | \`dotnet-patterns\`, \`csharp-testing\`, \`csharp-reviewer\` |
+| Angular or TypeScript work | \`angular-developer\` where installed; \`typescript-reviewer\` |
+| Build failure | \`build-error-resolver\`, scoped to the project's actual build command |
+| Cleanup | \`code-simplifier\` or \`refactor-cleaner\`, followed by \`module-regression\` |
+| Acceptance / sprint closure | \`atr\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\`, installed language reviewer |
+| Release readiness | \`verification-loop\` with \`superpowers:verification-before-completion\`, then \`production-audit\`; \`e2e-testing\` for web journeys |
+
+Do not propose missing stack skills as installed, install packages, or launch agents while advising. A missing ECC index means this project needs \`create-nonoise --upgrade .\`; keep the existing fallback behavior.
+
 ## Step 3 — Produce the 4-block output
 
 Render your single message in the user's language (\`default_language\` from the flow frontmatter, overridden by the user's current typing if clearly different). The message has exactly four blocks:
@@ -27573,6 +27639,10 @@ Run the Acceptance Test Run for <feature>. Produce testbook + Playwright run + r
 \`\`\`
 
 Vendor skill identifiers such as \`superpowers:writing-plans\` resolve through the native harness plugin registry by default; only \`--vendor-mode embed\` requires a local vendor directory. Use \`create-nonoise doctor\` to check availability.
+
+## Supporting checks from the ECC snapshot
+
+Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
 ",
   ".claude/skills/production-audit/SKILL.md": "---
 # Source: https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/production-audit/SKILL.md | Commit: b92f181b3b748d1abbc2afd94af6aa7d8c8fca29 | MIT | Adapted for NONoise; see UPSTREAM.md.
@@ -29002,6 +29072,12 @@ The reverse-engineering skill does **not** belong to the "architectural" workflo
 The dossier lives in \`docs/support/\` — the NONoise convention for research / supporting docs / legacy analysis / anything that informs decisions without being a decision itself.
 
 ---
+
+## Brownfield support from the ECC snapshot
+
+Read \`.nonoise/ecc/index.md\` to discover installed support. During initial analysis, use \`spec-miner\` to extract evidence-backed behavior into \`docs/architecture/specs/<capability>/spec.md\` and \`inherit-legacy-style\` to record real code conventions before proposing changes. Preserve the dossier's incremental update rules and link these artifacts instead of copying them into a second lifecycle system.
+
+When changing an existing module, use \`module-regression\` to capture affected consumers and executable acceptance commands. Use \`brownfield-retrospective\` when the task includes reassessing historical choices; send architectural decisions through \`arch-decision\` and Haft. For discovery alone, stop at the requested analysis. These capabilities do not authorize implementation or hooks.
 
 ## Flow — 7 steps
 
@@ -31158,6 +31234,12 @@ This skill is **step 3** of the NONoise architectural workflow. It takes \`valid
 
 ---
 
+## Risk and closure checks
+
+Use \`change-impact\` before breaking down risky tasks: CL1 uncertainty, migrations, authentication, cross-service contracts, public APIs or deployment changes. Record affected code/data/interfaces, downstream consumers, validation commands and rollback constraints in the acceptance notes. Keep the existing manifest and \`arch-decision\`/Haft ownership of decisions.
+
+At sprint closure, hand off to \`atr\` with \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer from \`.nonoise/ecc/index.md\`. Require \`module-regression\` evidence for affected consumers and pair \`verification-loop\` with \`superpowers:verification-before-completion\`.
+
 ## Golden rule — MACRO granularity (read twice)
 
 This is the most important rule of this skill. **Tasks and user stories must be VERTICAL FUNCTIONAL SLICES, not horizontal technical layers.**
@@ -32624,7 +32706,7 @@ psql -c "SELECT indexrelname, idx_scan, idx_tup_read FROM pg_stat_user_indexes O
 
 ## Reference
 
-For detailed index patterns, schema design examples, connection management, concurrency strategies, JSONB patterns, and full-text search, see skills: \`database-migrations\` and \`database-migrations\`.
+For detailed index patterns, schema design examples, connection management, concurrency strategies, JSONB patterns, and full-text search, see \`database-migrations\` when installed; otherwise use the checklist above.
 
 ---
 
@@ -32907,7 +32989,7 @@ If you find a CRITICAL vulnerability:
 
 ## Reference
 
-For detailed vulnerability patterns, code examples, report templates, and PR review templates, see skill: \`security-reviewer\`.
+For detailed vulnerability patterns, code examples, report templates, and PR review templates, use the \`security-reviewer\` agent checklist and the \`production-audit\` skill.
 
 ---
 
@@ -33294,6 +33376,12 @@ Rules:
 ---
 
 Generated by create-nonoise v0.0.0-snapshot.
+## ECC agents and stack guidance
+
+Read \`.nonoise/ecc/index.md\` for the installed agents, skills and rule paths; \`nonoise.config.json\` records the selected stack. Read all common rules and the language rules matching the files being changed. Claude discovers \`.claude/agents/\` and \`.claude/rules/ecc/\`; Copilot discovers \`.github/agents/*.agent.md\` and \`.github/instructions/*.instructions.md\`; Codex discovers \`.codex/agents/*.toml\` and follows the rule links in this index. Skills live in \`.claude/skills/\` and, for Codex/Copilot, \`.agents/skills/\`.
+
+Before delivery use \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer. Pair \`verification-loop\` with \`superpowers:verification-before-completion\`. Use only capabilities listed in the index; if agent delegation is unavailable, apply the instructions directly and report that independent review did not run. ECC is a pinned MIT snapshot, updated manually by NONoise; no ECC plugin or hooks are required.
+
 <!-- nonoise:end -->
 
 ",
@@ -34637,7 +34725,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/arch-sync/SKILL.md": "017a2fe5265335748b0451395ac9a86abdd1970ec81b94d1cf488b59f3cfd0d9",
   ".agents/skills/atr/references/paseo.md": "9a3c23dd259ed25217a064deece22af504e707b7d4f9e7a6672e0cd8c6ecb15f",
   ".agents/skills/atr/references/templates.md": "376178663bbd1fdf78bac5254f8616dd7af33ad3264f49d5b47c99bf4070d1a2",
-  ".agents/skills/atr/SKILL.md": "63f8c24a9e7a96f3c08c873cb9cfa563ac1f8b3d777e2b6478b9f8c37683ddd7",
+  ".agents/skills/atr/SKILL.md": "8a1328527be6b20b63f62b07148ee7288b634d5d85c052db4b75b59d8e375f07",
   ".agents/skills/bmad-advanced-elicitation/methods.csv": "e08b2e22fec700274982e37be608d6c3d1d4d0c04fa0bae05aa9dba2454e6141",
   ".agents/skills/bmad-advanced-elicitation/SKILL.md": "51562290a395141272901db9899765b35786bead37dacaf76f9a3f87398af53f",
   ".agents/skills/bmad-agent-analyst/SKILL.md": "fd16662f2de5d6000aec745b27cbbff08dc00768772dd2346b2578218c5bf668",
@@ -34686,8 +34774,8 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/polly/references/external-tools.md": "925667e9f57e7eceb39d2801432c9dac6a65b995bbbdb20bdaf078489c252f76",
   ".agents/skills/polly/references/fallback-messages.md": "e2f66cf3044d25819d170baaa78cd587b1944fff7f693fa800f462bf390d8cd5",
   ".agents/skills/polly/references/project-tools.md": "af2eef37b06641141265b744457c9308d98a6cecc76f7d6683d7bc8d8fff57ac",
-  ".agents/skills/polly/references/sdlc-flow.default.md": "3d8b120880ab247a2000be5b4e1fc618c730a0f881049ca4027a87a93e9d79c4",
-  ".agents/skills/polly/SKILL.md": "6e7a5bf6728b911a8f91a82c1d21a8d7cc768d00e95ebf52d928b5f9dad948a9",
+  ".agents/skills/polly/references/sdlc-flow.default.md": "0f6f9d4d2e40eedc34c7c512b378be49b0add8b017bd29876bca1ee6df91905a",
+  ".agents/skills/polly/SKILL.md": "951f2b6f4c032dbfe4b35ea9f6ff167d12e6578c9403206d7c8086b181e7dbb2",
   ".agents/skills/production-audit/SKILL.md": "2529193687c167e9c01b9e56aa2b5c43894bf1b8395785b4357461fd14412d56",
   ".agents/skills/quint-fpf/SKILL.md": "84b468ab01cadd176ea57f93fa4d9a7c8b94e8d83e1f62e9dcc61021d1fb9cd2",
   ".agents/skills/requirements-ingest/references/ingestion-heuristics.md": "d91cea7f1dcdb55b09bda63be31348120083d70ab01e36f9178f2d6d09d5e6af",
@@ -34696,7 +34784,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/reverse-engineering/references/changelog-entry.md": "8902aa85111716c877181106073154bbb5ebb298f0f42c426d7077f4f2a551c4",
   ".agents/skills/reverse-engineering/references/config.example.json": "ffa55d3872aa2b131c5bd286ab86e8f6eaf46ff783ef113a331ded6727cf07ef",
   ".agents/skills/reverse-engineering/references/initial-spine.md": "09879cacddbec7d154e5b440c61babfa8318027b74a23098dc8813a1962575f9",
-  ".agents/skills/reverse-engineering/SKILL.md": "4d97d8531555f26e6701308f5b17ddef37475e15b30c87fb0791acbeeb7a216e",
+  ".agents/skills/reverse-engineering/SKILL.md": "857d73b4b15c08d2e27bc8c915c1e4970f2ec0f4941c9a76c8c776130ee85538",
   ".agents/skills/skill-finder/registry.json": "b8553f53096e214bce9c051022a3da2319a52385f5afa8bee8673fbc506e5f79",
   ".agents/skills/skill-finder/scripts/fetch-registry.mjs": "e80fe9dc8fc6c16d339e3e344adda363bc5d64bf4580ab16330dc34bf7d340a4",
   ".agents/skills/skill-finder/scripts/install-skill.mjs": "75adc78dac200ab2a3ea35116d5c54de672645afef2d86c2c5b51528b5f0a1f8",
@@ -34707,7 +34795,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/spec-to-workitem/references/adapter-jira.md": "56c3164de836d41ab734c8e26c8fc2155c9250deec6910d1dd85a0b4b488b423",
   ".agents/skills/spec-to-workitem/references/adapter-linear.md": "6da405c39700d70267ad23645d194975586d7bdbf515bd8144bf3ea487d980b2",
   ".agents/skills/spec-to-workitem/SKILL.md": "4541d6701061424ad8470f75927b4da3b7085ba482906f332cab2dadb46168e2",
-  ".agents/skills/sprint-manifest/SKILL.md": "525b206ae5c0d9341226dc6110ce8e09288c44cd7439eec26d08567c7d3c6605",
+  ".agents/skills/sprint-manifest/SKILL.md": "5e6550c4e6cf0cf309966aaba369e9872c68974193832dfe30badb5e30c03c09",
   ".agents/skills/swarm-router/SKILL.md": "883d04bc4bd86d3056ea4a53a8aa398dba993177a38ef6b2201ce59bea206eef",
   ".agents/skills/verification-loop/SKILL.md": "c9c6344bb6be2174c94ffe8acf76c2afc2fd3c42c139358575d7415129660ade",
   ".agents/skills/vscode-config-generator/assets/launch.dotnet.json.hbs": "c8c2383b8768f9687ffe655472adcd21c660d974ec133f168c8d678ab8f7618e",
@@ -34719,10 +34807,10 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/vscode-config-generator/SKILL.md": "338ff1d4993114a322147294592275111138aa1c7c807bd6d7ecc04c0e1a9033",
   ".claude/agents/build-error-resolver.md": "252c4d7eead9b42229f82f4ecb2420c9161b56e8b280874e9c094f5552c6c3f6",
   ".claude/agents/code-simplifier.md": "946bb4cb10b8ae7f868c263548bc3a419c1fb457a2afe8e3897a38194b3e20e7",
-  ".claude/agents/database-reviewer.md": "0d29dbde098920a8fc32de4c1219bf2eea52228d5055dd8294a4cd8624e0a0e8",
+  ".claude/agents/database-reviewer.md": "bcf734dcc0db43fcd60327754312bb54dd65873f95826e66d8896d645918b93d",
   ".claude/agents/pr-test-analyzer.md": "1da8e538942e1540886aff78fb598cb86a05a768705d48966c2749027047c7ae",
   ".claude/agents/refactor-cleaner.md": "4926a74fb03cc6f552d08bb28ae0397ded4262c9e3fa3832d875c30e249e399e",
-  ".claude/agents/security-reviewer.md": "71040b3d7aae69981b65887e521c6d3fbd23c528e4763defe7d1927974508ba1",
+  ".claude/agents/security-reviewer.md": "0aff1abab49b4f0eafabb31f1eb12671aa4c009c449df027484e46de60175bab",
   ".claude/agents/silent-failure-hunter.md": "c1481eaaa05d1c7841a3fd677fe42f597519ac85fdb9fbe91af4f635c855acc6",
   ".claude/agents/spec-miner.md": "c7f5be820c9a5b528e41ff87b36f5c94cb3024af9f28bf7de533a8511212ef69",
   ".claude/rules/ecc/common/agents.md": "df2bc545771d5475a40793df3b2c4d26f1601029c4a3c77c1d4c88c487aaeb4b",
@@ -34741,7 +34829,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/arch-sync/SKILL.md": "017a2fe5265335748b0451395ac9a86abdd1970ec81b94d1cf488b59f3cfd0d9",
   ".claude/skills/atr/references/paseo.md": "9a3c23dd259ed25217a064deece22af504e707b7d4f9e7a6672e0cd8c6ecb15f",
   ".claude/skills/atr/references/templates.md": "376178663bbd1fdf78bac5254f8616dd7af33ad3264f49d5b47c99bf4070d1a2",
-  ".claude/skills/atr/SKILL.md": "63f8c24a9e7a96f3c08c873cb9cfa563ac1f8b3d777e2b6478b9f8c37683ddd7",
+  ".claude/skills/atr/SKILL.md": "8a1328527be6b20b63f62b07148ee7288b634d5d85c052db4b75b59d8e375f07",
   ".claude/skills/bmad-advanced-elicitation/methods.csv": "e08b2e22fec700274982e37be608d6c3d1d4d0c04fa0bae05aa9dba2454e6141",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md": "51562290a395141272901db9899765b35786bead37dacaf76f9a3f87398af53f",
   ".claude/skills/bmad-agent-analyst/SKILL.md": "fd16662f2de5d6000aec745b27cbbff08dc00768772dd2346b2578218c5bf668",
@@ -34790,8 +34878,8 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/polly/references/external-tools.md": "925667e9f57e7eceb39d2801432c9dac6a65b995bbbdb20bdaf078489c252f76",
   ".claude/skills/polly/references/fallback-messages.md": "e2f66cf3044d25819d170baaa78cd587b1944fff7f693fa800f462bf390d8cd5",
   ".claude/skills/polly/references/project-tools.md": "af2eef37b06641141265b744457c9308d98a6cecc76f7d6683d7bc8d8fff57ac",
-  ".claude/skills/polly/references/sdlc-flow.default.md": "3d8b120880ab247a2000be5b4e1fc618c730a0f881049ca4027a87a93e9d79c4",
-  ".claude/skills/polly/SKILL.md": "6e7a5bf6728b911a8f91a82c1d21a8d7cc768d00e95ebf52d928b5f9dad948a9",
+  ".claude/skills/polly/references/sdlc-flow.default.md": "0f6f9d4d2e40eedc34c7c512b378be49b0add8b017bd29876bca1ee6df91905a",
+  ".claude/skills/polly/SKILL.md": "951f2b6f4c032dbfe4b35ea9f6ff167d12e6578c9403206d7c8086b181e7dbb2",
   ".claude/skills/production-audit/SKILL.md": "2529193687c167e9c01b9e56aa2b5c43894bf1b8395785b4357461fd14412d56",
   ".claude/skills/quint-fpf/SKILL.md": "84b468ab01cadd176ea57f93fa4d9a7c8b94e8d83e1f62e9dcc61021d1fb9cd2",
   ".claude/skills/requirements-ingest/references/ingestion-heuristics.md": "d91cea7f1dcdb55b09bda63be31348120083d70ab01e36f9178f2d6d09d5e6af",
@@ -34800,7 +34888,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/reverse-engineering/references/changelog-entry.md": "8902aa85111716c877181106073154bbb5ebb298f0f42c426d7077f4f2a551c4",
   ".claude/skills/reverse-engineering/references/config.example.json": "ffa55d3872aa2b131c5bd286ab86e8f6eaf46ff783ef113a331ded6727cf07ef",
   ".claude/skills/reverse-engineering/references/initial-spine.md": "09879cacddbec7d154e5b440c61babfa8318027b74a23098dc8813a1962575f9",
-  ".claude/skills/reverse-engineering/SKILL.md": "4d97d8531555f26e6701308f5b17ddef37475e15b30c87fb0791acbeeb7a216e",
+  ".claude/skills/reverse-engineering/SKILL.md": "857d73b4b15c08d2e27bc8c915c1e4970f2ec0f4941c9a76c8c776130ee85538",
   ".claude/skills/skill-finder/registry.json": "b8553f53096e214bce9c051022a3da2319a52385f5afa8bee8673fbc506e5f79",
   ".claude/skills/skill-finder/scripts/fetch-registry.mjs": "e80fe9dc8fc6c16d339e3e344adda363bc5d64bf4580ab16330dc34bf7d340a4",
   ".claude/skills/skill-finder/scripts/install-skill.mjs": "75adc78dac200ab2a3ea35116d5c54de672645afef2d86c2c5b51528b5f0a1f8",
@@ -34811,7 +34899,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/spec-to-workitem/references/adapter-jira.md": "56c3164de836d41ab734c8e26c8fc2155c9250deec6910d1dd85a0b4b488b423",
   ".claude/skills/spec-to-workitem/references/adapter-linear.md": "6da405c39700d70267ad23645d194975586d7bdbf515bd8144bf3ea487d980b2",
   ".claude/skills/spec-to-workitem/SKILL.md": "4541d6701061424ad8470f75927b4da3b7085ba482906f332cab2dadb46168e2",
-  ".claude/skills/sprint-manifest/SKILL.md": "525b206ae5c0d9341226dc6110ce8e09288c44cd7439eec26d08567c7d3c6605",
+  ".claude/skills/sprint-manifest/SKILL.md": "5e6550c4e6cf0cf309966aaba369e9872c68974193832dfe30badb5e30c03c09",
   ".claude/skills/swarm-router/SKILL.md": "883d04bc4bd86d3056ea4a53a8aa398dba993177a38ef6b2201ce59bea206eef",
   ".claude/skills/verification-loop/SKILL.md": "c9c6344bb6be2174c94ffe8acf76c2afc2fd3c42c139358575d7415129660ade",
   ".claude/skills/vscode-config-generator/assets/launch.dotnet.json.hbs": "c8c2383b8768f9687ffe655472adcd21c660d974ec133f168c8d678ab8f7618e",
@@ -34823,18 +34911,18 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/vscode-config-generator/SKILL.md": "338ff1d4993114a322147294592275111138aa1c7c807bd6d7ecc04c0e1a9033",
   ".codex/agents/build-error-resolver.toml": "3ba02e3134568f46b04ef320f52309551c4fe7446cc82831d7f5354a4c4c406c",
   ".codex/agents/code-simplifier.toml": "8c82d8bd8f8885a74ec9d76135d291070bc3235a15143ce4eb355ececbbe8ea3",
-  ".codex/agents/database-reviewer.toml": "e614c398ec8433c0d808bbddb4c87707481b90abfcd6d4f60b0059ffd5827eef",
+  ".codex/agents/database-reviewer.toml": "1abbe2c681115c93ae50e2c1e63ea7aae9818d642eb82e9c841912412ea1dcdf",
   ".codex/agents/pr-test-analyzer.toml": "418eedd659f9d0b5bc881cccde248395cff1c52afe4897049f68f88e775eb09b",
   ".codex/agents/refactor-cleaner.toml": "814695c64f0aae2449cd69f1c99e6cac2a25801381cf7994268050cafbb038ba",
-  ".codex/agents/security-reviewer.toml": "463fc571d40916b8829309f8cff87e368c122b365a4c45ce1851ba9e16a77c85",
+  ".codex/agents/security-reviewer.toml": "fe527827a8c35db7fa9fbe9f0044f8a687460ec3b5585352b1f45f60b1d12867",
   ".codex/agents/silent-failure-hunter.toml": "8d12642ca8e15359053a0d688893f9f256520d8715199a5d90e5ed6ca0863716",
   ".codex/agents/spec-miner.toml": "31ac72e8067bbac756f1933ef5bb492d86c04580cdb23744326991af2c222516",
   ".github/agents/build-error-resolver.agent.md": "6af282ea8169573d81a733a57a95ae425d7be3d236e302a96704b724afb1a2d7",
   ".github/agents/code-simplifier.agent.md": "0350514a22732af6f749709c01d367f88f7b5a7693e87f2daceb9827965fd24b",
-  ".github/agents/database-reviewer.agent.md": "f4e17023a6c323818a63d51e4200846cfaec9c371145b12aeff761fd61cf388a",
+  ".github/agents/database-reviewer.agent.md": "1732b7d4fcf543c7e2444f0c7308c0cb49766ed628c9f790b83a45102a25a2f2",
   ".github/agents/pr-test-analyzer.agent.md": "682d5c831db1633e79c4babdc4442c2e452967751a04e8b736c19811bfdd422f",
   ".github/agents/refactor-cleaner.agent.md": "10a399d898439ad2d073ef65bc8231248798985f34da79b4eae667c1f16e036b",
-  ".github/agents/security-reviewer.agent.md": "1b68086ad386b56fc0b3a80dde680f5d18e672b73ce172c01f421f258296c5d6",
+  ".github/agents/security-reviewer.agent.md": "75d5ce09fc517a2c46fbe8e96e0bc408732eeb8cb35b3b2f87215fce03eb4257",
   ".github/agents/silent-failure-hunter.agent.md": "ef91bc9f61a58b392dab51af3d97e5eccdd7389718b0dd0ca8c07088a7f02cec",
   ".github/agents/spec-miner.agent.md": "23efb93efdad00a06b636b970583b0ac4bba6227dad8c658392de43a19a4ec1d",
   ".github/instructions/ecc-common-agents.instructions.md": "e6de721889c5abe15d677a17b094b526db7f3ab27963827e7edf2fb282fc7d01",
@@ -35054,6 +35142,10 @@ Run the Acceptance Test Run for <feature>. Produce testbook + Playwright run + r
 \`\`\`
 
 Vendor skill identifiers such as \`superpowers:writing-plans\` resolve through the native harness plugin registry by default; only \`--vendor-mode embed\` requires a local vendor directory. Use \`create-nonoise doctor\` to check availability.
+
+## Supporting checks from the ECC snapshot
+
+Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
 ",
   ".vscode/extensions.json": "{
   "recommendations": [
@@ -35114,6 +35206,12 @@ Rules:
 ---
 
 Generated by create-nonoise v0.0.0-snapshot.
+## ECC agents and stack guidance
+
+Read \`.nonoise/ecc/index.md\` for the installed agents, skills and rule paths; \`nonoise.config.json\` records the selected stack. Read all common rules and the language rules matching the files being changed. Claude discovers \`.claude/agents/\` and \`.claude/rules/ecc/\`; Copilot discovers \`.github/agents/*.agent.md\` and \`.github/instructions/*.instructions.md\`; Codex discovers \`.codex/agents/*.toml\` and follows the rule links in this index. Skills live in \`.claude/skills/\` and, for Codex/Copilot, \`.agents/skills/\`.
+
+Before delivery use \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer. Pair \`verification-loop\` with \`superpowers:verification-before-completion\`. Use only capabilities listed in the index; if agent delegation is unavailable, apply the instructions directly and report that independent review did not run. ECC is a pinned MIT snapshot, updated manually by NONoise; no ECC plugin or hooks are required.
+
 <!-- nonoise:end -->
 
 
@@ -35206,6 +35304,12 @@ Rules:
 ---
 
 Generated by create-nonoise v0.0.0-snapshot.
+## ECC agents and stack guidance
+
+Read \`.nonoise/ecc/index.md\` for the installed agents, skills and rule paths; \`nonoise.config.json\` records the selected stack. Read all common rules and the language rules matching the files being changed. Claude discovers \`.claude/agents/\` and \`.claude/rules/ecc/\`; Copilot discovers \`.github/agents/*.agent.md\` and \`.github/instructions/*.instructions.md\`; Codex discovers \`.codex/agents/*.toml\` and follows the rule links in this index. Skills live in \`.claude/skills/\` and, for Codex/Copilot, \`.agents/skills/\`.
+
+Before delivery use \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer. Pair \`verification-loop\` with \`superpowers:verification-before-completion\`. Use only capabilities listed in the index; if agent delegation is unavailable, apply the instructions directly and report that independent review did not run. ECC is a pinned MIT snapshot, updated manually by NONoise; no ECC plugin or hooks are required.
+
 <!-- nonoise:end -->
 
 ",

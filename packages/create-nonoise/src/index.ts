@@ -231,8 +231,8 @@ Options:
 Maintenance:
   --upgrade [path]
                       Refresh an existing NONoise project to the current version:
-                      re-copies all bundled skills (overwriting old SKILL.md
-                      files) and re-runs the graphify install. Reads aiTools
+                      updates bundled skills whose hashes are unchanged
+                      (preserving user edits) and re-runs the graphify install. Reads aiTools
                       from nonoise.config.json. Templates (CLAUDE.md,
                       AGENTS.md, etc.) update only their NONoise managed block.
                       User content outside the markers is preserved. Pass --ai to override AI tool selection.

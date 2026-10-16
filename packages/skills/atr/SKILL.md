@@ -267,6 +267,12 @@ Read `references/templates.md` → "Delegated Agent Prompt" for the full prompt 
 
 The backlog (`backlog.md`) is also written incrementally. On the first FAIL, the delegated agent creates the file with header. On subsequent FAILs, it appends entries. After all tests complete, the main agent reads the backlog and updates the total-failures count in the header.
 
+### Sprint closure review
+
+Before marking acceptance or a sprint complete, read `.nonoise/ecc/index.md` and request `pr-test-analyzer` for behavioral coverage, `security-reviewer` for security findings, and `silent-failure-hunter` for error propagation and fallbacks. Add `csharp-reviewer` for .NET changes and `typescript-reviewer` for TypeScript/Angular changes when installed. Scope every reviewer to the actual diff and acceptance criteria; collect all findings, resolve blockers and rerun the affected tests. Record reviewer name, scope, findings and validation evidence in the report. If delegation is unavailable, disclose that the review was performed inline.
+
+Run `module-regression` for affected downstream consumers and `verification-loop` for the final build/typecheck/test/security/diff evidence; use `superpowers:verification-before-completion` before asserting completion. Missing review or failing checks must remain visible in the acceptance result.
+
 ### After all sections complete
 
 1. Do a final read of each report file to verify completeness (all tests accounted for)

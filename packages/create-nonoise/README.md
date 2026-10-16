@@ -136,3 +136,9 @@ MIT, with attribution. See the repo for full `LICENSE` and `ATTRIBUTION.md`.
 ---
 
 Created by [Alessandro Russo](https://github.com/russosalv).
+
+### Stack-specific agents and rules (1.7.0)
+
+Use `--stack dotnet,angular`, `--stack typescript` or `--stack none` with the wizard or `--upgrade`. The choice is saved in `nonoise.config.json`. Common ECC agents/rules and eight process skills always ship; language rules, reviewers and stack skills follow the selection. ECC is a pinned local MIT snapshot, never an auto-updating plugin. Upgrades preserve modified agents, rules and NONoise/ECC skills using SHA-256 ownership; `doctor` reports missing or modified ECC files.
+
+[Full stack mapping and update procedure](https://github.com/russosalv/NONoise/blob/main/docs/ecc-integration.md).

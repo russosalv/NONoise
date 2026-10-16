@@ -221,3 +221,9 @@ and paths; old audit records are preserved. Without Haft MCP, FPF work stops
 with `create-nonoise --upgrade .` / `create-nonoise doctor .`, without fallback.
 See [installation](docs/installation.md#haft-required-fpf-runtime-170) and
 [cross-tool integration](docs/cross-tool.md#haft-fpf-integration).
+
+### Stack-specific agents and rules (1.7.0)
+
+Use `--stack dotnet,angular`, `--stack typescript` or `--stack none` with the wizard or `--upgrade`. The choice is saved in `nonoise.config.json`. Common ECC agents/rules and eight process skills always ship; language rules, reviewers and stack skills follow the selection. ECC is a pinned local MIT snapshot, never an auto-updating plugin. Upgrades preserve modified agents, rules and NONoise/ECC skills using SHA-256 ownership; `doctor` reports missing or modified ECC files.
+
+[Full stack mapping and update procedure](docs/ecc-integration.md).
