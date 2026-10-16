@@ -28043,6 +28043,7 @@ Thumbs.db
 # >>> graphify (managed by create-nonoise)
 graphify-out/
 .graphify_*
+*.graphify-bak
 .obj/
 # <<< graphify
 
