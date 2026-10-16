@@ -35,7 +35,7 @@ export async function main(): Promise<void> {
 
   // Direct CLI flag wins — no prompts, no banner.
   if (flags.upgrade) {
-    await runUpgradeAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai, vendorMode: flags.vendorMode });
+    await runUpgradeAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai, vendorMode: flags.vendorMode, stack: flags.stack });
     return;
   }
   if (flags.graphifyOnly) {
@@ -66,7 +66,7 @@ export async function main(): Promise<void> {
         return;
       }
       if (action === 'upgrade') {
-        await runUpgradeAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode });
+        await runUpgradeAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode, stack: flags.stack });
       } else {
         runGraphifyOnlyAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode });
       }
@@ -93,7 +93,7 @@ export async function main(): Promise<void> {
     if (!aiCsv && !existsSync(resolve(targetPath, 'nonoise.config.json'))) {
       aiCsv = await askAiCsvForExistingProject();
     }
-    await runUpgradeAndExit({ targetPath, aiCsv, vendorMode: flags.vendorMode });
+    await runUpgradeAndExit({ targetPath, aiCsv, vendorMode: flags.vendorMode, stack: flags.stack });
     return;
   }
 
@@ -127,7 +127,7 @@ function runGraphifyOnlyAndExit(opts: { targetPath?: string; aiCsv?: string; ven
   }
 }
 
-async function runUpgradeAndExit(opts: { targetPath?: string; aiCsv?: string; vendorMode?: 'native' | 'embed' }): Promise<void> {
+async function runUpgradeAndExit(opts: { targetPath?: string; aiCsv?: string; vendorMode?: 'native' | 'embed'; stack?: string }): Promise<void> {
   try {
     const result = await runUpgrade(opts);
     if (result.exitCode !== 0) process.exit(result.exitCode);
@@ -177,6 +177,11 @@ function parseArgv(args: string[]): ParsedFlags {
       }
       out.workspaceKind = raw as WorkspaceKind;
     }
+    else if (a === '--stack') {
+      const value = args[++i];
+      if (value === undefined || value.startsWith('--')) throw new Error('Missing --stack value');
+      out.stack = value;
+    }
     else if (a === '--ai') out.ai = args[++i];
     else if (a === '--reverse') out.reverseEngineering = true;
     else if (a === '--no-reverse') out.reverseEngineering = false;
@@ -213,6 +218,7 @@ Options:
   --vendor-mode <mode> native (default): upstream installers; embed: offline bundled copies
   --workspace <kind>  Workspace: new | existing-single | existing-multi (asked interactively if omitted)
   --template <name>   Template: single-project | multi-repo (back-compat; inferred from --workspace if present)
+  --stack <csv>       dotnet,typescript,angular,web or none (default); saved for upgrades
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
   --user-name <name>  Developer name (used by AI to address you; default: git user.name)
   --user-locale <iso> Language for the AI to reply in (ISO 639-1; default: OS locale)

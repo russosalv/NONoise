@@ -1,3 +1,5 @@
+import { installManagedAssets } from './managed-assets.js';
+import { LEGACY_SKILL_HASHES } from './legacy-skill-hashes.js';
 import { access, cp, stat, mkdir, readdir, lstat, readFile, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { constants as fsConstants } from 'node:fs';
@@ -16,6 +18,8 @@ export type InstallSkillsOptions = {
   overwrite?: boolean;
   /** Project-relative skills directory. Default `.claude/skills`. */
   targetDir?: string;
+  /** Protect edits using installed or historical hashes (scaffold and upgrades). */
+  managed?: boolean;
 };
 
 /**
@@ -44,7 +48,18 @@ export async function installSkills(opts: InstallSkillsOptions): Promise<void> {
       throw err;
     }
     const dest = join(destBase, name);
-    await cp(src, dest, { recursive: true, force, errorOnExist: false });
+    if (opts.managed) {
+      const files: Record<string, Buffer> = {};
+      async function collect(dir: string, rel: string): Promise<void> {
+        for (const entry of await readdir(dir, { withFileTypes: true })) {
+          if (entry.isDirectory()) await collect(join(dir, entry.name), `${rel}/${entry.name}`);
+          else if (entry.isFile()) files[`${rel}/${entry.name}`] = await readFile(join(dir, entry.name));
+        }
+      }
+      await collect(src, `${opts.targetDir ?? '.claude/skills'}/${name}`);
+      const result = installManagedAssets(opts.projectPath, files, LEGACY_SKILL_HASHES);
+      for (const file of result.preserved) console.log(`[skills] preserved user file: ${file}`);
+    } else await cp(src, dest, { recursive: true, force, errorOnExist: false });
   }
 }
 

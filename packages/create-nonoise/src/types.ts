@@ -29,6 +29,7 @@ export type VendorMode = 'native' | 'embed';
 
 export type ProjectContext = {
   vendorMode?: VendorMode;
+  stack?: import('./ecc.js').Stack[];
   projectName: string;
   projectPath: string;
   template: TemplateName;

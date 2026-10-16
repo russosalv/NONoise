@@ -1,3 +1,4 @@
+import { installEcc, parseStack, selectEcc } from './ecc.js';
 import { migrateQuint } from './quint-migration.js';
 import { installHaft } from './haft.js';
 import { configureEmbedPlugins, configureNativeVendors, installNativeVendors } from './native-vendor.js';
@@ -13,6 +14,7 @@ import { FLAG_TO_AI_TOOL } from './types.js';
 import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
 
 export type UpgradeOptions = {
+  stack?: string;
   vendorMode?: 'native' | 'embed';
   templatesRoot?: string;
   /** Target project directory. Defaults to process.cwd(). */
@@ -152,6 +154,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   const vendorMode = opts.vendorMode ?? 'native';
   const configPath = join(targetPath, 'nonoise.config.json');
   const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, 'utf8')) : {};
+  const stack = parseStack(opts.stack ?? (config.stack ?? []).join(','));
   const version = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
   const migration = config.vendorMode !== 'native' && Boolean(config.frameworkVersion)
     ? await migrateLegacyVendors(targetPath) : { removed: [], preserved: [] };
@@ -171,6 +174,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
       skillNames: Array.from(MVP_SKILL_BUNDLE),
       overwrite: true,
       targetDir,
+      managed: true,
     });
   }
   const retired = await removeRetiredSkills(targetPath);
@@ -201,8 +205,11 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     configureNativeVendors(targetPath, aiTools);
     installNativeVendors(targetPath, aiTools, protectedPaths);
   }
-  await updateManagedFiles({ ...config, projectName: config.projectName ?? targetPath.split(/[\\/]/).pop(), projectPath: targetPath, template: config.template ?? 'single-project', aiTools, frameworkVersion: version }, opts.templatesRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', 'templates'));
-  writeFileSync(configPath, JSON.stringify({ ...config, frameworkVersion: version, vendorMode, aiTools, preservedVendorFiles: protectedPaths, skills: [...MVP_SKILL_BUNDLE] }, null, 2) + '\n');
+  const ecc = installEcc(skillsRoot, targetPath, aiTools, stack);
+  migration.preserved.push(...ecc.preserved);
+  for (const file of ecc.preserved) console.log(`[upgrade] preserved user file: ${file}`);
+  await updateManagedFiles({ ...config, stack, projectName: config.projectName ?? targetPath.split(/[\\/]/).pop(), projectPath: targetPath, template: config.template ?? 'single-project', aiTools, frameworkVersion: version }, opts.templatesRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', 'templates'));
+  writeFileSync(configPath, JSON.stringify({ ...config, frameworkVersion: version, vendorMode, aiTools, stack, preservedVendorFiles: protectedPaths, skills: [...MVP_SKILL_BUNDLE, ...selectEcc(skillsRoot, stack).skills] }, null, 2) + '\n');
 
   console.log(
     `[upgrade] skills:    ${MVP_SKILL_BUNDLE.length} bundled skill(s) refreshed, ` +

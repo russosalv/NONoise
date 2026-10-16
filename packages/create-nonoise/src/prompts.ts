@@ -1,3 +1,4 @@
+import { parseStack, STACKS, type Stack } from './ecc.js';
 import { intro, outro, text, select, multiselect, confirm, isCancel, cancel, spinner, note } from '@clack/prompts';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
@@ -14,6 +15,7 @@ import { templateForWorkspace } from './types.js';
 
 export type CliFlags = {
   vendorMode?: 'native' | 'embed';
+  stack?: string;
   positionalDir?: string;
   template?: TemplateName;
   workspaceKind?: WorkspaceKind;
@@ -162,6 +164,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
   const workspaceKind = await askWorkspaceKind(flags);
   const template = templateForWorkspace(workspaceKind);
   const aiTools = await askAiTools(flags);
+  const stack = await askStack(flags);
 
   let repos: RepoEntry[] | undefined;
   let multiRepoConfigured: boolean | undefined;
@@ -185,6 +188,7 @@ export async function runPrompts(flags: CliFlags, frameworkVersion: string): Pro
     template,
     workspaceKind,
     aiTools,
+    stack,
     gitInit,
     frameworkVersion,
     vendorMode: flags.vendorMode ?? 'native',
@@ -600,3 +604,15 @@ function abortIfCancel(value: unknown): void {
 }
 
 export { outro, spinner, note };
+
+export async function askStack(flags: CliFlags): Promise<Stack[]> {
+  if (flags.stack !== undefined) return parseStack(flags.stack);
+  if (flags.yes) return [];
+  const selected = await multiselect({
+    message: 'Stack (space to toggle; none for common guidance only)',
+    options: [...STACKS.map(value => ({ value, label: value })), { value: 'none', label: 'None / nessuno' }],
+    required: false,
+  });
+  abortIfCancel(selected);
+  return parseStack((selected as string[]).join(','));
+}

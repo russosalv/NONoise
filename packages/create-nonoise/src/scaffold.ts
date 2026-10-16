@@ -1,3 +1,4 @@
+import { installEcc, selectEcc } from './ecc.js';
 import { installHaft } from './haft.js';
 import { mkdir, writeFile, readFile, cp } from 'node:fs/promises';
 import { dirname, join, posix, sep } from 'node:path';
@@ -69,6 +70,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
         projectPath: ctx.projectPath,
         skillNames: Array.from(MVP_SKILL_BUNDLE),
         targetDir,
+        managed: true,
       });
     }
     if (ctx.vendorMode === 'embed') {
@@ -94,6 +96,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     }
   }
 
+  installEcc(paths.skillsRoot, ctx.projectPath, ctx.aiTools, ctx.stack ?? []);
   await rewriteNonoiseConfig(ctx, paths, renderCtx);
   await updateManagedFiles(ctx, paths.templatesRoot);
 
@@ -171,7 +174,8 @@ async function rewriteNonoiseConfig(
   const destPath = join(ctx.projectPath, 'nonoise.config.json');
   const config = JSON.parse(rendered);
   config.vendorMode = ctx.vendorMode ?? 'native';
-  config.skills = [...MVP_SKILL_BUNDLE];
+  config.stack = ctx.stack ?? [];
+  config.skills = [...MVP_SKILL_BUNDLE, ...(hasAnyAiTool(ctx.aiTools) ? selectEcc(paths.skillsRoot, config.stack).skills : [])];
   await writeFile(destPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 }
 

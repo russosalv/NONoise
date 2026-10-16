@@ -147,7 +147,7 @@ describe('runUpgrade', () => {
     }
   });
 
-  it('overwrites pre-existing SKILL.md (the whole point of upgrade)', async () => {
+  it('preserves an unknown pre-existing SKILL.md during upgrade', async () => {
     const dir = makeProject({
       withConfig: true,
       preExistingSkillFile: {
@@ -172,14 +172,12 @@ describe('runUpgrade', () => {
       expect(result.exitCode).toBe(0);
       expect(result.skillsRefreshed).toBeGreaterThan(0);
 
-      // The upgraded SKILL.md content should match what's in the real bundle,
-      // not the v1 stub we wrote in the test fixture.
+      // Unknown old bytes are user-owned, even if they look like an old version.
       const upgradedSkillPath = join(dir, '.claude', 'skills', 'reverse-engineering', 'SKILL.md');
       expect(existsSync(upgradedSkillPath)).toBe(true);
       const content = readFileSync(upgradedSkillPath, 'utf8');
-      expect(content).not.toBe('# reverse-engineering v1 (old)\n');
-      // Sanity check: bundled skill should mention "reverse-engineering" in frontmatter.
-      expect(content).toMatch(/name:\s*reverse-engineering/);
+      expect(content).toBe('# reverse-engineering v1 (old)\n');
+
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
