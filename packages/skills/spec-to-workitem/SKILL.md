@@ -312,3 +312,9 @@ The description is stable — re-running on an existing item shows no diff unles
 - [`sprint-manifest`](../sprint-manifest/SKILL.md) — produces the input for this skill
 - [`atr`](../atr/SKILL.md) — acceptance testing of tasks after export
 - [`arch-decision`](../arch-decision/SKILL.md) / [`arch-brainstorm`](../arch-brainstorm/SKILL.md) — upstream skills that produce validated PRDs
+
+For architectural validation, route through `arch-decision` and the required Haft
+runtime via `quint-fpf`. Retain PRD `haft` IDs and repository-root-relative paths
+in handoffs/work items; do not copy `.haft/` records into an audit folder. If
+Haft is missing, stop that validation with `create-nonoise --upgrade .` and
+`create-nonoise doctor .`.

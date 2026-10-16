@@ -1,6 +1,6 @@
 ---
 name: arch-brainstorm
-description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading the project's source of truth at `docs/architecture/` plus `docs/requirements/` and `docs/calls/`, and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under `docs/prd/<area>/`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Quint FPF validation via `quint-fpf`) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
+description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading the project's source of truth at `docs/architecture/` plus `docs/requirements/` and `docs/calls/`, and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under `docs/prd/<area>/`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Haft FPF validation via `quint-fpf`) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral
 ---
@@ -253,7 +253,7 @@ Fix inline before saving.
 #### Actions
 
 1. **Summarize to the architect** what you produced (file paths, key sections, 1–2-sentence recap).
-2. **Request review** explicitly: "Review the PRD before proceeding. If you want changes, tell me; otherwise the next step is invoking `arch-decision` to validate with Quint FPF".
+2. **Request review** explicitly: "Review the PRD before proceeding. If you want changes, tell me; otherwise the next step is invoking `arch-decision` to validate with Haft FPF".
 3. **User gate**: do not declare the skill "complete" until the architect gives the green light or requests changes.
 4. **If the architect requests changes**: return to phase 2 or 3 depending on the kind of change (new decisions → phase 2; only formatting → straight to phase 3 with edits).
 5. **If the architect approves**: explicitly suggest the next skill:
@@ -262,7 +262,7 @@ Fix inline before saving.
    >
    > **`arch-decision <path-to-prd>`**
    >
-   > arch-decision will apply the Quint FPF methodology (via `quint-fpf`) to validate the decisions embedded in the narrative. On PASS the frontmatter becomes `status: validated`, and `arch-decision` will produce a concrete list of changes to apply to `docs/architecture/` manually.
+   > arch-decision will apply the Haft FPF methodology (via `quint-fpf`) to validate the decisions embedded in the narrative. After the operator explicitly binds an accepted choice through the Phase 5.5 gate, the frontmatter becomes `status: validated`, and `arch-decision` will produce a concrete list of changes to apply to `docs/architecture/` manually.
 
 #### Phase 4 checkpoint
 
@@ -279,7 +279,7 @@ See [`references/folder-conventions.md`](./references/folder-conventions.md) for
 - **Area folder**: `docs/prd/<area-slug>/`
 - **Study files**: `NN-<study-slug>.md` + `NN-<study-slug>-diagrams.md`
 - **Area brief**: `00-area-brief.md` (always present)
-- **Audit folders**: `audit/NN-<study-slug>-fpf/` (one folder per validated study, contains `00-context.md` through `05-decision.md` — created by `arch-decision`, not here)
+- **Haft references**: `arch-decision` adds IDs and repository-root-relative paths under `haft.problems`, `haft.solutions`, and `haft.decisions`; canonical records stay in `.haft/`.
 
 Mandatory PRD frontmatter:
 

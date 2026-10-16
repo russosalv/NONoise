@@ -38,7 +38,7 @@ This skill is **step 3** of the NONoise architectural workflow. It takes `valida
 
 - **Does not create PRDs** — that is `arch-brainstorm`'s job. If the user wants a new PRD, redirect.
 - **Does not validate PRDs** — if a PRD is not `validated`, stop and redirect to `arch-decision`.
-- **Does not write to `docs/architecture/`** — the architect updates the source of truth manually (driven by `arch-decision` Phase 6 "Impact on docs/architecture/" checklist), independently from this skill.
+- **Does not write to `docs/architecture/`** — the architect updates the source of truth manually (driven by `arch-decision` PRD "Impact on docs/architecture/" checklist), independently from this skill.
 - **Does not generate per-feature micro-manifests** — one aggregated manifest per sprint, never split by area or by PRD.
 - **Does not produce technical breakdowns** — tasks are **vertical functional slices**, not lists of files/classes/migrations to create.
 - **Does not push to external issue trackers** — that is a separate skill invoked explicitly afterwards.
@@ -191,7 +191,12 @@ Before touching any file:
 
 3. **Check area consistency**: the `area` slug in the PRD frontmatter must match the folder name under `docs/prd/`. If there is a mismatch, flag it.
 
-4. **Check audit folder**: for every `validated` PRD there should be a matching audit folder at `docs/prd/<area>/audit/NN-<study>-fpf/` containing `05-decision.md` (the DRR). If the folder or `05-decision.md` is missing, flag as warning but continue (non-blocking).
+4. **Check Haft references**: resolve each PRD's `haft.problems`, `haft.solutions`
+   and `haft.decisions` IDs and paths from the repository root. Use the live Haft
+   runtime (`quint-fpf`) to recover exact decisions; only current accepted choices
+   support promotion. If the runtime is missing, stop with `create-nonoise
+   --upgrade .` and `create-nonoise doctor .`. Legacy PRDs lacking refs require
+   explicit review through `arch-decision`; do not invent refs from old audits.
 
 If any check fails and is not recoverable, **stop** and ask the user how to proceed.
 
@@ -210,11 +215,10 @@ For every `validated` PRD to process:
    docs/prd/<area>/NN-<study>-diagrams.md
    → docs/sprints/Sprint-N/<area>/NN-<study>-diagrams.md
 
-   docs/prd/<area>/audit/NN-<study>-fpf/
-   → docs/sprints/Sprint-N/<area>/audit/NN-<study>-fpf/
    ```
 
-   The audit is a folder, not a single file — move the entire folder (all 6 per-phase files) as a unit.
+   Keep `.haft/` artifacts in place and preserve all `haft` references unchanged.
+   Historical audit folders remain in their existing locations as user data.
 
 2. **Copy `00-area-brief.md`** into the sprint area folder on first promotion of that area, annotated with "Promoted to Sprint N in YYYY-MM-DD".
 
@@ -480,7 +484,7 @@ Explicit list of things NOT being done this sprint (even if they appear in PRDs)
 - `docs/prd/<area>/*.md` — source of validated PRDs
 - `docs/sprints/Sprint-N/` — promotion destination (one folder per sprint)
 - `docs/sprints/Sprint-N/sprint-manifest.md` — the aggregated sprint manifest (one per sprint)
-- `docs/sprints/Sprint-N/<area>/*.md` — promoted PRDs + audits
+- `docs/sprints/Sprint-N/<area>/*.md` — promoted PRDs + unchanged Haft references
 - `docs/architecture/` — source of truth (read-only for this skill)
 
 ## Related skills

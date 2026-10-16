@@ -40,4 +40,4 @@ support/
 ## How NONoise skills use this folder
 
 - `arch-brainstorm` reads `support/` during DISCOVER when the area-slug maps to an existing support document — e.g. a legacy analysis relevant to the area under study
-- Other skills may cite support material as evidence (CL1 — external research) during `arch-decision` / `quint-fpf` VALIDATE phase
+- Other skills may cite support material as evidence (CL1 — external research) during Haft comparison/evidence work routed by `arch-decision` / `quint-fpf`

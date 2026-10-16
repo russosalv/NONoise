@@ -117,7 +117,7 @@ No state is persisted across turns. No auto-trigger.
   ".claude/skills/.gitkeep": "",
   ".claude/skills/arch-brainstorm/SKILL.md": "---
 name: arch-brainstorm
-description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading the project's source of truth at \`docs/architecture/\` plus \`docs/requirements/\` and \`docs/calls/\`, and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under \`docs/prd/<area>/\`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Quint FPF validation via \`quint-fpf\`) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
+description: Dialogic architectural brainstorming skill. Helps an architect study how to implement something starting from just an area name, exploring the existing codebase, reading the project's source of truth at \`docs/architecture/\` plus \`docs/requirements/\` and \`docs/calls/\`, and producing a narrative PRD (story of the decision, inline Mermaid diagrams, explicit anti-scope) under \`docs/prd/<area>/\`. USE AS STEP 1 of the end-to-end architectural workflow — brainstorm → arch-decision (Haft FPF validation via \`quint-fpf\`) → sprint-manifest (promotion to sprint). Triggers — "I want to study how to implement X", "how should we handle Y", "brainstorm on area Z", "open a PRD for W", "arch-brainstorm area <slug>". Also triggers without explicit mention when the user is defining a new architectural work area from scratch and wants to think it through together.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral
 ---
@@ -370,7 +370,7 @@ Fix inline before saving.
 #### Actions
 
 1. **Summarize to the architect** what you produced (file paths, key sections, 1–2-sentence recap).
-2. **Request review** explicitly: "Review the PRD before proceeding. If you want changes, tell me; otherwise the next step is invoking \`arch-decision\` to validate with Quint FPF".
+2. **Request review** explicitly: "Review the PRD before proceeding. If you want changes, tell me; otherwise the next step is invoking \`arch-decision\` to validate with Haft FPF".
 3. **User gate**: do not declare the skill "complete" until the architect gives the green light or requests changes.
 4. **If the architect requests changes**: return to phase 2 or 3 depending on the kind of change (new decisions → phase 2; only formatting → straight to phase 3 with edits).
 5. **If the architect approves**: explicitly suggest the next skill:
@@ -379,7 +379,7 @@ Fix inline before saving.
    >
    > **\`arch-decision <path-to-prd>\`**
    >
-   > arch-decision will apply the Quint FPF methodology (via \`quint-fpf\`) to validate the decisions embedded in the narrative. On PASS the frontmatter becomes \`status: validated\`, and \`arch-decision\` will produce a concrete list of changes to apply to \`docs/architecture/\` manually.
+   > arch-decision will apply the Haft FPF methodology (via \`quint-fpf\`) to validate the decisions embedded in the narrative. After the operator explicitly binds an accepted choice through the Phase 5.5 gate, the frontmatter becomes \`status: validated\`, and \`arch-decision\` will produce a concrete list of changes to apply to \`docs/architecture/\` manually.
 
 #### Phase 4 checkpoint
 
@@ -396,7 +396,7 @@ See [\`references/folder-conventions.md\`](./references/folder-conventions.md) f
 - **Area folder**: \`docs/prd/<area-slug>/\`
 - **Study files**: \`NN-<study-slug>.md\` + \`NN-<study-slug>-diagrams.md\`
 - **Area brief**: \`00-area-brief.md\` (always present)
-- **Audit folders**: \`audit/NN-<study-slug>-fpf/\` (one folder per validated study, contains \`00-context.md\` through \`05-decision.md\` — created by \`arch-decision\`, not here)
+- **Haft references**: \`arch-decision\` adds IDs and repository-root-relative paths under \`haft.problems\`, \`haft.solutions\`, and \`haft.decisions\`; canonical records stay in \`.haft/\`.
 
 Mandatory PRD frontmatter:
 
@@ -479,16 +479,6 @@ docs/prd/
 │   ├── 01-<study-slug>-diagrams.md      ← standalone diagrams for study 01
 │   ├── 02-<study-slug>.md               ← second study
 │   ├── 02-<study-slug>-diagrams.md
-│   └── audit/                           ← Quint FPF audit folders (created by arch-decision)
-│       ├── 01-<study-slug>-fpf/         ← one folder per validated study
-│       │   ├── 00-context.md            ← Bounded Context (Phase 0)
-│       │   ├── 01-hypotheses.md         ← extracted hypotheses (Phase 1)
-│       │   ├── 02-verification.md       ← logical verification (Phase 2)
-│       │   ├── 03-validation.md         ← empirical evidence (Phase 3)
-│       │   ├── 04-audit.md              ← R_eff via WLNK (Phase 4)
-│       │   └── 05-decision.md           ← global PRD verdict — DRR (Phase 5)
-│       └── 02-<study-slug>-fpf/
-│           └── …(same 6 files)
 \`\`\`
 
 ### After promotion to a sprint
@@ -500,9 +490,6 @@ docs/sprints/Sprint-XX/
     ├── 01-<study-slug>.md               ← PRDs moved from draft
     ├── 01-<study-slug>-diagrams.md
     ├── 02-<study-slug>.md
-    └── audit/
-        └── 01-<study-slug>-fpf/         ← FPF audit folders carried over
-            └── …(00-context.md … 05-decision.md)
 \`\`\`
 
 One single \`sprint-manifest.md\` at the sprint root aggregates all PRDs into user stories + macro functional tasks with cross-area dependencies — not one manifest per PRD. Layout produced by the \`sprint-manifest\` skill.
@@ -547,7 +534,7 @@ Pattern:
 \`\`\`
 NN-<study-slug>.md           → the main PRD
 NN-<study-slug>-diagrams.md  → standalone Mermaid diagrams
-audit/NN-<study-slug>-fpf/   → FPF audit folder (generated by arch-decision; contains 00-context.md … 05-decision.md)
+.haft/decisions/<id>.md     → canonical decision (repository root, referenced by PRD)
 \`\`\`
 
 Rules:
@@ -572,7 +559,7 @@ study: <study-slug>
 status: draft | in-validation | validated | superseded | rejected | promoted
 sprint: null | <number>
 validated_at: null | YYYY-MM-DD
-validated_by: null | "arch-decision (Quint FPF run <id>)"
+validated_by: null | "arch-decision (Haft FPF run <id>)"
 superseded_by: null | "NN-<other-study>.md"
 superseded_reason: null | "short reason text"
 created_at: YYYY-MM-DD
@@ -606,43 +593,13 @@ created_at: YYYY-MM-DD
 ---
 \`\`\`
 
-### Audit folder (\`audit/NN-<study>-fpf/\`)
+### Haft artifact references
 
-The audit is no longer a single file: it is a folder with one markdown per FPF phase. Each file carries its own frontmatter (defined by \`quint-fpf\` and \`arch-decision\`). The two cycle-level fields the rest of the workflow depends on are:
-
-- \`00-context.md\` frontmatter \`verdict_phase5\` — empty while the cycle is open; set to \`PASS | FAIL | NEEDS-REVISION\` when \`/q5-decide\` (or \`arch-decision\` Phase 5) closes it.
-- \`05-decision.md\` frontmatter \`verdict\` and \`r_eff_min\` — the canonical PRD-level result consumed by \`sprint-manifest\`.
-
-Example \`00-context.md\` frontmatter:
-
-\`\`\`yaml
----
-phase: 0
-slug: <area>-<study>
-output_dir: docs/prd/<area>/audit/NN-<study>-fpf/
-mode: tooled | conversational
-related_prd: ../../NN-<study>.md
-problem_statement: <one-sentence summary>
-created_at: YYYY-MM-DDTHH:MM:SSZ
-verdict_phase5:
----
-\`\`\`
-
-Example \`05-decision.md\` frontmatter (the DRR — final artifact):
-
-\`\`\`yaml
----
-phase: 5
-slug: <same as 00-context.md>
-output_dir: <same>
-mode: tooled | conversational
-related_prd: ../../NN-<study>.md
-decided_at: YYYY-MM-DDTHH:MM:SSZ
-verdict: PASS | FAIL | NEEDS-REVISION
-r_eff_min: 0.00
-r_eff_avg: 0.00
----
-\`\`\`
+\`arch-decision\` records the durable review in \`.haft/\` and adds \`haft.problems\`,
+\`haft.solutions\`, and \`haft.decisions\` arrays to the PRD. Each entry has an exact
+returned \`id\` and a repository-root-relative \`path\`; see \`arch-decision\` for the
+contract. Do not create per-phase audit folders or duplicate the decision.
+Existing historical audits remain user data at their current paths.
 
 ## PRD lifecycle states
 
@@ -650,51 +607,20 @@ r_eff_avg: 0.00
 
 | State | Meaning | Who sets it | Possible next states |
 |---|---|---|---|
-| \`draft\` | Being written/reviewed, not yet validated | \`arch-brainstorm\` on creation | \`in-validation\`, \`rejected\` (manual) |
-| \`in-validation\` | Quint FPF validation in progress | \`arch-decision\` at run start | \`validated\`, \`rejected\` |
-| \`validated\` | Passed Quint FPF, ready for promotion | \`arch-decision\` at end of PASS run | \`superseded\`, \`promoted\`, \`rejected\` (manual, rare) |
+| \`draft\` | Being written/reviewed, not yet validated | \`arch-brainstorm\` on creation | \`validated\`, \`rejected\` after operator choice |
+| \`in-validation\` | Legacy unfinished review | historical only | \`draft\`, \`validated\`, \`rejected\` |
+| \`validated\` | Passed Haft FPF, ready for promotion | \`arch-decision\` at end of PASS run | \`superseded\`, \`promoted\`, \`rejected\` (manual, rare) |
 | \`superseded\` | Was valid, but another study was chosen instead | Architect manually before \`sprint-manifest\` | terminal — no further transitions |
 | \`rejected\` | Did not pass validation (FPF FAIL or manual choice) | \`arch-decision\` (FAIL) or architect | terminal |
 | \`promoted\` | Moved into a sprint by \`sprint-manifest\` | \`sprint-manifest\` | terminal (lives now in sprint folder) |
 
-### State diagram
+### State transitions
 
-\`\`\`
-         ┌──────────┐
-         │  draft   │◀─────────────────┐
-         └─────┬────┘                  │
-               │                       │
-               │ arch-decision start   │ iterate
-               ▼                       │
-       ┌───────────────┐               │
-       │in-validation  │───FAIL────────┤
-       └───────┬───────┘               │
-               │                       │
-               │ PASS                  │
-               ▼                       │
-         ┌───────────┐                 │
-    ┌────│ validated │─────────────────┘ (rare, post-validation edits)
-    │    └─────┬─────┘
-    │          │
-    │          │ sprint-manifest
-    │          ▼
-    │    ┌──────────┐
-    │    │ promoted │  terminal
-    │    └──────────┘
-    │
-    │ architect picks another study
-    ▼
-┌────────────┐
-│ superseded │  terminal
-└────────────┘
-
-         (from anywhere)
-               │
-               ▼
-         ┌──────────┐
-         │ rejected │  terminal
-         └──────────┘
-\`\`\`
+A draft stays \`draft\` during review. An explicit Phase 5.5 operator choice and
+successful Haft binding permit \`validated\` or \`rejected\`. Revision/defer stays
+\`draft\`. Legacy \`in-validation\` is read as unfinished review, not approval.
+Promotion moves PRDs while retaining their Haft refs; supersession requires the
+operator's explicit choice and the appropriate Haft lifecycle operation.
 
 ### Difference between \`rejected\` and \`superseded\`
 
@@ -702,7 +628,7 @@ This distinction matters to preserve audit trail:
 
 | Aspect | \`rejected\` | \`superseded\` |
 |---|---|---|
-| Passed Quint FPF? | No (FAIL) or manual discard | Yes (PASS) |
+| Passed Haft FPF? | No (FAIL) or manual discard | Yes (PASS) |
 | Why was it discarded? | Technically invalid | Was valid, but another was preferred |
 | \`superseded_by\` field | \`null\` | mandatory (points to the winner) |
 | \`superseded_reason\` field | \`null\` | mandatory (short text) |
@@ -722,7 +648,7 @@ superseded_reason: "Option B chosen for native integration with <platform>"
 status: validated
 \`\`\`
 
-Both files stay in the folder. \`sprint-manifest\` ignores \`01-option-a.md\` but the file remains as a record of "we also considered option A and it passed Quint FPF, but option B was better because…".
+Both files stay in the folder. \`sprint-manifest\` ignores \`01-option-a.md\` but the file remains as a record of "we also considered option A and it passed Haft FPF, but option B was better because…".
 
 ## Area brief (\`00-area-brief.md\`)
 
@@ -783,19 +709,19 @@ The area brief must be **updated every time a new study is added** or a relevant
 - Creates \`NN-<study>.md\` with \`status: draft\`
 - Creates \`NN-<study>-diagrams.md\`
 - Updates \`00-area-brief.md\` with the new study
-- **Does not create** \`audit/\` (that is \`arch-decision\`'s job)
+- Does not bind Haft decisions or create an audit register
 
 ### \`arch-decision\` (next step):
 - **Reads** \`<area>/NN-<study>.md\`
 - Delegates the methodology to \`quint-fpf\`
-- Updates frontmatter (\`status: in-validation\` → \`validated\` or \`rejected\`)
-- Creates \`audit/NN-<study>-fpf/\` with the 6 per-phase files (\`00-context.md\` … \`05-decision.md\`)
+- Updates frontmatter from \`draft\` after the Phase 5.5 operator choice and successful binding
+- Records ProblemCard, variants/comparison and DecisionRecord through Haft; links IDs/paths in the PRD
 - On PASS: produces a concrete "Impact on \`docs/architecture/\`" checklist for the architect to apply manually
 - **Does not move** files (everything stays in \`docs/prd/\`)
 - **Does not write** to \`docs/architecture/\` — that is the architect's responsibility
 
 ### Updating \`docs/architecture/\` (manual, after arch-decision PASS):
-- The architect applies the "Impact on docs/architecture/" checklist produced by \`arch-decision\` Phase 6
+- The architect applies the "Impact on docs/architecture/" checklist projected into the PRD by \`arch-decision\`
 - Typical edits: add a new component to \`04-components.md\`, add a constraint to \`01-constraints.md\`, append a new pattern to \`03-patterns.md\`
 - Keep this change as a separate commit from the PRD validation — audit and source-of-truth changes stay decoupled
 
@@ -803,7 +729,7 @@ The area brief must be **updated every time a new study is added** or a relevant
 - **Scans** \`<area>/\` for all PRDs
 - Requires all to be in \`validated\` state (\`superseded\` is ignored, \`rejected\` is ignored)
 - Asks for target sprint (mandatory)
-- **Moves** validated PRDs (+ their diagrams and audit reports) to \`docs/sprints/Sprint-X/<area>/\`
+- **Moves** validated PRDs (+ their diagrams, retaining Haft references) to \`docs/sprints/Sprint-X/<area>/\`
 - Generates (or updates via impact analysis) **one aggregated manifest** at \`docs/sprints/Sprint-X/sprint-manifest.md\` — user stories, macro tasks, cross-area dependencies, CL1 risk flags
 - Updates PRD frontmatter → \`status: promoted, sprint: X, promoted_at: YYYY-MM-DD\`
 - Updates \`00-area-brief.md\` with note "promoted to Sprint X"
@@ -1189,857 +1115,127 @@ If even one of these checks fails, **do not save**. Fix first.
 ",
   ".claude/skills/arch-decision/SKILL.md": "---
 name: arch-decision
-description: Step 2 of the NONoise architectural workflow — validates a \`draft\` PRD (from \`arch-brainstorm\`) using Quint FPF via the \`quint-fpf\` sub-skill. Extracts hypotheses, computes R_eff, writes a per-phase audit folder at \`docs/prd/<area>/audit/NN-<study>-fpf/\`, presents a mandatory Phase 5.5 human review/approve gate (with override), then updates the PRD frontmatter to \`validated\` or \`rejected\`. On PASS, Polly offers \`arch-sync\` to project the decision into \`docs/architecture/\` with diff preview — never automatically. Does not create PRDs from scratch (that is \`arch-brainstorm\`'s job). Triggers — "validate this PRD", "apply Quint FPF to <file>", "arch-decision <path>", "formally assess the architectural decision in <file>", "verify PRD X with FPF". Also triggers without explicit mention when the user refers to a just-written PRD and wants to validate it.
-source: Risko reference-project (reworked whitelabel for NONoise)
-variant: nonoise generic; stack-neutral; delegates methodology to quint-fpf
+description: Validate an existing draft PRD through Haft ProblemCard, solution variants and parity comparison, then route the operator's explicit Phase 5.5 choice through h-decide and project the result into PRD frontmatter. Use for architectural PRD validation; creates no duplicate FPF audit register.
 ---
 
-> **Before running this skill's procedure: ask the user to describe the full scope in one message (who, what, why, constraints, success criteria). Treat the rest of this document as a schema to fill against their answer, not a turn-by-turn questionnaire. Only ask follow-up questions for genuine blockers.**
-
-# arch-decision — Formal Quint FPF validation of an existing PRD
-
-This skill is **step 2** of the NONoise architectural workflow. It applies the **First Principles Framework (Quint FPF)** — fully documented in the sibling skill \`quint-fpf\` — to a narrative PRD already written by \`arch-brainstorm\`, producing a reliability audit and updating the PRD lifecycle state.
-
-## Position in the workflow
-
-\`\`\`
-┌─────────────┐   ┌──────────────┐   ┌──────────────────┐
-│ arch-       │──▶│ arch-        │──▶│ sprint-manifest  │
-│ brainstorm  │   │ decision     │   │                  │
-│             │   │ (THIS SKILL) │   │                  │
-│ explore +   │   │ validate via │   │ promote to       │
-│ dialog +    │   │ quint-fpf    │   │ sprint manifest  │
-│ write PRD   │   │              │   │                  │
-└─────────────┘   └──────────────┘   └──────────────────┘
-     STEP 1            STEP 2              STEP 3
-\`\`\`
-
-After a PRD reaches \`validated\` state, **the architect updates \`docs/architecture/\` manually** to reflect the new decision. NONoise does not ship an auto-sync skill — the source of truth is governed by the human, not the framework. Projects with a strong architecture governance model can install a project-specific sync skill via \`skill-finder\`.
-
-## Relationship with other skills
-
-- **Input**: a PRD in \`draft\` state created by \`arch-brainstorm\` at \`docs/prd/<area>/NN-<study>.md\`
-- **Delegates methodology to**: \`quint-fpf\` — the generic First Principles Framework sub-skill. \`arch-decision\` is the opinionated wrapper that adapts the 6-phase FPF cycle to a PRD validation use-case.
-- **Output**:
-  - Audit folder at \`docs/prd/<area>/audit/NN-<study>-fpf/\` containing one markdown file per FPF phase (\`00-context.md\` through \`05-decision.md\`) — co-located with the PRD so a single \`rm -rf <folder>\` removes the entire pre-validation trail
-  - PRD frontmatter updated with \`status: validated | rejected\`, \`validated_at\`, \`validated_by\`
-  - Reminder message to the architect to update \`docs/architecture/\` manually on PASS
-- **Does NOT**:
-  - Create drafts from scratch → that is \`arch-brainstorm\`'s job
-  - Publish into \`docs/architecture/\` → the architect does that manually after reading the validated PRD
-  - Explore the codebase to produce a design → the design is already in the PRD
-
-## Methodology: Quint FPF in brief
-
-The First Principles Framework forces an explicit reasoning cycle based on three inference modes:
-
-| Phase | Inference | What it does | Why it matters |
-|---|---|---|---|
-| Abduction | "What could it be?" | Extract/generate competing hypotheses | Avoids confirmation bias |
-| Deduction | "Does it hold logically?" | Verify constraints and consistency | Eliminates incoherent hypotheses |
-| Induction | "Does it work in practice?" | Gather empirical evidence | Grounds the decision in facts |
-
-Decisions taken "by feel" create invisible technical debt. This process forces every architectural decision to have an audit trail: which alternatives were evaluated, why they were rejected, what evidence was used to decide.
-
-**Relationship with \`quint-fpf\`**: this skill does not re-implement FPF. It:
-1. Invokes \`quint-fpf\` as a sub-skill (in tooled mode if the Quint MCP server is installed, conversational fallback otherwise)
-2. Seeds \`quint-fpf\`'s Phase 0 (Bounded Context) from the PRD's own context
-3. Seeds \`quint-fpf\`'s Phase 1 (Abduction) with hypotheses **extracted from the PRD's decision story** (§2 of the PRD template) — no ex-novo creative work
-4. Runs the FPF cycle through Phase 5 (Decide)
-5. Reads the final decision holon / audit and projects it back onto the PRD lifecycle (\`status: validated | rejected\`)
-
----
-
-## Mandatory inputs
-
-To proceed, the skill must receive:
-
-1. **Path to the PRD to validate** (e.g. \`docs/prd/user-signup/01-email-otp.md\`)
-2. The PRD must be in \`draft\` state in the frontmatter (otherwise ask the architect to confirm — they may want to re-validate an already-validated PRD)
-3. The PRD must contain a "Decision story" section with listed key decisions (§2 of the \`arch-brainstorm\` template)
-
-If any of these is missing, **stop** and ask the architect to produce a valid PRD via \`arch-brainstorm\` first.
-
----
-
-## Flow — 6 phases
-
-Each phase is a checkpoint: **ask for user confirmation before moving on**. The user can re-enter at any phase (resume from where they left off if a partial audit folder already exists).
-
-| # | Phase | Output | quint-fpf correspondence |
-|---|---|---|---|
-| 1 | HYPOTHESIZE (Abduction) | List of hypotheses extracted from the PRD + diversity check | \`quint_propose\` (Phase 1) |
-| 2 | VERIFY (Deduction) | PASS/FAIL/REFINE verdicts per hypothesis | \`quint_verify\` (Phase 2) |
-| 3 | VALIDATE (Induction) | Evidence with Congruence Level (CL1–CL3) | \`quint_validate\` (Phase 3) |
-| 4 | AUDIT (Trust Calculus) | R_eff per hypothesis, bias check, audit tree | \`quint_audit\` (Phase 4) |
-| 5 | DECIDE | Global PRD verdict (PASS/FAIL) | \`quint_decide\` (Phase 5) |
-| 6 | FINALIZE | PRD frontmatter updated + audit folder closed + sync trigger | post-FPF projection |
-
-In **tooled mode** (Quint MCP server available), phases 1–5 are backed by \`quint_*\` tool calls — see \`quint-fpf/SKILL.md\` for exact signatures. In **conversational mode**, the same discipline is applied producing the markdown trail only. **In both modes, every phase writes its own file under \`docs/prd/<area>/audit/NN-<study>-fpf/\`** — see the file-per-phase layout below; this folder is the audit trail.
-
-### Audit folder layout
-
-\`\`\`
-docs/prd/<area>/
-├── NN-<study>.md                       ← the PRD being validated
-└── audit/
-    └── NN-<study>-fpf/                 ← created by arch-decision (this skill)
-        ├── 00-context.md               ← Phase 0: Bounded Context seeded from the PRD
-        ├── 01-hypotheses.md            ← Phase 1: hypotheses extracted from the PRD
-        ├── 02-verification.md          ← Phase 2: logical verification
-        ├── 03-validation.md            ← Phase 3: empirical evidence
-        ├── 04-audit.md                 ← Phase 4: R_eff per hypothesis (WLNK)
-        └── 05-decision.md              ← Phase 5: global PRD verdict (DRR)
-\`\`\`
-
-**Implementation note:** the per-phase content described in each phase below maps 1:1 to the corresponding bundled \`quint-fpf\` slash command. You may either:
-- **(a) Inline** — write the per-phase content directly using the templates in this file (this skill's responsibility).
-- **(b) Delegate** — invoke the bundled commands \`/q0-init --target docs/prd/<area>/audit/NN-<study>-fpf/\`, then \`/q1-hypothesize\`, \`/q2-verify\`, \`/q3-validate\`, \`/q4-audit\`, \`/q5-decide\` in sequence. They produce the same files; this is preferred when you want consistency with users running quint-fpf standalone.
-
-Either way, the folder layout above is the contract.
-
----
-
-## Phase 1: HYPOTHESIZE — extract hypotheses from the PRD (Abduction)
-
-**Goal**: identify the key architectural hypotheses from the PRD's story, verify they are structurally diverse (NQD principle), and add missing alternatives if the PRD lacks relevant ones.
-
-### Actions
-
-1. **Read the PRD completely**. In particular:
-   - §2.2 "Key decisions" — primary source
-   - §2.5 "What we will NOT do" — contains implicit rejected alternatives
-   - §1 summary table of key choices
-
-2. **Extract hypotheses**. For each key decision in the story, the typical pattern is:
-   - **Winning hypothesis** (the one chosen in the PRD) — \`H1\`
-   - **Considered alternatives** (discussed and rejected) — \`H2\`, \`H3\`, …
-
-   Example: a PRD on "notifications" has in its story the decision "Messaging style: pub/sub self-subscription" with alternatives A (Outbox), B (event-driven cross-component), C (hybrid). The FPF hypotheses are:
-   - H1 = pub/sub self-sub (chosen in the PRD)
-   - H2 = Outbox table + worker
-   - H3 = Event-driven cross-component
-
-   Create distinct hypothesis groups for **every relevant architectural decision**, not just the first. If a PRD has 10 decisions, you might have 10 groups; in practice 3–5 groups of the most impactful decisions (the ones that, if different, would change the whole design) are enough.
-
-3. **Verify the Diversity Principle (NQD)**: hypotheses within each group must be **structurally different**, not cosmetic variants of the same idea. If the PRD only proposes cosmetic variants, **flag it**: the story is too guided and should be enriched.
-
-4. **If obvious alternatives are missing**: add them yourself as an auditor would. Document that they were added at audit time (they were not in the original PRD). Example: a PRD choosing "short-lived tokens" without considering "encrypted long-lived tokens in DB" — add that alternative.
-
-5. **Create the audit folder** at \`docs/prd/<area>/audit/NN-<study>-fpf/\` (parent dirs as needed).
-
-6. **Write \`00-context.md\`** — the Bounded Context seeded from the PRD:
-
-\`\`\`markdown
----
-phase: 0
-slug: <area-slug>-<study-slug>
-output_dir: docs/prd/<area>/audit/NN-<study>-fpf/
-mode: tooled | conversational
-related_prd: ../../NN-<study>.md
-problem_statement: <one-sentence summary of the architectural decision under review>
-created_at: <UTC ISO-8601>
-verdict_phase5:
----
-
-# Phase 0 — Bounded Context (seeded from PRD)
-
-## Problem statement
-<the architectural question or anomaly the PRD addresses>
-
-## Vocabulary
-- (extracted from PRD §1 / glossary)
-
-## Invariants
-- (extracted from \`docs/architecture/01-constraints.md\` and the PRD)
-
-## Constraints
-- (project stack, perf budgets, compliance — from \`docs/architecture/\` and \`CLAUDE.md\`)
-
-## Tools detected
-- quint MCP: present (vN.M) | absent — running in conversational mode
-
-## Sources scanned
-- \`<path to PRD>\`
-- \`docs/architecture/01-constraints.md\`
-- \`CLAUDE.md\` / \`AGENTS.md\`
-
-## Revisions
-\`\`\`
-
-7. **Write \`01-hypotheses.md\`** — the extracted hypotheses:
-
-\`\`\`markdown
----
-phase: 1
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-related_prd: ../../NN-<study>.md
-last_updated: <UTC ISO-8601>
----
-
-# Phase 1 — Hypotheses (L0) — extracted from PRD
-
-## Initial entries
-
-### Decision group 1: <key decision title>
-
-| ID | Hypothesis | Origin | Classification |
-|----|------------|--------|----------------|
-| H1 | <choice in the PRD> | PRD § 2.2 | Chosen |
-| H2 | <alternative 1> | PRD § 2.2 (rejected) | Rejected in story |
-| H3 | <alternative 2> | Added at audit | Not present in PRD |
-
-#### H1 — <title>
-- **Kind**: system | episteme
-- **Scope**: <claim scope>
-- **Method**: <how it works>
-- **Rationale**:
-  - Anomaly: <what triggered the need>
-  - Approach: <why this works>
-  - Alternatives rejected: <list>
-- **Origin**: PRD § 2.2 (chosen by PRD)
-- **decision_context**: <id of parent decision>
-- **depends_on**: [<id1>, …]
-
-#### H2 — <title>
-…(same template)
-
-### Decision group 2: ...
-
-## Revisions
-\`\`\`
-
-### Phase 1 checkpoint
-
-- [ ] PRD fully read (frontmatter + §1–§2 at least)
-- [ ] Hypotheses extracted from each key decision (groups)
-- [ ] NQD diversity verified
-- [ ] Audit folder created at \`docs/prd/<area>/audit/NN-<study>-fpf/\`
-- [ ] \`00-context.md\` written (Bounded Context seeded from PRD)
-- [ ] \`01-hypotheses.md\` written with all decision groups and per-hypothesis details
-- [ ] User confirmed to proceed to verification
-
-**Ask**: "I extracted {N} hypotheses from the PRD ({M} added by me during audit). Do you want to confirm the list or add/change anything before verification?"
-
----
-
-## Phase 2: VERIFY — logical verification (Deduction)
-
-**Goal**: verify each hypothesis against logical and architectural constraints. Rule out those incoherent with the target architecture.
-
-### Checks per hypothesis
-
-| Check | Description |
-|-------|-------------|
-| **Type check** | Types, DTOs, interfaces compatible with the system? |
-| **Constraint check** | Does it violate absolute constraints from \`docs/architecture/01-constraints.md\` or \`CLAUDE.md\`/\`AGENTS.md\` of the project? |
-| **Consistency check** | Does the internal logic hold? Race condition, deadlock, circularity? |
-| **Compatibility check** | Does it coexist with the existing architecture? API contracts, bounded context? |
-
-### Verdicts
-
-- **PASS** → proceeds to validation
-- **FAIL** → rejected (document why)
-- **REFINE** → must be modified (document what to change)
-
-### Actions
-
-1. **Read project constraints**:
-   - \`docs/architecture/01-constraints.md\` — absolute constraints (project-maintained source of truth)
-   - Other numbered files in \`docs/architecture/\` (patterns, stack, conventions) relevant to the area
-   - \`CLAUDE.md\`, \`AGENTS.md\`, \`nonoise.config.json\` at repo root
-   - Any project-specific arch skill installed via \`skill-finder\` (rare)
-
-2. **For each hypothesis**, run the 4 checks and write \`02-verification.md\`:
-
-\`\`\`markdown
----
-phase: 2
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-related_prd: ../../NN-<study>.md
-last_updated: <UTC ISO-8601>
-summary:
-  pass: <N>
-  fail: <N>
-  refine: <N>
----
-
-# Phase 2 — Verification (L0 → L1)
-
-## Initial entries
-
-### H1 — verdict: PASS
-
-| Check | Result | Notes |
-|-------|--------|-------|
-| Type check | PASS | DTOs compatible with shared contracts |
-| Constraint check | PASS | No violated constraints from \`docs/architecture/01-constraints.md\` |
-| Consistency check | PASS | No race conditions |
-| Compatibility check | PASS | Coherent with bounded context |
-
-### H2 — verdict: FAIL
-- Type check: PASS
-- Constraint check: **FAILED** — violates "<absolute constraint>"
-- Consistency check: n/a
-- Compatibility check: n/a
-- Notes: <reason>
-
-## Revisions
-\`\`\`
-
-3. **No separate cumulative table is needed**: each phase file (\`02-verification.md\`, \`03-validation.md\`, \`04-audit.md\`) already states the per-hypothesis verdict for that phase. The final consolidated comparison lives in \`04-audit.md\` (R_eff comparison table).
-
-### Phase 2 checkpoint
-
-- [ ] Every hypothesis checked against the 4 checks
-- [ ] At least one PASS per decision group
-- [ ] FAILs documented with motivation
-- [ ] \`02-verification.md\` written with all hypotheses and verdicts
-
-**Ask**: "Verification done: {N} PASS, {M} FAIL, {K} REFINE. Detail: {summary}. Proceed to gather evidence?"
-
----
-
-## Phase 3: VALIDATE — gather evidence (Induction)
-
-**Goal**: empirical proof for PASS hypotheses. Facts only, no opinions.
-
-### Congruence Level (CL) — evidence strength
-
-| CL | Type | Example | Weight |
-|----|------|---------|--------|
-| **CL3** | Internal test (PoC, benchmark, spike) | "I wrote a benchmark, latency 5ms" | Max |
-| **CL2** | Codebase analysis (existing pattern) | "\`auth-service\` already uses this pattern, works" | Medium |
-| **CL1** | External research (docs, articles) | "The platform documentation recommends X" | Min |
-
-Always prefer CL3 > CL2 > CL1. CL1 alone is not enough for critical decisions.
-
-### Where to find evidence
-
-For a PRD produced by \`arch-brainstorm\`, the evidence is often **already partially cited** in the story (§2) or in the appendices (code references). Your job is to **verify** and **strengthen**, not to start over.
-
-1. Cite evidence **already in the PRD** at the highest possible level (e.g. "the pattern exists in \`auth-service\`" → verify with Grep)
-2. For hypotheses with weak evidence in the PRD, run a codebase analysis with Grep/Glob/Explore agent
-3. If a critical decision only has CL1 evidence (external research), **propose** doing a CL3 PoC first (or document the risk)
-
-### Actions
-
-For each PASS hypothesis (not FAIL):
-
-1. **Pick the best available strategy**
-2. **Gather evidence** with Grep/Glob/Bash/Explore agent if codebase checks are needed
-3. **Write \`03-validation.md\`**:
-
-\`\`\`markdown
----
-phase: 3
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-related_prd: ../../NN-<study>.md
-last_updated: <UTC ISO-8601>
-summary:
-  pass: <N>
-  fail: <N>
-  refine: <N>
----
-
-# Phase 3 — Validation (L1 → L2)
-
-## Initial entries
-
-### H1 — verdict: PASS (max CL reached: CL2)
-
-**E1**: Pub/sub self-sub pattern already exists in \`auth-service\`
-- **CL**: 2 (Codebase analysis)
-- **Source**: \`src/auth/events-controller.ts:35\`
-- **Result**: Identical pattern to the proposed one, in production for N months, 0 known incidents
-- **Verdict**: PASS
-
-**E2**: Platform pub/sub with retry/DLQ
-- **CL**: 1 (External research)
-- **Source**: Platform docs
-- **Result**: Recommended pattern, built-in retry
-- **Verdict**: PASS
-
-### H2 — Outbox table + worker — verdict: PASS
-
-**E1**: ...
-
-## Revisions
-\`\`\`
-
-### Phase 3 checkpoint
-
-- [ ] Every PASS hypothesis has at least one piece of evidence
-- [ ] Evidence documented with CL and source
-- [ ] \`03-validation.md\` written with all hypotheses and evidence
-
-**Ask**: "Evidence gathered. {H1} has CL{X}, {H3} has CL{Y}. Deepen any with a CL3 PoC or proceed to audit?"
-
----
-
-## Phase 4: AUDIT — Trust Calculus (R_eff)
-
-**Goal**: compute an objective reliability score for each validated hypothesis, detect biases, and produce an audit tree that makes the reasoning transparent.
-
-### The WLNK principle (Weakest Link)
-
-A hypothesis's reliability is NOT the mean of its evidence — it is the **minimum**. Three pieces of evidence at 0.9, 0.9, 0.2 give R_eff = **0.2**, not 0.67.
-
-Why: a chain is only as strong as its weakest link. If one piece of evidence is weak, the whole decision rests on that weakness.
-
-### R_eff calculation per hypothesis
-
-**Step 1 — base score per piece of evidence** (0.0–1.0):
-
-| Evidence verdict | Base score |
-|------------------|------------|
-| Strong PASS (clear numeric result) | 0.9–1.0 |
-| PASS (positive qualitative result) | 0.7–0.9 |
-| INCONCLUSIVE | 0.4–0.6 |
-| FAIL | 0.0–0.3 |
-
-**Step 2 — apply Congruence Level penalty**:
-
-| CL | Multiplier |
-|----|-----------|
-| CL3 (internal test) | × 1.0 |
-| CL2 (codebase pattern) | × 0.9 |
-| CL1 (external research) | × 0.7 |
-
-\`Score_adj = Score_base × CL_multiplier\`
-
-**Step 3 — apply WLNK**:
-
-\`R_eff(hypothesis) = MIN(Score_adj across all evidence)\`
-
-### Bias check
-
-Verify these common biases before proceeding:
-
-| Bias | Signal | Action |
-|------|--------|--------|
-| **Anchoring** | The first-generated hypothesis always wins | Reassess: did the others get enough evidence? |
-| **Confirmation** | Only supporting evidence is sought | Actively look for evidence AGAINST the favorite |
-| **Sunk cost** | "We already wrote the PRD on H1" | Time spent drafting is not a reason to pick it |
-| **Authority** | "The vendor says do it this way" | CL1 — external research has reduced weight |
-
-### Actions
-
-1. **Compute R_eff** per hypothesis using the formula above
-2. **Run the bias check** — answer every row honestly
-3. **Write \`04-audit.md\`**:
-
-\`\`\`markdown
----
-phase: 4
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-related_prd: ../../NN-<study>.md
-last_updated: <UTC ISO-8601>
-r_eff_min: <minimum across all hypotheses>
-r_eff_max: <maximum>
----
-
-# Phase 4 — Audit (Trust Calculus, R_eff via WLNK)
-
-## Comparison table (consolidated across all decision groups)
-
-| Hypothesis | R_eff | Weakest link | Bias check |
-|------------|-------|--------------|------------|
-| H1 | 0.53 | E2 (CL1 external docs) | none |
-| H2 | 0.72 | E1 (FAIL on edge case) | confirmation risk |
-| H3 | 0.40 | E1 (CL1 only, weak result) | anchoring |
-
-## Per-hypothesis breakdown
-
-### H1 — R_eff: 0.53
-
-| Evidence | Base score | CL | Adj score |
-|----------|------------|-----|-----------|
-| E1: auth-service pattern | 0.90 | CL2 (×0.9) | 0.81 |
-| E2: Platform docs | 0.75 | CL1 (×0.7) | 0.53 |
-
-**WLNK**: min(0.81, 0.53) = **0.53**
-**Weakest link**: E2 (external docs, CL1)
-**Bias check**:
-- Anchoring: <analysis>
-- Confirmation: <analysis>
-- Sunk cost: N/A
-- Authority: <analysis>
-
-### H2 — R_eff: …
-…(same template)
-
-## Pre-decision recommendation
-
-<If R_eff is low across all hypotheses, suggest gathering more CL3 evidence
-before deciding. If there is a clear winner, indicate it.>
-
-## Revisions
-\`\`\`
-
-### R_eff thresholds
-
-| R_eff | Meaning | Action |
-|-------|---------|--------|
-| ≥ 0.7 | **Strong** — solid evidence | Proceed to decision (PASS) |
-| 0.5–0.7 | **Sufficient** — acceptable evidence | Proceed but document the risks (PASS with warning) |
-| < 0.5 | **Weak** — insufficient evidence | FAIL — the PRD must be revised (return to \`arch-brainstorm\` with the gaps) |
-
-### Phase 4 checkpoint
-
-- [ ] R_eff computed per hypothesis
-- [ ] Bias check completed
-- [ ] \`04-audit.md\` written with comparison table, per-hypothesis breakdown, and pre-decision recommendation
-
-**Ask**: "Audit complete. H1 R_eff={R1}, … {recommendation}. Proceed to global decision?"
-
----
-
-## Phase 5: DECIDE — global PRD verdict
-
-**Goal**: give a verdict to the PRD **as a whole**, based on the aggregated R_eff of the key decisions.
-
-### Aggregation rule
-
-The PRD passes (\`validated\`) if:
-- **Every** H1 hypothesis (the ones chosen in the PRD) across all decision groups has R_eff ≥ 0.5 (minimum "Sufficient" threshold)
-- **No** H1 has a FAIL verdict in Phase 2
-- The bias check has not found critical problems
-
-The PRD fails (\`rejected\`) if:
-- At least one H1 has R_eff < 0.5 (Weak)
-- At least one H1 is FAIL in Phase 2
-- Critical bias check (e.g. evident Anchoring)
-
-The PRD needs revision (\`needs-revision\`, returns to \`draft\`) if:
-- An alternative rejected by the PRD has R_eff > R_eff of H1 (signal that the PRD picked the worst option)
-- The story omits important alternatives that the audit has identified as better
-
-### Actions
-
-1. **Compute the global verdict**
-
-2. **Write \`05-decision.md\`** (the DRR — final artifact of the cycle):
-
-\`\`\`markdown
----
-phase: 5
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-related_prd: ../../NN-<study>.md
-decided_at: <UTC ISO-8601>
-verdict: PASS | FAIL | NEEDS-REVISION
-r_eff_min: <minimum across H1 hypotheses>
-r_eff_avg: <average across H1 hypotheses>
----
-
-# Phase 5 — Decision (DRR)
-
-## Global verdict
-**Status**: PASS | FAIL | NEEDS-REVISION
-**Minimum R_eff (across H1 hypotheses)**: <number>
-**Average R_eff**: <number>
-
-## Rationale
-<Specific: why this verdict, with references to the decision groups in 04-audit.md.>
-
-## Residual risks (if PASS)
-- <R_eff pulled down by X — medium risk, mitigation suggested>
-- <Other risk>: <mitigation>
-
-## Proposed revisions (if FAIL or NEEDS-REVISION)
-- <What to revise in the PRD>
-- <Hypothesis to reconsider>
-- <CL3 evidence to produce>
-
-## Audit trail
-- Phase 0 (context): \`00-context.md\`
-- Phase 1 (hypotheses): \`01-hypotheses.md\`
-- Phase 2 (verification): \`02-verification.md\`
-- Phase 3 (validation): \`03-validation.md\`
-- Phase 4 (audit): \`04-audit.md\`
-- Validated PRD: \`../../NN-<study>.md\`
-\`\`\`
-
-3. **Update \`00-context.md\`** frontmatter — set \`verdict_phase5: PASS | FAIL | NEEDS-REVISION\` so subsequent \`qN-*\` commands recognise the cycle as closed.
-
-The algorithmic verdict is now computed and recorded. The human gate happens next in Phase 5.5; Phase 5 itself does not solicit user confirmation.
-
-### Phase 5 checkpoint
-
-- [ ] Global verdict computed
-- [ ] Rationale documented
-- [ ] Residual risks identified
-- [ ] Verdict written to \`00-context.md\` frontmatter
-
----
-
-## Phase 5.5: REVIEW & APPROVE — human gate (mandatory)
-
-**Goal**: separate "computer proposes" (Phase 5 algorithmic verdict) from
-"human disposes" (this phase). The architect must explicitly choose one of
-five actions before the PRD frontmatter is touched. There is no default —
-the skill stops and waits.
-
-### Pre-conditions
-
-- Phase 5 has produced a global verdict (PASS / FAIL / NEEDS-REVISION),
-  R_eff_min, R_eff_avg, and a rationale recorded in the audit report.
-
-### Post-conditions
-
-- \`05-decision.md\` (the audit's DRR file) contains a \`human_verdict\` field
-  in \`{ approve, reject, go-back, force-validated }\`. (Action 5 "Edit audit"
-  is a process loop, not a terminal verdict — see Action handlers below.)
-- If the human action diverges from the algorithmic verdict (action 4 —
-  force-validated), \`05-decision.md\` also has
-  \`validated_by: human-override\` with a free-text motivation captured
-  at the gate.
-
-### Action — present the recap block
-
-Render this block to the architect (substitute \`<...>\` placeholders from
-the audit produced in Phase 4 / Phase 5):
-
-\`\`\`
-═══════════════════════════════════════════════
-QUINT FPF — Recap prima della validazione
-═══════════════════════════════════════════════
-
-📋 Ipotesi raccolte (<N> gruppi)
-
-GRUPPO 1: <decision title>
-  H1 ★ <text>      R_eff <X>   <verdict>   ← scelta nel PRD
-  H2   <text>      R_eff <X>   <verdict>
-  H3   <text>      R_eff <X>   <verdict>
-
-GRUPPO 2: <decision title>
-  H1 ★ <text>      R_eff <X>   <verdict>   ← scelta nel PRD
-  H2   <text>      R_eff <X>   <verdict>
-
-📊 Verdetto algoritmico: <PASS | FAIL | CONDITIONAL PASS | NEEDS-REVISION>
-   R_eff_min = <X>
-   R_eff_avg = <X>
-
-⚠️  <weak-link warning if any: which H, which CL, why it matters>
-    <suggested mitigation, e.g. "PoC to lift CL1 → CL3">
-
-═══════════════════════════════════════════════
-
-Cosa vuoi fare? (scegli esplicitamente — nessun default)
-  [1] ✅ Valido        — accetto il verdetto, procedi a Phase 6
-  [2] ⛔ Rigetto       — segna \`rejected\`, riapro il PRD
-  [3] 🔁 Torna a Phase X (1-4) per revisionare
-  [4] 🛠️ Forza 'validated' (override umano)
-       → l'audit registra \`validated_by: human-override\` + motivazione
-  [5] 📝 Modifica l'audit prima del finalize
-\`\`\`
-
-### Action handlers
-
-| # | Action | Effect |
-|---|--------|--------|
-| 1 | Approve | Algorithmic verdict honored. Set \`human_verdict: approve\` in \`05-decision.md\` (the audit's DRR file). Proceed to Phase 6 with the verdict from Phase 5. |
-| 2 | Reject | Set \`human_verdict: reject\` in \`05-decision.md\` (the audit's DRR file) + capture motivation (mandatory free-text). PRD frontmatter set to \`status: rejected\` regardless of the algorithmic verdict. Skill exits — Polly resumes. |
-| 3 | Go back | Ask which phase (1-4). Mark prior contents for later phases as \`superseded\` in the audit (do NOT erase — keep the trace). Re-enter that phase. |
-| 4 | Force validated | Used when the algorithmic verdict is FAIL / NEEDS-REVISION / CONDITIONAL but the human accepts the risk. Capture motivation (mandatory free-text — "why are you overriding?"). Set \`human_verdict: force-validated\` and \`validated_by: human-override\` in \`05-decision.md\` (the audit's DRR file). Proceed to Phase 6 with \`status: validated\`. |
-| 5 | Edit audit | Pause Phase 5.5. Ask the user what to change in the audit. Apply edits (in conversation, not by spawning an editor). Recompute R_eff if any evidence/CL changed. Re-display the recap block with updated numbers. Loop until the user chooses 1, 2, 3, or 4. |
-
-### Phase 5.5 checkpoint
-
-- [ ] Recap block rendered with all decision groups + R_eff figures
-- [ ] User has explicitly chosen action 1, 2, 3, or 4 (no default firing)
-- [ ] If action 2 or 4: motivation captured and stored in \`human_verdict_motivation\`
-- [ ] Audit report updated with \`human_verdict\` (and \`validated_by\` if action 4)
-
-### Anti-patterns
-
-- **Skipping the recap and asking only "approve?"** — defeats the purpose
-  of the gate. The recap is the artifact that gives the human enough
-  context to disagree.
-- **Treating action 4 as exotic** — it is a first-class capability.
-  Present it neutrally, not as "going against the recommendation".
-- **Auto-firing action 1 because PASS is "obvious"** — there is no default
-  in this phase. PASS still requires an explicit click.
-
----
-
-## Phase 6: FINALIZE — update frontmatter and trigger sync
-
-**Goal**: finalize the process by updating the PRD state and triggering the next skill.
-
-### Actions for PASS verdict
-
-1. **Update the PRD frontmatter** (\`docs/prd/<area>/NN-<study>.md\`):
-
-**Pick the variant matching Phase 5.5's \`human_verdict\`** (read it from \`05-decision.md\` — see Phase 5.5 post-conditions for the canonical location of this field):
-
-If \`human_verdict: approve\` (algorithmic verdict honored):
+# arch-decision — PRD review with Haft
+
+Read the complete PRD and the constraints it cites. Reuse scope and authority
+already supplied by the operator. Input is an existing \`draft\` PRD at
+\`docs/prd/<area>/NN-<study>.md\`; use \`arch-brainstorm\` if the PRD is absent.
+For an already validated PRD, inspect the referenced decision before any
+operator-requested supersession; do not silently replace a binding choice.
+
+## Runtime and current basis
+
+Load sibling \`quint-fpf\` and follow its required-runtime check. If the \`haft\`
+MCP server or required skill is unavailable, stop and give
+\`create-nonoise --upgrade .\` and \`create-nonoise doctor .\`; no fallback.
+Read the installed Haft skills for exact interfaces and authority rules.
+Use \`h-status\` and exact artifact recovery to resume existing work. Historical
+\`docs/prd/*/audit/*-fpf/\` folders are evidence to inspect, never state to erase or
+a substitute for a current Haft decision. Keep the PRD \`draft\` while review runs.
+
+## Frame, variants and comparison
+
+This PRD validation has a durable receiving use: architecture projection and
+sprint planning must be able to recover the reviewed basis.
+
+1. Use \`h-frame\` to record the PRD's problem as a ProblemCard. Separate observed
+   signal, bounded context, hard constraints, optimization targets, observation
+   indicators and acceptance criteria. Retain the returned ID/path.
+2. Use \`h-explore\` to recover the PRD's proposed choice and materially different
+   alternatives. Label additional alternatives honestly. Record the portfolio
+   needed for this review, preserving returned option \`record_reference\` values
+   from candidate Notes when typed projection is applicable. Never invent IDs.
+3. Use \`h-compare\`: declare dimensions, parity conditions, evidence window,
+   missing-data policy and selection policy **before** scoring. Check constraints
+   and gather reproducible evidence; report gaps and the Pareto/non-dominated
+   set without turning a recommendation into a selection.
+4. Prepare a reviewed decision payload with rationale, counterargument, weakest
+   link, rejected alternatives, rollback, invariants, affected files, predictions
+   and validity as required by the installed \`h-decide\` contract. Include actual
+   problem/portfolio references. No binding write happens at this point.
+
+Follow kernel gates and errors. NONoise adds no scalar reliability formula or
+PASS threshold. Do not request confirmation between ordinary evidence steps.
+
+## Phase 5.5 — human review and binding request
+
+This gate is the operator request required by \`h-decide\`, not a second approval
+round after binding. Before binding or changing the PRD to \`validated/rejected\`,
+present a self-contained Human Gate Brief:
+
+- readable PRD and decision subject, exact effect and scope;
+- options, constraint exclusions, parity basis, declared selection policy,
+  Pareto set and concrete trade-offs;
+- evidence freshness, uncertainty, weakest links, counterargument and rollback;
+- advisory recommendation, with uncertain rationale prominently identified;
+- real choices: bind a specified option, reject the current set, gather more
+  evidence/revise, or defer. State consequences for each available choice.
+
+Accept a direct natural-language choice. There is no default; silence, a
+recommendation or "validate this PRD" without a specific choice cannot bind.
+If the operator already directly requested the exact current effect, subject,
+option and scope, route that request without a second confirmation. For multiple
+independent architectural choices, each must have its own explicit authority
+and DecisionRecord; never bundle ambiguous selections.
+
+A human may accept stated risks against the advisory recommendation. Preserve
+the rationale and mark \`validated_by: human-override\`; this cannot bypass a
+kernel constraint, invalid reference, or spec-binding conflict. Revise or gather
+more evidence when the kernel does not admit the requested effect.
+
+## Bind and project the PRD
+
+Follow installed \`h-decide\`: discover \`haft interface decision.decide --json\`,
+run \`haft_query(action="spec_binding_preflight", decision_draft=...)\`, resolve
+its applicable gates, then route the explicit choice through
+\`haft artifact create decision.decide --input-file <reviewed-input.json> --json\`.
+MCP \`haft_decision(action="decide")\` rejects binding and is not a shortcut.
+Record \`host_routed_operator_request\` honestly. Only successful kernel results
+establish an ID/path; recover the exact result on uncertain completion before
+retrying to avoid duplicate decisions.
+
+For acceptance set \`status: validated\`; for an explicit rejection of the set
+use the kernel's supported \`ChoiceResult\` (\`reject_current_set\`) and set
+\`status: rejected\` only once the rejection is recorded. Revision/defer leaves
+\`status: draft\`. Do not fabricate a DecisionRecord when binding fails.
+
+Preserve unrelated PRD fields and write this reference shape, using actual
+returned IDs and repository-root-relative carrier paths (arrays support multiple
+independent choice groups):
 
 \`\`\`yaml
----
 status: validated
-validated_at: YYYY-MM-DD          # today
-validated_by: "arch-decision (Quint FPF run <timestamp>)"
-# other fields unchanged
----
-\`\`\`
-
-If \`human_verdict: force-validated\` (human override applied):
-
-\`\`\`yaml
----
-status: validated
-validated_at: YYYY-MM-DD          # today
-validated_by: "arch-decision (Quint FPF run <timestamp>, human-override)"
-# other fields unchanged
----
-\`\`\`
-
-2. **Finalize the audit folder** (\`docs/prd/<area>/audit/NN-<study>-fpf/\`):
-   - \`05-decision.md\` already carries \`verdict: PASS\` and \`r_eff_min\` (written in Phase 5)
-   - \`00-context.md\` frontmatter \`verdict_phase5: PASS\` (set in Phase 5) marks the cycle as closed
-   - Make sure all 6 files (\`00-context.md\` through \`05-decision.md\`) exist with the expected sections; if any is missing, go back and complete it before finalising
-
-3. **Inform the architect** of the result, the impact on the source of truth, and next steps:
-
-\`\`\`
-✅ PRD successfully validated.
-
-**R_eff (min across H1 hypotheses)**: <number>
-**Verdict**: PASS
-**Audit folder**: \`docs/prd/<area>/audit/NN-<study>-fpf/\`
-**DRR**: \`docs/prd/<area>/audit/NN-<study>-fpf/05-decision.md\`
-
-**Impact on docs/architecture/** (use the strict format below — \`arch-sync\` parses it):
-
-- [file: 01-constraints.md] Add constraint: <one-line text>
-- [file: 03-patterns.md] Append pattern: <pattern-name> — <one-line description>
-- [file: 04-components.md] Add draft component: <component-name> — <role>
-- [file: 04-components.md] Mark: component <name> deprecated — <reason>
-- [file: 12-system-interactions.md] Add topic: <topic-name> publisher=<X> subscribers=<Y,Z>
-
-> Format rules: one bullet per impact. Each bullet starts with \`[file: <basename>]\` (basename only — file path is \`docs/architecture/<basename>\`). After the tag: an action verb in \`{Add, Append, Mark, Remove, Update}\` followed by \`: <payload>\`. Bullets that don't match the format are ignored by \`arch-sync\` (safe to mix in freeform notes).
-
-> **Canonical location**: this block is what the architect *sees in chat*. The same checklist (verbatim) MUST also be appended into \`05-decision.md\` under a new \`## Impact on docs/architecture/\` heading — that file is the authoritative source \`arch-sync\` reads. The chat block is a courtesy mirror; if the two diverge, \`05-decision.md\` wins.
-
-**Next step**:
-- Review and apply the impacts above to \`docs/architecture/\` — either manually, or by invoking \`arch-sync\` (Polly will offer this option on return)
-- When ready to promote the PRD to a sprint, invoke: \`sprint-manifest area <area> sprint <N>\`
-- If you have more studies to add to the area, invoke \`arch-brainstorm\` again.
-\`\`\`
-
-Populate the "Impact on docs/architecture/" section with concrete impacts extracted from the validated PRD, using the strict \`[file: NN.md]\` format. Examples:
-
-- \`[file: 04-components.md] Add draft component: notifications-worker — handles fan-out for email/SMS\`
-- \`[file: 01-constraints.md] Add constraint: always acknowledge events within 5s\`
-- \`[file: 03-patterns.md] Append pattern: outbox-table — for transactional cross-component writes\`
-
-Also append the same checklist (verbatim) into \`05-decision.md\` under a new \`## Impact on docs/architecture/\` heading at the end of the file. This is the canonical persisted location that \`arch-sync\` reads.
-
-### Actions for FAIL or NEEDS-REVISION verdict
-
-1. **Update the frontmatter**:
-
-\`\`\`yaml
----
-# for FAIL:
-status: rejected
 validated_at: YYYY-MM-DD
-validated_by: "arch-decision (Quint FPF run <timestamp>) — FAIL"
-
-# for NEEDS-REVISION:
-status: draft            # stays draft
-# add custom fields:
-last_audit_at: YYYY-MM-DD
-last_audit_verdict: NEEDS-REVISION
----
+validated_by: arch-decision (Haft, operator-requested)
+haft:
+  problems:
+    - id: <returned problem id>
+      path: .haft/problems/<returned filename>.md
+  solutions:
+    - id: <returned portfolio id>
+      path: .haft/solutions/<returned filename>.md
+  decisions:
+    - id: <returned decision id>
+      path: .haft/decisions/<returned filename>.md
 \`\`\`
 
-2. **Finalize the audit folder** — \`05-decision.md\` already carries \`verdict: FAIL | NEEDS-REVISION\` and the detailed list of proposed revisions; \`00-context.md\` frontmatter \`verdict_phase5\` is set accordingly.
+The canonical FPF record is \`.haft/\`; no per-phase audit folder is created.
+For an accepted PRD, put the derived \`## Impact on docs/architecture/\` checklist
+in the **PRD**, with bullets \`- [file: <basename>] Add|Append|Mark|Remove|Update:
+<payload>\`. This is a projection of the bound decision, not another decision
+register; cite its Haft refs. Do not append edits directly to Haft-owned carriers.
 
-3. **DO NOT suggest updates to \`docs/architecture/\`** — the source of truth must not be updated with rejected decisions.
-
-4. **Inform the architect**:
-
-\`\`\`
-⚠️ PRD not validated.
-
-**Minimum R_eff**: <number>
-**Verdict**: FAIL / NEEDS-REVISION
-**Audit folder**: \`docs/prd/<area>/audit/NN-<study>-fpf/\`
-**DRR**: \`docs/prd/<area>/audit/NN-<study>-fpf/05-decision.md\`
-
-**Proposed revisions**:
-- <list>
-
-**Next step**:
-- Revise the PRD addressing the points above
-- If a deep brainstorm on a specific decision is needed, invoke \`arch-brainstorm\`
-- When done with revisions, invoke \`arch-decision\` again on the same file
-\`\`\`
-
-### Phase 6 checkpoint
-
-- [ ] PRD frontmatter updated (validated | rejected | draft)
-- [ ] Audit folder \`docs/prd/<area>/audit/NN-<study>-fpf/\` contains all 6 files (\`00-context.md\` through \`05-decision.md\`)
-- [ ] \`00-context.md\` frontmatter \`verdict_phase5\` set (cycle marked closed)
-- [ ] On PASS: concrete "Impact on docs/architecture/" checklist produced in the strict \`[file: NN.md]\` format (parsable by \`arch-sync\`), AND appended verbatim to \`05-decision.md\` under \`## Impact on docs/architecture/\`
-- [ ] On PASS with \`human_verdict: force-validated\`: PRD \`validated_by\` includes the \`human-override\` marker
-- [ ] Architect informed of next steps with explicit paths to the audit folder and DRR
-
----
-
-## Resuming mid-flow
-
-If a partial audit folder already exists at \`audit/NN-<study>-fpf/\`:
-
-1. Read \`00-context.md\` first; if \`verdict_phase5\` is non-empty, the cycle is closed — confirm with the user before restarting
-2. Otherwise, identify the last completed phase by which \`NN-*.md\` files exist (the highest \`NN\` is the last finished phase)
-3. Summarize state to the user and ask:
-   - Continue from the next phase
-   - Restart from scratch (if the PRD's foundations have changed) — \`rm -rf\` the folder and re-run from Phase 1
-
----
-
-## Anti-patterns
-
-1. **Validating something that is not a PRD** — if the file lacks correct frontmatter or the "Decision story" section, stop and ask for it to be generated via \`arch-brainstorm\`
-2. **Fake hypotheses** — N variants of the same idea are not diversity
-3. **Weak evidence treated as strong proof** — CL1 does not beat CL3
-4. **Validating by inertia** — if evidence is insufficient, it is OK to say "FAIL, more analysis needed"
-5. **Over-engineering the audit** — small decisions do not need 6 phases. If the PRD covers a local choice, tell the architect "Quint FPF is overkill for this" and skip
-6. **Writing directly to \`docs/architecture/\`** — not this skill's job. The architect either applies the "Impact on docs/architecture/" checklist manually or invokes \`arch-sync\` (a sibling skill) to project it with diff preview. Keep audit and source-of-truth changes decoupled — they go in separate commits.
-7. **Creating drafts from scratch** — not this skill's job; delegate to \`arch-brainstorm\`
-
-## When NOT to use
-
-- The PRD does not exist yet → use \`arch-brainstorm\` first
-- Decisions already in the absolute constraints at \`docs/architecture/01-constraints.md\` → the PRD should already honor them; no FPF validation needed
-- Local choices that do not affect architecture (naming, formatting)
-- Bug fix → use \`superpowers:systematic-debugging\`
-
----
-
-## References
-
-- Sibling skill [\`quint-fpf\`](../quint-fpf/SKILL.md) — the underlying methodology, 6 phases, tooled/conversational modes
-- Sibling skill [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — step 1 (produces the PRD this skill validates)
-- Sibling skill \`sprint-manifest\` — step 3 (promotion to sprint)
-- Project source of truth: \`docs/architecture/\` (maintained manually by the architect)
+Return the verdict, readable artifact titles with IDs/paths, remaining risks and
+next steps. Offer \`arch-sync\` for the PRD checklist, with diff preview; never
+invoke it automatically. \`sprint-manifest\` retains the references when moving
+PRDs. Use \`h-verify\` later for observed outcomes and \`h-status\` for resumption.
 ",
   ".claude/skills/arch-sync/SKILL.md": "---
 name: arch-sync
-description: 'Generic projector of a validated PRD''s "Impact on docs/architecture/" checklist into the actual files. Reads the validated PRD plus its \`arch-decision\` audit folder (specifically \`05-decision.md\`), parses the strict \`[file: NN.md]\` format from the appended \`## Impact on docs/architecture/\` section, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under \`docs/architecture/sync-reports/\`. Stack-neutral — knows no target constraints, never validates anything, never reads source code. Triggers — invoked by Polly after \`arch-decision\` PASS (the architect chooses "Sì — invoco arch-sync" at the post-finalize menu); also invokable manually with phrases like "arch-sync <prd-path>", "project the validated PRD into docs/architecture/", "sync architecture from <prd-path>", "recepisci il PRD validato <path>".'
+description: 'Generic projector of a validated PRD''s "Impact on docs/architecture/" checklist into the actual files. Reads the validated PRD plus its referenced Haft DecisionRecords, parses the strict \`[file: NN.md]\` format from the appended \`## Impact on docs/architecture/\` section, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under \`docs/architecture/sync-reports/\`. Stack-neutral — knows no target constraints, never validates anything, never reads source code. Triggers — invoked by Polly after \`arch-decision\` PASS (the architect chooses "Sì — invoco arch-sync" at the post-finalize menu); also invokable manually with phrases like "arch-sync <prd-path>", "project the validated PRD into docs/architecture/", "sync architecture from <prd-path>", "recepisci il PRD validato <path>".'
 source: NONoise (generic distillation of the project-locked Andreani \`andreani-arch-docs\` mode M)
 variant: nonoise generic; stack-neutral; markdown-only
 ---
@@ -2047,7 +1243,7 @@ variant: nonoise generic; stack-neutral; markdown-only
 # arch-sync — project a validated PRD into \`docs/architecture/\`
 
 A *writer assistant* that turns the \`## Impact on docs/architecture/\` checklist
-(produced by \`arch-decision\` Phase 6 inside \`05-decision.md\`) into actual file
+(projected by \`arch-decision\` into the PRD after Haft binding) into actual file
 writes, with diff preview and per-file confirmation. Stack-neutral by design:
 it does not know what constitutes a valid constraint, pattern, or component
 for your project. That knowledge belongs in the human's head and, optionally,
@@ -2070,33 +1266,27 @@ principle of \`arch-decision\`.
 
 ## Inputs
 
-The skill expects two paths:
+Read \`prdPath\`, which must have \`status: validated\`, \`haft.decisions\` entries
+with actual IDs and repository-root-relative \`.haft/decisions/\` carrier paths,
+and an \`## Impact on docs/architecture/\` checklist. Resolve refs from the
+repository root even after the PRD moves to a sprint.
 
-- \`prdPath\` — absolute or repo-relative path to a PRD with frontmatter
-  \`status: validated\`
-- \`auditFolder\` — absolute or repo-relative path to the per-cycle audit
-  folder produced by \`arch-decision\` (e.g. \`docs/prd/<area>/audit/NN-<study>-fpf/\`).
-  Must contain \`05-decision.md\` (the DRR) with frontmatter
-  \`verdict: PASS\` AND a \`human_verdict\` field in \`{ approve, force-validated }\`.
-
-When invoked by Polly, both paths are passed in the handoff. When invoked
-manually, the skill first asks the architect for them — defaulting to the
-most recent files matching \`docs/prd/*/NN-*.md\` with \`status: validated\`.
-
-If either precondition fails (PRD not validated, \`human_verdict: reject\`,
-or \`human_verdict: go-back\`), **stop** and instruct the architect to use the
-correct flow (\`arch-decision\` first; rejected or in-progress decisions are
-not synced).
+Require the Haft MCP runtime as described in \`quint-fpf\`; if unavailable stop
+with \`create-nonoise --upgrade .\` and \`create-nonoise doctor .\`. Recover each
+exact decision with \`haft_query(action="related", artifact_ref=...)\`. Confirm
+that it is active, current and binds the accepted choice. Missing, rejected,
+superseded or ambiguous authority blocks only the affected projection; use
+\`arch-decision\` to resolve it. Never treat a legacy audit as current authority.
 
 ## Five-step flow
 
 ### Step 1 — READ
 
 1. Open the PRD at \`prdPath\`. Verify frontmatter \`status: validated\`.
-2. Open \`<auditFolder>/05-decision.md\`. Verify frontmatter \`verdict: PASS\`
-   and \`human_verdict ∈ { approve, force-validated }\`.
-3. Find the section \`## Impact on docs/architecture/\` inside \`05-decision.md\`
-   (Phase 6 of \`arch-decision\` appends it there).
+2. Recover the exact referenced Haft DecisionRecords and inspect their binding
+   scope and freshness. Do not mutate them.
+3. Find \`## Impact on docs/architecture/\` in the validated PRD and check that its
+   effects are supported by those records.
 4. Parse the strict-format bullets:
 
    \`\`\`
@@ -2151,18 +1341,16 @@ this frontmatter:
 title: "Sync report — <area>/<study>"
 kind: sync-report
 prd_source: <prdPath>
-audit_folder: <auditFolder>
+haft_decisions: <exact PRD haft.decisions references>
 synced_at: YYYY-MM-DD
 triggered_by: polly | manual
-r_eff: <X>
-verdict: PASS
-human_verdict: approve | force-validated
+status: validated
 ---
 \`\`\`
 
 Body sections:
 
-- **Source PRD** — path, area, study, validated_at, R_eff, human_verdict
+- **Source PRD** — path, area, study, validated_at, Haft decision refs, operator choice
 - **Diffs applied** — per file, the unified diff that was written
 - **Diffs rejected** — per file, the diff and the architect's reason if supplied
 - **Skipped bullets** — bullets from Step 1 that didn't match the strict
@@ -2197,10 +1385,6 @@ Then print to the architect:
 | Condition | Action |
 |-----------|--------|
 | \`prdPath\` frontmatter \`status\` is not \`validated\` | Stop. Instruct the architect to run \`arch-decision\` first. |
-| \`<auditFolder>/05-decision.md\` missing | Stop. Instruct the architect to re-run \`arch-decision\` Phase 5+. |
-| \`05-decision.md\` frontmatter \`verdict\` is not \`PASS\` | Stop. The decision was rejected or is incomplete; nothing to sync. |
-| \`05-decision.md\` \`human_verdict\` is \`reject\` or \`go-back\` | Stop. The architect did not approve this decision. |
-| \`05-decision.md\` missing the \`## Impact on docs/architecture/\` section | Stop. Instruct the architect to re-run \`arch-decision\` Phase 6 (or to manually append the section). |
 | Target file is git-dirty (uncommitted local changes) | Warn before showing the diff. The architect can still proceed. |
 | A target file already contains the same text being added (idempotency) | Skip silently — note in the sync report under "no-op (already present)". **Comparison rule**: trim trailing whitespace per line, collapse runs of blank lines to one, normalize markdown list markers (\`*\` → \`-\`); case-sensitive otherwise. Anything else counts as a real diff. |
 | Step 4 architect input doesn't parse | Re-prompt. Never interpret silence as "all" — always require explicit input. |
@@ -2218,7 +1402,7 @@ Then print to the architect:
 - **Silent failures** — if a file can't be written (permission denied,
   read-only filesystem), surface the error and stop the sync. Do not
   pretend partial success.
-- **Editing \`05-decision.md\`** — the audit is immutable history.
+- **Editing Haft carriers** — binding history belongs to Haft.
   \`arch-sync\` reads from it; never writes to it.
 
 ## Relationship with project-locked sync skills
@@ -2252,7 +1436,7 @@ The architect can either un-ignore the path or accept the risk explicitly.
 ## References
 
 - Sibling skill [\`arch-decision\`](../arch-decision/SKILL.md) — produces
-  the validated PRD + \`05-decision.md\` audit that \`arch-sync\` consumes
+  the validated PRD checklist + Haft references that \`arch-sync\` consumes
 - Sibling skill [\`quint-fpf\`](../quint-fpf/SKILL.md) — the FPF
   methodology that \`arch-decision\` runs to produce the audit
 - Sibling skill [\`c4-doc-writer\`](../c4-doc-writer/SKILL.md) — orthogonal
@@ -3434,7 +2618,7 @@ When Polly orchestrates the greenfield flow, Isa typically runs at step 3 (elici
 ",
   ".claude/skills/bmad-agent-architect/SKILL.md": "---
 name: bmad-agent-architect
-description: System architect and technical design leader. Use when the user asks to talk to Alex or requests the architect. Drives architecture brainstorming, formal validation (Quint FPF), source-of-truth documentation, implementation readiness checks, and LSP advice.
+description: System architect and technical design leader. Use when the user asks to talk to Alex or requests the architect. Drives architecture brainstorming, formal validation (Haft FPF), source-of-truth documentation, implementation readiness checks, and LSP advice.
 source: BMAD Method (https://github.com/bmadcode/BMAD-METHOD)
 variant: nonoise-bmad 2
 customization: persona retained verbatim; renamed Winston → Alex; BMAD framework glue removed; capabilities rewired to NONoise arch-* skills + LSP advisor
@@ -3472,7 +2656,7 @@ When you are in this persona and the user calls a skill, this persona must carry
 | Code | Description | Handoff |
 |------|-------------|---------|
 | BRA | Architecture brainstorming — explore options starting from a problem area | \`arch-brainstorm\` skill (fallback: inline if not installed) |
-| DEC | Formal validation of a PRD using Quint FPF (abduction → deduction → induction, R_eff via WLNK) | \`arch-decision\` skill (uses \`quint-fpf\` sub-skill) |
+| DEC | Formal validation of a PRD using Haft FPF (ProblemCard, variants, parity comparison and operator-bound DecisionRecord) | \`arch-decision\` skill (uses \`quint-fpf\` sub-skill) |
 | DOC | Apply post-validation changes to \`docs/architecture/\` (source of truth) after a PASS PRD | Inline — Alex opens each file listed in \`arch-decision\` Phase 6 "Impact" checklist and edits it manually |
 | IR | Implementation readiness check — verify PRD/UX/Architecture/Epics alignment | Inline (Alex reviews all docs in \`docs/\` and flags gaps) |
 | LSP | Suggest LSP plugins for the detected stack (Claude Code + Copilot commands, never auto-install) | Inline advisor — uses LSP matrix |
@@ -3543,7 +2727,7 @@ setup lsp
 ## Artifacts & output locations
 
 - Architecture options brainstorm → \`docs/prd/<area>/NN-<study>.md\` (handoff output from \`arch-brainstorm\`)
-- FPF audit of a validated PRD → \`docs/prd/<area>/audit/NN-<study>-fpf/\` (folder with one file per FPF phase, from \`arch-decision\`)
+- FPF records → \`.haft/problems/\`, \`.haft/solutions/\`, \`.haft/decisions/\`; PRD frontmatter links exact IDs and paths (from \`arch-decision\`).
 - Source-of-truth architecture → \`docs/architecture/\` (edited manually by Alex via DOC capability, after \`arch-decision\` PASS)
 - Readiness check report → \`docs/review/<date>-implementation-readiness.md\`
 
@@ -3568,6 +2752,12 @@ Alex has a **hard stance on canonical patterns** — MVC, Repository, CQRS/Media
 - In \`arch-decision\`, if the PRD proposes a non-canonical pattern, Alex requires the rationale to be written explicitly into the ADR. Alex does not block the choice — if the user can justify it (regulatory, legacy compatibility, measurable gain), the rationale becomes part of the record. But it is never implicit.
 - Alex extends the same rule to **library choices**: prefer dependencies whose source is visible — monorepo packages, vendored code, or umbrella projects — over opaque binary dependencies pulled from package registries. When a future agent has to debug behaviour, readable source wins over a black box every time.
 - Alex is a coach, not a blocker. The goal is that every non-canonical choice is a *conscious* choice, documented and costed.
+
+For architectural validation, route through \`arch-decision\` and the required Haft
+runtime via \`quint-fpf\`. Retain PRD \`haft\` IDs and repository-root-relative paths
+in handoffs/work items; do not copy \`.haft/\` records into an audit folder. If
+Haft is missing, stop that validation with \`create-nonoise --upgrade .\` and
+\`create-nonoise doctor .\`.
 ",
   ".claude/skills/bmad-agent-tech-writer/SKILL.md": "---
 name: bmad-agent-tech-writer
@@ -9955,6 +9145,13 @@ If \`repositories.json\` is present at project root (or \`nonoise.config.json\` 
 - \`references/external-tools.md\` — info-only mentions (claude-mem, Paseo, call transcriptions).
 - \`references/project-tools.md\` — bundled executables Polly may cite when the phase calls for them (\`md-extractor\`, \`devops-push\`, multi-repo scripts).
 - \`references/sdlc-flow.default.md\` — embedded fallback copy of the flow.
+
+Architectural validation requires the live Haft MCP server via \`quint-fpf\`.
+If missing, stop that operation with \`create-nonoise --upgrade .\` and
+\`create-nonoise doctor .\`; there is no manual FPF fallback. Hand off the PRD
+and its \`haft\` artifact references, never a duplicate audit folder. Phase 5.5
+is the explicit operator choice routed through \`h-decide\`; a recommendation
+is not permission to bind. Offer \`arch-sync\` only after an accepted binding.
 ",
   ".claude/skills/polly/references/external-tools.md": "# Polly — external tools Polly mentions
 
@@ -10148,13 +9345,9 @@ trade-offs explicitly.
 
 ### arch-decision (if ever absent)
 
-Destination: \`docs/architecture/adr/NNNN-<slug>.md\`.
-
-Manual fallback: use the ADR template (Context, Decision, Consequences) and
-apply the quint-fpf validation loop manually if \`quint-fpf\` is present.
-The skill also produces an "Impact on docs/architecture/" checklist — when
-doing it manually, list what changes in \`docs/architecture/\` folder files
-so the architect can apply the diff.
+Stop architectural validation. Restore the adapter and required Haft runtime:
+\`create-nonoise --upgrade .\`, then \`create-nonoise doctor .\` and reconnect the
+host MCP server. Do not substitute a hand-written ADR or conversational FPF.
 
 ### sprint-manifest (if ever absent)
 
@@ -10504,11 +9697,11 @@ Skip when: the feature fits an already-decided architecture.
 ## arch-decision
 
 \`\`\`prompt (it)
-Porta a decisione l'opzione architetturale <scelta> da docs/architecture/brainstorm/<file>.md. Esegui il processo arch-decision (incluso Quint FPF) e pubblica l'ADR finale in docs/architecture/decisions/. Procedi.
+Valuta il PRD draft docs/prd/<area>/<file>.md con arch-decision e Haft: ProblemCard, varianti e confronto. Presenta il gate 5.5; vincola una DecisionRecord in .haft/decisions/ solo su mia richiesta esplicita della scelta e aggiorna i riferimenti del PRD.
 \`\`\`
 
 \`\`\`prompt (en)
-Drive option <choice> from docs/architecture/brainstorm/<file>.md to a decision. Run the arch-decision process (including Quint FPF) and publish the final ADR under docs/architecture/decisions/. Proceed.
+Review draft docs/prd/<area>/<file>.md through arch-decision and Haft: ProblemCard, variants and comparison. Present Phase 5.5; bind a DecisionRecord in .haft/decisions/ only on my explicit choice request and update PRD references.
 \`\`\`
 
 ## arch-sync
@@ -10557,1794 +9750,69 @@ Vendor skill identifiers such as \`superpowers:writing-plans\` resolve through t
 ",
   ".claude/skills/quint-fpf/SKILL.md": "---
 name: quint-fpf
-description: Quint First Principles Framework — structured reasoning methodology with 6 phases (Initialize → Abduct → Deduce → Induce → Audit → Decide), R_eff via WLNK, and Congruence Level tracking. Use when you need to formally validate an architectural decision, a PRD, or any non-trivial claim. Invokable standalone or delegated from other skills (e.g. \`arch-decision\`). Every phase emits a dedicated markdown file under a single per-cycle folder so the entire reasoning trail is human-readable, git-diffable, and removable in one \`rm -rf\`. Has two execution modes — tooled (quint MCP server enforces holon state in \`.quint/\`) and conversational (markdown-only) — but the document trail is produced in both.
-source: Quint FPF (First Principles Framework) — methodology developed in NONoise reference-project
-variant: nonoise-bmad 2 adjacent; standalone reusable skill
-customization: extracted from arch-decision; bundled with q-* slash commands; dual-mode execution; per-phase markdown emission
+description: NONoise adapter for Haft FPF reasoning, architectural comparisons, recorded decisions and evidence verification. Routes to installed h-* skills and the haft MCP server; requires Haft and never substitutes a Markdown-only validation.
 ---
 
-# quint-fpf
-
-A formal reasoning methodology that turns opaque decisions into auditable chains of reasoning. Extract claims, verify logic, validate empirically, audit evidence, decide. Each phase has clear pre/post conditions and produces a recorded artifact.
-
-## When to use
-
-- **Architectural decisions** — invoked by \`arch-decision\` after a PRD is drafted
-- **Formal validation** — any time the user says "let's stress-test this", "is this actually correct?", "what could go wrong"
-- **Evidence-based claims** — when writing an ADR, a compliance assessment, a post-mortem
-- **Stand-alone** — via slash commands \`/q0-init\` through \`/q5-decide\` when the user wants a full FPF cycle
-
-## Universal output contract
-
-Every phase emits a dedicated markdown file under a single per-cycle folder. This trail is the canonical human-readable record — what gets reviewed, diffed in git, and removed in one operation when a cycle is abandoned. The folder layout is identical regardless of mode; only the auxiliary state in \`.quint/\` differs.
-
-### Output folder resolution
-
-\`/q0-init\` resolves the output directory in this order:
-
-1. **Caller-supplied path** — if invoked from a parent skill that passes \`--target <path>\` (e.g. \`arch-decision\` passes \`docs/prd/<area>/audit/NN-<study>-fpf/\`), use that path verbatim.
-2. **Manual override** — if the user passes \`--slug <slug>\`, use \`docs/fpf/<slug>/\`.
-3. **Auto-derived** — otherwise, derive a kebab-case slug from the user's problem statement (2–3 keywords), use \`docs/fpf/<slug>/\`. If the problem statement is too vague to derive a slug, ask the user once.
-
-The resolved path is recorded in \`00-context.md\` frontmatter as \`output_dir:\` so subsequent phases locate it without re-deriving. Subsequent \`qN-*\` commands find the active cycle by:
-
-1. If \`.quint/context.md\` exists (tooled mode), read the active cycle path from there.
-2. Otherwise, scan \`**/00-context.md\` files matching \`docs/fpf/*/\` and \`docs/prd/*/audit/*-fpf/\`, pick the most recent whose \`verdict_phase5\` frontmatter is empty (cycle not closed). If multiple candidates remain, ask the user which to continue.
-3. If none is found, return: "No active FPF cycle. Run \`/q0-init\` first."
-
-### File-per-phase layout
-
-\`\`\`
-<output_dir>/
-├── 00-context.md       ← /q0-init
-├── 01-hypotheses.md    ← /q1-hypothesize, /q1-add (append)
-├── 02-verification.md  ← /q2-verify
-├── 03-validation.md    ← /q3-validate
-├── 04-audit.md         ← /q4-audit
-└── 05-decision.md      ← /q5-decide  (DRR — final verdict)
-\`\`\`
-
-Each file uses a rigid template defined in its corresponding command file under \`commands/\`. On re-runs, new entries are appended under a \`## Revisions\` section with a UTC ISO-8601 timestamp; **initial entries are never overwritten** — the audit trail preserves history.
-
-## Two execution modes
-
-The two modes differ only in **auxiliary state**, not in document output:
-
-### 🟢 Tooled mode (preferred)
-
-If the **quint MCP server** is installed and exposes \`quint_*\` tools, delegate to the bundled slash commands. The tools persist holon state in \`.quint/\` (queryable, with R_eff computed via WLNK). The markdown trail in \`<output_dir>/\` is written **in parallel** with the tool calls.
-
-| Phase | Command | MCP tool (tooled) | Markdown file |
-|---|---|---|---|
-| 0. Initialize | \`/q0-init\` | \`quint_init\`, \`quint_record_context\` | \`00-context.md\` |
-| 1. Abduct | \`/q1-hypothesize\` | \`quint_propose\` | \`01-hypotheses.md\` |
-| 1. Add single | \`/q1-add\` | \`quint_propose\` | \`01-hypotheses.md\` (append) |
-| 2. Deduce | \`/q2-verify\` | \`quint_verify\` | \`02-verification.md\` |
-| 3. Induce | \`/q3-validate\` | \`quint_test\` | \`03-validation.md\` |
-| 4. Audit | \`/q4-audit\` | \`quint_calculate_r\`, \`quint_audit_tree\`, \`quint_audit\` | \`04-audit.md\` |
-| 5. Decide | \`/q5-decide\` | \`quint_decide\` | \`05-decision.md\` |
-| Support: query | \`/q-query\` | \`quint_query\` | — |
-| Support: status | \`/q-status\` | — | — |
-| Support: decay | \`/q-decay\` | \`quint_decay\` | — |
-| Support: actualize | \`/q-actualize\` | \`quint_actualize\` | — |
-| Support: reset | \`/q-reset\` | \`quint_reset\` | — |
-
-In tooled mode, methodology discipline is **enforced by the tools**: hypotheses only discussed in prose are not promotable in \`.quint/\`; verdicts must be exactly \`PASS|FAIL|REFINE\`. The markdown documents what the tools recorded — it does not replace tool calls.
-
-### 🟡 Conversational mode
-
-When the quint MCP server is **not** installed, the slash commands apply the same methodology purely against the markdown files. You lose:
-- Programmatic R_eff via WLNK (you reason about reliability manually following the same rules)
-- Queryable holon state (you re-read \`01-hypotheses.md\` etc.)
-- Cross-dependency audit tree (you note dependencies inline in prose)
-
-You keep:
-- **Identical document trail and rigid file templates** — the markdown is the same in both modes
-- Same 6-phase discipline and same checkpoints
-- Migratability — the markdown can be replayed into tooled mode later by running \`quint_init\` + the corresponding tool calls
-
-Detect mode with a quick probe: if \`/q-status\` works or \`.quint/\` exists in the repo root, you're in tooled mode.
-
-## Core concepts (both modes)
-
-### Bounded Context (Phase 0)
-Scope of the reasoning session: vocabulary, invariants, constraints. *Example: "User = registered customer. Invariant: latency < 100ms. Stack: Postgres."*
-
-### Holon (unit of reasoning)
-A holon is a single claim (hypothesis, fact, decision). Each has:
-- \`title\` — short name
-- \`content\` — the Method (how it works)
-- \`scope\` — claim scope (where it applies)
-- \`kind\` — \`system\` (code/architecture) or \`episteme\` (process/doc)
-- \`rationale\` — structured JSON: \`{anomaly, approach, alternatives_rejected}\`
-- \`level\` — \`L0\` (abduction / candidate) → \`L1\` (substantiated) → \`L2\` (validated)
-- \`depends_on\` — array of holon IDs this one requires
-- \`decision_context\` — parent decision holon, groups alternatives
-
-### Relations
-- **ComponentOf** (for \`system\`) — "X is a component of Y; X failure degrades Y"
-- **ConstituentOf** (for \`episteme\`) — "X is a constituent of Y; X error invalidates Y"
-- **MemberOf** — groups alternatives under a \`decision_context\`
-
-### Congruence Level (CL, 1–3)
-When declaring a dependency, specify how similar the contexts are:
-- **CL3** — same context (0% penalty on propagated R_eff)
-- **CL2** — similar context (10% penalty)
-- **CL1** — different context (30% penalty)
-
-### R_eff (effective reliability)
-Computed at Phase 4 via **WLNK** (Weighted Log-Normalized Knowledge). Properties:
-- Parent R_eff ≤ min(dependency R_eff) after CL discount
-- A single weak dependency caps the whole decision
-- Revealed as a numeric score; thresholds are project-dependent (commonly R_eff ≥ 0.7 for validated)
-
-## Phase-by-phase contract
-
-### Phase 0 — Initialize
-- **Pre**: none
-- **Post**: \`.quint/\` exists AND context recorded
-- **Invariant**: initialization is idempotent
-- **Goal**: establish the Bounded Context
-
-### Phase 1 — Abduct (Hypothesize)
-- **Pre**: Phase 0 complete
-- **Post**: ≥1 L0 hypothesis exists
-- **Invariant**: hypotheses have \`kind ∈ {system, episteme}\`
-- **Goal**: generate 3–5 plausible competing hypotheses (NQD — Diversity: at least one Conservative + one Radical)
-
-### Phase 2 — Deduce (Verify)
-- **Pre**: ≥1 L0 hypothesis
-- **Post**: each L0 processed → L1 (PASS) OR invalid (FAIL) OR L0 with feedback (REFINE)
-- **Invariant**: verdict ∈ {PASS, FAIL, REFINE}
-- **Goal**: logical verification — type check, constraint check, consistency. No empirical evidence yet, pure reasoning.
-
-### Phase 3 — Induce (Validate)
-- **Pre**: ≥1 L1 hypothesis
-- **Post**: each L1 processed → L2 with evidence OR stays L1 pending OR invalid
-- **Goal**: empirical validation — look for evidence in the codebase, external research, benchmarks, prior art. Attach \`evidence_json\` to each validation.
-
-### Phase 4 — Audit
-- **Pre**: ≥1 L2 hypothesis
-- **Post**: R_eff computed for every holon; audit tree produced
-- **Goal**: propagate WLNK through the dependency graph. Identify weak links that cap the decision.
-
-### Phase 5 — Decide
-- **Pre**: audit tree complete
-- **Post**: decision holon written with rationale referencing audited evidence
-- **Goal**: choose among the validated candidates; record rejected alternatives with reason.
-
-## How other skills invoke quint-fpf
-
-An invoking skill (e.g. \`arch-decision\`) passes:
-
-- **Input PRD path** — the document to validate (produced by \`arch-brainstorm\` or equivalent)
-- **Target output folder** via \`--target <path>\` — where the per-phase markdown trail lives (e.g. \`arch-decision\` passes \`docs/prd/<area>/audit/NN-<study>-fpf/\`)
-- **Scope** — subset of the PRD to validate (optional; default: whole PRD)
-- **Mode** — \`tooled\` | \`conversational\` | \`auto\` (default: \`auto\`)
-
-quint-fpf then:
-1. Runs Phase 0 (\`/q0-init --target <path>\`) seeded from PRD intro + any \`_bmad/_config\` / \`nonoise.config.json\`
-2. Extracts claims from the PRD as Phase 1 L0 hypotheses (\`/q1-hypothesize\` writes \`01-hypotheses.md\`)
-3. Runs Phases 2–4 (each writes its \`0N-*.md\` file in \`<target>/\`)
-4. Returns a decision artifact at \`<target>/05-decision.md\` (the DRR). In tooled mode, also persisted in \`.quint/decisions/\`.
-
-The invoking skill is responsible for reading \`05-decision.md\` and acting on it (e.g. \`arch-decision\` sets the PRD frontmatter to \`validated\` or \`rejected\` based on the \`verdict\` field of the DRR frontmatter).
-
-> **Note on opinionated wrappers**: when invoked by \`arch-decision\`, the generic Phase 5 (DECIDE) is followed by \`arch-decision\`'s own Phase 5.5 (REVIEW & APPROVE) — a human gate with override capability that writes a \`human_verdict\` field into \`05-decision.md\`. \`quint-fpf\` itself stays generic and does not enforce the gate; the opinionated UX is owned by the wrapper.
-
-## Slash commands (bundled)
-
-The 12 command files in \`commands/\` are copied to the project's \`.claude/commands/\` during scaffold. They exist to make FPF usable directly via \`/qN-phase\` by a human user, not only as a sub-skill invocation.
-
-## Rules
-
-- **Document trail is mandatory in BOTH modes**. After every phase, the corresponding markdown file under \`<output_dir>/\` MUST exist (or be appended to). This trail is the canonical human-readable record of the cycle. Skipping it — even when running in tooled mode and recording state in \`.quint/\` — is a **protocol violation**.
-- **Tool calls are mandatory in tooled mode**. Mental notes or prose do NOT change holon state. Claiming "I verified the hypothesis" without calling \`quint_verify\` is a **protocol violation**. The markdown trail records what the tools recorded; it never substitutes for them in tooled mode.
-- **Verdicts are exact strings** — \`PASS\`, \`FAIL\`, \`REFINE\`. No paraphrasing.
-- **Levels don't skip** — you cannot promote a holon from L0 to L2 directly. Always go through L1.
-- **WLNK respects CL** — if you link dependencies, specify CL honestly; inflating CL masks real risk.
-- **Initial entries are immutable** — re-runs append under \`## Revisions ### <UTC timestamp>\`; never overwrite the original entries.
-
-## MCP server installation note
-
-The quint MCP server is not part of NONoise v1. Users who want tooled mode install it separately following the upstream Quint project documentation. Reference: the q-* command files in \`commands/\` document the exact tool signatures expected.
-
-In v1 of NONoise, \`arch-decision\` and \`quint-fpf\` operate in conversational mode by default and upgrade automatically if the MCP is detected.
-
-## Out of scope (v1)
-
-- Packaging the quint MCP server itself (separate project).
-- Migrating conversational-mode markdown artifacts into tooled state when MCP gets installed later (manual replay).
-- Custom WLNK weighting per project (uses upstream defaults).
-",
-  ".claude/skills/quint-fpf/commands/q-actualize.md": "---
-description: "Reconcile the project's FPF state with recent repository changes."
----
-
-# Actualize Knowledge Base
-
-This command is a core part of maintaining a living assurance case. It helps you keep your FPF knowledge base (\`.quint/\`) in sync with the evolving reality of your project's codebase.
-
-The command performs a three-part audit against recent git changes to surface potential context drift, stale evidence, and outdated decisions. This aligns with the **Observe** phase of the FPF Canonical Evolution Loop (B.4) and helps manage **Epistemic Debt** (B.3.4).
-
-The LLM persona for this command is the **Actualizer**.
-
-## Instruction
-
-1.  **Execute Actualization:**
-    -   The Actualizer **MUST** first execute the \`quint_actualize\` tool.
-    -   This tool will automatically:
-        -   Identify the baseline commit from the FPF state.
-        -   Perform any necessary legacy migrations.
-        -   Generate a report of all file changes since the last actualization.
-        -   Update the FPF state baseline to the current \`HEAD\`.
-
-2.  **Analyze Report for Context Drift:**
-    -   Review the \`quint_actualize\` report for changes to core project configuration files (e.g., \`package.json\`, \`go.mod\`, \`Dockerfile\`, \`pom.xml\`).
-    -   If these files have changed, re-run the context analysis logic from \`/q0-init\` to generate a "current context" summary.
-    -   Present a diff between the detected current context and the contents of \`.quint/context.md\`.
-    -   Ask the user if they want to update the \`context.md\` file.
-
-3.  **Analyze Report for Evidence Staleness (Epistemic Debt):**
-    -   Cross-reference the list of changed files from the report against the \`carrier_ref\` of all evidence files in \`.quint/evidence/\`.
-    -   If a referenced file is in the changed list, flag the evidence as **stale**.
-    -   Compile all stale evidence into a "Stale Evidence Report," noting which hypotheses or decisions are affected.
-
-4.  **Analyze Report for Decision Relevance:**
-    -   Trace the justification of all decision records (\`DRR*\` in \`.quint/decisions/\`) back to their source evidence and carrier files.
-    -   If any foundational source files appear in the change report, flag the decision record as **"Potentially Outdated"**.
-    -   Compile these into a "Decisions to Review" report.
-
-5.  **Present Findings:**
-    -   Summarize the analysis in a clear, actionable report:
-        -   **Context Drift:** (if any) Diff and prompt for update.
-        -   **Stale Evidence:** List of evidence needing re-validation via \`/q3-validate\`.
-        -   **Decisions to Review:** List of decisions needing re-evaluation via \`/q1-hypothesize\`.
-",
-  ".claude/skills/quint-fpf/commands/q-decay.md": "# q-decay: Evidence Freshness Management
-
-## Intent
-
-Manages **evidence freshness** by identifying stale decisions and providing governance actions. Implements FPF B.3.4 (Evidence Decay).
-
-**Key principle:** Evidence is perishable. Decisions built on expired evidence carry hidden risk.
-
----
-
-## Quick Concepts
-
-### What is "stale" evidence?
-
-Every piece of evidence has a \`valid_until\` date. A benchmark from 6 months ago may no longer reflect current system performance. A security audit from before a major dependency update doesn't account for new vulnerabilities.
-
-When evidence expires, the decision it supports becomes **questionable** — not necessarily wrong, just unverified.
-
-### What is "waiving"?
-
-**Waiving = "I know this evidence is stale, I accept the risk temporarily."**
-
-Use it when:
-- You're about to launch and don't have time to re-run all tests
-- The evidence is only slightly expired and probably still valid
-- You have a scheduled date to refresh it properly
-
-A waiver is NOT ignoring the problem — it's **explicitly documenting** that you know about the risk and accept it until a specific date.
-
-### The Three Actions
-
-| Situation | Action | What it does |
-|-----------|--------|--------------|
-| Evidence is old but decision is still good | **Refresh** | Re-run the test, get fresh evidence |
-| Decision is obsolete, needs rethinking | **Deprecate** | Downgrade hypothesis, restart evaluation |
-| Accept risk temporarily | **Waive** | Record the risk acceptance with deadline |
-
----
-
-## Natural Language Usage
-
-**You don't need to memorize evidence IDs or tool parameters.** Just describe what you want.
-
-### Example Workflow
-
-\`\`\`
-User: /q-decay
-
-Agent shows report:
-## Evidence Freshness Report
-
-### STALE (1 holon requires action)
-
-#### Use Redis for Caching (L2)
-| ID | Type | Status | Details |
-|----|------|--------|---------|
-| ev-benchmark-2024-06-15 | validation | EXPIRED | 180 days overdue |
-| ev-load-test-2024-06-20 | validation | EXPIRED | 175 days overdue |
-
-Actions:
-  → Refresh: /q3-validate hypothesis-redis-caching
-  → Deprecate: Tell me to deprecate this decision
-  → Waive: Tell me which evidence to waive and until when
-\`\`\`
-
-Now the user can respond naturally:
-
-\`\`\`
-User: Waive the benchmark until February, we'll re-run it after the migration.
-\`\`\`
-
-The agent reads the context, finds the matching evidence ID, and calls:
-\`\`\`
-quint_check_decay(
-    waive_id: "ev-benchmark-2024-06-15",
-    waive_until: "2025-02-01",
-    waive_rationale: "Will re-run after the migration"
-)
-\`\`\`
-
-**You don't need to copy IDs. Just reference what you mean.**
-
-### More Natural Examples
-
-\`\`\`
-User: /q-decay
-
-[sees report with stale evidence]
-
-User: We're launching next week. Waive everything until January 15th,
-      we have a full test cycle scheduled for January 20th.
-
-Agent: I'll waive both pieces of expired evidence until 2025-01-15
-       with rationale "Launch deadline, full test cycle scheduled Jan 20"
-
-       [calls quint_check_decay for each]
-
----
-
-User: The vendor API is being discontinued. Deprecate that decision.
-
-Agent: Deprecating hypothesis-vendor-api from L2 to L1.
-       You'll need to run /q1-hypothesize to explore alternatives.
-
----
-
-User: The load test is only 2 weeks overdue, I think it's still valid.
-      Can we just refresh it?
-
-Agent: Running /q3-validate to refresh the evidence for hypothesis-redis-caching.
-       [calls quint_test]
-\`\`\`
-
----
-
-## How Evidence IDs Work
-
-Evidence IDs are generated automatically when tests run:
-- Format: \`ev-{type}-{date}\` (e.g., \`ev-benchmark-2024-06-15\`)
-- Shown in the freshness report
-- **You don't need to remember them** — describe what you want, the agent finds the right ID
-
-If you want to be explicit, you can use the full syntax:
-\`\`\`
-User: /q-decay --waive ev-benchmark-2024-06-15 --until 2025-02-01 --rationale "Migration pending"
-\`\`\`
-
-But natural language works fine:
-\`\`\`
-User: Waive the benchmark until February, migration is pending.
-\`\`\`
-
----
-
-## Detailed Actions
-
-### Refresh (via /q3-validate)
-
-**When:** Evidence is stale, but the decision is still correct. You just need fresh proof.
-
-**What happens:**
-1. Agent calls \`quint_test\` on the hypothesis
-2. New evidence is recorded with a fresh \`valid_until\` date
-3. Holon status changes from STALE to FRESH
-
-**Example:**
-\`\`\`
-User: The Redis benchmark is 6 months old but Redis is still the right choice.
-      Can we refresh the evidence?
-
-Agent: Running validation for hypothesis-redis-caching...
-       [executes benchmark]
-       Evidence refreshed. Hypothesis remains at L2 with fresh evidence valid until 2025-06-21.
-\`\`\`
-
-### Deprecate
-
-**When:** The decision itself is questionable. The world has changed, you need to reconsider.
-
-**What happens:**
-1. Hypothesis moves down one level (L2→L1 or L1→L0)
-2. Audit log records who deprecated it and why
-3. You're prompted to run \`/q1-hypothesize\` to explore alternatives
-
-**Example:**
-\`\`\`
-User: AWS announced they're deprecating this service. Deprecate our decision to use it.
-
-Agent: Deprecated: hypothesis-aws-service L2 → L1
-
-       This decision now requires re-evaluation.
-       Next step: Run /q1-hypothesize to explore alternatives.
-\`\`\`
-
-### Waive
-
-**When:** You know the evidence is stale, you accept the risk temporarily.
-
-**What happens:**
-1. Waiver is recorded with: who, until when, why
-2. Evidence no longer shows as STALE (shows as WAIVED)
-3. When waiver expires, evidence returns to STALE status
-4. Full audit trail preserved
-
-**Example:**
-\`\`\`
-User: We're launching Tuesday. Waive the security audit until the 15th,
-      we have a re-audit scheduled for the 20th.
-
-Agent: Waiver recorded:
-       - Evidence: ev-security-audit-2024-03
-       - Waived until: 2025-01-15
-       - Rationale: Launch deadline. Re-audit scheduled for the 20th.
-
-       ⚠️ This evidence returns to EXPIRED status after 2025-01-15.
-\`\`\`
-
----
-
-## Tool Reference (for understanding, not memorization)
-
-### \`quint_check_decay\`
-
-The agent translates your natural language into these parameters:
-
-| Parameter | What it means |
-|-----------|--------------|
-| (none) | Show the freshness report |
-| \`deprecate\` | Which hypothesis to downgrade |
-| \`waive_id\` | Which evidence to waive |
-| \`waive_until\` | When the waiver expires (YYYY-MM-DD) |
-| \`waive_rationale\` | Why you're accepting this risk |
-
----
-
-## WLNK Principle
-
-A holon is **STALE** if *any* of its evidence is expired (and not waived).
-
-This is the Weakest Link (WLNK) principle: reliability = min(all evidence). One stale piece makes the whole decision questionable.
-
----
-
-## Audit Trail
-
-All actions are logged for accountability:
-
-| Action | What's Recorded |
-|--------|-----------------|
-| Deprecate | from_layer, to_layer, who, when |
-| Waive | evidence_id, until_date, rationale, who, when |
-
-Waivers are stored in a dedicated table — you can query "who waived what and why" at any time.
-
----
-
-## Common Workflows
-
-### Weekly Maintenance
-\`\`\`
-/q-decay                    # See what's stale
-# For each stale item, tell the agent: refresh, deprecate, or waive
-\`\`\`
-
-### Pre-Release
-\`\`\`
-/q-decay                    # Check for stale decisions
-# Either refresh evidence or explicitly waive with documented rationale
-# Waiver rationales become part of release documentation
-\`\`\`
-
-### After Major Change
-\`\`\`
-# Dependency update, API change, security advisory...
-/q-decay                    # See what's affected
-# Deprecate obsolete decisions
-# Start new hypothesis cycle for replacements
-\`\`\`
-",
-  ".claude/skills/quint-fpf/commands/q-query.md": "---
-description: "Search knowledge base"
-required_tools: ["quint_calculate_r", "quint_audit_tree"]
----
-
-# Query Knowledge
-
-Search the FPF knowledge base and display holon details with assurance information.
-
-## Action (Run-Time)
-
-1. **Search** \`.quint/knowledge\` and \`.quint/decisions\` by user query.
-2. **For each found holon**, display:
-   - Basic info: title, layer (L0/L1/L2), kind, scope
-   - If layer >= L1: call \`quint_calculate_r\` → show R_eff
-   - If has dependencies: call \`quint_audit_tree\` → show dependency graph
-   - Evidence summary if exists
-3. **Present results** in table format.
-
-## Output Format
-
-\`\`\`
-## Search Results for "<query>"
-
-| Holon | Layer | Kind | R_eff |
-|-------|-------|------|-------|
-| redis-caching | L2 | system | 0.85 |
-| cdn-edge | L2 | system | 0.72 |
-
-### redis-caching
-[redis-caching R:0.85] Use Redis for Caching
-  --(CL:3)-->
-    [perf-test R:0.90] Performance Test Evidence
-
-R_eff Breakdown:
-- Self Score: 1.00
-- Weakest Link: perf-test (0.90)
-- Final: 0.85
-\`\`\`
-
-## Tool Guide
-
-### \`quint_calculate_r\`
-Computes R_eff with detailed breakdown.
-- **holon_id**: The holon to calculate.
-- *Returns:* R_eff score, self score, weakest link, decay penalties.
-
-### \`quint_audit_tree\`
-Visualizes the assurance tree.
-- **holon_id**: The root holon to audit.
-- *Returns:* ASCII tree with R-scores, CL levels, and penalty warnings.
-
-## Examples
-
-**Search by keyword:**
-\`\`\`
-/q-query caching
-→ Finds all holons matching "caching"
-→ Shows R_eff for each L1+ holon
-\`\`\`
-
-**Query specific holon:**
-\`\`\`
-/q-query redis-caching
-→ Shows full details for redis-caching
-→ Displays dependency tree
-→ Shows R_eff breakdown
-\`\`\`
-
-**Query decisions:**
-\`\`\`
-/q-query DRR
-→ Lists all Design Rationale Records
-→ Shows what each DRR selected/rejected
-\`\`\`
-",
-  ".claude/skills/quint-fpf/commands/q-reset.md": "---
-description: "Reset the FPF cycle"
----
-
-# Reset Cycle
-
-## Instruction
-1.  **Action:**
-    -   Use \`quint_decide\` with a "No Decision / Reset" payload to cleanly archive the current session and return to IDLE.
-    -   State is managed in SQLite (\`quint.db\`) and cannot be manually modified.
-",
-  ".claude/skills/quint-fpf/commands/q-status.md": "---
-description: "Show FPF status"
----
-
-# Status Check
-
-## Action (Run-Time)
-1.  Call \`quint_status\` to get the current phase.
-2.  Count hypotheses in each layer by listing \`.quint/knowledge/L0/\`, \`L1/\`, \`L2/\`.
-3.  **Proactive check:** Call \`quint_check_decay\` to surface any expired evidence.
-4.  Report to user:
-    -   Current Phase
-    -   Active Role (if any)
-    -   Hypothesis counts (L0/L1/L2)
-    -   Any warnings about expired evidence
-
-## Tool Guide
-
-### \`quint_status\`
-Returns the current FPF phase (IDLE, ABDUCTION, DEDUCTION, INDUCTION, DECISION).
-
-### \`quint_check_decay\` (optional but recommended)
-Surfaces any holons with expired evidence. If found, warn the user and suggest \`/q-decay\`.",
-  ".claude/skills/quint-fpf/commands/q0-init.md": "---
-description: "Initialize FPF Context"
-pre: "none"
-post: "<output_dir>/00-context.md exists AND (in tooled mode) .quint/ directory exists AND context recorded"
-invariant: "initialization is idempotent; output_dir is resolved exactly once and recorded in 00-context.md frontmatter"
-required_tools: ["Write"]
-required_tools_tooled: ["quint_init", "quint_record_context"]
----
-
-# Phase 0: Initialization
-
-You are the **Initializer** operating as a **state machine executor**. Your goal is to establish the **Bounded Context (A.1.1)** for this reasoning session AND to set up the per-cycle output folder that all subsequent phases will write to.
-
-## Arguments
-
-\`/q0-init\` accepts two optional arguments (used to resolve the output directory):
-
-- \`--target <path>\` — used by parent skills (e.g. \`arch-decision\` passes \`docs/prd/<area>/audit/NN-<study>-fpf/\`). Bypasses slug derivation. Path is used verbatim.
-- \`--slug <kebab-slug>\` — manual override. Resolves to \`docs/fpf/<slug>/\`.
-
-If neither is provided, derive the slug from the user's problem statement (2–3 keywords, kebab-case) and resolve to \`docs/fpf/<slug>/\`. If the problem statement is too vague to produce a slug, ask the user once for one.
-
-## Enforcement Model
-
-**Execution is IMPOSSIBLE without producing the markdown artifact.** Prose descriptions of initialization do not establish the cycle — \`00-context.md\` does. In tooled mode, holon state additionally lives in \`.quint/\`.
-
-| Precondition | Action | Postcondition |
-|--------------|--------|---------------|
-| none | resolve \`output_dir\` (see Arguments) | path string ready |
-| \`output_dir\` resolved | \`Write\` \`<output_dir>/00-context.md\` | markdown context exists on disk |
-| (tooled only) markdown exists | \`quint_init\` | \`.quint/\` structure exists |
-| (tooled only) \`.quint/\` exists | \`quint_record_context\` | \`.quint/context.md\` populated |
-
-**RFC 2119 Bindings:**
-- You MUST resolve \`output_dir\` before any other action and record it in \`00-context.md\` frontmatter.
-- You MUST \`Write\` \`<output_dir>/00-context.md\` from the template below — in BOTH modes. This is the canonical human-readable record of the cycle and the lookup target for subsequent phases.
-- In tooled mode you MUST ALSO call \`quint_init\` and \`quint_record_context\` so the MCP holon state is consistent with the markdown.
-- You SHALL NOT proceed to Phase 1 without \`00-context.md\` existing on disk.
-- Skipping the markdown write — even in tooled mode where \`.quint/context.md\` is also produced — is a **protocol violation** (the human-readable trail is mandatory).
-
-**If you skip the markdown write:** Subsequent phases (\`/q1-*\`, \`/q2-*\`, …) cannot find the active cycle and will block with "No active FPF cycle. Run \`/q0-init\` first."
-
-## Invalid Behaviors
-
-- Claiming "context established" without writing \`00-context.md\`
-- In tooled mode: writing the markdown but skipping \`quint_init\` / \`quint_record_context\`
-- Hardcoding \`output_dir\` instead of resolving it from arguments / slug derivation
-- Proceeding to \`/q1-hypothesize\` without \`00-context.md\` on disk
-- Resolving a different \`output_dir\` per phase — once chosen in Phase 0, it is invariant for the whole cycle
-
-## Method
-
-1. **Resolve \`output_dir\`** — apply the order in *Arguments* above.
-2. **Probe mode** — check whether the \`quint\` MCP tools are available (e.g. attempt \`/q-status\` or look for \`.quint/\`). Record the result for the frontmatter.
-3. **Context scanning** — analyze the project directory: read \`README.md\`, \`package.json\` / \`go.mod\` / \`pyproject.toml\` / \`CLAUDE.md\` to understand stack, constraints, domain.
-4. **Context definition** — derive \`vocabulary\`, \`invariants\`, \`constraints\` for the session.
-5. **Write the markdown** — \`Write\` \`<output_dir>/00-context.md\` using the template below. Create parent directories as needed.
-6. **(Tooled mode only)** Call \`quint_init\` then \`quint_record_context\` so \`.quint/context.md\` mirrors the markdown.
-
-## Markdown template — \`00-context.md\`
-
-\`\`\`markdown
----
-phase: 0
-slug: <slug>
-output_dir: <resolved path>
-mode: tooled | conversational
-problem_statement: <one-sentence framing>
-created_at: <UTC ISO-8601>
-verdict_phase5:
----
-
-# Phase 0 — Bounded Context
-
-## Problem statement
-<the user's question or anomaly, restated in one paragraph>
-
-## Vocabulary
-- **Term1**: definition
-- **Term2**: definition
-- ...
-
-## Invariants
-- <rule that MUST NOT be broken>
-- ...
-
-## Constraints
-- <stack constraint, e.g. "Must use Postgres">
-- <perf constraint, e.g. "Latency < 100ms p95">
-- ...
-
-## Tools detected
-- quint MCP: present (vN.M) | absent — running in conversational mode
-- Other: <relevant MCPs, e.g. browser, github>
-
-## Sources scanned
-- <files read while building this context, e.g. \`README.md\`, \`docs/architecture/01-constraints.md\`>
-
-## Revisions
-<empty on first run; appended on re-init>
-\`\`\`
-
-The \`verdict_phase5\` field is left empty on creation. \`/q5-decide\` fills it in with \`PASS | FAIL | NEEDS-REVISION\`. Subsequent commands use it to detect whether the cycle is still open (empty = open, value = closed).
-
-## Tool Guide: \`quint_record_context\` (tooled mode only)
-
--   **vocabulary**: same content as the \`## Vocabulary\` section above.
--   **invariants**: same content as the \`## Invariants\` section above.
-
-Pass the same content you just wrote to the markdown — the two artifacts must agree.
-
-## Checkpoint
-
-Before proceeding to Phase 1, verify:
-- [ ] \`output_dir\` resolved and recorded in \`00-context.md\` frontmatter
-- [ ] \`<output_dir>/00-context.md\` exists on disk with the full template populated
-- [ ] Mode (\`tooled\` / \`conversational\`) recorded in frontmatter
-- [ ] (Tooled only) \`quint_init\` called (success, not BLOCKED)
-- [ ] (Tooled only) \`quint_record_context\` called with same vocabulary and invariants
-
-**If any checkbox is unchecked, you MUST complete it before proceeding.**
-",
-  ".claude/skills/quint-fpf/commands/q1-add.md": "---
-description: "Inject User Hypothesis"
-pre: "Phase 0 complete; <output_dir>/01-hypotheses.md may or may not exist yet"
-post: "user-proposed hypothesis appended to <output_dir>/01-hypotheses.md"
-invariant: "appends only — never overwrites prior entries"
-required_tools: ["Read", "Write", "Edit"]
-required_tools_tooled: ["quint_propose"]
----
-
-# Phase 1: Abduction (User Injection)
-
-You are the **Abductor (Scribe)**. The user has a specific solution in mind that they want to evaluate alongside the existing hypotheses. Your goal is to formalize it as a single L0 hypothesis and append it to the cycle's markdown trail.
-
-## Locating the active cycle
-
-1. If \`.quint/context.md\` exists, read the active cycle path from there.
-2. Otherwise, scan \`docs/fpf/*/00-context.md\` and \`docs/prd/*/audit/*-fpf/00-context.md\`, pick the most recent whose \`verdict_phase5\` frontmatter is empty. If multiple, ask the user.
-3. If none, stop with: "No active FPF cycle. Run \`/q0-init\` first."
-
-## Enforcement Model
-
-| Precondition | Action | Postcondition |
-|--------------|--------|---------------|
-| Phase 0 complete | locate cycle, read \`output_dir\` | path known |
-| \`output_dir\` known | \`Edit\` \`<output_dir>/01-hypotheses.md\` to append the new hypothesis | markdown updated |
-| (tooled only) markdown updated | \`quint_propose\` | L0 holon created in \`.quint/\` |
-
-**RFC 2119 Bindings:**
-- You MUST append to \`<output_dir>/01-hypotheses.md\` — never overwrite existing hypotheses.
-- If \`01-hypotheses.md\` doesn't exist yet (first call to \`/q1-add\` without a prior \`/q1-hypothesize\`), create it from the same template as \`/q1-hypothesize\` with the user's idea as the only initial entry.
-- If it exists, add a new section under \`## Revisions\` with a UTC timestamp containing the new hypothesis.
-- In tooled mode you MUST ALSO call \`quint_propose\` so \`.quint/\` stays consistent.
-
-## Method
-
-1. **Analyze input** — understand the user's proposed solution.
-2. **Formalize** — define title, kind, scope, method (recipe), rationale (JSON).
-3. **Append to markdown** — see template below.
-4. **(Tooled mode)** Call \`quint_propose\` with \`rationale.source = "User input"\`.
-5. **Inform the user** that the hypothesis has been added and remind: *"Phase reset to **ABDUCTION**. Run \`/q2-verify\` to check this new option (and any others still at L0)."*
-
-## Markdown append — \`01-hypotheses.md\`
-
-If the file does not exist, create it from the \`/q1-hypothesize\` template with the user's hypothesis as the sole entry under \`## Initial entries\`.
-
-If it exists, append under \`## Revisions\`:
-
-\`\`\`markdown
-### <UTC ISO-8601 timestamp> — user-injected
-- **ID**: <kebab-id>
-- **Source**: User input
-- **Kind**: system | episteme
-- **Scope**: <claim scope>
-- **Method**: <how it works>
-- **Rationale**:
-  - Anomaly: <user_problem>
-  - Approach: <user's reasoning>
-  - Note: Manually injected via \`/q1-add\`
-- **decision_context**: <id, if applicable>
-- **depends_on**: [<id1>, …] (with CL: <1|2|3>)
-\`\`\`
-
-## Tool Guide: \`quint_propose\` (tooled mode only)
-
--   **title**: User's idea title.
--   **content**: Detailed description of the user's method.
--   **scope**: Where the user intends this to apply (e.g., "Global", "Backend-only").
--   **kind**: "system" or "episteme".
--   **rationale**: JSON string. *Format:* \`{"source": "User input", "anomaly": "<user_problem>", "note": "Manually injected"}\`
-
-## Checkpoint
-
-- [ ] Active cycle located
-- [ ] \`<output_dir>/01-hypotheses.md\` updated (created if absent, appended if present)
-- [ ] New hypothesis has valid \`kind\`, \`scope\`, and \`rationale\`
-- [ ] (Tooled only) \`quint_propose\` called and ID matches the markdown
-",
-  ".claude/skills/quint-fpf/commands/q1-hypothesize.md": "---
-description: "Generate Hypotheses (Abduction)"
-pre: "context recorded (Phase 0 complete; <output_dir>/00-context.md exists)"
-post: ">=1 L0 hypothesis exists; <output_dir>/01-hypotheses.md written"
-invariant: "hypotheses must have kind ∈ {system, episteme}"
-required_tools: ["Read", "Write"]
-required_tools_tooled: ["quint_propose"]
----
-
-# Phase 1: Abduction
-
-You are the **Abductor** operating as a **state machine executor**. Your goal is to generate **plausible, competing hypotheses** (L0) for the user's problem AND to record them in the per-cycle markdown trail.
-
-## Locating the active cycle
-
-Before doing anything else, locate the active cycle and read its \`output_dir\`:
-
-1. If \`.quint/context.md\` exists, read the active cycle path from there.
-2. Otherwise, scan \`docs/fpf/*/00-context.md\` and \`docs/prd/*/audit/*-fpf/00-context.md\`, pick the most recent whose \`verdict_phase5\` frontmatter is empty. If multiple candidates remain, ask the user which to continue.
-3. If none is found, stop with: "No active FPF cycle. Run \`/q0-init\` first."
-
-Read \`<output_dir>/00-context.md\` to ground yourself in vocabulary, invariants, and constraints.
-
-## Enforcement Model
-
-**Hypotheses must be recorded in BOTH the markdown trail AND (in tooled mode) \`.quint/\`.** Mental notes or prose descriptions in the conversation are NOT hypotheses — they are not auditable.
-
-| Precondition | Action | Postcondition |
-|--------------|--------|---------------|
-| Phase 0 complete | locate active cycle, read \`00-context.md\` | \`output_dir\` known |
-| \`output_dir\` known | \`Write\` \`<output_dir>/01-hypotheses.md\` from template | markdown trail of L0 hypotheses on disk |
-| (tooled only) markdown written | \`quint_propose\` × N | L0 holons created in \`.quint/\` |
-
-**RFC 2119 Bindings:**
-- You MUST \`Write\` \`<output_dir>/01-hypotheses.md\` containing every hypothesis you generate, in BOTH modes. The markdown is the canonical human-readable trail.
-- In tooled mode you MUST ALSO call \`quint_propose\` for EACH hypothesis you want trackable in \`.quint/\`.
-- You MUST NOT proceed to Phase 2 without \`01-hypotheses.md\` containing at least one hypothesis.
-- You SHALL include \`kind\` (system/episteme) and \`scope\` for every hypothesis (in both the markdown and the tool call).
-- Mentioning a hypothesis only in chat — without writing it to the markdown — does NOT create it.
-- Skipping the markdown write — even in tooled mode — is a **protocol violation**.
-
-**If you skip the markdown write:** Phase 2 (\`/q2-verify\`) cannot find the hypotheses to verify and will block.
-
-## Invalid Behaviors
-
-- Listing hypotheses in prose without calling \`quint_propose\` for each
-- Claiming "I generated 3 hypotheses" when tool was called 0 times
-- Proceeding to \`/q2-verify\` with zero L0 holons
-- Using \`kind\` values other than "system" or "episteme"
-
-## Context
-The user has presented an anomaly or a design problem.
-
-## Method (B.5.2 Abductive Loop)
-1.  **Frame the Anomaly:** Clearly state what is unknown or broken.
-2.  **Generate Candidates:** Brainstorm 3-5 distinct approaches.
-    -   *Constraint:* Ensure **Diversity** (NQD). Include at least one "Conservative" (safe) and one "Radical" (novel) option.
-3.  **Plausibility Filter:** Briefly assess each against constraints. Discard obviously unworkable ones.
-4.  **Formalize:** For each survivor, call \`quint_propose\`.
-
-## Before Calling quint_propose: Linking Checklist
-
-**For EACH hypothesis, explicitly answer these questions:**
-
-| Question | If YES | If NO |
-|----------|--------|-------|
-| Are there multiple alternatives for the same problem? | Create parent decision first, then use \`decision_context\` for all alternatives | Skip \`decision_context\` |
-| Does this hypothesis REQUIRE another holon to work? | Add to \`depends_on\` (affects R_eff via WLNK!) | Leave \`depends_on\` empty |
-| Would failure of another holon invalidate this one? | Add that holon to \`depends_on\` | Leave empty |
-
-**Examples of when to use \`depends_on\`:**
-- "Health Check Endpoint" depends on "Background Task Fix" (can't check what doesn't work)
-- "API Gateway" depends on "Auth Module" (gateway needs auth to function)
-- "Performance Optimization" depends on "Baseline Metrics" (can't optimize without baseline)
-
-**Examples of when to use \`decision_context\`:**
-- "Redis Caching" and "CDN Edge Cache" are alternatives → group under "Caching Decision"
-- "JWT Auth" and "Session Auth" are alternatives → group under "Auth Strategy Decision"
-
-**CRITICAL:** If you skip linking, the audit tree will show isolated nodes and R_eff won't reflect true dependencies!
-
-## Action (Run-Time)
-1.  Locate the active cycle and read \`<output_dir>/00-context.md\` (see *Locating the active cycle* above).
-2.  Ask the user for the problem statement if not already in \`00-context.md\`.
-3.  Think through the options against the recorded vocabulary, invariants, and constraints.
-4.  **If proposing multiple alternatives:** Create parent decision holon FIRST.
-5.  **(Tooled mode)** Call \`quint_propose\` for EACH hypothesis, setting \`decision_context\` and \`depends_on\` as needed. The tool stores these in \`.quint/knowledge/L0/\`.
-6.  **\`Write\` the markdown trail** at \`<output_dir>/01-hypotheses.md\` using the template below. Include every hypothesis (and the parent decision holon if any). In tooled mode, the markdown documents what \`quint_propose\` recorded; in conversational mode, the markdown IS the record.
-7.  Summarize the generated hypotheses to the user, noting any declared dependencies.
-
-## Markdown template — \`01-hypotheses.md\`
-
-On first run, write the full structure. On re-runs, leave \`## Initial entries\` untouched and append to \`## Revisions\`.
-
-\`\`\`markdown
----
-phase: 1
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-last_updated: <UTC ISO-8601>
----
-
-# Phase 1 — Hypotheses (L0)
-
-## Initial entries
-
-### Decision context: <title> (if applicable)
-- **ID**: <kebab-id>
-- **Kind**: episteme
-- **Scope**: <where this decision applies>
-
-### H1 — <title>
-- **ID**: <kebab-id>
-- **Kind**: system | episteme
-- **Scope**: <claim scope>
-- **Method**: <how it works — the recipe>
-- **Rationale**:
-  - Anomaly: <what triggered the need>
-  - Approach: <why this works>
-  - Alternatives rejected: <list>
-- **decision_context**: <id of parent decision, if any>
-- **depends_on**: [<id1>, <id2>] (with CL: <1|2|3>)
-
-### H2 — <title>
-…(same template per hypothesis)
-
-## Revisions
-<empty on first run; appended on re-runs of /q1-hypothesize or /q1-add>
-\`\`\`
-
-When \`quint_propose\` returns a generated holon ID in tooled mode, write the same ID under \`**ID**\` in the markdown so the two artifacts cross-reference cleanly via shared identifiers (the markdown remains autonomous — IDs are conveniences, not links).
-
-## Tool Guide: \`quint_propose\`
-
-### Required Parameters
--   **title**: Short, descriptive name (e.g., "Use Redis for Caching").
--   **content**: The Method (Recipe). Detail *how* it works.
--   **scope**: The Claim Scope (G). Where does this apply?
-    *   *Example:* "High-load systems, Linux only, requires 1GB RAM."
--   **kind**: "system" (for code/architecture) or "episteme" (for process/docs).
--   **rationale**: A JSON string explaining the "Why".
-    *   *Format:* \`{"anomaly": "Database overload", "approach": "Cache read-heavy data", "alternatives_rejected": ["Read replicas (too expensive)"]}\`
-
-### Optional Parameters (Dependency Modeling)
--   **decision_context**: ID of parent decision/problem holon.
-    -   Creates \`MemberOf\` relation (groups alternatives together)
-    -   Example: \`"caching-strategy-decision"\`
-
--   **depends_on**: Array of holon IDs this hypothesis depends on.
-    -   Creates \`ComponentOf\` (if kind=system) or \`ConstituentOf\` (if kind=episteme)
-    -   Enables WLNK: parent R_eff ≤ dependency R_eff
-    -   Example: \`["auth-module", "crypto-library"]\`
-
--   **dependency_cl**: Congruence level for dependencies (1-3, default: 3)
-    -   CL3: Same context (0% penalty)
-    -   CL2: Similar context (10% penalty)
-    -   CL1: Different context (30% penalty)
-
-## Example: Competing Alternatives
-
-\`\`\`
-# First, create the decision context
-[quint_propose(title="Caching Strategy Decision", kind="episteme", ...)]
-→ Created: caching-strategy-decision
-
-# Then, propose alternatives grouped under it
-[quint_propose(
-    title="Use Redis",
-    kind="system",
-    decision_context="caching-strategy-decision"
-)]
-→ Created: use-redis (MemberOf caching-strategy-decision)
-
-[quint_propose(
-    title="Use CDN Edge Cache",
-    kind="system",
-    decision_context="caching-strategy-decision"
-)]
-→ Created: use-cdn-edge-cache (MemberOf caching-strategy-decision)
-\`\`\`
-
-## Example: Declaring Dependencies
-
-\`\`\`
-# Hypothesis that depends on existing holons
-[quint_propose(
-    title="API Gateway with Auth",
-    kind="system",
-    depends_on=["auth-module", "rate-limiter"],
-    dependency_cl=3
-)]
-→ Created: api-gateway-with-auth
-→ Relations: auth-module --componentOf--> api-gateway-with-auth
-             rate-limiter --componentOf--> api-gateway-with-auth
-
-# Now WLNK applies:
-# api-gateway-with-auth.R_eff ≤ min(auth-module.R_eff, rate-limiter.R_eff)
-\`\`\`
-
-## Example: Success Path
-
-\`\`\`
-User: "How should we handle caching?"
-
-[Call quint_propose(title="Use Redis", kind="system", ...)]  → Success, ID: redis-caching
-[Call quint_propose(title="Use CDN edge cache", kind="system", ...)]  → Success, ID: cdn-edge
-[Call quint_propose(title="In-memory LRU", kind="system", ...)]  → Success, ID: lru-cache
-
-Result: 3 L0 hypotheses created, ready for Phase 2.
-\`\`\`
-
-## Example: Failure Path
-
-\`\`\`
-User: "How should we handle caching?"
-
-"I think we could use Redis, a CDN, or in-memory LRU cache..."
-[No quint_propose calls made]
-
-Result: 0 L0 hypotheses. Phase 2 will find nothing. This is a PROTOCOL VIOLATION.
-\`\`\`
-
-## Checkpoint
-
-Before proceeding to Phase 2, verify:
-- [ ] Active cycle located and \`00-context.md\` read
-- [ ] \`<output_dir>/01-hypotheses.md\` exists with at least one hypothesis under \`## Initial entries\`
-- [ ] Each hypothesis has valid \`kind\` (system or episteme) and defined \`scope\`
-- [ ] If multiple alternatives exist: they share the same \`decision_context\`
-- [ ] If dependencies exist: they are declared in \`depends_on\` (with CL)
-- [ ] (Tooled only) Called \`quint_propose\` for each hypothesis (success, not BLOCKED)
-- [ ] (Tooled only) Markdown IDs match the holon IDs returned by \`quint_propose\`
-
-**If any checkbox is unchecked, you MUST complete it before proceeding.**
-",
-  ".claude/skills/quint-fpf/commands/q2-verify.md": "---
-description: "Verify Logic (Deduction)"
-pre: ">=1 L0 hypothesis exists in <output_dir>/01-hypotheses.md"
-post: "<output_dir>/02-verification.md written; (tooled) each L0 processed → L1 (PASS) / invalid (FAIL) / L0 with feedback (REFINE)"
-invariant: "verdict ∈ {PASS, FAIL, REFINE}"
-required_tools: ["Read", "Write"]
-required_tools_tooled: ["quint_verify"]
----
-
-# Phase 2: Deduction (Verification)
-
-You are the **Deductor** operating as a **state machine executor**. Your goal is to **logically verify** the L0 hypotheses, promote them to L1 (Substantiated), and record the verification trail in markdown.
-
-## Locating the active cycle
-
-1. If \`.quint/context.md\` exists, read the active cycle path from there.
-2. Otherwise, scan \`docs/fpf/*/00-context.md\` and \`docs/prd/*/audit/*-fpf/00-context.md\`, pick the most recent whose \`verdict_phase5\` frontmatter is empty. If multiple, ask the user.
-3. If none, stop with: "No active FPF cycle. Run \`/q0-init\` first."
-
-Read both \`<output_dir>/00-context.md\` (for invariants/constraints to check against) and \`<output_dir>/01-hypotheses.md\` (for the L0 set).
-
-## Enforcement Model
-
-**Verification must be recorded in BOTH the markdown trail AND (in tooled mode) \`.quint/\`.** Stating "this hypothesis is logically sound" in chat without writing it down does NOT change anything.
-
-| Precondition | Action | Postcondition |
-|--------------|--------|---------------|
-| L0 hypotheses present in \`01-hypotheses.md\` | run logical checks per hypothesis | verdicts ready |
-| verdicts ready | \`Write\` \`<output_dir>/02-verification.md\` | markdown trail of verification on disk |
-| (tooled only) markdown written | \`quint_verify\` × N | L0 → L1 / invalid / L0+feedback in \`.quint/\` |
-
-**RFC 2119 Bindings:**
-- You MUST \`Write\` \`<output_dir>/02-verification.md\` containing a verdict for EVERY L0 hypothesis (PASS / FAIL / REFINE), in BOTH modes.
-- In tooled mode you MUST ALSO call \`quint_verify\` for EACH L0 hypothesis.
-- You MUST NOT proceed to Phase 3 without \`02-verification.md\` containing at least one PASS verdict.
-- Verdict MUST be exactly "PASS", "FAIL", or "REFINE" — no other values accepted.
-- Skipping the markdown write — even in tooled mode — is a **protocol violation**.
-
-**If you skip the markdown write:** Phase 3 (\`/q3-validate\`) cannot find which hypotheses passed verification and will block.
-
-## Invalid Behaviors
-
-- Stating "hypothesis verified" without calling \`quint_verify\`
-- Proceeding to \`/q3-validate\` with zero L1 hypotheses
-- Using verdict values other than PASS/FAIL/REFINE
-- Skipping hypotheses without explicit FAIL verdict
-
-## Context
-We have a set of L0 hypotheses stored in the database. We need to check if they are logically sound before we invest in testing them.
-
-## Method (Verification Assurance - VA)
-For each L0 hypothesis:
-1.  **Type Check (C.3 Kind-CAL):**
-    -   Does the hypothesis respect the project's Types?
-    -   Are inputs/outputs compatible?
-2.  **Constraint Check:**
-    -   Does it violate any invariants defined in the \`U.BoundedContext\`?
-3.  **Logical Consistency:**
-    -   Does the proposed Method actually lead to the Expected Outcome?
-4.  **Record via \`quint_verify\`** with appropriate verdict.
-
-## Action (Run-Time)
-1.  **Locate** the active cycle and read \`<output_dir>/00-context.md\` + \`<output_dir>/01-hypotheses.md\`.
-2.  **Verification:** For each L0 hypothesis, perform the logical checks above against the recorded vocabulary, invariants, and constraints.
-3.  **(Tooled mode)** Call \`quint_verify\` for EACH hypothesis.
-    -   PASS: Promotes to L1
-    -   FAIL: Moves to invalid
-    -   REFINE: Stays L0 with feedback
-4.  **\`Write\` the markdown trail** at \`<output_dir>/02-verification.md\` using the template below. Include a verdict for every hypothesis examined.
-5.  Output summary of which hypotheses survived.
-
-## Markdown template — \`02-verification.md\`
-
-On first run, write the full structure. On re-runs, leave \`## Initial entries\` untouched and append to \`## Revisions\`.
-
-\`\`\`markdown
----
-phase: 2
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-last_updated: <UTC ISO-8601>
-summary:
-  pass: <N>
-  fail: <N>
-  refine: <N>
----
-
-# Phase 2 — Verification (L0 → L1)
-
-## Initial entries
-
-### H1 — verdict: PASS
-- **Type check**: passed — <notes>
-- **Constraint check**: passed — <notes>
-- **Logic check**: passed — <notes>
-- **Notes**: <any cross-check details, edge cases considered>
-
-### H2 — verdict: FAIL
-- **Type check**: passed
-- **Constraint check**: **FAILED** — violates "<invariant from 00-context.md>"
-- **Logic check**: n/a
-- **Notes**: hypothesis is incoherent with the bounded context
-
-### H3 — verdict: REFINE
-- **Type check**: passed
-- **Constraint check**: ambiguous — needs <X> clarified
-- **Logic check**: passed
-- **Feedback**: <what the abductor needs to refine before re-verification>
-
-## Revisions
-<empty on first run; appended on re-runs>
-\`\`\`
-
-## Tool Guide: \`quint_verify\`
--   **hypothesis_id**: The ID of the hypothesis being checked.
--   **checks_json**: A JSON string detailing the logic checks performed.
-    *   *Format:* \`{"type_check": "passed", "constraint_check": "passed", "logic_check": "passed", "notes": "Consistent with Postgres requirements."}\`
--   **verdict**: "PASS", "FAIL", or "REFINE".
-
-## Example: Success Path
-
-\`\`\`
-L0 hypotheses: [redis-caching, cdn-edge, lru-cache]
-
-[Call quint_verify(hypothesis_id="redis-caching", verdict="PASS", ...)]  → L0 → L1
-[Call quint_verify(hypothesis_id="cdn-edge", verdict="PASS", ...)]  → L0 → L1
-[Call quint_verify(hypothesis_id="lru-cache", verdict="FAIL", ...)]  → L0 → invalid
-
-Result: 2 L1 hypotheses, ready for Phase 3.
-\`\`\`
-
-## Example: Failure Path
-
-\`\`\`
-L0 hypotheses: [redis-caching, cdn-edge, lru-cache]
-
-"After reviewing, redis-caching and cdn-edge look logically sound..."
-[No quint_verify calls made]
-
-Result: All hypotheses remain L0. Phase 3 will be BLOCKED. PROTOCOL VIOLATION.
-\`\`\`
-
-## Checkpoint
-
-Before proceeding to Phase 3, verify:
-- [ ] Active cycle located and \`00-context.md\` + \`01-hypotheses.md\` read
-- [ ] \`<output_dir>/02-verification.md\` exists with a verdict for EVERY L0 hypothesis
-- [ ] Used only valid verdict values (PASS / FAIL / REFINE)
-- [ ] At least one verdict is PASS (otherwise Phase 3 is empty — go back to \`/q1-add\` to inject more hypotheses)
-- [ ] (Tooled only) Called \`quint_verify\` for each L0 hypothesis (success, not BLOCKED)
-
-**If any checkbox is unchecked, you MUST complete it before proceeding.**
-",
-  ".claude/skills/quint-fpf/commands/q3-validate.md": "---
-description: "Validate (Induction)"
-pre: ">=1 PASS verdict in <output_dir>/02-verification.md (L1 hypothesis exists)"
-post: "<output_dir>/03-validation.md written; (tooled) L1 → L2 (PASS) / invalid (FAIL) / L1 with feedback (REFINE)"
-invariant: "test_type ∈ {internal, external}; verdict ∈ {PASS, FAIL, REFINE}"
-required_tools: ["Read", "Write"]
-required_tools_tooled: ["quint_test"]
----
-
-# Phase 3: Induction (Validation)
-
-You are the **Inductor** operating as a **state machine executor**. Your goal is to gather **Empirical Validation (EV)** for L1 hypotheses to promote them to L2, and to record the evidence trail in markdown.
-
-**Also serves as the REFRESH action** in the Evidence Freshness governance loop (see \`/q-decay\`).
-
-## Locating the active cycle
-
-1. If \`.quint/context.md\` exists, read the active cycle path from there.
-2. Otherwise, scan \`docs/fpf/*/00-context.md\` and \`docs/prd/*/audit/*-fpf/00-context.md\`, pick the most recent whose \`verdict_phase5\` frontmatter is empty. If multiple, ask the user.
-3. If none, stop with: "No active FPF cycle. Run \`/q0-init\` first."
-
-Read \`<output_dir>/02-verification.md\` to find which hypotheses are at L1 (PASS in Phase 2).
-
-## Enforcement Model
-
-**Validation must be recorded in BOTH the markdown trail AND (in tooled mode) \`.quint/\`.** Research findings or empirical observations stated in chat without writing them down do NOT count as evidence.
-
-| Precondition | Action | Postcondition |
-|--------------|--------|---------------|
-| ≥1 PASS in \`02-verification.md\` | gather evidence per L1 hypothesis | evidence ready |
-| evidence ready | \`Write\` \`<output_dir>/03-validation.md\` | markdown trail of validation on disk |
-| (tooled only) markdown written | \`quint_test\` × N | L1 → L2 / invalid / L1+feedback in \`.quint/\` |
-
-**RFC 2119 Bindings:**
-- You MUST \`Write\` \`<output_dir>/03-validation.md\` containing evidence for EVERY L1 hypothesis examined.
-- In tooled mode you MUST ALSO call \`quint_test\` for EACH L1 hypothesis.
-- You MUST NOT call \`quint_test\` on L0 hypotheses — they must pass Phase 2 first.
-- You SHALL specify \`test_type\` as "internal" (code test) or "external" (research/docs).
-- Verdict MUST be exactly "PASS", "FAIL", or "REFINE".
-- Skipping the markdown write — even in tooled mode — is a **protocol violation**.
-
-**If \`quint_test\` returns BLOCKED ("hypothesis not found in L1 or L2"):** you skipped Phase 2 for that hypothesis. Go back to \`/q2-verify\` first.
-
-## Invalid Behaviors
-
-- Calling \`quint_test\` on L0 hypothesis (WILL BE BLOCKED)
-- Calling \`quint_test\` on hypothesis that doesn't exist
-- Stating "validated via testing" without tool call
-- Proceeding to \`/q4-audit\` with zero L2 hypotheses
-
-**Note:** Calling \`quint_test\` on L2 hypotheses is now VALID — it refreshes their evidence for the freshness governance loop.
-
-## Context
-We have substantiated hypotheses (L1) that passed logical verification. We need evidence that they work in reality.
-
-## Method (Agentic Validation Strategy)
-For each L1 hypothesis, choose the best validation strategy:
-
-1.  **Strategy A: Internal Test (Preferred - Highest R)**
-    *   *Action:* Write and run a reproduction script, benchmark, or prototype.
-    *   *Why:* Direct evidence in the target context has Congruence Level (CL) = 3 (Max).
-    *   *Use when:* Code is executable, environment is available.
-
-2.  **Strategy B: External Research (Fallback)**
-    *   *Action:* Use available MCP tools (search, docs, knowledge bases).
-    *   *Why:* Evidence from other contexts has lower CL (1 or 2). Applies penalty to R.
-    *   *Use when:* Running code is impossible or too costly.
-
-## Action (Run-Time)
-1.  **Locate** the active cycle and read \`<output_dir>/02-verification.md\` to find L1 hypotheses (those with PASS verdict in Phase 2).
-2.  **Decide:** Pick Strategy A or B for each L1 hypothesis.
-3.  **Execute:** Run tests or gather research. Capture concrete evidence (numbers, file paths, URLs, citations).
-4.  **(Tooled mode)** Call \`quint_test\` for EACH L1 hypothesis with the gathered evidence.
-5.  **\`Write\` the markdown trail** at \`<output_dir>/03-validation.md\` using the template below.
-
-## Markdown template — \`03-validation.md\`
-
-On first run, write the full structure. On re-runs (including evidence refresh for L2 hypotheses, see end of file), append to \`## Revisions\`.
-
-\`\`\`markdown
----
-phase: 3
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-last_updated: <UTC ISO-8601>
-summary:
-  pass: <N>
-  fail: <N>
-  refine: <N>
----
-
-# Phase 3 — Validation (L1 → L2)
-
-## Initial entries
-
-### H1 — verdict: PASS
-- **Test type**: internal (CL3) | external (CL1 or CL2)
-- **Strategy applied**: <e.g., "Wrote benchmark script \`bench/redis.ts\`, measured p95 latency">
-- **Evidence**:
-  - Result: <numeric or qualitative result, e.g. "p95 = 5.2ms, n=10k">
-  - Source: <file path / URL / repository reference>
-  - Reproducibility: <how to re-run, if internal>
-- **Notes**: <caveats, sample size, environment differences>
-
-### H2 — verdict: FAIL
-- **Test type**: external (CL1)
-- **Strategy applied**: <docs review only, since no test environment>
-- **Evidence**:
-  - Result: documented incompatibility — vendor recommends against this pattern at our scale
-  - Source: <URL>
-- **Notes**: insufficient evidence to promote; demoted
-
-## Revisions
-<empty on first run; appended on re-runs and on L2 refreshes>
-\`\`\`
-
-## Tool Guide: \`quint_test\`
--   **hypothesis_id**: The ID of the L1 hypothesis.
--   **test_type**: "internal" (code/test) or "external" (docs/search).
--   **result**: Summary of evidence (e.g., "Script passed, latency 5ms").
--   **verdict**: "PASS" (promote to L2), "FAIL" (demote), "REFINE".
-
-## Example: Success Path
-
-\`\`\`
-L1 hypotheses: [redis-caching, cdn-edge]
-
-[Run benchmark script for redis-caching]
-[Call quint_test(hypothesis_id="redis-caching", test_type="internal", verdict="PASS", ...)]  → L1 → L2
-
-[Search docs for CDN configuration]
-[Call quint_test(hypothesis_id="cdn-edge", test_type="external", verdict="PASS", ...)]  → L1 → L2
-
-Result: 2 L2 hypotheses, ready for Phase 4.
-\`\`\`
-
-## Example: Failure Path (What caught me earlier)
-
-\`\`\`
-User asks to validate a hypothesis about "prompt engineering"
-
-[Call quint_test(hypothesis_id="command-prompts-as-contracts", ...)]
-→ BLOCKED: "hypothesis not found in L1"
-
-Why: Hypothesis was already L2, or never existed as L1.
-Fix: Check hypothesis layer first. If L0, run Phase 2. If L2, skip to Phase 4.
-\`\`\`
-
-## Example: Protocol Violation
-
-\`\`\`
-L1 hypotheses: [redis-caching]
-
-"I researched Redis best practices and it looks good..."
-[No quint_test call made]
-
-Result: Hypothesis remains L1. Phase 4 will find no L2 to audit. PROTOCOL VIOLATION.
-\`\`\`
-
-## Checkpoint
-
-Before proceeding to Phase 4, verify:
-- [ ] Active cycle located and \`02-verification.md\` read
-- [ ] Worked only on L1 hypotheses (PASS in Phase 2), not L0
-- [ ] \`<output_dir>/03-validation.md\` exists with evidence for EVERY L1 hypothesis examined
-- [ ] Used valid \`test_type\` values (internal/external) and valid verdicts (PASS/FAIL/REFINE)
-- [ ] At least one verdict is PASS (otherwise Phase 4 has nothing to audit)
-- [ ] (Tooled only) Called \`quint_test\` for each L1 hypothesis (success, not BLOCKED)
-
-**If any checkbox is unchecked, you MUST complete it before proceeding.**
-
----
-
-## Evidence Refresh (L2 → L2)
-
-When called with an L2 hypothesis, \`quint_test\` adds fresh evidence without changing the layer. The markdown reflects this by appending the refresh entry under \`## Revisions\` (with the same template as an initial entry, plus a \`refresh_of: <hypothesis_id>\` field).
-
-**Use case:** \`/q-decay\` shows stale evidence on an L2 holon. Run \`/q3-validate <hypothesis_id>\` to refresh.
-
-| Current Layer | Verdict | Outcome |
-|---------------|---------|---------|
-| L1 | PASS | Promotes to L2; entry under \`## Initial entries\` |
-| L1 | FAIL | Stays L1; entry under \`## Initial entries\` (or \`## Revisions\` if not first run) |
-| L2 | PASS | Stays L2, fresh evidence appended under \`## Revisions\` |
-| L2 | FAIL | Stays L2, failure appended under \`## Revisions\`; consider \`/q-decay --deprecate\` |
-",
-  ".claude/skills/quint-fpf/commands/q4-audit.md": "---
-description: "Audit Evidence (Trust Calculus)"
-pre: ">=1 PASS verdict in <output_dir>/03-validation.md (L2 hypothesis exists)"
-post: "<output_dir>/04-audit.md written with R_eff per L2 hypothesis; (tooled) quint audit tools called"
-invariant: "R_eff = min(evidence_scores) via WLNK principle"
-required_tools: ["Read", "Write"]
-required_tools_tooled: ["quint_calculate_r", "quint_audit_tree", "quint_audit"]
----
-
-# Phase 4: Audit
-
-You are the **Auditor** operating as a **state machine executor**. Your goal is to compute the **Effective Reliability (R_eff)** of the L2 hypotheses and record the audit trail in markdown.
-
-## Locating the active cycle
-
-1. If \`.quint/context.md\` exists, read the active cycle path from there.
-2. Otherwise, scan \`docs/fpf/*/00-context.md\` and \`docs/prd/*/audit/*-fpf/00-context.md\`, pick the most recent whose \`verdict_phase5\` frontmatter is empty. If multiple, ask the user.
-3. If none, stop with: "No active FPF cycle. Run \`/q0-init\` first."
-
-Read \`<output_dir>/03-validation.md\` to find which hypotheses are at L2 (PASS in Phase 3) and what evidence they have.
-
-## Enforcement Model
-
-**Trust scores must be recorded in BOTH the markdown trail AND (in tooled mode) \`.quint/\`.** Claiming "this has high confidence" without computing R_eff is meaningless.
-
-| Precondition | Action | Postcondition |
-|--------------|--------|---------------|
-| ≥1 PASS in \`03-validation.md\` | (tooled) \`quint_calculate_r\` × N; (conv) compute R_eff manually using the formula in this file | R_eff per L2 known |
-| R_eff known | (tooled) \`quint_audit_tree\`; (conv) reason about dependencies inline | dep tree understood |
-| audit complete | \`Write\` \`<output_dir>/04-audit.md\` | markdown trail of audit on disk |
-| (tooled only) markdown written | \`quint_audit\` × N | risk analysis persisted in \`.quint/\` |
-
-**RFC 2119 Bindings:**
-- You MUST \`Write\` \`<output_dir>/04-audit.md\` containing R_eff for EVERY L2 hypothesis, in BOTH modes.
-- In tooled mode you MUST ALSO call \`quint_calculate_r\`, \`quint_audit_tree\`, and \`quint_audit\` for EACH L2 hypothesis.
-- In conversational mode you MUST compute R_eff manually using the formula below — no hand-waving ("I think it's about 0.8" is invalid).
-- You MUST NOT proceed to Phase 5 without \`04-audit.md\` containing the R_eff comparison table.
-- Skipping the markdown write — even in tooled mode — is a **protocol violation**.
-
-## Invalid Behaviors
-
-- Estimating R_eff without calling \`quint_calculate_r\`
-- Proceeding to \`/q5-decide\` without audit results
-- Ignoring weakest link in risk assessment
-- Claiming "high confidence" without computed R_eff
-- Auditing hypotheses that aren't at L2
-
-## Context
-We have L2 hypotheses backed by evidence. We must ensure we aren't overconfident.
-
-## Method (B.3 Trust Calculus)
-For each L2 hypothesis:
-1.  **Calculate R_eff:** Use \`quint_calculate_r\` to get the computed reliability score.
-2.  **Visualize Dependencies:** Use \`quint_audit_tree\` to see the dependency graph.
-3.  **Identify Weakest Link (WLNK):** R_eff = min(evidence_scores), never average.
-4.  **Bias Check (D.5):**
-    -   Are we favoring a "Pet Idea"?
-    -   Did we ignore "Not Invented Here" solutions?
-5.  **Record:** Call \`quint_audit\` to persist findings.
-
-## Action (Run-Time)
-1.  **Locate** the active cycle and read \`03-validation.md\` to find L2 hypotheses and their evidence.
-2.  **For each L2 hypothesis:**
-    a.  **(Tooled mode)** Call \`quint_calculate_r\` with \`holon_id\`.
-    b.  **(Tooled mode)** Call \`quint_audit_tree\` with \`holon_id\`.
-    c.  **(Conversational mode)** Apply the WLNK formula manually:
-        - Per evidence: base score (PASS strong = 0.9–1.0, PASS = 0.7–0.9, INCONCLUSIVE = 0.4–0.6, FAIL = 0.0–0.3)
-        - Multiply by CL multiplier (CL3 ×1.0, CL2 ×0.9, CL1 ×0.7)
-        - R_eff(hypothesis) = MIN(adjusted scores across all evidence)
-3.  **Run bias check** for each hypothesis (Anchoring, Confirmation, Sunk cost, Authority).
-4.  **(Tooled mode)** Call \`quint_audit\` for each to persist the risk analysis.
-5.  **\`Write\` the markdown trail** at \`<output_dir>/04-audit.md\` using the template below — including the comparison table that Phase 5 will consume.
-
-## Markdown template — \`04-audit.md\`
-
-\`\`\`markdown
----
-phase: 4
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-last_updated: <UTC ISO-8601>
-r_eff_min: <minimum R_eff across all L2 hypotheses>
-r_eff_max: <maximum R_eff across all L2 hypotheses>
----
-
-# Phase 4 — Audit (R_eff via WLNK)
-
-## Comparison table
-
-| Hypothesis | R_eff | Weakest link | Bias check |
-|------------|-------|--------------|------------|
-| H1 | 0.81 | E2 (CL1 external docs) | none |
-| H2 | 0.72 | E1 (FAIL on edge case) | confirmation risk |
-| H3 | 0.40 | E1 (CL1 only, weak result) | anchoring |
-
-## Per-hypothesis breakdown
-
-### H1 — R_eff: 0.81
-- **Evidence and adjusted scores** (base × CL multiplier):
-  - E1: auth-service pattern in prod — base 0.90 × CL2 (0.9) = 0.81
-  - E2: Platform docs — base 0.75 × CL1 (0.7) = 0.53
-- **WLNK**: min(0.81, 0.53) = **0.53** ← WAIT, recompute below
-- **Computed R_eff**: 0.53
-- **Weakest link**: E2 (external docs, CL1)
-- **Bias check**:
-  - Anchoring: low — H1 was not the first generated
-  - Confirmation: low — actively sought disconfirming evidence
-  - Sunk cost: n/a
-  - Authority: medium — vendor docs cited; weighted down via CL1
-- **Risks**: external docs may be outdated; recommend a CL3 PoC before final decision
-
-### H2 — R_eff: 0.72
-…(same template)
-
-## R_eff thresholds (project-default)
-
-| R_eff | Meaning | Action |
-|-------|---------|--------|
-| ≥ 0.7 | Strong | Proceed to decision |
-| 0.5–0.7 | Sufficient | Proceed with documented residual risk |
-| < 0.5 | Weak | FAIL — return to \`/q3-validate\` for stronger evidence |
-
-## Revisions
-<empty on first run; appended on re-runs>
-\`\`\`
-
-**Note:** in the example above I deliberately showed the common mistake of writing R_eff = max instead of min. Always re-state the WLNK rule and verify with arithmetic. The template's \`## Comparison table\` row should always reflect the computed minimum.
-
-## Tool Guide
-
-### \`quint_calculate_r\`
-Computes R_eff with detailed breakdown.
--   **holon_id**: The ID of the hypothesis to calculate.
--   *Returns:* Markdown report with R_eff, self score, weakest link, factors.
-
-### \`quint_audit_tree\`
-Visualizes the assurance tree.
--   **holon_id**: The root holon to audit.
--   *Returns:* ASCII tree with \`[R:0.XX]\` scores and \`(CL:N)\` penalties.
-
-### \`quint_audit\`
-Records the audit findings persistently.
--   **hypothesis_id**: The ID of the hypothesis.
--   **risks**: Text summary of WLNK analysis and bias check.
-    *   *Example:* "Weakest Link: External docs (CL1). Penalty applied. R_eff: 0.72. Bias: Low."
-
-## Example: Success Path
-
-\`\`\`
-L2 hypotheses: [redis-caching, cdn-edge]
-
-[Call quint_calculate_r(holon_id="redis-caching")]
-→ R_eff: 0.85, Weakest: internal test (0.85)
-
-[Call quint_audit_tree(holon_id="redis-caching")]
-→ Tree visualization
-
-[Call quint_audit(hypothesis_id="redis-caching", risks="WLNK: 0.85, Bias: None")]
-→ Audit recorded
-
-[Repeat for cdn-edge]
-
-| Hypothesis | R_eff | Weakest Link |
-|------------|-------|--------------|
-| redis-caching | 0.85 | internal test |
-| cdn-edge | 0.72 | external docs (CL1 penalty) |
-
-Ready for Phase 5.
-\`\`\`
-
-## Example: Failure Path
-
-\`\`\`
-L2 hypotheses: [redis-caching, cdn-edge]
-
-"Redis looks more reliable based on the testing..."
-[No quint_calculate_r calls made]
-
-Result: No R_eff computed. Decision in Phase 5 will be based on vibes, not evidence.
-PROTOCOL VIOLATION.
-\`\`\`
-
-## Checkpoint
-
-Before proceeding to Phase 5, verify:
-- [ ] Active cycle located and \`03-validation.md\` read
-- [ ] \`<output_dir>/04-audit.md\` exists with R_eff for EVERY L2 hypothesis
-- [ ] Comparison table present and frontmatter \`r_eff_min\`/\`r_eff_max\` populated
-- [ ] Weakest link and bias check recorded per hypothesis
-- [ ] Presented comparison table to user
-- [ ] (Tooled only) Called \`quint_calculate_r\` and \`quint_audit\` for each L2 hypothesis (success, not BLOCKED)
-
-**If any checkbox is unchecked, you MUST complete it before proceeding.**
-",
-  ".claude/skills/quint-fpf/commands/q5-decide.md": "---
-description: "Finalize Decision"
-pre: "<output_dir>/04-audit.md exists with R_eff per L2 hypothesis"
-post: "<output_dir>/05-decision.md (DRR) written; 00-context.md frontmatter verdict_phase5 set; (tooled) DRR persisted in .quint/decisions/"
-invariant: "human selects winner; agent documents rationale"
-required_tools: ["Read", "Write", "Edit"]
-required_tools_tooled: ["quint_calculate_r", "quint_decide"]
----
-
-# Phase 5: Decision
-
-You are the **Decider** operating as a **state machine executor**. Your goal is to finalize the choice and generate the **Design Rationale Record (DRR)** in markdown — and (in tooled mode) in \`.quint/decisions/\`. This is the cycle's final artifact.
-
-## Locating the active cycle
-
-1. If \`.quint/context.md\` exists, read the active cycle path from there.
-2. Otherwise, scan \`docs/fpf/*/00-context.md\` and \`docs/prd/*/audit/*-fpf/00-context.md\`, pick the most recent whose \`verdict_phase5\` frontmatter is empty. If multiple, ask the user.
-3. If none, stop with: "No active FPF cycle. Run \`/q0-init\` first."
-
-Read \`<output_dir>/04-audit.md\` for the R_eff comparison table.
-
-## Enforcement Model
-
-**Decisions are recorded in BOTH the markdown DRR AND (in tooled mode) \`.quint/\`.** Stating "we decided to use X" in chat without writing the DRR does NOT close the cycle.
-
-| Precondition | Action | Postcondition |
-|--------------|--------|---------------|
-| \`04-audit.md\` present with R_eff | present comparison to user, ASK them to pick winner | winner selected (by human) |
-| winner selected | \`Write\` \`<output_dir>/05-decision.md\` (the DRR) | markdown DRR on disk |
-| DRR written | \`Edit\` \`00-context.md\` to set \`verdict_phase5: PASS\\|FAIL\\|NEEDS-REVISION\` | cycle marked closed |
-| (tooled only) DRR written | \`quint_decide\` | DRR persisted in \`.quint/decisions/\` |
-
-**RFC 2119 Bindings:**
-- You MUST have \`04-audit.md\` containing R_eff for at least one L2 hypothesis before deciding.
-- You MUST present the comparison table to the user and **get explicit human approval** before finalizing.
-- You MUST \`Write\` \`<output_dir>/05-decision.md\` containing the full DRR (in BOTH modes).
-- You MUST \`Edit\` \`00-context.md\` to set \`verdict_phase5\` so subsequent \`qN-*\` commands know the cycle is closed.
-- In tooled mode you MUST ALSO call \`quint_decide\` so the DRR is persisted in \`.quint/decisions/\`.
-- You SHALL NOT select the winner autonomously — this is the **Transformer Mandate**.
-- The human decides; you document.
-
-**CRITICAL: Transformer Mandate**
-A system cannot transform itself. You (Claude) generate options with evidence. The human decides. Making architectural choices autonomously is a PROTOCOL VIOLATION.
-
-## Invalid Behaviors
-
-- Selecting winner without user approval
-- Calling \`quint_decide\` without presenting comparison first
-- Stating "we decided X" without tool call
-- Making the decision for the user ("I recommend X, so I'll proceed with X")
-- Proceeding with implementation before DRR is created
-
-## Context
-The reasoning cycle is complete. We have audited hypotheses in L2.
-
-## Method (E.9 DRR)
-1.  **Calculate R_eff:** For each L2 candidate, call \`quint_calculate_r\`.
-2.  **Compare:** Present scores to user in comparison table.
-3.  **Select:** ASK user to pick the winning hypothesis.
-4.  **Draft DRR:** After user confirms, construct the Design Rationale Record:
-    -   **Context:** The initial problem.
-    -   **Decision:** The chosen hypothesis.
-    -   **Rationale:** Why it won (citing R_eff and evidence).
-    -   **Consequences:** Trade-offs and next steps.
-    -   **Validity:** When should this be revisited?
-
-## Action (Run-Time)
-1.  **Locate** the active cycle and read \`04-audit.md\` for the R_eff comparison.
-2.  **(Tooled mode)** Call \`quint_calculate_r\` for each L2 hypothesis to get fresh R_eff (in case Phase 4 was a while ago).
-3.  Present the comparison table to the user.
-4.  **WAIT for user to select the winner.**
-5.  **(Tooled mode)** Call \`quint_decide\` with the chosen ID and DRR content.
-6.  **\`Write\` the DRR** at \`<output_dir>/05-decision.md\` using the template below.
-7.  **\`Edit\` \`<output_dir>/00-context.md\`** to set \`verdict_phase5: PASS | FAIL | NEEDS-REVISION\` (PASS = a clear winner; FAIL = no candidate met the threshold; NEEDS-REVISION = an unexpected non-H1 alternative scored highest, return to brainstorming).
-8.  Output the path to the DRR and inform the user that the cycle is closed.
-
-## Markdown template — \`05-decision.md\`
-
-\`\`\`markdown
----
-phase: 5
-slug: <same as 00-context.md>
-output_dir: <same as 00-context.md>
-mode: tooled | conversational
-decided_at: <UTC ISO-8601>
-verdict: PASS | FAIL | NEEDS-REVISION
-winner_id: <hypothesis id>
-r_eff_winner: <number>
-rejected_ids: [<id1>, <id2>, …]
----
-
-# Phase 5 — Decision (DRR)
-
-## Context
-<one-paragraph problem statement, copied from 00-context.md and slightly contextualized>
-
-## Decision
-We chose **<H_winner>: <title>**.
-
-## Rationale
-- **R_eff**: <number> (computed in Phase 4 via WLNK)
-- **Why it won**: <link to the strongest evidence in 03-validation.md and the lightest weakest-link in 04-audit.md>
-- **What the user weighed**: <if the user picked something other than the highest R_eff, document the human reasoning — e.g. "operational simplicity outweighs the 0.05 R_eff gap">
-
-## Rejected alternatives
-- **<H_rejected>: <title>** — R_eff <number>; rejected because <specific reason from 04-audit.md>
-- …
-
-## Consequences
-- <concrete next steps the architect/team must take>
-- <new constraints the rest of the system must honor>
-- <operational impact, e.g. "Provision a Redis cluster", "Add monitoring on …">
-
-## Validity
-This decision should be revisited if:
-- <signal 1, e.g. "p95 latency exceeds 50ms in prod">
-- <signal 2, e.g. "cost of Redis exceeds X/month">
-- <time-based, e.g. "after 12 months — re-validate evidence freshness via /q-decay">
-
-## Audit trail
-- Phase 0 (context): \`00-context.md\`
-- Phase 1 (hypotheses): \`01-hypotheses.md\`
-- Phase 2 (verification): \`02-verification.md\`
-- Phase 3 (validation): \`03-validation.md\`
-- Phase 4 (audit): \`04-audit.md\`
-- Mode: tooled | conversational
-\`\`\`
-
-## Tool Guide
-
-### \`quint_calculate_r\`
-Computes R_eff for comparison.
--   **holon_id**: The hypothesis to calculate.
--   *Returns:* R_eff score with breakdown.
-
-### \`quint_decide\`
-Finalizes the decision and creates the DRR.
--   **title**: Title of the decision (e.g., "Use Redis for Caching").
--   **winner_id**: The ID of the chosen hypothesis.
--   **rejected_ids**: Array of IDs of rejected L2 alternatives (creates \`rejects\` relations).
--   **context**: The problem statement.
--   **decision**: "We decided to use [Winner] because..."
--   **rationale**: "It had the highest R_eff and best fit for constraints..."
--   **consequences**: "We need to provision Redis. Latency will drop."
--   **characteristics**: Optional C.16 scores.
-
-## Example: Success Path
-
-\`\`\`
-L2 hypotheses: [redis-caching, cdn-edge]
-
-[Call quint_calculate_r for each]
-
-Presenting comparison:
-| Hypothesis | R_eff | Weakest Link |
-|------------|-------|--------------|
-| redis-caching | 0.85 | internal test |
-| cdn-edge | 0.72 | external docs |
-
-"Which hypothesis should we proceed with?"
-
-[User responds: "redis-caching"]
-
-[Call quint_decide(
-    title="Use Redis for Caching",
-    winner_id="redis-caching",
-    rejected_ids=["cdn-edge"],
-    context="...",
-    decision="...",
-    rationale="...",
-    consequences="..."
-)]
-→ DRR created at .quint/decisions/DRR-XXXX-use-redis-for-caching.md
-→ Relations created:
-  - DRR --selects--> redis-caching
-  - DRR --rejects--> cdn-edge
-
-Result: Decision recorded with full audit trail. Ready for implementation.
-\`\`\`
-
-## Example: Failure Path (Transformer Mandate Violation)
-
-\`\`\`
-L2 hypotheses: [redis-caching, cdn-edge]
-
-"Redis has higher R_eff, so I'll go ahead and implement that..."
-[No quint_decide call, no user confirmation]
-
-Result: PROTOCOL VIOLATION. Agent made autonomous architectural decision.
-The human must select. You document.
-\`\`\`
-
-## Checkpoint
-
-Before declaring the cycle closed, verify:
-- [ ] Active cycle located and \`04-audit.md\` read
-- [ ] Comparison table presented to user
-- [ ] User explicitly selected the winner (Transformer Mandate honoured)
-- [ ] \`<output_dir>/05-decision.md\` (DRR) exists with all template sections populated
-- [ ] \`<output_dir>/00-context.md\` frontmatter \`verdict_phase5\` updated (no longer empty)
-- [ ] (Tooled only) Called \`quint_decide\` with user's choice; DRR also persisted in \`.quint/decisions/\`
-- [ ] Output path to DRR communicated to the user
-
-**If any checkbox is unchecked, you MUST complete it before declaring the cycle closed.**
+# quint-fpf — Haft adapter
+
+The name stays stable for existing NONoise references. Haft owns the FPF source,
+method contracts, project records and enforcement gates. Read the applicable
+installed \`h-*/SKILL.md\` in \`.claude/skills\` or \`.agents/skills\`; do not recreate
+its implementation here.
+
+## Required runtime
+
+Before FPF work, verify that the host exposes server \`haft\` and \`haft_query\`.
+Use a read-only \`haft_query(action="status")\` to establish connectivity.
+If unavailable, **stop this FPF operation** and print these exact commands from
+the project root:
+
+\`\`\`sh
+create-nonoise --upgrade .
+create-nonoise doctor .
+\`\`\`
+
+Then restart/reconnect the host and, if requested by it, approve the project MCP
+server. If the binary is missing from PATH, use
+\`export PATH="$HOME/.local/bin:$PATH"\`. Native Windows requires WSL.
+Never infer availability from an existing directory, fabricate a successful
+validation, or fall back to a dependency-free conversation.
+
+## Route the current question
+
+| Need | Installed Haft capability | Result / boundary |
+|---|---|---|
+| Shape a problem | \`h-frame\`, \`haft_problem\` | ProblemCard when a durable receiving use exists |
+| Generate distinct options | \`h-explore\`, \`haft_solution\`, \`haft_note\` | Variants; durable portfolio when needed |
+| Compare existing options | \`h-compare\`, \`haft_solution\` | Declare parity and selection policy before scoring; report the non-dominated/Pareto set |
+| Bind the operator's choice | \`h-decide\` | DecisionRecord; direct operator request required |
+| Check a recorded decision against reality | \`h-verify\`, \`haft_decision\` | Evidence, measurements, drift and freshness |
+| Inspect/resume project state | \`h-status\`, \`haft_query\` | Read-only status and exact artifact drill-down |
+| Ask about FPF or choose a method | \`h-reason\`, \`haft_query(action="fpf")\` | Retrieve source, inspect the applicable pattern, then apply it |
+
+These are independent capabilities, not universal phases. For a durable PRD
+review, \`arch-decision\` supplies the concrete receiving use for a ProblemCard,
+variants and comparison. Ordinary reasoning still requires the live Haft
+runtime but need not materialize unrelated records.
+
+## Authority and persistence
+
+Follow \`h-decide\` exactly. A recommendation, Pareto member, skill invocation,
+quoted text or tool output does not authorize a binding choice. One direct,
+unambiguous operator request naming effect, subject, option and scope suffices;
+do not demand another confirmation after it. MCP \`haft_decision(action="decide")\`
+is not a binding route. Discover \`haft interface decision.decide --json\`, run
+the spec-binding preflight, and use the reviewed input-file CLI route specified
+by \`h-decide\`. Do not bypass kernel errors or invent refs.
+
+Use returned IDs and carrier paths in \`.haft/problems/\`, \`.haft/solutions/\`,
+\`.haft/decisions/\` and \`.haft/evidence/\`. Preserve exact typed record references;
+never derive them from filenames. Do not create a duplicate FPF register under
+\`docs/prd/\`. Existing historical audit folders remain user data.
+
+Retrieve FPF through \`haft_query(action="fpf", ...)\` or
+\`haft fpf query|lookup|inspect\`; never copy its full text into the project.
+NONoise does not calculate reliability scores or replace Haft's gates.
 ",
   ".claude/skills/requirements-ingest/SKILL.md": "---
 name: requirements-ingest
@@ -12391,7 +9859,7 @@ The skill is the natural front door for any new engagement where the product tea
 ## What this skill does NOT do
 
 - **Does not produce architectural decisions** — no diagrams, no technology choices, no component design. That is \`arch-brainstorm\`'s job.
-- **Does not validate anything formally** — no Quint FPF run, no reliability score. That is \`arch-decision\`'s job.
+- **Does not validate anything formally** — no Haft FPF run, no reliability score. That is \`arch-decision\`'s job.
 - **Does not break work into sprint tasks** — no user stories, no vertical slices, no CL1/CL2 confidence. That is \`sprint-manifest\`'s job.
 - **Does not write code** — it only produces requirement documents.
 - **Does not speculate** — if a raw document is ambiguous, the skill asks the user; it does not invent acceptance criteria.
@@ -12868,6 +10336,12 @@ The skill is stateless between invocations — state lives entirely in the files
 - Sibling skill \`arch-decision\` — validation step after \`arch-brainstorm\`
 - Sibling skill \`sprint-manifest\` — promotion to sprint
 - Project folder: \`docs/requirements/README.md\` — ships with the NONoise scaffold, describes the folder purpose
+
+For architectural validation, route through \`arch-decision\` and the required Haft
+runtime via \`quint-fpf\`. Retain PRD \`haft\` IDs and repository-root-relative paths
+in handoffs/work items; do not copy \`.haft/\` records into an audit folder. If
+Haft is missing, stop that validation with \`create-nonoise --upgrade .\` and
+\`create-nonoise doctor .\`.
 ",
   ".claude/skills/requirements-ingest/references/ingestion-heuristics.md": "# Ingestion heuristics
 
@@ -14995,6 +12469,12 @@ The description is stable — re-running on an existing item shows no diff unles
 - [\`sprint-manifest\`](../sprint-manifest/SKILL.md) — produces the input for this skill
 - [\`atr\`](../atr/SKILL.md) — acceptance testing of tasks after export
 - [\`arch-decision\`](../arch-decision/SKILL.md) / [\`arch-brainstorm\`](../arch-brainstorm/SKILL.md) — upstream skills that produce validated PRDs
+
+For architectural validation, route through \`arch-decision\` and the required Haft
+runtime via \`quint-fpf\`. Retain PRD \`haft\` IDs and repository-root-relative paths
+in handoffs/work items; do not copy \`.haft/\` records into an audit folder. If
+Haft is missing, stop that validation with \`create-nonoise --upgrade .\` and
+\`create-nonoise doctor .\`.
 ",
   ".claude/skills/spec-to-workitem/references/adapter-azuredevops.md": "# Adapter — \`azure-devops\`
 
@@ -15636,7 +13116,7 @@ This skill is **step 3** of the NONoise architectural workflow. It takes \`valid
 
 - **Does not create PRDs** — that is \`arch-brainstorm\`'s job. If the user wants a new PRD, redirect.
 - **Does not validate PRDs** — if a PRD is not \`validated\`, stop and redirect to \`arch-decision\`.
-- **Does not write to \`docs/architecture/\`** — the architect updates the source of truth manually (driven by \`arch-decision\` Phase 6 "Impact on docs/architecture/" checklist), independently from this skill.
+- **Does not write to \`docs/architecture/\`** — the architect updates the source of truth manually (driven by \`arch-decision\` PRD "Impact on docs/architecture/" checklist), independently from this skill.
 - **Does not generate per-feature micro-manifests** — one aggregated manifest per sprint, never split by area or by PRD.
 - **Does not produce technical breakdowns** — tasks are **vertical functional slices**, not lists of files/classes/migrations to create.
 - **Does not push to external issue trackers** — that is a separate skill invoked explicitly afterwards.
@@ -15789,7 +13269,12 @@ Before touching any file:
 
 3. **Check area consistency**: the \`area\` slug in the PRD frontmatter must match the folder name under \`docs/prd/\`. If there is a mismatch, flag it.
 
-4. **Check audit folder**: for every \`validated\` PRD there should be a matching audit folder at \`docs/prd/<area>/audit/NN-<study>-fpf/\` containing \`05-decision.md\` (the DRR). If the folder or \`05-decision.md\` is missing, flag as warning but continue (non-blocking).
+4. **Check Haft references**: resolve each PRD's \`haft.problems\`, \`haft.solutions\`
+   and \`haft.decisions\` IDs and paths from the repository root. Use the live Haft
+   runtime (\`quint-fpf\`) to recover exact decisions; only current accepted choices
+   support promotion. If the runtime is missing, stop with \`create-nonoise
+   --upgrade .\` and \`create-nonoise doctor .\`. Legacy PRDs lacking refs require
+   explicit review through \`arch-decision\`; do not invent refs from old audits.
 
 If any check fails and is not recoverable, **stop** and ask the user how to proceed.
 
@@ -15808,11 +13293,10 @@ For every \`validated\` PRD to process:
    docs/prd/<area>/NN-<study>-diagrams.md
    → docs/sprints/Sprint-N/<area>/NN-<study>-diagrams.md
 
-   docs/prd/<area>/audit/NN-<study>-fpf/
-   → docs/sprints/Sprint-N/<area>/audit/NN-<study>-fpf/
    \`\`\`
 
-   The audit is a folder, not a single file — move the entire folder (all 6 per-phase files) as a unit.
+   Keep \`.haft/\` artifacts in place and preserve all \`haft\` references unchanged.
+   Historical audit folders remain in their existing locations as user data.
 
 2. **Copy \`00-area-brief.md\`** into the sprint area folder on first promotion of that area, annotated with "Promoted to Sprint N in YYYY-MM-DD".
 
@@ -16078,7 +13562,7 @@ Explicit list of things NOT being done this sprint (even if they appear in PRDs)
 - \`docs/prd/<area>/*.md\` — source of validated PRDs
 - \`docs/sprints/Sprint-N/\` — promotion destination (one folder per sprint)
 - \`docs/sprints/Sprint-N/sprint-manifest.md\` — the aggregated sprint manifest (one per sprint)
-- \`docs/sprints/Sprint-N/<area>/*.md\` — promoted PRDs + audits
+- \`docs/sprints/Sprint-N/<area>/*.md\` — promoted PRDs + unchanged Haft references
 - \`docs/architecture/\` — source of truth (read-only for this skill)
 
 ## Related skills
@@ -16806,6 +14290,9 @@ graphify-out/
 .graphify_*
 .obj/
 # <<< graphify
+
+# Haft markdown, project binding and host configs are shared project records.
+# Keep .haft/ tracked; its own .gitignore excludes transient review state.
 ",
   ".nonoise/sdlc-flow.md": "---
 version: 1
@@ -17243,7 +14730,7 @@ Each subfolder has its own \`README.md\` that documents contents and conventions
 | Skill | Reads | Writes |
 |---|---|---|
 | \`arch-brainstorm\` | \`architecture/\`, \`requirements/\`, \`calls/\`, \`support/\`, existing \`prd/<area>/\` | \`prd/<area>/NN-<study>.md\`, \`prd/<area>/00-area-brief.md\`, \`prd/<area>/NN-<study>-diagrams.md\` |
-| \`arch-decision\` (via \`quint-fpf\`) | \`prd/<area>/NN-<study>.md\`, \`architecture/\` | \`prd/<area>/audit/NN-<study>-fpf/\` (six per-phase markdown files: \`00-context.md\` … \`05-decision.md\`), updates PRD frontmatter |
+| \`arch-decision\` (via \`quint-fpf\`) | \`prd/<area>/NN-<study>.md\`, \`architecture/\` | Haft records in \`.haft/problems/\`, \`.haft/solutions/\`, \`.haft/decisions/\`; PRD frontmatter links their IDs and paths |
 | \`sprint-manifest\` | \`prd/<area>/\` (validated PRDs) | \`sprints/Sprint-XX/<area>/prd|manifest/\` |
 | \`atr\` | \`requirements/\`, \`sprints/\` | acceptance test reports |
 | \`arch-brainstorm\`/\`arch-decision\` | \`calls/\` (context for dialog) | — |
@@ -17390,7 +14877,7 @@ This folder holds **narrative PRDs** produced by the \`arch-brainstorm\` skill a
 
 ## Structure
 
-One folder per architectural **area**, containing one or more **studies** plus audit folders:
+One folder per architectural **area**, containing one or more **studies** with references to Haft records:
 
 \`\`\`
 prd/
@@ -17399,19 +14886,11 @@ prd/
 │   ├── 01-<study-slug>.md                  ← PRD narrative
 │   ├── 01-<study-slug>-diagrams.md         ← standalone Mermaid diagrams
 │   ├── 02-<study-slug>.md                  ← second study
-│   └── audit/
-│       ├── 01-<study-slug>-fpf/            ← Quint FPF audit folder (from arch-decision)
-│       │   ├── 00-context.md               ← Phase 0 — Bounded Context
-│       │   ├── 01-hypotheses.md            ← Phase 1 — L0 hypotheses (abduction)
-│       │   ├── 02-verification.md          ← Phase 2 — L0 → L1 verdicts
-│       │   ├── 03-validation.md            ← Phase 3 — L1 → L2 with evidence
-│       │   ├── 04-audit.md                 ← Phase 4 — R_eff via WLNK
-│       │   └── 05-decision.md              ← Phase 5 — final DRR (verdict + rationale)
-│       └── 02-<study-slug>-fpf/
-│           └── …(same six files)
 \`\`\`
 
-One folder per validated study, deletable in a single \`rm -rf\` if you need to redo the pre-validation from scratch. The final verdict lives in \`05-decision.md\`'s frontmatter (\`verdict: PASS | FAIL | NEEDS-REVISION\`).
+Haft owns the FPF records in repository-root \`.haft/\`. PRD \`haft\` references
+link actual problem, portfolio and decision IDs/paths. Historical audit folders
+remain user data; new validation creates no duplicate register.
 
 See [\`arch-brainstorm\`'s folder-conventions reference](../../.claude/skills/arch-brainstorm/references/folder-conventions.md) for full details (naming, frontmatter, lifecycle states).
 
@@ -17420,11 +14899,11 @@ See [\`arch-brainstorm\`'s folder-conventions reference](../../.claude/skills/ar
 Each PRD goes through these states in its frontmatter:
 
 \`\`\`
-draft → in-validation → validated → { promoted | superseded | rejected }
+draft → validated → { promoted | superseded | rejected }
 \`\`\`
 
 - \`arch-brainstorm\` creates \`draft\` PRDs
-- \`arch-decision\` transitions them to \`in-validation\` → \`validated\` (or \`rejected\`)
+- \`arch-decision\` keeps them draft until an explicit operator choice is bound in Haft, then sets \`validated\` or \`rejected\`
 - \`sprint-manifest\` transitions \`validated\` PRDs to \`promoted\` when moving them into a sprint
 - The architect manually marks \`superseded\` if a later study replaces an earlier one
 
@@ -17434,7 +14913,7 @@ draft → in-validation → validated → { promoted | superseded | rejected }
 # 1. Start a new study
 arch-brainstorm area user-signup
 
-# 2. Validate it via Quint FPF
+# 2. Validate it via Haft FPF
 arch-decision docs/prd/user-signup/01-email-otp.md
 
 # 3. When ready for sprint, promote
@@ -17502,7 +14981,7 @@ This folder holds **sprints**: PRDs that have been validated and promoted to act
 
 ## Structure
 
-One folder per sprint. At its root lives a single \`sprint-manifest.md\` that aggregates all the areas touched in that sprint. PRDs and their audits sit in subfolders by area:
+One folder per sprint. At its root lives a single \`sprint-manifest.md\` that aggregates all the areas touched in that sprint. PRDs and their diagrams sit in subfolders by area:
 
 \`\`\`
 sprints/
@@ -17511,8 +14990,6 @@ sprints/
     ├── <area-slug>/
     │   ├── NN-<study-slug>.md          ← PRDs moved from docs/prd/<area>/
     │   ├── NN-<study-slug>-diagrams.md
-    │   └── audit/
-    │       └── NN-<study-slug>-fpf/    ← FPF audit folder carried over (6 per-phase files) from docs/prd/<area>/audit/
     ├── acceptance/                     ← ATR workspace (output of the \`atr\` skill)
     │   ├── testbook.yml                ← generated test definitions
     │   ├── testbook-plan.md            ← stakeholder-friendly plan (optional)
@@ -17588,6 +15065,9 @@ validated → promoted → (stays in sprint folder forever as historical record)
 \`\`\`
 
 A promoted PRD is **immutable**. If a change is needed, create a new study (\`02-<study-slug>\`) under the same area in \`docs/prd/\` and run the flow again — do not edit in place.
+
+PRDs keep repository-root-relative \`haft\` references when promoted.
+Canonical artifacts stay in \`.haft/\`; historical audits remain in place.
 ",
   "docs/support/README.md": "# \`docs/support/\` — supporting documents
 
@@ -17631,7 +15111,7 @@ support/
 ## How NONoise skills use this folder
 
 - \`arch-brainstorm\` reads \`support/\` during DISCOVER when the area-slug maps to an existing support document — e.g. a legacy analysis relevant to the area under study
-- Other skills may cite support material as evidence (CL1 — external research) during \`arch-decision\` / \`quint-fpf\` VALIDATE phase
+- Other skills may cite support material as evidence (CL1 — external research) during Haft comparison/evidence work routed by \`arch-decision\` / \`quint-fpf\`
 ",
   "nonoise.config.json": "{
   "$schema": "https://nonoise.dev/schemas/project-config.v1.json",
@@ -18693,18 +16173,6 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/polly/references/project-tools.md",
   ".claude/skills/polly/references/sdlc-flow.default.md",
   ".claude/skills/quint-fpf/SKILL.md",
-  ".claude/skills/quint-fpf/commands/q-actualize.md",
-  ".claude/skills/quint-fpf/commands/q-decay.md",
-  ".claude/skills/quint-fpf/commands/q-query.md",
-  ".claude/skills/quint-fpf/commands/q-reset.md",
-  ".claude/skills/quint-fpf/commands/q-status.md",
-  ".claude/skills/quint-fpf/commands/q0-init.md",
-  ".claude/skills/quint-fpf/commands/q1-add.md",
-  ".claude/skills/quint-fpf/commands/q1-hypothesize.md",
-  ".claude/skills/quint-fpf/commands/q2-verify.md",
-  ".claude/skills/quint-fpf/commands/q3-validate.md",
-  ".claude/skills/quint-fpf/commands/q4-audit.md",
-  ".claude/skills/quint-fpf/commands/q5-decide.md",
   ".claude/skills/requirements-ingest/SKILL.md",
   ".claude/skills/requirements-ingest/references/ingestion-heuristics.md",
   ".claude/skills/requirements-ingest/references/requirement-file-template.md",

@@ -67,3 +67,10 @@ If `repositories.json` is present at project root (or `nonoise.config.json` has 
 - `references/external-tools.md` — info-only mentions (claude-mem, Paseo, call transcriptions).
 - `references/project-tools.md` — bundled executables Polly may cite when the phase calls for them (`md-extractor`, `devops-push`, multi-repo scripts).
 - `references/sdlc-flow.default.md` — embedded fallback copy of the flow.
+
+Architectural validation requires the live Haft MCP server via `quint-fpf`.
+If missing, stop that operation with `create-nonoise --upgrade .` and
+`create-nonoise doctor .`; there is no manual FPF fallback. Hand off the PRD
+and its `haft` artifact references, never a duplicate audit folder. Phase 5.5
+is the explicit operator choice routed through `h-decide`; a recommendation
+is not permission to bind. Offer `arch-sync` only after an accepted binding.

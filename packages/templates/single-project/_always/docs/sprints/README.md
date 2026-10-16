@@ -4,7 +4,7 @@ This folder holds **sprints**: PRDs that have been validated and promoted to act
 
 ## Structure
 
-One folder per sprint. At its root lives a single `sprint-manifest.md` that aggregates all the areas touched in that sprint. PRDs and their audits sit in subfolders by area:
+One folder per sprint. At its root lives a single `sprint-manifest.md` that aggregates all the areas touched in that sprint. PRDs and their diagrams sit in subfolders by area:
 
 ```
 sprints/
@@ -13,8 +13,6 @@ sprints/
     ├── <area-slug>/
     │   ├── NN-<study-slug>.md          ← PRDs moved from docs/prd/<area>/
     │   ├── NN-<study-slug>-diagrams.md
-    │   └── audit/
-    │       └── NN-<study-slug>-fpf/    ← FPF audit folder carried over (6 per-phase files) from docs/prd/<area>/audit/
     ├── acceptance/                     ← ATR workspace (output of the `atr` skill)
     │   ├── testbook.yml                ← generated test definitions
     │   ├── testbook-plan.md            ← stakeholder-friendly plan (optional)
@@ -90,3 +88,6 @@ validated → promoted → (stays in sprint folder forever as historical record)
 ```
 
 A promoted PRD is **immutable**. If a change is needed, create a new study (`02-<study-slug>`) under the same area in `docs/prd/` and run the flow again — do not edit in place.
+
+PRDs keep repository-root-relative `haft` references when promoted.
+Canonical artifacts stay in `.haft/`; historical audits remain in place.

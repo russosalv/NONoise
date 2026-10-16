@@ -147,11 +147,11 @@ Skip when: the feature fits an already-decided architecture.
 ## arch-decision
 
 ```prompt (it)
-Porta a decisione l'opzione architetturale <scelta> da docs/architecture/brainstorm/<file>.md. Esegui il processo arch-decision (incluso Quint FPF) e pubblica l'ADR finale in docs/architecture/decisions/. Procedi.
+Valuta il PRD draft docs/prd/<area>/<file>.md con arch-decision e Haft: ProblemCard, varianti e confronto. Presenta il gate 5.5; vincola una DecisionRecord in .haft/decisions/ solo su mia richiesta esplicita della scelta e aggiorna i riferimenti del PRD.
 ```
 
 ```prompt (en)
-Drive option <choice> from docs/architecture/brainstorm/<file>.md to a decision. Run the arch-decision process (including Quint FPF) and publish the final ADR under docs/architecture/decisions/. Proceed.
+Review draft docs/prd/<area>/<file>.md through arch-decision and Haft: ProblemCard, variants and comparison. Present Phase 5.5; bind a DecisionRecord in .haft/decisions/ only on my explicit choice request and update PRD references.
 ```
 
 ## arch-sync

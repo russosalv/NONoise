@@ -87,13 +87,9 @@ trade-offs explicitly.
 
 ### arch-decision (if ever absent)
 
-Destination: `docs/architecture/adr/NNNN-<slug>.md`.
-
-Manual fallback: use the ADR template (Context, Decision, Consequences) and
-apply the quint-fpf validation loop manually if `quint-fpf` is present.
-The skill also produces an "Impact on docs/architecture/" checklist — when
-doing it manually, list what changes in `docs/architecture/` folder files
-so the architect can apply the diff.
+Stop architectural validation. Restore the adapter and required Haft runtime:
+`create-nonoise --upgrade .`, then `create-nonoise doctor .` and reconnect the
+host MCP server. Do not substitute a hand-written ADR or conversational FPF.
 
 ### sprint-manifest (if ever absent)
 

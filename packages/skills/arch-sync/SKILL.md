@@ -1,6 +1,6 @@
 ---
 name: arch-sync
-description: 'Generic projector of a validated PRD''s "Impact on docs/architecture/" checklist into the actual files. Reads the validated PRD plus its `arch-decision` audit folder (specifically `05-decision.md`), parses the strict `[file: NN.md]` format from the appended `## Impact on docs/architecture/` section, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under `docs/architecture/sync-reports/`. Stack-neutral — knows no target constraints, never validates anything, never reads source code. Triggers — invoked by Polly after `arch-decision` PASS (the architect chooses "Sì — invoco arch-sync" at the post-finalize menu); also invokable manually with phrases like "arch-sync <prd-path>", "project the validated PRD into docs/architecture/", "sync architecture from <prd-path>", "recepisci il PRD validato <path>".'
+description: 'Generic projector of a validated PRD''s "Impact on docs/architecture/" checklist into the actual files. Reads the validated PRD plus its referenced Haft DecisionRecords, parses the strict `[file: NN.md]` format from the appended `## Impact on docs/architecture/` section, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under `docs/architecture/sync-reports/`. Stack-neutral — knows no target constraints, never validates anything, never reads source code. Triggers — invoked by Polly after `arch-decision` PASS (the architect chooses "Sì — invoco arch-sync" at the post-finalize menu); also invokable manually with phrases like "arch-sync <prd-path>", "project the validated PRD into docs/architecture/", "sync architecture from <prd-path>", "recepisci il PRD validato <path>".'
 source: NONoise (generic distillation of the project-locked Andreani `andreani-arch-docs` mode M)
 variant: nonoise generic; stack-neutral; markdown-only
 ---
@@ -8,7 +8,7 @@ variant: nonoise generic; stack-neutral; markdown-only
 # arch-sync — project a validated PRD into `docs/architecture/`
 
 A *writer assistant* that turns the `## Impact on docs/architecture/` checklist
-(produced by `arch-decision` Phase 6 inside `05-decision.md`) into actual file
+(projected by `arch-decision` into the PRD after Haft binding) into actual file
 writes, with diff preview and per-file confirmation. Stack-neutral by design:
 it does not know what constitutes a valid constraint, pattern, or component
 for your project. That knowledge belongs in the human's head and, optionally,
@@ -31,33 +31,27 @@ principle of `arch-decision`.
 
 ## Inputs
 
-The skill expects two paths:
+Read `prdPath`, which must have `status: validated`, `haft.decisions` entries
+with actual IDs and repository-root-relative `.haft/decisions/` carrier paths,
+and an `## Impact on docs/architecture/` checklist. Resolve refs from the
+repository root even after the PRD moves to a sprint.
 
-- `prdPath` — absolute or repo-relative path to a PRD with frontmatter
-  `status: validated`
-- `auditFolder` — absolute or repo-relative path to the per-cycle audit
-  folder produced by `arch-decision` (e.g. `docs/prd/<area>/audit/NN-<study>-fpf/`).
-  Must contain `05-decision.md` (the DRR) with frontmatter
-  `verdict: PASS` AND a `human_verdict` field in `{ approve, force-validated }`.
-
-When invoked by Polly, both paths are passed in the handoff. When invoked
-manually, the skill first asks the architect for them — defaulting to the
-most recent files matching `docs/prd/*/NN-*.md` with `status: validated`.
-
-If either precondition fails (PRD not validated, `human_verdict: reject`,
-or `human_verdict: go-back`), **stop** and instruct the architect to use the
-correct flow (`arch-decision` first; rejected or in-progress decisions are
-not synced).
+Require the Haft MCP runtime as described in `quint-fpf`; if unavailable stop
+with `create-nonoise --upgrade .` and `create-nonoise doctor .`. Recover each
+exact decision with `haft_query(action="related", artifact_ref=...)`. Confirm
+that it is active, current and binds the accepted choice. Missing, rejected,
+superseded or ambiguous authority blocks only the affected projection; use
+`arch-decision` to resolve it. Never treat a legacy audit as current authority.
 
 ## Five-step flow
 
 ### Step 1 — READ
 
 1. Open the PRD at `prdPath`. Verify frontmatter `status: validated`.
-2. Open `<auditFolder>/05-decision.md`. Verify frontmatter `verdict: PASS`
-   and `human_verdict ∈ { approve, force-validated }`.
-3. Find the section `## Impact on docs/architecture/` inside `05-decision.md`
-   (Phase 6 of `arch-decision` appends it there).
+2. Recover the exact referenced Haft DecisionRecords and inspect their binding
+   scope and freshness. Do not mutate them.
+3. Find `## Impact on docs/architecture/` in the validated PRD and check that its
+   effects are supported by those records.
 4. Parse the strict-format bullets:
 
    ```
@@ -112,18 +106,16 @@ this frontmatter:
 title: "Sync report — <area>/<study>"
 kind: sync-report
 prd_source: <prdPath>
-audit_folder: <auditFolder>
+haft_decisions: <exact PRD haft.decisions references>
 synced_at: YYYY-MM-DD
 triggered_by: polly | manual
-r_eff: <X>
-verdict: PASS
-human_verdict: approve | force-validated
+status: validated
 ---
 ```
 
 Body sections:
 
-- **Source PRD** — path, area, study, validated_at, R_eff, human_verdict
+- **Source PRD** — path, area, study, validated_at, Haft decision refs, operator choice
 - **Diffs applied** — per file, the unified diff that was written
 - **Diffs rejected** — per file, the diff and the architect's reason if supplied
 - **Skipped bullets** — bullets from Step 1 that didn't match the strict
@@ -158,10 +150,6 @@ Then print to the architect:
 | Condition | Action |
 |-----------|--------|
 | `prdPath` frontmatter `status` is not `validated` | Stop. Instruct the architect to run `arch-decision` first. |
-| `<auditFolder>/05-decision.md` missing | Stop. Instruct the architect to re-run `arch-decision` Phase 5+. |
-| `05-decision.md` frontmatter `verdict` is not `PASS` | Stop. The decision was rejected or is incomplete; nothing to sync. |
-| `05-decision.md` `human_verdict` is `reject` or `go-back` | Stop. The architect did not approve this decision. |
-| `05-decision.md` missing the `## Impact on docs/architecture/` section | Stop. Instruct the architect to re-run `arch-decision` Phase 6 (or to manually append the section). |
 | Target file is git-dirty (uncommitted local changes) | Warn before showing the diff. The architect can still proceed. |
 | A target file already contains the same text being added (idempotency) | Skip silently — note in the sync report under "no-op (already present)". **Comparison rule**: trim trailing whitespace per line, collapse runs of blank lines to one, normalize markdown list markers (`*` → `-`); case-sensitive otherwise. Anything else counts as a real diff. |
 | Step 4 architect input doesn't parse | Re-prompt. Never interpret silence as "all" — always require explicit input. |
@@ -179,7 +167,7 @@ Then print to the architect:
 - **Silent failures** — if a file can't be written (permission denied,
   read-only filesystem), surface the error and stop the sync. Do not
   pretend partial success.
-- **Editing `05-decision.md`** — the audit is immutable history.
+- **Editing Haft carriers** — binding history belongs to Haft.
   `arch-sync` reads from it; never writes to it.
 
 ## Relationship with project-locked sync skills
@@ -213,7 +201,7 @@ The architect can either un-ignore the path or accept the risk explicitly.
 ## References
 
 - Sibling skill [`arch-decision`](../arch-decision/SKILL.md) — produces
-  the validated PRD + `05-decision.md` audit that `arch-sync` consumes
+  the validated PRD checklist + Haft references that `arch-sync` consumes
 - Sibling skill [`quint-fpf`](../quint-fpf/SKILL.md) — the FPF
   methodology that `arch-decision` runs to produce the audit
 - Sibling skill [`c4-doc-writer`](../c4-doc-writer/SKILL.md) — orthogonal

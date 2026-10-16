@@ -43,7 +43,7 @@ The skill is the natural front door for any new engagement where the product tea
 ## What this skill does NOT do
 
 - **Does not produce architectural decisions** — no diagrams, no technology choices, no component design. That is `arch-brainstorm`'s job.
-- **Does not validate anything formally** — no Quint FPF run, no reliability score. That is `arch-decision`'s job.
+- **Does not validate anything formally** — no Haft FPF run, no reliability score. That is `arch-decision`'s job.
 - **Does not break work into sprint tasks** — no user stories, no vertical slices, no CL1/CL2 confidence. That is `sprint-manifest`'s job.
 - **Does not write code** — it only produces requirement documents.
 - **Does not speculate** — if a raw document is ambiguous, the skill asks the user; it does not invent acceptance criteria.
@@ -520,3 +520,9 @@ The skill is stateless between invocations — state lives entirely in the files
 - Sibling skill `arch-decision` — validation step after `arch-brainstorm`
 - Sibling skill `sprint-manifest` — promotion to sprint
 - Project folder: `docs/requirements/README.md` — ships with the NONoise scaffold, describes the folder purpose
+
+For architectural validation, route through `arch-decision` and the required Haft
+runtime via `quint-fpf`. Retain PRD `haft` IDs and repository-root-relative paths
+in handoffs/work items; do not copy `.haft/` records into an audit folder. If
+Haft is missing, stop that validation with `create-nonoise --upgrade .` and
+`create-nonoise doctor .`.
