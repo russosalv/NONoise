@@ -1,18 +1,23 @@
-# 1.7.0 (unreleased)
+# create-nonoise
+
+## 1.7.0
+
+### Minor Changes
 
 - Require Haft FPF in both vendor modes: pinned temporary MIT fork `russosalv/haft` v9.1.1-nonoise.1, verified SHA-256 downloads, machine-wide user install, retries, WSL guidance and explicit per-harness initialization. Fork publication is pending; local release URL override supports rehearsal.
 - Configure Copilot CLI MCP and reuse Haft-generated `.agents/skills`; preserve both Haft and NONoise instruction blocks across upgrades.
 - Replace legacy Quint commands with the `quint-fpf` Haft adapter; move PRD review authority to the explicit Phase 5.5 operator request and canonical `.haft/` records.
 - Migrate only recognized q* command hashes; retain modified commands, unknown `.quint` ledgers and historical FPF audits. Extend doctor with Haft version/platform, host configs/skills and read-only spec status.
-
 - Default to native vendor installers for scaffold and upgrade; preserve the offline `--vendor-mode embed` fallback.
 - Declare Claude marketplaces/plugins and install selected Codex/Copilot, unified impeccable and pinned graphifyy 0.9.91 integrations with non-fatal recovery commands.
 - Add a NONoise marketplace and own-skills plugin; pin superpowers 5.0.7 by immutable SHA for all three harnesses.
 - Manage instruction blocks without replacing user prose; migrate only fingerprinted legacy vendor files and preserve modified files/symlinks.
 - Add read-only `doctor [path]`, native/migration/marker tests and real-container validation documentation.
 - Correct impeccable's upstream sync source to `plugin/skills`.
-
-# create-nonoise
+- Replace the `codex-delegate` skill with OpenAI's official Claude Code plugin `codex@openai-codex` (marketplace `openai/codex-plugin-cc`): installed in native mode, declared in `.claude/settings.json` in embed mode; `--upgrade` removes pristine `codex-delegate` copies and preserves modified ones.
+- Install NONoise skills also in `.agents/skills/` when Codex or Copilot CLI is selected; `doctor` checks the directory each harness reads.
+- Pin the NONoise plugin marketplace to the CLI release tag (`russosalv/NONoise#v<version>` for Claude, `@v<version>` for Codex); `NONOISE_MARKETPLACE_REF` overrides it.
+- Ignore `*.graphify-bak` installer backups in new scaffolds; `doctor` reports broken skill symlinks (read-only).
 
 ## 1.6.0
 
