@@ -115,7 +115,11 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
   if (ctx.gitInit) {
     runGitInit(ctx.projectPath);
   }
-  if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) await installHaft(ctx.projectPath, ctx.aiTools);
+  if (paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
+    const haft = await installHaft(ctx.projectPath, ctx.aiTools);
+    // Haft needs a commit before `haft init`; record its files in a second commit of the repo we created.
+    if (ctx.gitInit && haft.ok) runGitCommit(ctx.projectPath, 'chore: initialize Haft via create-nonoise');
+  }
 }
 
 async function writeRepositoriesJson(projectPath: string, repos: RepoEntry[]): Promise<void> {
@@ -212,6 +216,16 @@ function runGitInit(cwd: string): void {
     });
   } catch {
     // Best-effort: if git isn't configured, skip silently.
+  }
+}
+
+function runGitCommit(cwd: string, message: string): void {
+  try {
+    execSync('git add -A', { cwd, stdio: 'ignore' });
+    if (execSync('git status --porcelain', { cwd }).toString().trim() === '') return;
+    execSync(`git commit -m ${JSON.stringify(message)}`, { cwd, stdio: 'ignore' });
+  } catch {
+    // Best-effort, like runGitInit.
   }
 }
 
