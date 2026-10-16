@@ -71,3 +71,15 @@ If the workspace is multi-repo (`repositories.json` present or `nonoise.config.j
 - [`multi-repo.md`](multi-repo.md) — multi-repo workspace setup.
 - [`team-model.md`](team-model.md) — pair vs solo rationale.
 - `packages/skills/polly/SKILL.md` — the skill source. If this doc disagrees, the SKILL.md wins.
+
+## Profiles and brownfield artifacts (1.8.0)
+
+Polly reads the installed skill/agent index and `nonoise.config.json` before
+suggesting a capability. Minimal installations can expand through an explicit
+`create-nonoise --upgrade . --profile <name>` command.
+For source-less DLL/EXE, packaged Electron/app.asar, HAR/SAZ, SQLite, APK, native
+binaries, firmware or understanding an app/site without code, Polly proposes REA
+and hands off to `rea-setup`. That skill explains the specific need and asks one
+confirmation covering project installation and permission to analyze the target.
+Already configured REA is used directly when connected. Polly itself retains its
+advisor role. [REA flow](rea-integration.md) · [Profiles](install-profiles.md).

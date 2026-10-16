@@ -81,7 +81,7 @@ What `--upgrade` does:
 
 - **Re-copies all NONoise skills** under `<project>/.claude/skills/` (and `.agents/skills/` when Codex or Copilot CLI is selected), picking up the latest `SKILL.md` files.
 - **Re-runs the vendor installers** — native mode by default (upstream plugins and installers, NONoise marketplace pinned to the CLI release tag), or the bundled snapshots with `--vendor-mode embed` — plus graphify and the Haft FPF runtime.
-- **Removes retired skills** — unmodified `codex-delegate` copies are removed (replaced by the `codex@openai-codex` plugin); modified copies and modified vendor files are preserved and listed.
+- **Retired skills** — explicit profile migration removes unmodified `codex-delegate` copies; profile-less 1.6/1.7 upgrades retain every previous file. When cleanup is selected, copies are removed (replaced by the `codex@openai-codex` plugin); modified copies and modified vendor files are preserved and listed.
 - **Updates only the NONoise managed block** in `CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md` — your edits outside the markers stay.
 - **Keeps your `nonoise.config.json` settings** — it only refreshes `frameworkVersion`, `vendorMode`, `aiTools`, the skill list and `preservedVendorFiles`.
 

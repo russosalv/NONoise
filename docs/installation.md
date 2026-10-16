@@ -143,7 +143,7 @@ the following commands immediately when Claude is available, then confirm each
 installation with `claude plugin list --json` in the current project:
 
 ```bash
-claude plugin marketplace add russosalv/NONoise#v1.7.0
+claude plugin marketplace add russosalv/NONoise#v1.8.0
 claude plugin install superpowers@nonoise --scope project
 claude plugin marketplace add anthropics/skills
 claude plugin install document-skills@anthropic-agent-skills --scope project
@@ -154,7 +154,7 @@ claude plugin install codex@openai-codex --scope project
 claude plugin list --json
 ```
 
-For Codex the CLI runs `codex plugin marketplace add russosalv/NONoise@v1.7.0`,
+For Codex the CLI runs `codex plugin marketplace add russosalv/NONoise@v1.8.0`,
 then `codex plugin add superpowers@nonoise`; for Copilot it runs
 `copilot plugin marketplace add russosalv/NONoise`, then
 `copilot plugin install superpowers@nonoise`.
@@ -170,7 +170,7 @@ provides `/codex:rescue` (subagent `codex:codex-rescue`), `/codex:review`,
 `/codex:adversarial-review`, `/codex:status`, `/codex:result`, `/codex:cancel`,
 `/codex:transfer` and `/codex:setup`. Embed mode stays offline: the plugin is
 only declared in `.claude/settings.json`, and Claude Code offers it when the
-project is trusted. `--upgrade` removes `codex-delegate` copies that match the
+project is trusted. Explicit profile migration (`--upgrade --profile core`) removes `codex-delegate` copies that match the
 shipped version and preserves (and lists) modified ones.
 Already registered marketplaces and confirmed installations are reused.
 Transient DNS, connection, timeout and HTTP 5xx failures in marketplace/plugin,
@@ -211,7 +211,7 @@ content and receive a current block after the title. An incomplete block is an
 error rather than permission to overwrite text. User preferences stay outside
 the managed block. Skill names and workflows are unchanged.
 
-Legacy cleanup checks frozen SHA-256 fingerprints of 1.6.0 vendor files,
+Profile-less 1.6/1.7 upgrades defer legacy vendor, Quint and retired-skill cleanup to preserve all existing files. An explicit `--profile` selects the new catalog and permits the normal hash-protected migration. Legacy cleanup checks frozen SHA-256 fingerprints of 1.6.0 vendor files,
 including namespaced and flat impeccable layouts, ancillary superpowers files,
 and graphify platform copies. It deletes only exact matches and empty vendor
 directories, never traverses symlinks, and lists removals and modifications.
@@ -545,7 +545,7 @@ Haft MCP is connected; there is no conversational substitute. `doctor` reports
 platform/version, per-harness MCP/skills/blocks and the read-only
 `haft spec status --json` result. Workflow readiness is not a health verdict.
 
-Upgrade removes only hash-recognized old q* copies (including legacy slash
+Explicit profile migration removes only hash-recognized old q* copies (including legacy slash
 command locations). Modified files and symlinks stay. Neither 1.6.0 nor 8b500d0
 shipped `.quint` data, so existing `.quint/` directories are conservatively
 preserved, including empty ones. During init, NONoise temporarily shields the
@@ -564,3 +564,33 @@ NONOISE_HAFT_BASE_URL=http://127.0.0.1:8765 create-nonoise demo --yes --ai claud
 `NONOISE_HAFT_BASE_URL` replaces the release asset directory, including
 `checksums.txt`. Use a trusted release mirror; the checksum confirms transfer
 integrity, not an independent publisher signature.
+
+## Profiles, hooks and REA (1.8.0)
+
+Setup asks for `--profile`; the default is `core`. See the complete
+[profile table and migration semantics](install-profiles.md). Stack selection
+continues to work with profiles. `--upgrade` respects the saved profile; change
+it explicitly with `--profile`. A profile-less 1.6/1.7 project receives core with
+legacy compatibility and keeps its previous assets.
+
+```sh
+npx create-nonoise demo --yes --profile full --stack dotnet,typescript,angular,web --ai claude-code,codex,copilot
+npx create-nonoise --upgrade demo --with-rea
+npx create-nonoise doctor demo
+```
+
+REA registration uses `npx -y rea-agents@6.5.0 mcp`, compact input schemas, and
+Codex startup timeout 120 seconds. It is project-local, never `rea setup`.
+Brownfield/full opt in at scaffold time; otherwise `rea-setup` asks one confirmation
+covering installation and authorized software analysis. Restart/approve the MCP
+server after activation. [Detailed REA flow](rea-integration.md).
+
+Selected ECC-derived hooks live in `.nonoise/hooks/` and use Node on all platforms.
+Host registration and any supported-event limits are documented in
+[hook compatibility](hooks-compatibility.md). The old vendor hooks are separate.
+`doctor` compares profile assets and reports REA configuration, required Node and
+context cost; registration alone does not prove server connectivity.
+
+The 1.8.0 release preparation updates package version, one changelog entry including
+goal 5, and both release tarball URLs together. The container validation does not
+push tags, publish or deploy; the release maintainer still follows the checklist above.

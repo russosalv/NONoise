@@ -1,8 +1,10 @@
-# External tools Polly mentions (info-only, not integrated)
+# External tools and project integrations
 
-NONoise takes a strict posture on third-party tooling: **mentioned, not wired**. Polly surfaces useful tools at the right SDLC step; the framework never installs, configures, authenticates, or API-calls them. The user decides whether to adopt each one. No MCP servers, no API keys in the framework, no runtime dependencies.
-
-This is [`philosophy.md`](philosophy.md) §6 *Advisor-only where it matters* applied to tools outside the framework's direct control.
+Most tools Polly mentions are advisory. Explicit framework integrations are
+Graphify, Haft, native vendor plugins and optional REA. Profile selection controls
+which integrations the CLI installs; `minimal` skips external runtimes. No secrets
+are shipped. [Profiles](install-profiles.md) distinguish this setup from Polly's
+recommendations.
 
 ## Why advisor-only
 
@@ -59,7 +61,7 @@ The mention surfaces during the atr phase; the framework does not push to Paseo 
 
 ### Knowledge graph
 
-- **graphify** — indexes a codebase into a knowledge graph with god-nodes, community clusters, audit-trailed edges. The `create-nonoise` CLI installs the `graphifyy` Python package (`uv tool install "graphifyy>=0.7.0"`) at scaffold time and wires the per-tool hooks (`graphify claude install`, `graphify copilot install`). Invoke as `/graphify <path>` — or use the project's `/index <path>` shortcut in Claude Code, which wraps `/graphify` with anti-pattern guidance against the bare CLI. The bare `graphify` binary is reserved for read-side operations only (`graphify query`, `graphify path`, `graphify explain`, AST-only `graphify update`); never use it for full indexing — `graphify extract` requires an external LLM API key, while the `/graphify` slash skill runs through the IDE assistant's session with no key required.
+- **graphify** — indexes a codebase into a knowledge graph with god-nodes, community clusters, audit-trailed edges. The `create-nonoise` CLI installs the `graphifyy` Python package (`uv tool install graphifyy==0.9.91`) at scaffold time and wires the per-tool hooks (`graphify claude install`, `graphify copilot install`). Invoke as `/graphify <path>` — or use the project's `/index <path>` shortcut in Claude Code, which wraps `/graphify` with anti-pattern guidance against the bare CLI. The bare `graphify` binary is reserved for read-side operations only (`graphify query`, `graphify path`, `graphify explain`, AST-only `graphify update`); never use it for full indexing — `graphify extract` requires an external LLM API key, while the `/graphify` slash skill runs through the IDE assistant's session with no key required.
 
 Output: `graphify-out/GRAPH_REPORT.md`, `graph.json`, `graph.html`, `manifest.json`. A pre-tool hook reminds the AI to read the report before searching raw files. See [`sdlc.md`](sdlc.md) §Brownfield prefix.
 
@@ -126,3 +128,13 @@ Instead NONoise uses the adapter pattern — the adapter is plain Markdown that 
 - [`polly.md`](polly.md) §Step 0 — the voice-tool phrasing.
 - [`skills-catalog.md`](skills-catalog.md) §Integrations — `spec-to-workitem`, `observability-debug` adapter catalogues.
 - `packages/skills/ops-skill-builder/references/access-patterns.md` — the "access menu CLI > API > Web" reasoning applied to any ops tool.
+
+## REA: optional project integration
+
+`--with-rea` and profiles brownfield/full configure `rea-agents@6.5.0 mcp` locally
+in `.mcp.json` and/or `.codex/config.toml`; they never call `rea setup` or write
+REA into global client settings. Node >=22.19 is required. The compact schema
+profile reduces the context cost of 172 tools; the first server launch may download
+the pinned package through npx. Polly proposes REA for artifacts without sources;
+`rea-setup` obtains one installation/analysis confirmation and resumes the task after
+the server is connected. [Setup and provenance](rea-integration.md).

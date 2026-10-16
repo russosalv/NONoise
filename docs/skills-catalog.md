@@ -1,6 +1,14 @@
 # Skill catalog — what ships in `.claude/skills/`
 
-NONoise bundles **40+ skills**, plus 8 always-installed ECC process skills and up to 7 ECC stack skills: 27 NONoise-native skills from `packages/skills/`, plus 14 from [obra/superpowers](https://github.com/obra/superpowers), plus the Impeccable design pack, plus Anthropic's `skill-creator` and document skills (PPTX tooling). The NONoise-native skills are copied to `.claude/skills/` in every scaffolded project, and also to `.agents/skills/` when Codex or Copilot CLI is selected. The ECC snapshot is always copied locally and updated only manually. Other vendor packs are installed by their upstream installers and plugin registries by default (native mode); `--vendor-mode embed` copies the bundled snapshots into the project for offline use. Delegation from Claude Code to Codex uses OpenAI's official `codex@openai-codex` plugin (see [Vendor plugin — Codex](#vendor-plugin--codex-codexopenai-codex)). All skills are plain Markdown and work cross-tool (see [`cross-tool.md`](cross-tool.md)).
+NONoise selects skills through six [installation profiles](install-profiles.md).
+Core and larger profiles include the historical 27 native skills plus `rea-setup`;
+minimal includes five essential skills. ECC contributes 16 available skills,
+selected by profile and stack; REA contributes `reverse-engineer-anything` only
+when enabled. Native skills are copied to `.claude/skills/` and also `.agents/skills/`
+for Codex/Copilot. Other vendor packs use native installers by default or the
+bundled `--vendor-mode embed` fallback; minimal skips those packs. All shipped
+skill frontmatter and converted agents are checked in CI for host discovery.
+
 
 This document is organised by **domain**. Each skill entry has:
 
@@ -19,7 +27,7 @@ Every skill under `packages/skills/` falls into one of three provenance tiers. T
 
 | Tier | Meaning | Count |
 |---|---|---:|
-| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 25 |
+| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 26 |
 | **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. The `graphify` tool is installed directly by `create-nonoise` at scaffold time (not a skill wrapper). | 2 |
 | **vendored** | Installed under a namespace from the upstream installer or plugin (native, default) or from a snapshot pinned by commit and refreshed via `scripts/sync-vendor.mjs` (embed). Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
 
@@ -46,7 +54,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 | [Vendored skill-creator + tooling](#vendored-skill-creator--tooling) | 2+ | Meta-skill authoring and office tooling |
 | [Vendor plugin — Codex](#vendor-plugin--codex-codexopenai-codex) | plugin | Delegate tasks and reviews from Claude Code to Codex |
 
-> **Roadmap: core + optional packs.** The current scaffold installs every skill. Feedback from review suggested splitting into a minimal core (Polly + requirements + architecture + sprint + dev trio) plus optional packs (frontend pack, docs/analysis pack, ops pack, PM/architecture pack) chosen at scaffold time. That split is planned — see `todo.txt` at the repo root and `nonoise.config.json`'s future `packs` field.
+> **Profiles are available in 1.8.0.** Use `--profile` with `--stack`; selection is saved and respected by upgrades. See [the catalog](install-profiles.md).
 
 ---
 
@@ -420,3 +428,15 @@ Not implemented yet. When implemented, the relevant bits of `nonoise.config.json
 | [e2e-testing](../packages/skills/vendor/ecc/skills/e2e-testing/SKILL.md) | Browser journey; acceptance scenario → Playwright checks | typescript/angular/web; acceptance |
 
 The ten imported agents are documented in the selection table, separately from skills. Only the language reviewers selected by `--stack` are installed.
+
+## REA and dependency review (1.8.0)
+
+- `rea-setup` (NONoise): included in every profile; detects artifact-only brownfield
+  cases and obtains one confirmation for project installation and authorized analysis.
+- `reverse-engineer-anything` (MIT vendor, rea-agents 6.5.0): installed only with REA;
+  covers packaged .NET/Electron, HAR/SAZ, SQLite, APK, native binaries and firmware.
+- `mcp-dependency-review` (MIT ECC snapshot): security/full profiles; reviews project
+  MCP packages, permissions and dependency exposure. Uses installed host tools and
+  reports unavailable review capabilities instead of assuming ECC runtime commands.
+
+See [REA](rea-integration.md) for exact triggers, pin and activation boundaries.

@@ -14,8 +14,8 @@ NONoise targets multiple AI coding assistants. Some are **first-class** (fully v
 | **Scaffold writes context file** | `CLAUDE.md` (plus `.claude/skills/`, `.claude/commands/`, `.claude/settings.json`) | `.github/copilot-instructions.md` |
 | **Launch Polly** | `/polly` slash command (wired via `.claude/commands/polly.md`) | Phrase trigger: "start polly" / "avvia polly" / "run polly" |
 | **Invoke a specialist skill** | `Skill` tool by name — e.g. `arch-brainstorm`, `superpowers:writing-plans` | Read the SKILL.md file inline and follow its instructions |
-| **Hooks** (pre/post tool-use) | Active (defined in `.claude/settings.json`) | No hook mechanism — relevant hooks are silent no-op |
-| **MCP servers** (`.mcp.json`) | Supported if user configures | Silent no-op |
+| **Optional NONoise hooks** | Project `.claude/settings.json` | CLI project `.github/hooks/nonoise.json` (version 1); see verified limits below |
+| **MCP servers** (`.mcp.json`) | Project Haft/optional REA | CLI workspace `.mcp.json` (Haft/optional REA) |
 | **Worktrees** (`superpowers:using-git-worktrees`) | Active | Active (worktrees are a git feature, not tool-specific) |
 | **Native vendors** | `superpowers:<name>` plugin; `/impeccable <subcommand>` | Native Copilot plugin skills and `.github/skills/impeccable/` |
 | **Memory integration** | `claude-mem` plugin mentioned by Polly (info-only) | Native memory features used by the user |
@@ -35,7 +35,7 @@ These tools read plain Markdown and can follow a SKILL.md by hand. NONoise write
 | **Scaffold writes context file** | `.cursor/rules.md` | `GEMINI.md` | `AGENTS.md` |
 | **Launch Polly** | Read `.claude/skills/polly/SKILL.md` manually | Ask Gemini to activate `polly` skill | Ask Codex to use the `polly` skill (from `.agents/skills/`) |
 | **Invoke a specialist skill** | Read its SKILL.md manually | Ask Gemini to activate the named skill | Ask Codex to use the named skill from `.agents/skills/` |
-| **Hooks / slash commands / MCP** | Silent no-op | Silent no-op | Silent no-op |
+| **NONoise hooks / MCP** | No optional hook integration | No optional hook integration | Project hooks per verified CLI support; MCP in `.codex/config.toml` |
 
 Most of the SDLC flow works in best-effort tier because skills are plain Markdown and the AI follows them conversationally. What degrades is slash-command ergonomics and hook-based validations.
 
@@ -128,7 +128,7 @@ missing: resolve it from the harness plugin registry. Codex and Copilot use
 
 ### Per-harness skill directories
 
-NONoise's own skills are always installed in `.claude/skills/`. When Codex or
+The profile-selected NONoise skills are installed in `.claude/skills/`. When Codex or
 Copilot CLI is selected they are also installed in `.agents/skills/`, because
 those harnesses read repository skills from there. `doctor` checks the
 directory each selected harness reads:
@@ -149,7 +149,7 @@ mode only declares it in `.claude/settings.json`, so Claude Code offers it when
 the project is trusted. Commands: `/codex:rescue` (runs the `codex:codex-rescue`
 subagent), `/codex:review`, `/codex:adversarial-review`, `/codex:status`,
 `/codex:result`, `/codex:cancel`, `/codex:transfer`, `/codex:setup`.
-`--upgrade` removes unmodified `codex-delegate` copies and preserves modified ones.
+`--upgrade --profile core` permits removal of unmodified `codex-delegate` copies and preserves modified ones. Profile-less 1.6/1.7 upgrades defer cleanup and keep every prior file.
 
 ### Native vendor layout
 
@@ -202,3 +202,23 @@ Codex also loads project `.codex/config.toml` only for trusted projects (see
 For these isolated fixtures, `~/.codex/config.toml` has a project entry with
 `trust_level = "trusted"`; NONoise never grants trust automatically.
 `claude mcp list` may report pending approval until the user approves the server.
+
+## Profiles and verified host formats (1.8.0)
+
+All three CLI hosts consume the same [profile and stack catalog](install-profiles.md).
+Skills are native YAML-frontmatter Markdown in `.claude/skills/` (Claude) and
+`.agents/skills/` (Codex/Copilot). ECC agents become Claude Markdown, Copilot
+`.agent.md`, and Codex TOML. CI checks discoverability metadata for every shipped
+skill and the actual converted agent outputs; it does not claim that every host
+supports every optional upstream skill extension.
+
+Optional hook registration, supported events, confirmation behavior and version
+proofs are maintained in [hook compatibility](hooks-compatibility.md). Hook scripts
+are project-local Node modules with no ECC runtime dependency. Copilot CLI support
+must not be inferred to mean identical behavior in every Copilot editor surface.
+
+REA is registered only in project `.mcp.json` for Claude/Copilot and
+`.codex/config.toml` for Codex, pinned to 6.5.0 with compact schemas. Codex startup
+timeout is 120 seconds. Project trust and MCP approval/restart may be necessary;
+`doctor` reports configuration separately from actual connection readiness.
+See [REA integration](rea-integration.md).
