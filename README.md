@@ -183,7 +183,7 @@ Prerequisites: **Node `>=20`**, **pnpm `9.12.0`** (pinned via `packageManager`).
 ```bash
 pnpm install                                           # workspace deps
 pnpm --filter create-nonoise run build                 # build CLI + bundle assets
-pnpm --filter create-nonoise exec vitest run           # 47 CLI tests
+pnpm --filter create-nonoise exec vitest run           # full CLI suite (206 tests at 1.7.0)
 pnpm -r run test                                       # every package's tests
 pnpm -r run typecheck                                  # typecheck all
 node scripts/sync-vendor.mjs                           # refresh vendored superpowers

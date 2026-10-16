@@ -4,7 +4,7 @@
 
 ### Minor Changes
 
-- Require Haft FPF in both vendor modes: pinned temporary MIT fork `russosalv/haft` v9.1.1-nonoise.1, verified SHA-256 downloads, machine-wide user install, retries, WSL guidance and explicit per-harness initialization. Fork publication is pending; local release URL override supports rehearsal.
+- Require Haft FPF in both vendor modes: pinned temporary MIT fork `russosalv/haft` v9.1.1-nonoise.1, verified SHA-256 downloads, machine-wide user install, retries, WSL guidance and explicit per-harness initialization. The fork is published at `russosalv/haft` (linux-amd64, linux-arm64, darwin-arm64); `NONOISE_HAFT_BASE_URL` supports local release rehearsal.
 - Configure Copilot CLI MCP and reuse Haft-generated `.agents/skills`; preserve both Haft and NONoise instruction blocks across upgrades.
 - Replace legacy Quint commands with the `quint-fpf` Haft adapter; move PRD review authority to the explicit Phase 5.5 operator request and canonical `.haft/` records.
 - Migrate only recognized q* command hashes; retain modified commands, unknown `.quint` ledgers and historical FPF audits. Extend doctor with Haft version/platform, host configs/skills and read-only spec status.

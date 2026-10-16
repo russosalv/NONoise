@@ -49,7 +49,7 @@ branch with `NONOISE_MARKETPLACE_REF=<branch>`. Otherwise the fallback link poin
 `pnpm-workspace.yaml` includes only `packages/*`. Three packages:
 
 - **`packages/create-nonoise/`** — the published CLI. The only package users install.
-- **`packages/skills/`** — 25 native NONoise skills + `vendor/` (superpowers, impeccable, skill-creator, pptx). Not published; bundled into the CLI at build time.
+- **`packages/skills/`** — 28 NONoise skill sources (27 shipped in scaffolds; `bmad-req-validator` is plugin-only) + `vendor/` (superpowers, impeccable, skill-creator, pptx). Not published; bundled into the CLI at build time.
 - **`packages/templates/`** — `single-project/` and `multi-repo/` scaffold payloads. Not published; bundled.
 
 ### How a scaffold is produced (the CLI pipeline)
