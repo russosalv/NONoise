@@ -3,7 +3,7 @@ import { preserveInstructionFiles } from './managed-block.js';
 import { createHash } from 'node:crypto';
 import { MVP_SKILL_BUNDLE } from './skill-bundle.js';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, lstatSync, statSync, readdirSync, readlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import type { AiTools, AiToolKey } from './types.js';
 import type { GraphifyInstallContext, InstallReport } from './graphify-install.js';
@@ -219,9 +219,42 @@ export function doctor(projectPath: string): string[] {
   const config = json(path);
   const lines = [`NONoise doctor: ${projectPath} (vendor-mode ${config.vendorMode ?? 'embed/legacy'})`];
   const ai: AiTools = config.aiTools;
+  // Inspect links themselves; never recurse through linked directories (including
+  // valid links back to an ancestor or to skills outside this project).
+  function checkSkillLinks(relativePath: string): void {
+    const absolutePath = join(projectPath, relativePath);
+    let entry;
+    try { entry = lstatSync(absolutePath); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        lines.push(`Cannot inspect skill path: ${relativePath} — ${(error as Error).message}`);
+      }
+      return;
+    }
+    if (entry.isSymbolicLink()) {
+      try { statSync(absolutePath); }
+      catch (error) {
+        if (['ENOENT', 'ENOTDIR', 'ELOOP'].includes((error as NodeJS.ErrnoException).code ?? '')) {
+          lines.push(`Broken skill symlink: ${relativePath} -> ${readlinkSync(absolutePath)} — restore the missing target or recreate this symlink with the correct target path.`);
+        } else {
+          lines.push(`Cannot inspect skill symlink: ${relativePath} — ${(error as Error).message}`);
+        }
+      }
+      return;
+    }
+    if (!entry.isDirectory()) return;
+    let children: string[];
+    try { children = readdirSync(absolutePath); }
+    catch (error) {
+      lines.push(`Cannot inspect skill directory: ${relativePath} — ${(error as Error).message}`);
+      return;
+    }
+    for (const child of children.sort()) checkSkillLinks(`${relativePath}/${child}`);
+  }
   for (const key of Object.keys(providers) as AiToolKey[]) {
     if (!ai[key]) continue;
     lines.push(`[${key}]`);
+    for (const root of new Set([skillRoots[key], graphRoots[key]])) checkSkillLinks(`${root}/skills`);
     const missing = MVP_SKILL_BUNDLE.filter(name => !existsSync(join(projectPath, '.claude/skills', name, 'SKILL.md')));
     lines.push(`NONoise skills: ${MVP_SKILL_BUNDLE.length - missing.length}/${MVP_SKILL_BUNDLE.length} installed${missing.length ? ' — missing: ' + missing.join(', ') + '; create-nonoise --upgrade ' + projectPath : ''}`);
     if (config.vendorMode !== 'native') {

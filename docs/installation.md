@@ -83,6 +83,42 @@ npx create-nonoise offline-project --vendor-mode embed --yes
 `embed` must be explicitly selected for an offline upgrade. The CLI still bundles
 vendor snapshots for this fallback; native scaffolds do not copy them.
 
+#### Switching from native to embed
+
+`create-nonoise --upgrade --vendor-mode embed <project>` replaces vendor skill
+files with the snapshot shipped in that NONoise release. For Impeccable, native
+uses the upstream installer and its published, provider-specific bundle; embed
+copies `plugin/skills/impeccable` at the commit recorded in `VENDOR.json`. These
+can differ in version and command paths even when they expose the same skill.
+The switch can therefore produce many real Git changes, and can select an older
+version than the native installer. Review that diff before committing it.
+
+For example, the 2026-10-16 check compared native Impeccable 4.6.0 with NONoise's
+embedded 4.5.2 snapshot at `abf5779cabc20147fd9c013fa4705088c200bf8a`: 17 of 57
+common files differed, including reference instructions and command paths.
+The other 40 files produced no Git diff; repeating the embed copy produced no
+diff either. This is an expected change of distribution, not a Git content
+change caused by rewriting identical files. See the
+[issue #6 verification report](notes/issue-6-esito.md) for the reproduction.
+
+#### Installer backups and skill symlinks
+
+New scaffolds ignore `*.graphify-bak` at every directory depth. Graphify creates
+these rolling backups before changing hook/settings JSON; NONoise keeps them
+available for recovery while excluding them from the initial commit. Existing
+projects need the same ignore rule added manually; already tracked backups must
+also be removed from the Git index if they should stop being tracked.
+
+`create-nonoise doctor <project>` reports broken symlinks within the selected
+tools' skill directories, including both `.agents/skills` and `.codex/skills`
+for Codex, and both `.github/skills` and `.copilot/skills` for Copilot. Each
+diagnostic includes the link path, its target, and guidance to restore the target
+or recreate the link with the correct path. This check also runs in embed mode,
+handles nested and cyclic links, and never repairs or deletes files. Valid
+directory symlinks are checked but not traversed.
+
+#### Native channels
+
 | Component | Native setup |
 |---|---|
 | Superpowers | `superpowers@nonoise` via the NONoise marketplace; Git URL + immutable SHA `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7) |
