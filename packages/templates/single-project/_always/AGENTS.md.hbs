@@ -66,6 +66,18 @@ install nothing. With confirmation, configure REA only in this project, then
 request client restart/MCP approval and resume the analysis. Never run `rea setup`
 or change global client settings.{{/if}}
 
+## Updating NONoise
+
+When the user asks to update or upgrade NONoise, its skills or its installation ("aggiorna", "aggiorna le skill", "update NONoise", "upgrade the skills"), do not copy files by hand from the NONoise repository. From the project root, with a clean git tree, run:
+
+```bash
+npx --yes create-nonoise@latest doctor .
+npx --yes create-nonoise@latest --upgrade .
+npx --yes create-nonoise@latest doctor .
+```
+
+`--upgrade` reuses the AI tools, profile and stack from `nonoise.config.json`. It preserves user-modified files and everything outside the `nonoise:begin`/`nonoise:end` markers. Then run the retry commands the CLI prints for failed installers, run `graphify update .` if `graphify-out/` exists, ask the user to restart the AI tool so new skills, plugins and hooks load, and review the diff with them. Full runbook: https://github.com/russosalv/NONoise/blob/main/UPDATE.md
+
 <!-- nonoise:end -->
 
 
