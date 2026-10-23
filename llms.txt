@@ -1,0 +1,13 @@
+# NONoise
+
+> AI SDLC bootstrapper. The `create-nonoise` CLI scaffolds projects with AI skills, a docs hierarchy, per-tool context files and the Polly orchestrator, and upgrades existing ones.
+
+## For agents asked to install or update NONoise in a project
+
+- [UPDATE.md](https://raw.githubusercontent.com/russosalv/NONoise/main/UPDATE.md): step-by-step runbook (detect case, `npx create-nonoise@latest --upgrade <path>`, `doctor`, post-upgrade steps)
+
+## Docs
+
+- [Installation](https://raw.githubusercontent.com/russosalv/NONoise/main/docs/installation.md)
+- [Install profiles](https://raw.githubusercontent.com/russosalv/NONoise/main/docs/install-profiles.md)
+- [Contributor guide](https://raw.githubusercontent.com/russosalv/NONoise/main/CLAUDE.md)

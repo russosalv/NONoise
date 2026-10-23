@@ -15,6 +15,8 @@
   <a href="docs/cross-tool.md">Tool support</a>
 </p>
 
+> **🤖 AI agents:** if you were pointed at this repository to *install*, *update* or *upgrade* NONoise ("aggiorna", "installa", "update the skills") in a project, follow **[`UPDATE.md`](UPDATE.md)** — no need to clone or build this repo.
+
 ---
 
 ## What you get

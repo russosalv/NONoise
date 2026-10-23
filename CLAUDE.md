@@ -8,6 +8,8 @@ NONoise is an AI SDLC bootstrapper. The only thing it ships to users is the **`c
 
 This repo is **self-hosting**: `.claude/skills/` at the root contains the live skill sources (not copies); `/polly` works on this repo too.
 
+> **Installing or updating NONoise in *another* project?** This file is for working on the NONoise monorepo itself. If you were pointed here to install/update NONoise skills in a user's project, follow [`UPDATE.md`](UPDATE.md) instead.
+
 ## Commands
 
 Prerequisites: Node `>=20`, pnpm `9.12.0` (pinned via `packageManager` — use `corepack enable && corepack prepare pnpm@9.12.0 --activate` if needed).
