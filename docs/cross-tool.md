@@ -13,7 +13,8 @@ NONoise targets multiple AI coding assistants. Some are **first-class** (fully v
 |---|---|---|
 | **Scaffold writes context file** | `CLAUDE.md` (plus `.claude/skills/`, `.claude/commands/`, `.claude/settings.json`) | `.github/copilot-instructions.md` |
 | **Launch Polly** | `/polly` slash command (wired via `.claude/commands/polly.md`) | Phrase trigger: "start polly" / "avvia polly" / "run polly" |
-| **Pick a development mode** | `/polly quick\|medium\|long <goal>`; optionally `/regia <mode> <goal>` with the Regia mod | Phrase trigger: `start polly quick <goal>`; the `development-modes` block in `.github/copilot-instructions.md` |
+| **Pick a development mode** | `/polly quick\|medium\|long <goal>`; the prompt Polly returns starts with `/regia <mode>` | Phrase trigger: `start polly quick <goal>`; the `development-modes` block in `.github/copilot-instructions.md` |
+| **Orchestration** | [Regia](regia.md) mod (`regia@claude-regia`), installed by NONoise: delegation, model and effort per task, swarms of Claude, Codex and Qwen Code agents | None from NONoise: the `development-modes` block says when to delegate, Copilot's own subagent features do it |
 | **Invoke a specialist skill** | `Skill` tool by name — e.g. `arch-brainstorm`, `superpowers:writing-plans` | Read the SKILL.md file inline and follow its instructions |
 | **Optional NONoise hooks** | Project `.claude/settings.json` | CLI project `.github/hooks/nonoise.json` (version 1); see verified limits below |
 | **MCP servers** (`.mcp.json`) | Project code graph (`codebase-memory-mcp`), Haft, optional REA | CLI workspace `.mcp.json` (code graph, Haft, optional REA); `.vscode/mcp.json` (code graph) for Copilot in VS Code |
@@ -96,27 +97,27 @@ The convention each entry-point file respects:
 
 Tools that support richer mechanisms (Claude Code's `Skill` tool, Gemini's `activate_skill`) layer on top; tools that don't fall back to "read the file and follow it".
 
-## Worked example — swarm-router as cross-harness skill
+## Orchestration — Regia in Claude Code, native features elsewhere
 
-`swarm-router` is the first NONoise skill written with explicit *Harness-specific dispatch* sections for Claude Code, Copilot, Gemini CLI, and Codex inside the same SKILL.md. It is the explicit template for how future cross-tool-aware skills should be structured — one skill body, a per-harness table that maps every dispatch primitive to the local mechanism.
+Orchestration is the one capability NONoise does not deliver as cross-tool Markdown. In Claude Code it is [Regia](regia.md), a mod installed as the plugin `regia@claude-regia`. The other tools have no equivalent from NONoise.
 
-Tier breakdown for `swarm-router` specifically:
-
-| Mode | Claude Code (first-class) | Copilot / Gemini CLI / Codex (best-effort) |
+| | Claude Code | Copilot / Codex / Cursor / Gemini CLI |
 |---|---|---|
-| **1 — single** | `Skill` tool invokes the matching `*-delegate` skill; Codex via the official `codex@openai-codex` plugin (`/codex:rescue`) | Shell-out: `gemini -p`, `codex exec`, `copilot -p` |
-| **2 — sequential** | Chain of `Skill` invocations, intermediate file on disk | Chained shell calls, intermediate file on disk |
-| **3 — parallel fan-out** | N parallel tool calls in one message | N background shell processes + `wait`, output to `/tmp/swarm/<role>.out` |
-| **4 — parallel-team** | Native `Agent` tool — in-process parallel subagents, each with its own context window; cap N ≤ 4 | Shell-parallel background processes + `wait`; cap N ≤ 3; **no native file-ownership enforcement** — boundaries are prompt-only and must be audited via `git status` afterwards |
+| **Modes** | `/regia long\|medium\|quick [goal]`, enforced by the mod's rule in the system prompt | The `development-modes` table in the context file, as plain instructions |
+| **Delegation** | The main session delegates (medium) or orchestrates (long) | Whatever subagent feature the tool has; nothing is enforced |
+| **Model and effort per task** | Chosen for each subagent call | Not provided |
+| **Swarms** | Claude, Codex and Qwen Code agents on a dependency board, one git worktree per task that writes | Not provided |
+| **Plan, questions, surveillance, live pane** | Provided by Regia | Not provided |
 
-Mode 1 / 2 / 3 reach full parity on best-effort harnesses because they only need a peer-CLI shell-out. Mode 4 is where the gap shows: Claude Code's `Agent` tool gives atomic spawn, isolated context per subagent, and structured aggregation; the shell-parallel fallback in Copilot / Gemini / Codex works for ≤ 3 disjoint workers but loses coordination guarantees (no barriers, no per-subagent steering, no file-ownership runtime enforcement).
+Until 1.8 the `swarm-router` skill covered this for every harness from one SKILL.md, with shell-outs to peer CLIs (`gemini -p`, `codex exec`, `copilot -p`) on the best-effort tools. It is retired together with `copilot-delegate` and `gemini-delegate`, and it has no cross-harness successor: no NONoise skill fans work out from Copilot, Gemini CLI or Codex to other model CLIs, and nothing delegates to Copilot CLI or Gemini CLI any more. Regia's executors are Claude, Codex and Qwen Code.
 
-The `swarm-router` SKILL.md itself encodes the per-harness dispatch tables so the orchestrator picks the right mechanism without external lookup — the pattern any future cross-tool skill should follow.
+Where the superpowers pack is installed, `superpowers:dispatching-parallel-agents` and `superpowers:subagent-driven-development` still describe parallel work in any tool.
 
 ## Where to read more
 
 - [`polly.md`](polly.md) §Best-effort mode — what degrades when Polly runs outside Claude Code / Copilot.
-- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate, and how each tool gets the same behaviour.
+- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate, and how each tool gets the same modes.
+- [`regia.md`](regia.md) — the orchestration layer for Claude Code: installation, mode mapping, limits.
 - [`skills-catalog.md`](skills-catalog.md) §Authoring a new skill — conventions that keep skills cross-tool.
 - `packages/skills/vendor/superpowers/skills/using-superpowers/references/copilot-tools.md`, `gemini-tools.md`, `codex-tools.md` — tool-equivalence mapping for the superpowers ecosystem, which NONoise inherits.
 
@@ -143,20 +144,26 @@ directory each selected harness reads:
 | Copilot CLI | `.agents/skills/` |
 | Cursor / Gemini CLI | `.claude/skills/` (pointed to by the context file) |
 
-### Codex plugin for Claude Code
+### Regia and the Codex plugin (Claude Code)
 
-Delegating work from Claude Code to Codex uses OpenAI's official plugin
-`codex@openai-codex` (marketplace `openai/codex-plugin-cc`), which replaces the
-former `codex-delegate` skill. Native mode installs it at project scope; embed
-mode only declares it in `.claude/settings.json`, so Claude Code offers it when
-the project is trusted. Commands: `/codex:rescue` (runs the `codex:codex-rescue`
-subagent), `/codex:review`, `/codex:adversarial-review`, `/codex:status`,
-`/codex:result`, `/codex:cancel`, `/codex:transfer`, `/codex:setup`.
-`--upgrade --profile core` permits removal of unmodified `codex-delegate` copies and preserves modified ones. Profile-less 1.6/1.7 upgrades defer cleanup and keep every prior file.
+For Claude Code, NONoise installs the Regia mod as the plugin `regia@claude-regia`
+(marketplace `russosalv/claude-regia`). Native mode installs it at project scope;
+embed mode only declares it in `.claude/settings.json`, so Claude Code offers it
+when the project is trusted. It is not pinned and updates through its own
+marketplace. See [`regia.md`](regia.md).
+
+NONoise no longer installs OpenAI's Codex plugin `codex@openai-codex` itself.
+Regia installs it on its first interactive session when the `codex` CLI is on the
+machine; Regia's Codex jobs and swarm tasks run on that same CLI.
+
+The hand-over skills `swarm-router`, `copilot-delegate` and `gemini-delegate` (and
+`codex-delegate`, retired in 1.7) are no longer shipped. `--upgrade` removes
+unmodified copies and preserves modified ones. Profile-less 1.6/1.7 upgrades defer
+cleanup and keep every prior file.
 
 ### Native vendor layout
 
-Claude project settings declare the NONoise, Anthropic and `openai-codex`
+Claude project settings declare the NONoise, Anthropic and `claude-regia`
 marketplaces and vendor plugins. The NONoise marketplace is pinned to the CLI's
 release tag (`russosalv/NONoise#v<version>` for Claude, `@v<version>` for Codex;
 Copilot reads the default branch). Impeccable uses one skill with subcommands (providers `claude`,
@@ -166,9 +173,11 @@ See [installation](installation.md#native-vendor-installation-and-upgrades-17).
 ### Code graph (1.9)
 
 The code graph is the same MCP server, `codebase-memory-mcp`, in every tool. It
-replaces graphify and its per-platform skill folders. NONoise installs the pinned
-binary once per machine (`npm install -g codebase-memory-mcp@0.12.1`) and
-registers the server only in project-local config:
+replaces graphify and its per-platform skill folders. The binary is installed once
+per machine and is not pinned: a scaffold installs the latest release
+(`npm install -g codebase-memory-mcp@latest`) only when none is on `PATH`,
+`--upgrade` and `--code-graph-only` move it to the latest release, and NONoise
+never downgrades it. The server is registered only in project-local config:
 
 | Harness | MCP config |
 |---|---|
@@ -188,16 +197,17 @@ See [installation](installation.md#code-graph-codebase-memory-mcp-19).
 
 ## Development modes across tools (1.9)
 
-The quick / medium / long modes are plain instructions, so they work the same in
+The quick / medium / long modes are plain instructions, so the same table reaches
 every tool:
 
 - **Claude Code** — `/polly quick|medium|long <goal>`, or Polly infers the mode.
-  With the optional [Regia](https://github.com/russosalv/claude-regia) mod
-  installed, `/regia <mode> <goal>` maps 1:1 to the same three modes. Regia is
+  NONoise installs the [Regia](regia.md) mod, whose `/regia <mode> <goal>` maps
+  1:1 to the same three modes; Polly's prompt starts with it. Regia is
   Claude-Code-only.
 - **Codex and Copilot** — the `development-modes` managed block in `AGENTS.md`
   and `.github/copilot-instructions.md` carries the same table and rules. Phrase
-  triggers such as `start polly quick <goal>` select the mode. No Regia needed.
+  triggers such as `start polly quick <goal>` select the mode. There is no Regia
+  here: delegation relies on the tool's own subagent features.
 - **Cursor and Gemini CLI** — the same block in `.cursor/rules.md` and `GEMINI.md`.
 
 Full description: [`development-modes.md`](development-modes.md).

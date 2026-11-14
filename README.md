@@ -31,7 +31,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — a library of **28 NONoise skills plus native vendor integrations** (Codex delegation via the official `codex@openai-codex` plugin): Polly advisor, BMAD-derived personas, Haft FPF validator, the `codebase-memory` code graph, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
+- **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — a library of **25 NONoise skills plus native vendor integrations**: Polly advisor, BMAD-derived personas, Haft FPF validator, the `codebase-memory` code graph, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs. For Claude Code, the [Regia](docs/regia.md) mod (`regia@claude-regia`) adds orchestration: the main session delegates, model and effort are chosen per task, and swarms of Claude, Codex and Qwen Code agents run on a dependency board.
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill, sized per task as quick, medium or long ([development modes](docs/development-modes.md)).
@@ -70,29 +70,20 @@ You never pick the wrong skill. You always know the next step.
 
 **Local tooling, no service.** Everything runs inside your AI tool of choice. No server, no telemetry, no account. NONoise skills are plain Markdown; a `git clone` carries them between projects. Vendor plugins are installed through each harness; Claude project settings declare the dependencies for teammates. External tools (issue trackers, voice recorders, memory systems) are mentioned by Polly at the right moment — not wired, not required.
 
-### Multi-model orchestration with swarm-router
+### Orchestration with Regia (Claude Code)
 
-One team, many models. `swarm-router` is a NONoise skill that routes a single user request across Claude, Codex, Gemini, and Copilot's many models — picking the right specialist for each piece of work instead of forcing one model to do everything.
+In Claude Code, orchestration belongs to [Regia](https://github.com/russosalv/claude-regia), a Claude Code mod that NONoise installs as the plugin `regia@claude-regia`. Regia makes the main session coordinate instead of doing all the work itself:
 
-Four execution modes:
+- **Three modes** — `/regia long|medium|quick [goal]`, the same three as NONoise's [development modes](docs/development-modes.md). `/polly long <goal>` hands back a prompt that starts with `/regia long`, so the mode is chosen once.
+- **Model and effort per task** — picked for each subagent call from the task itself; a failed task retries one step higher.
+- **Swarms** — Claude, Codex and Qwen Code agents on a board with dependencies and a parallelism limit; every task that writes gets its own git worktree. `/regia swarm` shows the boards.
+- **The plan as a task list, and questions with their context** — each decision that is yours arrives with where things stand, the options and a recommendation, and as a notification when you are away (`/regia away` / `/regia here`).
+- **Surveillance and wake** — stuck agents are detected, and a session left alone is woken while the plan still has open items.
+- **A live pane** beside the chat (`/regia`), and `/regia doctor` to see what is active.
 
-- **single** — classify the task, dispatch to one model, return verbatim. ~80% of routings.
-- **sequential** — pipeline: A's output feeds B (e.g. Gemini writes the UI → Codex audits it).
-- **parallel fan-out** — same prompt to N models in parallel, then synthesize. For competing hypotheses or second opinions.
-- **parallel-team** — split a complex feature into N disjoint subtasks with explicit file-ownership boundaries, run them concurrently, then merge.
+Regia replaces the `swarm-router`, `copilot-delegate` and `gemini-delegate` skills, which NONoise no longer ships. Two limits follow. Regia is Claude-Code-only: Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. And Regia's executors are Claude, Codex and Qwen Code: there is no delegation to Copilot CLI or Gemini CLI any more.
 
-Specialization matrix the router uses by default:
-
-| Model | Default lane |
-|---|---|
-| **Claude** | Implementation, agentic loops, edge-case hunting, integration tests |
-| **Gemini** | Frontend HTML/CSS, Figma→code, SVG, big-context reads (>200k tokens) |
-| **Codex** | Code review, security audits, terminal/DevOps/scripting |
-| **Copilot** | Multiplexer — reaches any of the above, plus a free tier (`gpt-4.1`, `gpt-5-mini`) for cheap classification |
-
-Cross-tool by design: **first-class on Claude Code** (Mode 4 uses the native `Agent` tool for in-process parallel subagents); **best-effort on Copilot / Gemini CLI / Codex** (Mode 1/2/3 work fully via shell-out to peer CLIs; Mode 4 falls back to background shell processes + `wait`, capped at N ≤ 3).
-
-Trigger phrases are the same in every harness — `swarm: ...`, `/swarm`, `usa lo swarm`, `fan-out`, `parallel-dev`, `fai team` — and the skill reads its own *Harness-specific dispatch* section to pick the right mechanism. Full skill source: [`packages/skills/swarm-router/SKILL.md`](packages/skills/swarm-router/SKILL.md); catalog entry: [`docs/skills-catalog.md#multi-model-orchestration`](docs/skills-catalog.md#multi-model-orchestration).
+How NONoise installs it, the mode mapping and the limits: [`docs/regia.md`](docs/regia.md). Full reference: [russosalv/claude-regia](https://github.com/russosalv/claude-regia).
 
 ---
 
@@ -147,16 +138,22 @@ outside the markers survive; older files gain a block after their title.
 Known, unmodified 1.6.0 vendor files are removed by SHA-256 comparison; changed
 or user-added files are preserved and listed. Superpowers stays pinned to
 commit `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7); other vendors follow
-upstream. The code graph is `codebase-memory-mcp`, pinned to 0.12.1 and installed
-with `npm install -g`; upgrade also retires an unmodified graphify integration
+upstream. The code graph is `codebase-memory-mcp`, installed with
+`npm install -g codebase-memory-mcp@latest` and not pinned: upgrade moves it to the
+latest release and also retires an unmodified graphify integration
 (see [Code graph, FPF gate and development modes](#code-graph-fpf-gate-and-development-modes-19)).
 Claude plugins are installed immediately at project scope and verified in the
 registry; skill-creator uses its dedicated official plugin. Network failures get
 two retries with increasing waits. Failed/missing installers leave exact recovery
 commands and do not stop scaffolding. Embed includes the current unified impeccable skill.
 The NONoise plugin marketplace is pinned to the CLI's release tag (`v<version>`).
-The `codex-delegate` skill is replaced by OpenAI's official `codex@openai-codex`
-plugin (`/codex:rescue`, `/codex:review`, …); upgrade removes unmodified copies.
+For Claude Code, upgrade installs the [Regia](docs/regia.md) mod
+(`regia@claude-regia`), which is not pinned and updates through its own marketplace.
+The hand-over skills `swarm-router`, `copilot-delegate` and `gemini-delegate` (and
+`codex-delegate`, retired in 1.7) are no longer shipped: Regia replaces them.
+`--upgrade` removes pristine copies of them and keeps edited ones, which it lists.
+NONoise no longer installs the Codex plugin `codex@openai-codex` itself; Regia
+installs it when the `codex` CLI is on the machine.
 See [installation](docs/installation.md) for plugin setup and `doctor` details.
 
 Auto-detection guard: when you pass a positional path that already contains a `nonoise.config.json`, the CLI **never silently scaffolds over it**. Without `--yes` it prompts (Upgrade / Install the code graph only / Cancel); with `--yes` it aborts and prints the explicit `--upgrade` / `--code-graph-only` commands you should run instead.
@@ -171,7 +168,8 @@ Auto-detection guard: when you pass a positional path that already contains a `n
 | **Understand the philosophy** — 5 noise sources, parametric memory, canonical patterns | [`docs/philosophy.md`](docs/philosophy.md) |
 | **Follow the SDLC flow** — greenfield + brownfield, step by step | [`docs/sdlc.md`](docs/sdlc.md) |
 | **Meet Polly** — advisor model, one-shot 4-block output, pair/solo modes | [`docs/polly.md`](docs/polly.md) |
-| **Size the process** — quick / medium / long development modes, FPF gate, Regia | [`docs/development-modes.md`](docs/development-modes.md) |
+| **Size the process** — quick / medium / long development modes, FPF gate | [`docs/development-modes.md`](docs/development-modes.md) |
+| **Orchestrate in Claude Code** — Regia: modes, swarms, how NONoise installs it, limits | [`docs/regia.md`](docs/regia.md) |
 | **See the team model** — why NONoise is team-first, not one-man-band | [`docs/team-model.md`](docs/team-model.md) |
 | **Browse the skill catalog** — 40+ skills organized by domain | [`docs/skills-catalog.md`](docs/skills-catalog.md) |
 | **Understand the docs/ tree** — six folders, each a source of truth | [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md) |
@@ -254,18 +252,22 @@ See [profile table](docs/install-profiles.md), [verified hook formats](docs/hook
 ### Code graph, FPF gate and development modes (1.9)
 
 **Code graph.** [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp)
-replaces graphify. It is one native binary (no Python, no `uv`, no LLM or API key),
-pinned to 0.12.1 and installed with `npm install -g codebase-memory-mcp@0.12.1` on
-macOS, Linux and native Windows. NONoise registers the MCP server in project-local
-config only (`.mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`,
+replaces graphify. It is one native binary (no Python, no `uv`, no LLM or API key)
+for macOS, Linux and native Windows, and it is not pinned. A scaffold installs the
+latest release with `npm install -g codebase-memory-mcp@latest` only when no binary
+answers on `PATH`, and leaves an existing one alone. `--upgrade` and
+`--code-graph-only` move it to the latest release. In between you update it whenever
+you like with the same command; NONoise never downgrades it, and
+`create-nonoise doctor` flags a version older than 0.12.0. NONoise registers the MCP
+server in project-local config only (`.mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`,
 `.cursor/mcp.json`, `.gemini/settings.json`, according to the selected tools) and
 ships the `codebase-memory` skill. The index lives in `~/.cache/codebase-memory-mcp/`,
 outside the repository, and stays in sync while a session is open. Build it once
 with `/index` or "index this repository".
 
 ```sh
-npx create-nonoise@latest --upgrade path/to/project          # installs the code graph, retires graphify
-npx create-nonoise@latest --code-graph-only path/to/project  # narrow repair: binary + MCP config only
+npx create-nonoise@latest --upgrade path/to/project          # updates the code graph to the latest release, retires graphify
+npx create-nonoise@latest --code-graph-only path/to/project  # narrow repair: latest binary + MCP config only
 ```
 
 `--upgrade` removes the graphify pieces NONoise installed and can recognise as
@@ -280,8 +282,20 @@ least two materially different viable options, or the PRD supersedes a Haft-boun
 decision. Otherwise the choice is recorded in the PRD frontmatter as a lightweight
 decision, with no Haft run.
 
+**Regia.** For Claude Code, NONoise installs the
+[Regia](https://github.com/russosalv/claude-regia) mod as the plugin
+`regia@claude-regia` (native mode installs it at project scope; embed mode declares
+it in `.claude/settings.json`). Regia is the orchestration layer: the main session
+delegates, model and effort are chosen per task, and swarms of Claude, Codex and
+Qwen Code agents run on a dependency board. The skills that did this by hand,
+`swarm-router`, `copilot-delegate` and `gemini-delegate`, are retired; `--upgrade`
+removes pristine copies and keeps edited ones. Regia also installs the Codex plugin
+`codex@openai-codex` when the `codex` CLI is present, so NONoise no longer does.
+Regia is Claude-Code-only and does not delegate to Copilot CLI or Gemini CLI.
+See [Regia](docs/regia.md).
+
 **Development modes.** Every task is sized as quick, medium or long, chosen with
-`/polly quick|medium|long <goal>` or inferred by Polly. The same three modes are
-the modes of the optional [Regia](https://github.com/russosalv/claude-regia) mod
-for Claude Code; Codex, Copilot, Cursor and Gemini CLI apply them from their context
-file. See [development modes](docs/development-modes.md).
+`/polly quick|medium|long <goal>` or inferred by Polly. In Claude Code the three
+modes map one to one onto Regia's `/regia quick|medium|long`; Codex, Copilot, Cursor
+and Gemini CLI apply them from their context file. See
+[development modes](docs/development-modes.md).

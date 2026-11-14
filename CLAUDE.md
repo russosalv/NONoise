@@ -51,7 +51,7 @@ branch with `NONOISE_MARKETPLACE_REF=<branch>`. Otherwise the fallback link poin
 `pnpm-workspace.yaml` includes only `packages/*`. Three packages:
 
 - **`packages/create-nonoise/`** — the published CLI. The only package users install.
-- **`packages/skills/`** — 29 NONoise skill sources (28 shipped in scaffolds; `bmad-req-validator` is plugin-only) + `vendor/` (superpowers, impeccable, skill-creator, pptx). Not published; bundled into the CLI at build time.
+- **`packages/skills/`** — 26 NONoise skill sources (25 shipped in scaffolds; `bmad-req-validator` is plugin-only) + `vendor/` (superpowers, impeccable, skill-creator, pptx). Not published; bundled into the CLI at build time.
 - **`packages/templates/`** — `single-project/` and `multi-repo/` scaffold payloads. Not published; bundled.
 
 ### How a scaffold is produced (the CLI pipeline)
@@ -60,7 +60,7 @@ branch with `NONOISE_MARKETPLACE_REF=<branch>`. Otherwise the fallback link poin
 
 1. **Prompt** (`prompts.ts`) — collect project name, template (`single-project` | `multi-repo`), AI tools (Claude Code, Copilot, Cursor, Gemini CLI, Codex), language hint, preferences.
 2. **Resolve templates** (`template-resolver.ts`) — templates use a conditional-folder convention. `_always/` ships unconditionally; `_if-<tool>/` only if that tool was selected. Files with `.hbs` are rendered via Handlebars against the project context.
-3. **Install skills** (`skill-installer.ts`) — copies `MVP_SKILL_BUNDLE` (hardcoded list in `scaffold.ts`) from `packages/skills/` plus vendored packs from `packages/skills/vendor/` into the scaffolded project's `.claude/skills/`.
+3. **Install skills** (`skill-installer.ts`) — copies `MVP_SKILL_BUNDLE` (the base list in `src/skill-bundle.ts`, composed with profile-specific capabilities by `src/profiles.ts`) from `packages/skills/` plus vendored packs from `packages/skills/vendor/` into the scaffolded project's `.claude/skills/`. For Claude Code, `src/native-vendor.ts` also installs or declares the Regia mod (`regia@claude-regia`), the orchestration layer that replaced the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills (`docs/regia.md`).
 4. **Write context files** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` are all generated from Handlebars templates so the same source of truth feeds every tool.
 5. **Write `.nonoise/sdlc-flow.md`** — the SDLC flow file Polly reads every invocation to detect the current phase and suggest the next skill.
 

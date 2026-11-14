@@ -65,16 +65,25 @@ What `--upgrade` does, so you can explain the diff to the user:
 - Refreshes NONoise skills in `.claude/skills/` (and `.agents/skills/` when Codex or Copilot is
   selected). Files the user modified are **preserved** and listed; retired skills are removed only
   if unmodified.
+- Removes the hand-over skills that are no longer shipped: `swarm-router`, `copilot-delegate`
+  and `gemini-delegate` (and `codex-delegate`, retired in 1.7). Pristine copies are removed;
+  edited ones are kept and listed. Orchestration in Claude Code now belongs to the Regia mod
+  ([`docs/regia.md`](docs/regia.md)).
 - Rewrites only the text between `<!-- nonoise:begin vX.Y.Z -->` and `<!-- nonoise:end -->` in
   `AGENTS.md`, `CLAUDE.md` (Claude Code) and `.github/copilot-instructions.md` (Copilot). Everything outside the
   markers is kept. Files without markers get a block inserted after their title. The block
   carries the `codebase-memory` (code graph) and `development-modes` (quick / medium / long)
   sections.
 - Re-installs vendor packs (native mode: Claude/Codex/Copilot plugins such as
-  `superpowers@nonoise`, `codex@openai-codex`, `skill-creator`, plus `impeccable`), Haft,
-  profile hooks and, if enabled, REA.
-- Installs the code graph: `codebase-memory-mcp` 0.12.1 (`npm install -g
-  codebase-memory-mcp@0.12.1`; no Python or `uv`), and registers its MCP server in the
+  `superpowers@nonoise`, `skill-creator` and, for Claude Code, `regia@claude-regia`, plus
+  `impeccable`), Haft, profile hooks and, if enabled, REA. In embed mode Regia is declared in
+  `.claude/settings.json` and Claude Code offers it when the project is trusted. NONoise no
+  longer installs the Codex plugin `codex@openai-codex`: Regia installs it when the `codex`
+  CLI is on the machine.
+- Updates the code graph: `codebase-memory-mcp` is not pinned, and `--upgrade` runs
+  `npm install -g codebase-memory-mcp@latest` (no Python or `uv`). If the update fails, the
+  working binary stays in use and the CLI prints why. NONoise never downgrades it. The
+  upgrade also registers its MCP server in the
   project-local config of the selected tools (`.mcp.json`, `.vscode/mcp.json`,
   `.codex/config.toml`, `.cursor/mcp.json`, `.gemini/settings.json`). An existing entry is
   never rewritten; a conflicting one is listed as preserved.
@@ -139,7 +148,8 @@ Do these in order and tell the user which ones need their action:
 1. **Read the CLI output.** Every failed installer prints an exact retry command — run it (or
    give it to the user if it needs credentials or an interactive harness).
 2. **Run `doctor` again** and fix anything still reported `missing`, `missing/unverified` or
-   `wrong version` using the command printed on the same line.
+   `wrong version` using the command printed on the same line. For the code graph, `doctor`
+   prints the installed `codebase-memory-mcp` version and flags one older than 0.12.0.
 3. **Code graph: nothing to refresh.** `codebase-memory-mcp` keeps the graph in sync by
    itself while a session is open. If the project has never been indexed, it is built once:
    `/index` or "index this repository" in the harness, or
@@ -148,7 +158,7 @@ Do these in order and tell the user which ones need their action:
    removes the old graphify CLI. Both are the user's call.
 4. **Restart the AI harness** (Claude Code, Copilot, Codex…) so new skills, plugins, hooks and
    MCP servers are loaded. In Claude Code the user may have to approve the project's declared
-   plugins/marketplaces and the `codebase-memory-mcp` project MCP server; in Codex, impeccable
+   plugins/marketplaces (Regia among them) and the `codebase-memory-mcp` project MCP server; in Codex, impeccable
    hooks must be approved in `/hooks`; REA needs its MCP server approved/restarted.
 5. **Rebuild the project's own code only if a NONoise-managed tool changed** — e.g. run
    `npm install` inside `tools/md-extractor/` or `tools/devops-push/` if those folders changed in
@@ -158,7 +168,8 @@ Do these in order and tell the user which ones need their action:
    `chore: upgrade NONoise to vX.Y.Z` — only if the user asks you to commit.
 7. Suggest running `/polly` (Claude Code) or "start polly" (Copilot) to continue the SDLC.
    `/polly quick|medium|long <goal>` sizes the process to the task
-   ([development modes](docs/development-modes.md)).
+   ([development modes](docs/development-modes.md)). In Claude Code the prompt Polly hands
+   back starts with `/regia <mode>` when Regia is active ([Regia](docs/regia.md)).
 
 ## 6. The target is a clone of this repo (contributors)
 

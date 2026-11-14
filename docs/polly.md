@@ -32,7 +32,7 @@ Then she keeps only the phases whose `modes` contain that mode. Quick has no pha
 
 **FPF gate.** Polly suggests `arch-decision` with formal Haft validation only when the gate fires: you asked for it, or the decision is costly to reverse and the draft PRD shows at least two materially different viable options. When it does not fire she says so in one sentence and hands over the lightweight-decision prompt instead. FPF is never suggested in quick mode. If the case is borderline she names the fact that would tip it and lets you choose, inside the 4-block message.
 
-**Regia.** If the Regia mod for Claude Code is active in the session, Polly prefixes the example prompt with `/regia <mode>` and notes that Regia will hold the plan and the questions. In Codex, Copilot and the other tools she hands over the plain prompt, whose first words already state the mode.
+**Regia.** In Claude Code, NONoise installs the [Regia](regia.md) mod, which owns orchestration: delegation, model and effort per task, swarms, the plan list and the questions for you. When it is active in the session, Polly prefixes the example prompt with `/regia <mode>` — `/polly long <goal>` returns a prompt that starts with `/regia long` — and notes that Regia will hold the plan and the questions. She does not call Regia's tools herself. In Codex, Copilot and the other tools there is no Regia: she hands over the plain prompt, whose first words already state the mode.
 
 Full description: [`development-modes.md`](development-modes.md).
 
@@ -84,7 +84,8 @@ If the workspace is multi-repo (`repositories.json` present or `nonoise.config.j
 ## Related
 
 - [`sdlc.md`](sdlc.md) — the SDLC flow the advisor reads against.
-- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate, Regia compatibility.
+- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate.
+- [`regia.md`](regia.md) — the orchestration layer for Claude Code that Polly hands over to.
 - [`multi-repo.md`](multi-repo.md) — multi-repo workspace setup.
 - [`team-model.md`](team-model.md) — pair vs solo rationale.
 - `packages/skills/polly/SKILL.md` — the skill source. If this doc disagrees, the SKILL.md wins.

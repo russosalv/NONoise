@@ -4,11 +4,12 @@
 
 ## For agents asked to install or update NONoise in a project
 
-- [UPDATE.md](https://raw.githubusercontent.com/russosalv/NONoise/main/UPDATE.md): step-by-step runbook (detect case, `npx create-nonoise@latest --upgrade <path>`, `doctor`, post-upgrade steps; the upgrade installs the `codebase-memory-mcp` code graph and retires graphify)
+- [UPDATE.md](https://raw.githubusercontent.com/russosalv/NONoise/main/UPDATE.md): step-by-step runbook (detect case, `npx create-nonoise@latest --upgrade <path>`, `doctor`, post-upgrade steps; the upgrade updates the `codebase-memory-mcp` code graph, retires graphify, installs the Regia mod for Claude Code and removes pristine copies of the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills)
 
 ## Docs
 
 - [Installation](https://raw.githubusercontent.com/russosalv/NONoise/main/docs/installation.md): prerequisites, native vendors, the `codebase-memory-mcp` code graph (`--code-graph-only`), Haft, profiles
 - [Install profiles](https://raw.githubusercontent.com/russosalv/NONoise/main/docs/install-profiles.md)
-- [Development modes](https://raw.githubusercontent.com/russosalv/NONoise/main/docs/development-modes.md): quick / medium / long (`/polly quick|medium|long <goal>`), the FPF gate, Regia compatibility, Codex and Copilot
+- [Development modes](https://raw.githubusercontent.com/russosalv/NONoise/main/docs/development-modes.md): quick / medium / long (`/polly quick|medium|long <goal>`), the FPF gate, how Codex and Copilot apply the same modes
+- [Regia](https://raw.githubusercontent.com/russosalv/NONoise/main/docs/regia.md): the orchestration layer for Claude Code (`regia@claude-regia`): `/regia long|medium|quick`, model and effort per task, swarms of Claude, Codex and Qwen Code agents, how NONoise installs it, what it replaces, limits
 - [Contributor guide](https://raw.githubusercontent.com/russosalv/NONoise/main/CLAUDE.md)

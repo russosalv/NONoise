@@ -78,17 +78,17 @@ Per mode:
 
 In a borderline case the assistant names the fact that would tip the answer and lets the operator choose. "Validate it anyway" always fires the gate; "keep it lightweight" is honoured unless the PRD supersedes a Haft-bound decision.
 
-## Regia compatibility
+## Regia
 
-[Regia](https://github.com/russosalv/claude-regia) is a mod for Claude Code with the same three modes: `/regia quick|medium|long <goal>`. The mapping is 1:1 — a NONoise quick is a Regia quick, and so on.
+In Claude Code the three modes are also the modes of [Regia](regia.md), the mod NONoise installs as its orchestration layer (`regia@claude-regia`): `/regia quick|medium|long <goal>`. The mapping is 1:1 — a NONoise quick is a Regia quick, and so on. The "Delegation" row of the table above is what Regia enforces: in medium the main session delegates the independent pieces, in long it orchestrates. In both, Regia picks model and effort for each delegated task and can run swarms of Claude, Codex and Qwen Code agents.
 
 When Regia is active in the session, Polly prefixes the example prompt with `/regia <mode>` and says that Regia will hold the plan (`scaletta_scrivi`) and the questions (`domanda_scrivi`). Polly does not call Regia's tools herself.
 
-Regia is optional and Claude-Code-only. The scaffold does not install it, and nothing in the flow depends on it: without Regia the same prompt works as it is, because its first words already state the mode.
+Regia is Claude-Code-only, and it is not installed by the `minimal` profile. The flow does not break without it: the same prompt works as it is, because its first words already state the mode. How NONoise installs Regia, what it replaces and its limits are in [`regia.md`](regia.md).
 
 ## Codex, Copilot and the other tools
 
-The modes are plain instructions, so every tool gets the same behaviour without Regia. The scaffold writes a `development-modes` managed block — the table above plus the rules for the FPF gate — into each context file:
+The modes are plain instructions, so every tool gets the same table without Regia. What these tools do not get from NONoise is orchestration: delegation there relies on each tool's own subagent features. The scaffold writes a `development-modes` managed block — the table above plus the rules for the FPF gate — into each context file:
 
 | Tool | Context file |
 |---|---|
@@ -115,5 +115,6 @@ A flow file without `modes` (version 1) is read as a long-only flow: every phase
 
 - [`sdlc.md`](sdlc.md) — the phases of the long flow.
 - [`polly.md`](polly.md) — the advisor that picks the mode.
+- [`regia.md`](regia.md) — the orchestration layer for Claude Code.
 - [`cross-tool.md`](cross-tool.md) — what each tool supports.
 - `packages/skills/polly/SKILL.md` (Step 1.5) and `packages/skills/arch-decision/SKILL.md` (Step 0) — the sources. If this document disagrees with them, they win.

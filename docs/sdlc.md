@@ -29,7 +29,9 @@ The flow is sized to the work. Every task runs in one of three modes, chosen wit
 | **medium** (default) | a feature or refactor inside an already-decided architecture | short spec → plan → implement → verify. FPF only if the gate fires |
 | **long** | a new product, an epic, anything that changes the architecture | every phase below, in order. FPF whenever the gate fires |
 
-The phases described in this document are the **long** flow. Medium uses Phase 2 (a short spec) and Phase 5; quick uses Phase 5 only, without a plan document. Each phase in `.nonoise/sdlc-flow.md` lists its `modes`, and `default_mode` applies when nothing else decides. Full description, including Regia compatibility and how Codex and Copilot apply the same modes: [`development-modes.md`](development-modes.md).
+The phases described in this document are the **long** flow. Medium uses Phase 2 (a short spec) and Phase 5; quick uses Phase 5 only, without a plan document. Each phase in `.nonoise/sdlc-flow.md` lists its `modes`, and `default_mode` applies when nothing else decides. Full description, including how Codex and Copilot apply the same modes: [`development-modes.md`](development-modes.md).
+
+In Claude Code the mode also sets how the session works: NONoise installs the [Regia](regia.md) mod, whose `/regia quick|medium|long` are the same three modes. In medium the main session delegates the independent pieces; in long it orchestrates. In both, Regia picks model and effort for each delegated task and can run swarms of Claude, Codex and Qwen Code agents. The other tools get the table above in their context file and use their own subagent features.
 
 ## Phases
 
@@ -221,7 +223,8 @@ Details in [`docs-hierarchy.md`](docs-hierarchy.md) §Multi-repo.
 ## Further reading
 
 - [`polly.md`](polly.md) — the full decision tree, phrasing per step, pair/solo rationale, three-way resume routing for brownfield.
-- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate, Regia compatibility.
+- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate.
+- [`regia.md`](regia.md) — the orchestration layer for Claude Code: modes, swarms, limits.
 - [`skills-catalog.md`](skills-catalog.md) — what each skill actually does, trigger surface, references.
 - [`docs-hierarchy.md`](docs-hierarchy.md) — where phase outputs land and who owns each folder.
 - [`packages/skills/polly/SKILL.md`](../packages/skills/polly/SKILL.md) — the authoritative Polly specification (this document summarises; the SKILL.md runs).

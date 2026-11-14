@@ -1,7 +1,7 @@
 # External tools and project integrations
 
 Most tools Polly mentions are advisory. Explicit framework integrations are
-the code graph (`codebase-memory-mcp`), Haft, native vendor plugins and optional REA. Profile selection controls
+the code graph (`codebase-memory-mcp`), Haft, native vendor plugins (among them Regia, the orchestration mod for Claude Code) and optional REA. Profile selection controls
 which integrations the CLI installs; `minimal` skips external runtimes. No secrets
 are shipped. [Profiles](install-profiles.md) distinguish this setup from Polly's
 recommendations.
@@ -61,9 +61,15 @@ The mention surfaces during the atr phase; the framework does not push to Paseo 
 
 ### Code graph
 
-- **codebase-memory-mcp** — indexes a codebase into a local knowledge graph: functions, classes, call chains, HTTP routes, infrastructure files and documentation sections, linked to each other. One native binary, no Python or `uv`, no LLM and no API key; indexing is deterministic. The `create-nonoise` CLI installs the pinned version (`npm install -g codebase-memory-mcp@0.12.1`) at scaffold time and registers the MCP server `codebase-memory-mcp` in the project-local config of each selected tool (`.mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, `.cursor/mcp.json`, `.gemini/settings.json`). It never runs upstream `codebase-memory-mcp install`, which edits user-global configuration. Build the graph once with `/index <path>` in Claude Code or "index this repository" in any tool; it then stays in sync while a session is open. The `codebase-memory` skill maps questions to tools (`get_architecture`, `search_graph`, `trace_path`, `detect_changes`, `get_code_snippet`, …); without MCP the same tools run as `codebase-memory-mcp cli <tool>`. https://github.com/DeusData/codebase-memory-mcp
+- **codebase-memory-mcp** — indexes a codebase into a local knowledge graph: functions, classes, call chains, HTTP routes, infrastructure files and documentation sections, linked to each other. One native binary, no Python or `uv`, no LLM and no API key; indexing is deterministic. The binary is not pinned: the `create-nonoise` CLI installs the latest release (`npm install -g codebase-memory-mcp@latest`) at scaffold time only when no binary answers on `PATH`, moves it to the latest release on `--upgrade` and `--code-graph-only`, and otherwise leaves updates to you. It registers the MCP server `codebase-memory-mcp` in the project-local config of each selected tool (`.mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, `.cursor/mcp.json`, `.gemini/settings.json`). It never runs upstream `codebase-memory-mcp install`, which edits user-global configuration. Build the graph once with `/index <path>` in Claude Code or "index this repository" in any tool; it then stays in sync while a session is open. The `codebase-memory` skill maps questions to tools (`get_architecture`, `search_graph`, `trace_path`, `detect_changes`, `get_code_snippet`, …); without MCP the same tools run as `codebase-memory-mcp cli <tool>`. https://github.com/DeusData/codebase-memory-mcp
 
 Output: none in the repository. The index lives in `~/.cache/codebase-memory-mcp/`. The context files tell the AI to call `get_architecture` and `search_graph` before grep or raw file reads. See [`sdlc.md`](sdlc.md) §Brownfield prefix and [`installation.md`](installation.md#code-graph-codebase-memory-mcp-19).
+
+### Orchestration (Claude Code)
+
+- **Regia** — a Claude Code mod that makes the main session coordinate instead of doing all the work itself: three modes (`/regia long|medium|quick`, the same as NONoise's development modes), model and effort chosen per task, swarms of Claude, Codex and Qwen Code agents, the plan as a task list, questions with their context, a live pane. The `create-nonoise` CLI installs it for Claude Code as the plugin `regia@claude-regia` (native mode) or declares it in `.claude/settings.json` (embed mode). It is not pinned and updates through its own marketplace. https://github.com/russosalv/claude-regia
+
+Regia is installed, not just mentioned, and it replaces the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills. It is Claude-Code-only, and it does not delegate to Copilot CLI or Gemini CLI. On its first interactive session Regia itself installs Ponytail, plus the Codex plugin `codex@openai-codex` and a Qwen Code plugin when the `codex` and `qwen` CLIs are on the machine; NONoise does not install those. See [`regia.md`](regia.md).
 
 ### LSPs and editor plugins
 
@@ -92,6 +98,7 @@ The user runs it; Polly then continues.
 | Linear | Sprint phase | Work-item tracker | adapter in `spec-to-workitem` |
 | Paseo | UAT / SIT | Bug triage kanban | upstream search |
 | codebase-memory-mcp | Brownfield and every codebase question | Code knowledge graph (MCP server) | installed at scaffold time by `create-nonoise` |
+| Regia | Every medium or long task in Claude Code | Orchestration: delegation, model and effort per task, swarms | installed for Claude Code by `create-nonoise`; see [`regia.md`](regia.md) |
 | App Insights | Observability | Tracing + logs | adapter in `observability-debug` |
 | Datadog | Observability | Tracing + logs | adapter in `observability-debug` |
 | Grafana + Loki | Observability | Dashboards + logs | adapter in `observability-debug` |

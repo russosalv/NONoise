@@ -56,12 +56,13 @@ Keep the section spine; reshape the content of each.
 | 3 | Skills | Catalog | **REPLACE 5 pilot domains with bootstrapper catalog**: Orchestration / Requirements & discovery / Architecture & validation / Sprint & implementation / Brownfield / Ops & observability / Integrations / Generators / Vendored superpowers / Vendored design pack — ≥ 40 skills |
 | 4 | Metrics | **Reframe: "Evidence from the pilot"** | Keep the numbers; add 3-4 bootstrapper-level numbers (40+ skills, 6 SDLC phases, 5 tools supported, 2 first-class, docs tree 6 folders) |
 | NEW | **Polly** | Orchestrator deep-dive | **NEW SECTION** — pair/solo modes, dev trio, greenfield/brownfield decision tree |
+| NEW | **Regia** | Orchestration layer (Claude Code) | **NEW SECTION** — three modes, model and effort per task, swarms of Claude / Codex / Qwen Code agents, Claude-Code-only limit |
 | NEW | **Cross-tool** | Support matrix | **NEW SECTION** — Claude/Copilot first-class; others best-effort |
 | 5 | Roadmap | Trajectory | **UPDATE** — recent items (Polly v1, docs refactor, bootstrapper migration, core+pack split, multi-repo template) |
 | 6 | Author | Author | Reframe bio to "lesson-learned, packaged and open-sourced" |
 | — | Footer | unchanged | Keep |
 
-**Two new sections** (Polly, Cross-tool) require App.jsx edits. Placement: after Phases, before Skills, for Polly; after Skills, before Metrics, for Cross-tool.
+**Three new sections** (Polly, Regia, Cross-tool) require App.jsx edits. Placement: after Phases, before Skills, for Polly; right after Polly for Regia; after Skills, before Metrics, for Cross-tool.
 
 ---
 
@@ -76,6 +77,7 @@ nav: {
   pillars:   { it: "Pilastri",   en: "Pillars" },
   sdlc:      { it: "SDLC",       en: "SDLC" },
   polly:     { it: "Polly",      en: "Polly" },
+  regia:     { it: "Regia",      en: "Regia" },
   skills:    { it: "Skill",      en: "Skills" },
   crosstool: { it: "Multi-tool", en: "Cross-tool" },
   metrics:   { it: "Evidenze",   en: "Evidence" },
@@ -84,7 +86,7 @@ nav: {
 }
 ```
 
-Section anchors: `#pillars`, `#sdlc`, `#polly`, `#skills`, `#crosstool`, `#metrics`, `#roadmap`, `#author`.
+Section anchors: `#pillars`, `#sdlc`, `#polly`, `#regia`, `#skills`, `#crosstool`, `#metrics`, `#roadmap`, `#author`.
 
 ### 4.2 Hero
 
@@ -115,8 +117,9 @@ hero: {
 ```
 40+ skills · entire SDLC
 6 phases · requirements → ops
-28 NONoise-native skills
+25 NONoise-native skills
 14 vendored superpowers
+Regia · orchestration in Claude Code
 2 first-class tools · Claude Code + Copilot
 Polly · greenfield + brownfield
 Pair · solo · announced every step
@@ -358,6 +361,74 @@ polly: {
 
 **App.jsx work:** add a `Polly` component rendering a 2-column or 3-column grid of feature cards, similar to Pillars but with `key / title / description` instead of numbered pillars. Insert between `<Phases>` and `<Skills>`.
 
+### 4.6b NEW section — Regia, orchestration in Claude Code
+
+**Anchor:** `#regia`. **Placement:** right after Polly, before Skills.
+
+Regia is not a skill: it is a Claude Code mod that `create-nonoise` installs as the plugin `regia@claude-regia`. It replaces the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills. The section must state the limit as clearly as the features: Claude Code only, and no delegation to Copilot CLI or Gemini CLI.
+
+```js
+regia: {
+  title: { it: "Regia — l'orchestrazione in Claude Code", en: "Regia — orchestration in Claude Code" },
+  sub: {
+    it: "Polly dice cosa fare dopo. Regia lo fa eseguire: la sessione principale coordina invece di fare tutto da sola. È un mod per Claude Code che create-nonoise installa come plugin regia@claude-regia.",
+    en: "Polly says what comes next. Regia gets it done: the main session coordinates instead of doing everything itself. It is a Claude Code mod that create-nonoise installs as the plugin regia@claude-regia.",
+  },
+  features: [
+    {
+      k: "three-modes",
+      t: { it: "Tre modalità, le stesse di NoNoise", en: "Three modes, the same as NoNoise" },
+      d: {
+        it: "/regia long, /regia medium, /regia quick corrispondono uno a uno a long, medium e quick di NoNoise. /polly long <obiettivo> restituisce un prompt che inizia con /regia long: la modalità si sceglie una volta sola.",
+        en: "/regia long, /regia medium and /regia quick map one to one onto NoNoise's long, medium and quick. /polly long <goal> returns a prompt that starts with /regia long: the mode is chosen once.",
+      },
+    },
+    {
+      k: "model-effort",
+      t: { it: "Modello ed effort per ogni task", en: "Model and effort per task" },
+      d: {
+        it: "Per ogni subagent Regia legge il task e sceglie il modello e l'effort che servono. Un task fallito riparte un gradino più in alto.",
+        en: "For each subagent Regia reads the task and picks the model and effort it needs. A failed task retries one step higher.",
+      },
+    },
+    {
+      k: "swarms",
+      t: { it: "Sciami di agenti", en: "Swarms of agents" },
+      d: {
+        it: "Agenti Claude, Codex e Qwen Code su una board con dipendenze e limite di parallelismo. Ogni task che scrive ha il proprio git worktree isolato.",
+        en: "Claude, Codex and Qwen Code agents on a board with dependencies and a parallelism limit. Every task that writes gets its own isolated git worktree.",
+      },
+    },
+    {
+      k: "plan-questions",
+      t: { it: "Piano e domande con contesto", en: "Plan and questions with context" },
+      d: {
+        it: "Il piano è una lista di task per fase. Ogni decisione che spetta a te arriva con il punto della situazione, le opzioni e una raccomandazione; se sei lontano dal PC arriva come notifica.",
+        en: "The plan is a task list grouped by phase. Every decision that is yours arrives with where things stand, the options and a recommendation; when you are away it arrives as a notification.",
+      },
+    },
+    {
+      k: "surveillance-pane",
+      t: { it: "Sorveglianza e pannello live", en: "Surveillance and live pane" },
+      d: {
+        it: "Gli agenti bloccati vengono rilevati e una sessione lasciata sola viene risvegliata finché il piano ha voci aperte. Un pannello accanto alla chat mostra domande, piano e agenti con modello, effort, durata e token. /regia doctor dice cosa è attivo.",
+        en: "Stuck agents are detected, and a session left alone is woken while the plan has open items. A pane beside the chat shows questions, plan and agents with model, effort, duration and tokens. /regia doctor reports what is active.",
+      },
+    },
+    {
+      k: "limits",
+      t: { it: "I limiti, detti chiaramente", en: "The limits, stated plainly" },
+      d: {
+        it: "Solo Claude Code. Codex, Copilot, Cursor e Gemini CLI ricevono la tabella delle modalità nel loro context file e usano i propri subagent. Gli esecutori sono Claude, Codex e Qwen Code: nessuna delega a Copilot CLI o Gemini CLI.",
+        en: "Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the modes table in their context file and use their own subagents. The executors are Claude, Codex and Qwen Code: no delegation to Copilot CLI or Gemini CLI.",
+      },
+    },
+  ],
+},
+```
+
+**App.jsx work:** add a `Regia` component with the same feature-card grid as `Polly` (`key / title / description`); render the `limits` card with a distinct border so it reads as a caveat, not a feature. Insert `<Regia lang={lang} />` between `<Polly>` and `<Skills>`.
+
 ### 4.7 Skills — REPLACE catalog
 
 Ten domains, ≥ 40 skills. Shape matches the existing `skills.domains[].items[].k/d` pattern.
@@ -366,8 +437,8 @@ Ten domains, ≥ 40 skills. Shape matches the existing `skills.domains[].items[]
 skills: {
   title: { it: "Catalogo skill — 40+", en: "Skill catalog — 40+" },
   sub: {
-    it: "28 native NoNoise + 14 superpowers vendored + pack design (Impeccable) + skill-creator + tooling. Tutte plain Markdown. Cross-tool. Progressive disclosure: ~80 token di discovery, body caricato solo all'attivazione.",
-    en: "28 NoNoise-native + 14 vendored superpowers + design pack (Impeccable) + skill-creator + tooling. All plain Markdown. Cross-tool. Progressive disclosure: ~80 discovery tokens, body loaded only on activation.",
+    it: "25 native NoNoise + 14 superpowers vendored + pack design (Impeccable) + skill-creator + tooling. Tutte plain Markdown. Cross-tool. Progressive disclosure: ~80 token di discovery, body caricato solo all'attivazione.",
+    en: "25 NoNoise-native + 14 vendored superpowers + design pack (Impeccable) + skill-creator + tooling. All plain Markdown. Cross-tool. Progressive disclosure: ~80 discovery tokens, body loaded only on activation.",
   },
   domains: [
     {
@@ -399,6 +470,7 @@ skills: {
         { k: "quint-fpf", d: { it: "Haft FPF adapter (quando il gate scatta): frame, explore, compare, decide, verify", en: "Haft FPF adapter (when the gate fires): frame, explore, compare, decide, verify" } },
         { k: "bmad-agent-architect", d: { it: "Alex — architect persona · niente binary deps · simmetria", en: "Alex — architect persona · no binary deps · symmetry" } },
         { k: "c4-doc-writer", d: { it: "C4 vivi via Structurizr DSL · rigenera Mermaid/PlantUML", en: "Living C4 via Structurizr DSL · regenerates Mermaid/PlantUML" } },
+        { k: "arch-sync", d: { it: "Proietta il PRD validato in docs/architecture/ · diff approvati uno a uno", en: "Projects the validated PRD into docs/architecture/ · diffs approved one by one" } },
       ],
     },
     {
@@ -438,7 +510,6 @@ skills: {
         { k: "frontend-design", d: { it: "UI production-grade · nessun generic-AI look", en: "Production-grade UI · no generic-AI look" } },
         { k: "bmad-agent-ux-designer", d: { it: "Giulia — UX designer · DESIGN.md · critique", en: "Giulia — UX designer · DESIGN.md · critique" } },
         { k: "bmad-agent-tech-writer", d: { it: "Daniel — tech writer · READMEs · user guides · Mermaid", en: "Daniel — tech writer · READMEs · user guides · Mermaid" } },
-        { k: "codex@openai-codex", d: { it: "Plugin ufficiale OpenAI · /codex:rescue · /codex:review", en: "Official OpenAI plugin · /codex:rescue · /codex:review" } },
       ],
     },
     {
@@ -506,6 +577,7 @@ crosstool: {
         { it: "Phrase trigger 'start polly' (Copilot)", en: "Phrase trigger 'start polly' (Copilot)" },
         { it: "Skill namespacing superpowers:* e impeccable:*", en: "Skill namespacing superpowers:* and impeccable:*" },
         { it: "Hook + MCP attivi (Claude Code)", en: "Hooks + MCP active (Claude Code)" },
+        { it: "Orchestrazione con Regia (solo Claude Code)", en: "Orchestration with Regia (Claude Code only)" },
       ],
     },
     {
@@ -516,6 +588,7 @@ crosstool: {
         { it: "Context file scritto (.cursor/rules.md, GEMINI.md, AGENTS.md)", en: "Context file written (.cursor/rules.md, GEMINI.md, AGENTS.md)" },
         { it: "Skill come plain Markdown · invocazione manuale", en: "Skills as plain Markdown · manual invocation" },
         { it: "Slash / hook / MCP = silent no-op", en: "Slash / hooks / MCP = silent no-op" },
+        { it: "Nessuna orchestrazione da NoNoise · subagent nativi del tool", en: "No orchestration from NoNoise · the tool's own subagents" },
         { it: "Validation completa roadmap futura", en: "Full validation on future roadmap" },
       ],
     },
@@ -537,7 +610,7 @@ metrics: {
     en: "Bootstrapper numbers describe what you get out-of-the-box. Pilot numbers (Andreani RiskoWeb, April 2026) are empirical validation of the packaged methodology.",
   },
   bootstrapper: [
-    { v: "40+", l: { it: "Skill bundled", en: "Bundled skills" }, n: { it: "28 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx", en: "28 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx" } },
+    { v: "40+", l: { it: "Skill bundled", en: "Bundled skills" }, n: { it: "25 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx", en: "25 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx" } },
     { v: "6",   l: { it: "Fasi SDLC coperte", en: "SDLC phases covered" }, n: { it: "Requisiti · Architettura · Sprint · Dev · Acceptance · Ops", en: "Requirements · Architecture · Sprint · Dev · Acceptance · Ops" } },
     { v: "6",   l: { it: "Cartelle docs/ source-of-truth", en: "docs/ source-of-truth folders" }, n: { it: "architecture · requirements · calls · support · prd · sprints", en: "architecture · requirements · calls · support · prd · sprints" } },
     { v: "2",   l: { it: "Tool first-class in v1", en: "First-class tools in v1" }, n: { it: "Claude Code + GitHub Copilot · Cursor/Gemini/Codex best-effort", en: "Claude Code + GitHub Copilot · Cursor/Gemini/Codex best-effort" } },
@@ -623,26 +696,28 @@ footer: {
 
 The dictionary edits are portable; the JSX needs these targeted touches to render new sections and updated copy:
 
-1. **Nav** — add `<a href="#sdlc">` and `<a href="#crosstool">`, `<a href="#polly">`. Replace `{tr(n.phases, lang)}` binding with `{tr(n.sdlc, lang)}` (label change only, anchor `#sdlc` instead of `#phases`).
+1. **Nav** — add `<a href="#sdlc">` and `<a href="#crosstool">`, `<a href="#polly">`, `<a href="#regia">`. Replace `{tr(n.phases, lang)}` binding with `{tr(n.sdlc, lang)}` (label change only, anchor `#sdlc` instead of `#phases`).
 2. **Hero H1** — replace hardcoded string with bootstrapper framing (IT: "Un bootstrapper AI per l'intero SDLC." / EN: "A bootstrapper for the entire AI SDLC.").
 3. **Ticker** — replace hardcoded pilot metrics with the bootstrapper-scale list from §4.2.
 4. **Phases component** — rename section id to `sdlc`, use `{tr(p.title, lang)}` with SDLC coverage wording; render `[pair]` / `[solo]` badge next to `PHASE · <n>`. Render the `brownfield_note` below the flow as a callout.
 5. **NEW Polly component** — see §4.6. Feature-card grid; insert `<Polly lang={lang} />` between `<Phases>` and `<Skills>` in `App()`.
-6. **NEW CrossTool component** — see §4.8. Two-tier card layout; insert between `<Skills>` and `<Metrics>`.
-7. **Metrics** — split into two bands (bootstrapper + pilot). Visual separation: a thin horizontal rule between with a "pilot — Andreani Apr 2026" label above the second band.
-8. **Author component hardcoded sub** — replace with the "bootstrapper packages the methodology" phrasing from §4.11.
-9. **Roadmap gantt widths/offsets** — existing logic is fine; just update the items array.
+6. **NEW Regia component** — see §4.6b. Feature-card grid like Polly, with the `limits` card set apart; insert `<Regia lang={lang} />` between `<Polly>` and `<Skills>`.
+7. **NEW CrossTool component** — see §4.8. Two-tier card layout; insert between `<Skills>` and `<Metrics>`.
+8. **Metrics** — split into two bands (bootstrapper + pilot). Visual separation: a thin horizontal rule between with a "pilot — Andreani Apr 2026" label above the second band.
+9. **Author component hardcoded sub** — replace with the "bootstrapper packages the methodology" phrasing from §4.11.
+10. **Roadmap gantt widths/offsets** — existing logic is fine; just update the items array.
 
 The section kickers currently say `§ 1 / Foundation`, `§ 2 / Lifecycle`, etc. Renumber after the inserted sections:
 
 - `§ 1 / Foundation` — Pillars (unchanged)
 - `§ 2 / Lifecycle` — SDLC (unchanged kicker, but content differs)
 - `§ 3 / Orchestration` — Polly (new kicker)
-- `§ 4 / Catalog` — Skills (was § 3)
-- `§ 5 / Interop` — Cross-tool (new kicker)
-- `§ 6 / Evidence` — Metrics (was § 4)
-- `§ 7 / Trajectory` — Roadmap (was § 5)
-- `§ 8 / Author` — Author (was § 6)
+- `§ 4 / Direction` — Regia (new kicker)
+- `§ 5 / Catalog` — Skills (was § 3)
+- `§ 6 / Interop` — Cross-tool (new kicker)
+- `§ 7 / Evidence` — Metrics (was § 4)
+- `§ 8 / Trajectory` — Roadmap (was § 5)
+- `§ 9 / Author` — Author (was § 6)
 
 ---
 
@@ -663,16 +738,17 @@ A visitor scrolling through the reworked site should verify, within 30 seconds o
 - [ ] The word **bootstrapper** appears above the fold.
 - [ ] The phrase **entire SDLC** or **SDLC coverage** appears above the fold.
 - [ ] The command **`npx create-nonoise`** appears above the fold.
-- [ ] Nav includes `SDLC`, `Polly`, `Cross-tool` entries.
+- [ ] Nav includes `SDLC`, `Polly`, `Regia`, `Cross-tool` entries.
 - [ ] SDLC section lists 6 phases, each with a `[pair]` / `[solo]` badge.
 - [ ] Polly section explains orchestrator + pair/solo + greenfield/brownfield.
+- [ ] Regia section explains the three modes, model and effort per task and swarms, and states that it is **Claude Code only** with no delegation to Copilot CLI or Gemini CLI.
 - [ ] Skills section shows **10 domains**, at least **40 skill entries** total.
 - [ ] Cross-tool section distinguishes **first-class** (Claude Code + Copilot) from **best-effort** (Cursor / Gemini / Codex).
 - [ ] Metrics split into **bootstrapper** (40+ / 6 / 6 / 2 / 1) and **pilot** (9.4× / 93 / 0 / 550× / 2-3m).
 - [ ] Author bio mentions "lesson learned, packaged and open-sourced".
 - [ ] Footer line: "Bootstrapper in sviluppo attivo".
 
-When all eleven check, the rework is shippable.
+When all twelve check, the rework is shippable.
 
 ---
 
@@ -682,6 +758,7 @@ When all eleven check, the rework is shippable.
 - [`philosophy.md`](philosophy.md) — 5 noise sources, parametric memory, pair/solo, advisor-only.
 - [`sdlc.md`](sdlc.md) — 6 phases, greenfield + brownfield, skip rules, multi-repo.
 - [`polly.md`](polly.md) — triggers, pair/solo, dev trio, three-way resume routing, best-effort mode.
+- [`regia.md`](regia.md) — Regia: installation, mode mapping, what it adds, what it replaces, limits.
 - [`team-model.md`](team-model.md) — roles, pair/solo mapping, rhythms, one-man-band case.
 - [`skills-catalog.md`](skills-catalog.md) — full 40+ skill catalog, roadmap for core+packs.
 - [`docs-hierarchy.md`](docs-hierarchy.md) — 6-folder tree, ownership, skill→folder matrix.

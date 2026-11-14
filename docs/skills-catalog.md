@@ -1,7 +1,7 @@
 # Skill catalog — what ships in `.claude/skills/`
 
 NONoise selects skills through six [installation profiles](install-profiles.md).
-Core and larger profiles include the 28 native skills of the standard bundle plus `rea-setup`;
+Core and larger profiles include the 25 native skills of the standard bundle plus `rea-setup`;
 minimal includes five essential skills. ECC contributes 16 available skills,
 selected by profile and stack; REA contributes `reverse-engineer-anything` only
 when enabled. Native skills are copied to `.claude/skills/` and also `.agents/skills/`
@@ -27,11 +27,11 @@ Every skill under `packages/skills/` falls into one of three provenance tiers. T
 
 | Tier | Meaning | Count |
 |---|---|---:|
-| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 27 |
+| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 24 |
 | **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. | 2 |
 | **vendored** | Installed under a namespace from the upstream installer or plugin (native, default) or from a snapshot pinned by commit and refreshed via `scripts/sync-vendor.mjs` (embed). Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
 
-That is 29 skill sources: 28 ship in scaffolds, and `bmad-req-validator` is distributed only through the `nonoise` plugin. The code graph engine, `codebase-memory-mcp`, is an external binary (not a skill): the `create-nonoise` CLI installs it and registers its MCP server at scaffold time, and the `codebase-memory` skill tells the AI how to use it.
+That is 26 skill sources: 25 ship in scaffolds, and `bmad-req-validator` is distributed only through the `nonoise` plugin. Orchestration in Claude Code is not a skill either: it is the Regia mod, installed as a plugin (see [Orchestration: Regia](#orchestration-regia)). The code graph engine, `codebase-memory-mcp`, is an external binary (not a skill): the `create-nonoise` CLI installs it and registers its MCP server at scaffold time, and the `codebase-memory` skill tells the AI how to use it.
 
 ---
 
@@ -40,9 +40,9 @@ That is 29 skill sources: 28 ship in scaffolds, and `bmad-req-validator` is dist
 | Domain | Skills | Primary purpose |
 |---|---:|---|
 | [Orchestration](#orchestration) | 1 | Advise on the SDLC |
-| [Multi-model orchestration](#multi-model-orchestration) | 1 | Route/dispatch/fan-out tasks across multiple model CLIs by specialization |
+| [Orchestration: Regia](#orchestration-regia) | plugin | Claude Code only: delegation, model and effort per task, swarms of Claude, Codex and Qwen Code agents |
 | [Requirements & discovery](#requirements--discovery) | 4 | Raw input → structured requirements |
-| [Architecture & validation](#architecture--validation) | 5 | Draft architecture and decide it: formal validation when the FPF gate fires, lightweight decision otherwise |
+| [Architecture & validation](#architecture--validation) | 6 | Draft architecture and decide it: formal validation when the FPF gate fires, lightweight decision otherwise |
 | [Sprint & implementation](#sprint--implementation) | 2 | Break work down, run acceptance |
 | [Brownfield & knowledge](#brownfield--knowledge) | 2 | Query the code graph and document existing code |
 | [Ops & observability](#ops--observability) | 2 | Operate systems and triage incidents |
@@ -52,7 +52,6 @@ That is 29 skill sources: 28 ship in scaffolds, and `bmad-req-validator` is dist
 | [Vendored superpowers](#vendored-superpowers) | 14 | Planning / execution / review / worktrees |
 | [Vendored design pack](#vendored-impeccable-design-pack) | ~19 | UI/UX polish, audit, critique |
 | [Vendored skill-creator + tooling](#vendored-skill-creator--tooling) | 2+ | Meta-skill authoring and office tooling |
-| [Vendor plugin — Codex](#vendor-plugin--codex-codexopenai-codex) | plugin | Delegate tasks and reviews from Claude Code to Codex |
 
 > **Profiles are available in 1.8.0.** Use `--profile` with `--stack`; selection is saved and respected by upgrades. See [the catalog](install-profiles.md).
 
@@ -71,16 +70,16 @@ That is 29 skill sources: 28 ship in scaffolds, and `bmad-req-validator` is dist
 
 ---
 
-## Multi-model orchestration
+## Orchestration: Regia
 
-### `swarm-router`
-- **SKILL.md:** [`packages/skills/swarm-router/SKILL.md`](../packages/skills/swarm-router/SKILL.md)
-- **Provenance:** custom NONoise.
-- **Purpose:** routes / dispatches / fans-out / parallelizes a task across Claude / Codex / Gemini / Copilot's many models (Copilot is treated as a multiplexer reaching Opus, Sonnet, Haiku, GPT-5.x, plus free-tier `gpt-4.1` / `gpt-5-mini`). Classifies the task via a specialization matrix (UI → Gemini, review/security/DevOps → Codex, edge-case implementation → Claude, throwaway classification → Copilot free tier) and supports four execution modes: **single** dispatch, **sequential** pipeline, **parallel fan-out** for competing hypotheses, and **parallel-team** that splits a complex feature into N disjoint subtasks with explicit file-ownership boundaries. Cross-harness by design: first-class on Claude Code (native `Agent` + `Skill` tools for Mode 4), best-effort on Copilot / Gemini CLI / Codex CLI via shell-parallel background processes with documented caveats. Hierarchical orchestration only — there is no peer-to-peer messaging between different model CLIs.
-- **Triggers:** explicit user phrases only — `swarm: …`, `/swarm`, `usa lo swarm`, `instrada`, `fan-out`, `scegli il modello migliore per …`, `best model for …`, `second opinion da …`, `team mode`, `parallel-dev`, `sviluppa in parallelo`, `fai team`, `build with a team`. Same trigger phrases regardless of which AI harness is orchestrating; the skill reads its own "Harness-specific dispatch" section to pick the right mechanism.
-- **Reads:** the user's task description plus any context files the task references; per-harness it may shell out to `claude -p`, `gemini -p`, `codex exec`, `copilot -p` (or, on Claude Code, invoke the matching `*-delegate` skills via the `Skill` tool, and Codex through the official `codex@openai-codex` plugin's `/codex:rescue`).
-- **Writes:** a single combined block with verbatim per-model outputs labelled by stage / worker role, an optional **Synthesis** section (mandatory for parallel-fanout and parallel-team), and — for parallel-team — a `file-ownership` block listing the paths each worker may write.
-- **Phase:** Cross-cutting — applicable in any SDLC step where mixing models adds value (UI work to Gemini, review / security to Codex, edge-case implementation to Claude, cheap classification to Copilot's free tier).
+Not a NONoise skill: a Claude Code mod that NONoise installs as the plugin `regia@claude-regia` (native mode installs it at project scope; embed mode declares it in `.claude/settings.json`; the `minimal` profile skips it). Regia is the framework's orchestration layer. Dedicated doc: [`regia.md`](regia.md); full reference: [russosalv/claude-regia](https://github.com/russosalv/claude-regia).
+
+- **Purpose:** makes the main session coordinate instead of doing all the work itself. Picks model and effort per task, runs swarms of Claude, Codex and Qwen Code agents on a dependency board with an isolated git worktree for each task that writes, keeps the plan as a task list, brings questions to the user with their context (as notifications when away), detects stuck agents and wakes an idle session while the plan has open items.
+- **Triggers:** `/regia long|medium|quick [goal]` — the same three modes as NONoise's [development modes](development-modes.md); Polly prefixes her example prompt with `/regia <mode>` when Regia is active. Also `/regia` (live pane), `/regia swarm` (swarm boards), `/regia away` / `/regia here` (notifications), `/regia doctor` (what is active).
+- **Codex and Qwen Code:** on its first interactive session Regia installs the Codex plugin `codex@openai-codex` when the `codex` CLI is on the machine, and a Qwen Code plugin when `qwen` is. NONoise no longer installs the Codex plugin itself.
+- **Replaces:** the retired skills `swarm-router`, `copilot-delegate` and `gemini-delegate` (and `codex-delegate`, retired in 1.7). They are no longer shipped; `--upgrade` removes pristine copies and keeps edited ones.
+- **Limits:** Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. Regia's executors are Claude, Codex and Qwen Code: there is no delegation to Copilot CLI or Gemini CLI, and no routing to other models through Copilot.
+- **Phase:** cross-cutting — any medium or long task in Claude Code.
 
 ---
 
@@ -376,13 +375,6 @@ Use these after `frontend-design` produces the initial implementation to progres
 
 - **`skill-creator`** — Anthropic's meta-skill for authoring new skills from scratch, editing existing ones, running evals, benchmarking. Used by `ops-skill-builder` in the crystallise phase.
 - **PPTX tooling** (`packages/skills/vendor/pptx/`) — office-file-unpacking utilities (unpack, clean, duplicate-slide, redline-simplifier, slide-operations, merge-runs, schema-validation for DOCX / PPTX / XLSX). Useful when a team needs to manipulate Office artefacts programmatically (common for requirements-ingest on slide-deck source material).
-
-## Vendor plugin — Codex (`codex@openai-codex`)
-
-- **Source:** OpenAI's official Claude Code plugin, marketplace [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc). Not a NONoise skill; replaces the former `codex-delegate` skill (removed in 1.7.0).
-- **Installation:** Claude Code selected. Native mode installs it at project scope; embed mode only declares it in `.claude/settings.json`. `--upgrade` removes unmodified `codex-delegate` copies and preserves modified ones.
-- **Commands:** `/codex:rescue` (subagent `codex:codex-rescue`), `/codex:review`, `/codex:adversarial-review`, `/codex:status`, `/codex:result`, `/codex:cancel`, `/codex:transfer`, `/codex:setup`.
-- **Used by:** `swarm-router` (Codex dispatch on Claude Code) and any explicit request to hand work to Codex.
 
 ---
 
