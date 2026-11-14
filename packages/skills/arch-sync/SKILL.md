@@ -31,12 +31,21 @@ principle of `arch-decision`.
 
 ## Inputs
 
-Read `prdPath`, which must have `status: validated`, `haft.decisions` entries
-with actual IDs and repository-root-relative `.haft/decisions/` carrier paths,
-and an `## Impact on docs/architecture/` checklist. Resolve refs from the
-repository root even after the PRD moves to a sprint.
+Read `prdPath`, which must have `status: validated` and an
+`## Impact on docs/architecture/` checklist, plus one of two authorities:
 
-Require the Haft MCP runtime as described in `quint-fpf`; if unavailable stop
+- **Formal** — `haft.decisions` entries with actual IDs and
+  repository-root-relative `.haft/decisions/` carrier paths. Resolve refs from
+  the repository root even after the PRD moves to a sprint.
+- **Lightweight** — `decision.mode: lightweight` with `choice` and `rationale`
+  (written by `arch-decision` when the FPF gate did not fire). There are no
+  Haft refs to recover and the Haft runtime is not required: the PRD
+  frontmatter is the authority. Skip the DecisionRecord checks below and record
+  `haft_decisions: none (lightweight decision)` in the sync report.
+
+A PRD with neither is not ready: send it back to `arch-decision`.
+
+For a formal decision, require the Haft MCP runtime as described in `quint-fpf`; if unavailable stop
 with `create-nonoise --upgrade .` and `create-nonoise doctor .`. Recover each
 exact decision with `haft_query(action="related", artifact_ref=...)`. Confirm
 that it is active, current and binds the accepted choice. Missing, rejected,
@@ -49,7 +58,8 @@ superseded or ambiguous authority blocks only the affected projection; use
 
 1. Open the PRD at `prdPath`. Verify frontmatter `status: validated`.
 2. Recover the exact referenced Haft DecisionRecords and inspect their binding
-   scope and freshness. Do not mutate them.
+   scope and freshness. Do not mutate them. (Lightweight decision: read
+   `decision.choice` and `decision.rationale` instead.)
 3. Find `## Impact on docs/architecture/` in the validated PRD and check that its
    effects are supported by those records.
 4. Parse the strict-format bullets:

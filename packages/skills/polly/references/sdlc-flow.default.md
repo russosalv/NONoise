@@ -5,10 +5,12 @@ with packages/templates/single-project/_always/.nonoise/sdlc-flow.md.
 -->
 
 ---
-version: 1
+version: 2
 default_language: it
+default_mode: medium
 phases:
   - id: stack
+    modes: [long]
     label:
       it: "Stack e vincoli"
       en: "Stack and constraints"
@@ -17,6 +19,7 @@ phases:
     mode: pair
     conversational: true
   - id: requirements-ingest
+    modes: [long]
     label:
       it: "Ingest di materiale esistente"
       en: "Existing material ingest"
@@ -25,6 +28,7 @@ phases:
     mode: pair
     skip_if: "no existing PDFs / docs / transcripts to ingest"
   - id: requirements-elicit
+    modes: [long]
     label:
       it: "Elicitation dei requisiti"
       en: "Requirements elicitation"
@@ -32,6 +36,7 @@ phases:
     fingerprint: "docs/requirements/**/*.md"
     mode: pair
   - id: feature-design
+    modes: [medium, long]
     label:
       it: "Design della feature / prodotto"
       en: "Feature / product design"
@@ -40,6 +45,7 @@ phases:
     mode: pair
     skip_if: "pure refactor with no new feature"
   - id: arch-brainstorm
+    modes: [long]
     label:
       it: "Opzioni architetturali"
       en: "Architectural options"
@@ -48,13 +54,17 @@ phases:
     mode: pair
     skip_if: "feature fits an existing, decided architecture"
   - id: arch-decision
+    modes: [long]
     label:
       it: "Decisione architetturale"
       en: "Architectural decision"
     skill: arch-decision
     fingerprint: "docs/architecture/decisions/**/*.md"
     mode: pair
+    gate: fpf
+    skip_if: "FPF gate does not fire: record a lightweight decision in the PRD instead"
   - id: arch-sync
+    modes: [long]
     label:
       it: "Sync architetturale (opzionale)"
       en: "Architecture sync (optional)"
@@ -63,6 +73,7 @@ phases:
     mode: solo
     skip_if: "arch-decision PASS doesn't need propagation yet"
   - id: sprint-manifest
+    modes: [long]
     label:
       it: "Sprint breakdown"
       en: "Sprint breakdown"
@@ -70,6 +81,7 @@ phases:
     fingerprint: "docs/sprints/Sprint-*/manifest.md"
     mode: pair
   - id: implementation
+    modes: [quick, medium, long]
     label:
       it: "Implementazione — per task"
       en: "Implementation — per task"
@@ -77,6 +89,7 @@ phases:
     fingerprint: "docs/superpowers/plans/**/*.md"
     mode: solo
   - id: acceptance
+    modes: [long]
     label:
       it: "Acceptance test run"
       en: "Acceptance test run"
@@ -90,6 +103,48 @@ phases:
 This file is read by **Polly** (`/polly`, `avvia polly`, `start polly`) to decide what to suggest next. It is project-local — edit it to match your actual flow.
 
 Each phase below has: when to run it, when to skip, and an example prompt in Italian + English you can paste into chat to trigger the skill automatically.
+
+## Modes
+
+The flow is sized to the work. Every phase lists the `modes` it belongs to; a phase outside the current mode is not suggested. The mode is chosen per task: `/polly quick|medium|long <goal>`, or Polly infers it from the goal and says so. `default_mode` applies when nothing else decides.
+
+| | quick | medium (default) | long |
+|---|---|---|---|
+| Fits | a fix, a tweak, one or two files, a clear outcome | a feature or refactor inside an already-decided architecture | a new product, an epic, anything that changes the architecture |
+| Phases | `implementation` only, no plan document | `feature-design` → `implementation` | every phase below, in order |
+| Documents | none | one spec, one plan | requirements, PRD, sprint manifest, test report |
+| Delegation | none: one agent, direct edits | delegate independent pieces and broad searches | orchestrate: plan first, parallel agents, review every piece |
+| FPF validation | never | only if the FPF gate fires | whenever the FPF gate fires |
+
+Signals for inferring the mode: number of files and modules touched, whether requirements already exist, whether the change crosses a public contract or the data model, and how long the work is expected to run. When two modes fit, pick the lighter one and name the heavier as the fallback.
+
+**FPF gate.** Formal validation (`arch-decision` → Haft FPF) is proposed only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) **and** at least two materially different options are viable. In every other case the choice is recorded in the PRD as a lightweight decision (`decision.mode: lightweight`) and the flow continues with `sprint-manifest` or `implementation`.
+
+**Regia.** With the Regia mod for Claude Code installed, these are Regia's own three modes. Prefix the phase prompt with `/regia quick|medium|long` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
+
+### quick
+
+```prompt (it)
+Modalità quick: <cosa va cambiato e dove>. Lavora direttamente, senza subagent e senza documenti: modifica minima, esegui i test pertinenti, riassumi in tre righe cosa hai cambiato e cosa hai verificato. Se il lavoro si rivela più grande, fermati e proponi la modalità medium.
+```
+
+```prompt (en)
+Quick mode: <what must change and where>. Work directly, no subagents and no documents: smallest change, run the relevant tests, sum up in three lines what you changed and what you verified. If the work turns out bigger, stop and propose medium mode.
+```
+
+### medium
+
+```prompt (it)
+Modalità medium: <feature / refactor>. Vincoli noti: <…>. Scrivi uno spec breve in docs/superpowers/specs/, poi un plan in docs/superpowers/plans/ ed eseguilo con TDD delegando i pezzi indipendenti. L'architettura è già decisa: se emerge una scelta difficile da invertire con più opzioni valide, fermati e proponi arch-decision. Chiudi con la verifica (test e build). Procedi.
+```
+
+```prompt (en)
+Medium mode: <feature / refactor>. Known constraints: <…>. Write a short spec under docs/superpowers/specs/, then a plan under docs/superpowers/plans/ and execute it with TDD, delegating the independent pieces. The architecture is already decided: if a hard-to-reverse choice with several viable options comes up, stop and propose arch-decision. Close with verification (tests and build). Proceed.
+```
+
+### long
+
+Walk the phases below in order, starting from the first one whose fingerprint is missing.
 
 ## stack
 
@@ -146,12 +201,24 @@ Skip when: the feature fits an already-decided architecture.
 
 ## arch-decision
 
+Run when: the FPF gate fires (see **Modes**) — a costly-to-reverse decision with at least two viable options, or an explicit request for formal validation.
+
 ```prompt (it)
 Valuta il PRD draft docs/prd/<area>/<file>.md con arch-decision e Haft: ProblemCard, varianti e confronto. Presenta il gate 5.5; vincola una DecisionRecord in .haft/decisions/ solo su mia richiesta esplicita della scelta e aggiorna i riferimenti del PRD.
 ```
 
 ```prompt (en)
 Review draft docs/prd/<area>/<file>.md through arch-decision and Haft: ProblemCard, variants and comparison. Present Phase 5.5; bind a DecisionRecord in .haft/decisions/ only on my explicit choice request and update PRD references.
+```
+
+Skip when: the FPF gate does not fire. Record a lightweight decision instead:
+
+```prompt (it)
+Il PRD docs/prd/<area>/<file>.md non richiede validazione FPF: <perché — reversibile / un'unica opzione praticabile>. Registra la scelta <opzione> come decisione lightweight nel frontmatter del PRD (decision.mode: lightweight, con scelta, motivazione e motivo del gate) e proponi il passo successivo.
+```
+
+```prompt (en)
+PRD docs/prd/<area>/<file>.md does not need FPF validation: <why — reversible / a single viable option>. Record choice <option> as a lightweight decision in the PRD frontmatter (decision.mode: lightweight, with choice, rationale and gate reason) and propose the next step.
 ```
 
 ## arch-sync

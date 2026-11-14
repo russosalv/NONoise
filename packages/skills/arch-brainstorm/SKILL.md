@@ -253,7 +253,7 @@ Fix inline before saving.
 #### Actions
 
 1. **Summarize to the architect** what you produced (file paths, key sections, 1–2-sentence recap).
-2. **Request review** explicitly: "Review the PRD before proceeding. If you want changes, tell me; otherwise the next step is invoking `arch-decision` to validate with Haft FPF".
+2. **Request review** explicitly: "Review the PRD before proceeding. If you want changes, tell me; otherwise the next step is `arch-decision`, which first checks whether this decision needs formal Haft FPF validation at all".
 3. **User gate**: do not declare the skill "complete" until the architect gives the green light or requests changes.
 4. **If the architect requests changes**: return to phase 2 or 3 depending on the kind of change (new decisions → phase 2; only formatting → straight to phase 3 with edits).
 5. **If the architect approves**: explicitly suggest the next skill:
@@ -262,7 +262,9 @@ Fix inline before saving.
    >
    > **`arch-decision <path-to-prd>`**
    >
-   > arch-decision will apply the Haft FPF methodology (via `quint-fpf`) to validate the decisions embedded in the narrative. After the operator explicitly binds an accepted choice through the Phase 5.5 gate, the frontmatter becomes `status: validated`, and `arch-decision` will produce a concrete list of changes to apply to `docs/architecture/` manually.
+   > arch-decision first evaluates the **FPF gate**. If the decision is costly to reverse and the PRD holds at least two materially different viable options (or you ask for it), it applies the Haft FPF methodology (via `quint-fpf`) and, after you explicitly bind a choice through the Phase 5.5 gate, the frontmatter becomes `status: validated`. Otherwise it records a lightweight decision in the PRD frontmatter (`decision.mode: lightweight`), with no Haft run. Either way it produces a concrete list of changes to apply to `docs/architecture/` manually.
+
+   State your own reading of the gate in one line when you hand off (for example: "reversible, one viable option → I expect a lightweight decision"), so the architect knows what to expect.
 
 #### Phase 4 checkpoint
 

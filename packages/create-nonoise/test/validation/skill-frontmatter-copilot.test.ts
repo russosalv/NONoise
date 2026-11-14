@@ -9,9 +9,7 @@ const __dirname = dirname(__filename);
 const SKILLS_ROOT = resolve(__dirname, '..', '..', '..', '..', 'packages', 'skills');
 
 // Vendored / platform-snapshot dirs are upstream-owned and out of scope.
-// graphify-platform-skills uses lowercase filenames (skill.md, skill-copilot.md, …)
-// sourced from the graphify upstream — not the SKILL.md convention.
-const EXCLUDED_DIRS = new Set(['vendor', '_shared', 'graphify-platform-skills']);
+const EXCLUDED_DIRS = new Set(['vendor', '_shared']);
 
 const COPILOT_DESCRIPTION_LIMIT = 1024;
 

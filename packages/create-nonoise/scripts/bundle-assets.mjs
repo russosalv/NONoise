@@ -8,7 +8,7 @@ const monoRoot = resolve(pkgRoot, '..', '..');
 
 // Reference-only vendor packs: synced by scripts/sync-vendor.mjs for diffing,
 // must NOT ship in the published tarball.
-const VENDOR_EXCLUDES = new Set(['graphify']);
+const VENDOR_EXCLUDES = new Set();
 
 const SKILLS_FROM = resolve(monoRoot, 'packages/skills');
 const SKILLS_TO = resolve(pkgRoot, 'skills');

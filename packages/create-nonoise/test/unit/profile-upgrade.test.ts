@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 vi.mock('../../src/haft.js', () => ({ installHaft: vi.fn(async () => ({ ok: true })) }));
 vi.mock('../../src/native-vendor.js', () => ({ configureNativeVendors: vi.fn(), configureEmbedPlugins: vi.fn(), installNativeVendors: vi.fn() }));
-vi.mock('../../src/graphify-install.js', () => ({ installGraphify: vi.fn(() => ({ projectLocal: { source: 'bundled', errors: [] } })), formatReport: () => '' }));
+vi.mock('../../src/codebase-memory.js', () => ({ installCodebaseMemory: vi.fn(() => ({ binary: 'already-present', configured: [], unchanged: [], preserved: [], legacyKept: [], retired: [], hints: [] })), formatReport: vi.fn(() => '') }));
 import { runUpgrade } from '../../src/upgrade.js';
 import { installEcc } from '../../src/ecc.js';
 const root = resolve('../skills'), templatesRoot = resolve('../templates');

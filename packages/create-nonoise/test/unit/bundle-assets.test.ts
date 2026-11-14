@@ -7,9 +7,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..', '..');
 
 describe('bundle-assets', () => {
-  it('does NOT bundle the reference-only vendor/graphify directory', () => {
-    const bundled = resolve(pkgRoot, 'skills', 'vendor', 'graphify');
-    expect(existsSync(bundled)).toBe(false);
+  it('no longer ships graphify in any form, and ships the codebase-memory skill', () => {
+    expect(existsSync(resolve(pkgRoot, 'skills', 'vendor', 'graphify'))).toBe(false);
+    expect(existsSync(resolve(pkgRoot, 'skills', 'graphify-platform-skills'))).toBe(false);
+    expect(existsSync(resolve(pkgRoot, 'skills', 'codebase-memory', 'SKILL.md'))).toBe(true);
   });
 
   it('still bundles the other vendor packs', () => {

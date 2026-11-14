@@ -26,12 +26,9 @@ Thumbs.db
 .env
 .env.local
 
-# >>> graphify (managed by create-nonoise)
-graphify-out/
-.graphify_*
-*.graphify-bak
-.obj/
-# <<< graphify
+# codebase-memory-mcp keeps its index in ~/.cache/codebase-memory-mcp, outside the
+# repository. `.codebase-memory/` only exists if you opt into the shared graph
+# artifact (index_repository persistence=true); commit or ignore it as a team choice.
 
 # Haft markdown, project binding and host configs are shared project records.
 # Keep .haft/ tracked; its own .gitignore excludes transient review state.

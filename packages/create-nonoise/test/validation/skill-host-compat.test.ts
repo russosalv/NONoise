@@ -51,12 +51,13 @@ describe('skill-host-compat parser and metadata contracts', () => {
 });
 
 describe('skill-host-compat shipped assets', () => {
-  it('validates every native/vendor skill and shipped Graphify host snapshot', () => {
+  it('validates every native/vendor skill, including codebase-memory', () => {
     const skills = listShippedSkills(root);
     expect(skills.length).toBeGreaterThan(60);
     expect(skills.some(s => s.path.includes('/vendor/ecc/'))).toBe(true);
     expect(skills.some(s => s.path.includes('/vendor/superpowers/'))).toBe(true);
-    expect(skills.some(s => s.path.includes('/vendor/graphify/'))).toBe(false);
+    expect(skills.some(s => /graphify/.test(s.path))).toBe(false);
+    expect(skills.some(s => s.name === 'codebase-memory')).toBe(true);
     const errors = skills.flatMap(({ path, name }) => validateSkill(readFileSync(path, 'utf8'), name).map(e => `${path}: ${e}`));
     expect(errors, errors.join('\n')).toEqual([]);
   });

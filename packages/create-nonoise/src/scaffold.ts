@@ -11,7 +11,7 @@ import type { ProjectContext, HandlebarsRenderContext, RepoEntry } from './types
 import { resolveTemplateFiles } from './template-resolver.js';
 import { installSkills, installVendor, nonoiseSkillDirs } from './skill-installer.js';
 import { toPascalCase, toSnakeCase } from './handlebars-helpers.js';
-import { installGraphify, formatReport } from './graphify-install.js';
+import { installCodebaseMemory, formatReport } from './codebase-memory.js';
 import { configureEmbedPlugins, configureNativeVendors, installNativeVendors } from './native-vendor.js';
 import { updateManagedFiles } from './managed-block.js';
 import { resolveProfile } from './profiles.js';
@@ -32,7 +32,7 @@ function hasAnyAiTool(aiTools: ProjectContext['aiTools']): boolean {
 export type ScaffoldPaths = {
   templatesRoot: string;
   skillsRoot: string;
-  runGraphifyInstall?: boolean;
+  runExternalInstalls?: boolean;
 };
 
 export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promise<void> {
@@ -101,7 +101,7 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
       configureEmbedPlugins(ctx.projectPath, ctx.aiTools);
     } else if (selected.vendors) {
       configureNativeVendors(ctx.projectPath, ctx.aiTools);
-      if (paths.runGraphifyInstall) installNativeVendors(ctx.projectPath, ctx.aiTools);
+      if (paths.runExternalInstalls) installNativeVendors(ctx.projectPath, ctx.aiTools);
     }
   }
 
@@ -120,24 +120,15 @@ export async function scaffold(ctx: ProjectContext, paths: ScaffoldPaths): Promi
     cloneRequestedRepos(ctx.projectPath, ctx.repos);
   }
 
-  if (selected.vendors && paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
-    const report = installGraphify({
-      projectPath: ctx.projectPath,
-      bundledSkillsRoot: paths.skillsRoot,
-      vendorMode: ctx.vendorMode ?? 'native',
-      claudeCode: ctx.aiTools.claudeCode,
-      copilot: ctx.aiTools.copilot,
-      codex: ctx.aiTools.codex,
-      cursor: ctx.aiTools.cursor,
-      geminiCli: ctx.aiTools.geminiCli,
-    });
-    console.log('\n[graphify] install summary:\n' + formatReport(report) + '\n');
+  if (selected.vendors && paths.runExternalInstalls && hasAnyAiTool(ctx.aiTools)) {
+    const report = installCodebaseMemory({ projectPath: ctx.projectPath, aiTools: ctx.aiTools });
+    console.log('\n[code-graph] codebase-memory-mcp summary:\n' + formatReport(report) + '\n');
   }
 
   if (ctx.gitInit) {
     runGitInit(ctx.projectPath);
   }
-  if (selected.vendors && paths.runGraphifyInstall && hasAnyAiTool(ctx.aiTools)) {
+  if (selected.vendors && paths.runExternalInstalls && hasAnyAiTool(ctx.aiTools)) {
     const haft = await installHaft(ctx.projectPath, ctx.aiTools);
     // Haft needs a commit before `haft init`; record its files in a second commit of the repo we created.
     if (ctx.gitInit && haft.ok) runGitCommit(ctx.projectPath, 'chore: initialize Haft via create-nonoise');
@@ -260,6 +251,6 @@ export function defaultScaffoldPaths(): ScaffoldPaths {
   return {
     templatesRoot: join(here, '..', 'templates'),
     skillsRoot: join(here, '..', 'skills'),
-    runGraphifyInstall: true,
+    runExternalInstalls: true,
   };
 }

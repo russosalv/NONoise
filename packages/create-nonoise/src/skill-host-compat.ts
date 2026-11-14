@@ -67,17 +67,17 @@ export function validateAgent(text: string, host: 'claude' | 'copilot' | 'codex'
 }
 
 /** Mirror installer entrypoints, not arbitrary upstream examples/references.
- * vendor/graphify is reference-only and excluded by bundle-assets.mjs. Native
+ * Native
  * plugins fetched at install time are outside the pinned shipped asset surface. */
 export function listShippedSkills(root: string): Array<{ path: string; name: string }> {
   const result: Array<{ path: string; name: string }> = [];
   const dirs = (path: string) => readdirSync(path, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => e.name).sort();
   const add = (dir: string) => { const path = join(dir, 'SKILL.md'); if (existsSync(path)) result.push({ path, name: basename(dir) }); };
-  for (const name of dirs(root)) if (!['vendor', '_shared', 'graphify-platform-skills'].includes(name)) {
+  for (const name of dirs(root)) if (!['vendor', '_shared'].includes(name)) {
     // Native directories are skill entrypoints; a missing SKILL.md must fail.
     result.push({ path: join(root, name, 'SKILL.md'), name });
   }
-  for (const vendor of dirs(join(root, 'vendor')).filter(name => name !== 'graphify')) {
+  for (const vendor of dirs(join(root, 'vendor'))) {
     const dir = join(root, 'vendor', vendor);
     if (existsSync(join(dir, 'SKILL.md'))) add(dir);
     else {
@@ -85,6 +85,5 @@ export function listShippedSkills(root: string): Array<{ path: string; name: str
       for (const name of dirs(skills)) add(join(skills, name));
     }
   }
-  for (const file of ['skill.md', 'skill-codex.md', 'skill-copilot.md']) result.push({ path: join(root, 'graphify-platform-skills', file), name: 'graphify' });
   return result;
 }

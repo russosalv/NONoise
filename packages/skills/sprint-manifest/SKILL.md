@@ -197,7 +197,9 @@ Before touching any file:
 
 3. **Check area consistency**: the `area` slug in the PRD frontmatter must match the folder name under `docs/prd/`. If there is a mismatch, flag it.
 
-4. **Check Haft references**: resolve each PRD's `haft.problems`, `haft.solutions`
+4. **Check the decision basis**: a PRD carrying `decision.mode: lightweight`
+   (the FPF gate did not fire) is promotable as it is — its frontmatter is the
+   authority and no Haft runtime is needed. For every other PRD, resolve its `haft.problems`, `haft.solutions`
    and `haft.decisions` IDs and paths from the repository root. Use the live Haft
    runtime (`quint-fpf`) to recover exact decisions; only current accepted choices
    support promotion. If the runtime is missing, stop with `create-nonoise

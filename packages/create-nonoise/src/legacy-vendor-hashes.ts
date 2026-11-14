@@ -638,6 +638,7 @@ export const LEGACY_VENDOR_HASHES: Record<string, string[]> = {
     "a53213426ee1100441d701a3a0d49cda7a842f992d2c36463f4d3cc0258575fa"
   ],
   ".claude/skills/graphify/SKILL.md": [
+    "f2398609a7512055a0ce156b51ce0cb985f8901744269ccbd8c118c5424618ba",
     "85495689bbff4b85062b4047b0d6e86a6ab145052b26c6a933f47b9efbfc26dd",
     "40f7e0e4e3c6dc93a1e4a56adb57abe26754b40a7ab30399032e5407886bc203",
     "341baf03dd9737a71f854e9dd3f6bb6dccd42362375cce22809260b5279c70f1"

@@ -112,18 +112,19 @@ describe('CLI via bin shim', () => {
     const { stdout } = await exec('node', [BIN, '--help'], { cwd: parent });
     expect(stdout).toContain('Usage:');
     expect(stdout).toContain('--ai');
-    expect(stdout).toContain('--graphify-only');
+    expect(stdout).toContain('--code-graph-only');
+    expect(stdout).toContain('--graphify-only is accepted as an');
   });
 
-  it('--graphify-only without config and without --ai exits non-zero with helpful error', async () => {
+  it.each(['--code-graph-only', '--graphify-only'])('%s without config and without --ai exits non-zero with helpful error', async (flag) => {
     await expect(
-      exec('node', [BIN, '--graphify-only'], { cwd: parent }),
+      exec('node', [BIN, flag], { cwd: parent }),
     ).rejects.toMatchObject({
-      stderr: expect.stringMatching(/No nonoise\.config\.json found/),
+      stderr: expect.stringMatching(/No nonoise\.config\.json found[\s\S]*--code-graph-only/),
     });
   });
 
-  it('--yes <existing-nonoise-project> exits non-zero pointing to --upgrade / --graphify-only', async () => {
+  it('--yes <existing-nonoise-project> exits non-zero pointing to --upgrade / --code-graph-only', async () => {
     // Build a fake existing NONoise project (just nonoise.config.json is enough).
     const { mkdir, writeFile } = await import('node:fs/promises');
     const target = join(parent, 'existing-project');
@@ -150,7 +151,7 @@ describe('CLI via bin shim', () => {
       }),
     ).rejects.toMatchObject({
       stderr: expect.stringMatching(
-        /already a NONoise project[\s\S]*--upgrade[\s\S]*--graphify-only/,
+        /already a NONoise project[\s\S]*--upgrade[\s\S]*--code-graph-only/,
       ),
     });
   }, 30_000);

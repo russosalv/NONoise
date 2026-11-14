@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, readFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -11,31 +12,28 @@ const __dirname = dirname(__filename);
 // and only populated after `pnpm build`.
 const BUNDLED_SKILLS_ROOT = resolve(__dirname, '..', '..', '..', 'skills');
 
-// Mock child_process so installGraphify (called transitively) doesn't actually
-// touch the host system.
+// Mock child_process so the external installers (called transitively) never
+// touch the host system: `execFileSync` is what codebase-memory.ts runs.
 vi.mock('../../src/haft.js', () => ({ installHaft: vi.fn(async () => ({ ok: true, output: 'fixture' })) }));
 
 vi.mock('node:child_process', () => ({
   execSync: vi.fn(),
+  execFileSync: vi.fn(),
 }));
 
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import { runUpgrade } from '../../src/upgrade.js';
 
 const mockedExec = vi.mocked(execSync);
 
-const UV_TOOL_LIST_077 = 'graphifyy v0.7.7\n- graphify\n';
+const mockedExecFile = vi.mocked(execFileSync);
 
+/** The pinned code-graph binary answers; nothing else may be executed. */
 function happyPathExec(): void {
-  mockedExec.mockImplementation((cmd) => {
-    const s = String(cmd);
-    if (/python3? --version/.test(s)) return Buffer.from('Python 3.11.7');
-    if (/uv --version/.test(s)) return Buffer.from('uv 0.4.20');
-    if (/^uv tool list$/.test(s)) return Buffer.from(UV_TOOL_LIST_077);
-    if (/uv tool install/.test(s)) return Buffer.from('');
-    if (/^graphify claude install$/.test(s)) return Buffer.from('');
-    if (/^graphify copilot install$/.test(s)) return Buffer.from('');
-    throw new Error(`Unexpected: ${cmd}`);
+  mockedExec.mockImplementation((cmd) => { throw new Error(`Unexpected: ${cmd}`); });
+  mockedExecFile.mockImplementation((bin, args) => {
+    if (bin === 'codebase-memory-mcp' && args?.[0] === '--version') return 'codebase-memory-mcp 0.12.1';
+    throw new Error(`Unexpected: ${bin} ${args?.join(' ')}`);
   });
 }
 
@@ -183,67 +181,64 @@ describe('runUpgrade', () => {
     }
   });
 
-  it('returns exitCode=0 when graphify global install fails but project-local writer succeeded', async () => {
-    // New contract: project-local skill files are the source of truth, so a
-    // failed `uv tool install` does not propagate to a non-zero exit.
+  it('returns exitCode=0 and still configures the project when the code-graph binary cannot be installed', async () => {
+    // A failed `npm install -g` is recoverable by hand: the MCP config is
+    // written anyway and the summary carries the command to retry.
     const dir = makeProject({ withConfig: true });
-    const realRoot = BUNDLED_SKILLS_ROOT;
-
-    mockedExec.mockImplementation((cmd) => {
-      const s = String(cmd);
-      if (/python3? --version/.test(s)) return Buffer.from('Python 3.11.7');
-      if (/^uv --version/.test(s)) return Buffer.from('uv 0.4.20');
-      if (/^uv tool dir graphifyy$/.test(s)) throw new Error('not installed');
-      if (/^uv tool list$/.test(s)) return Buffer.from('');
-      if (/uv tool install/.test(s)) throw new Error('install boom');
-      throw new Error(`Unexpected: ${cmd}`);
-    });
+    mockedExecFile.mockImplementation(() => { throw new Error('install boom'); });
     try {
-      const result = await runUpgrade({ vendorMode: 'embed',
-        targetPath: dir,
-        skillsRoot: realRoot,
-      });
+      const result = await runUpgrade({ vendorMode: 'embed', targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.exitCode).toBe(0);
-      expect(result.graphifyReport.graphifyy).toBe('install-failed');
-      // Project-local writer ran from the bundled lean dir.
-      expect(result.graphifyReport.projectLocal.source).toBe('bundled');
-      expect(result.graphifyReport.projectLocal.written.length).toBeGreaterThan(0);
-      // Skills should still have been refreshed.
+      expect(result.codeGraphReport.binary).toBe('install-failed');
+      expect(result.codeGraphReport.hints.join('\n')).toContain('npm install -g codebase-memory-mcp@');
+      expect(result.codeGraphReport.configured).toEqual(['.mcp.json', '.vscode/mcp.json']);
+      expect(JSON.parse(readFileSync(join(dir, '.mcp.json'), 'utf8')).mcpServers['codebase-memory-mcp'].command).toBe('codebase-memory-mcp');
       expect(result.skillsRefreshed).toBeGreaterThan(0);
+      expect(existsSync(join(dir, '.claude/skills/codebase-memory/SKILL.md'))).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it('returns exitCode=1 when project-local writer cannot find any source skills', async () => {
-    // Copy the real skills root so installSkills succeeds, then strip
-    // graphify-platform-skills/ from the copy so the project-local writer
-    // has nothing to read from.
+  it('retires an unmodified graphify install and replaces its instruction block', async () => {
     const dir = makeProject({ withConfig: true });
-    const skillsRootCopy = mkdtempSync(join(tmpdir(), 'nonoise-skills-strip-'));
-    cpSync(BUNDLED_SKILLS_ROOT, skillsRootCopy, { recursive: true });
-    rmSync(join(skillsRootCopy, 'graphify-platform-skills'), { recursive: true, force: true });
-
-    mockedExec.mockImplementation((cmd) => {
-      const s = String(cmd);
-      if (/python3? --version/.test(s)) return Buffer.from('Python 3.11.7');
-      if (/^uv --version/.test(s)) return Buffer.from('uv 0.4.20');
-      if (/^uv tool dir graphifyy$/.test(s)) throw new Error('not installed');
-      if (/^uv tool list$/.test(s)) return Buffer.from('graphifyy v0.7.7\n- graphify\n');
-      if (/uv tool install/.test(s)) return Buffer.from('');
-      if (/^graphify (claude|copilot|codex) install$/.test(s)) return Buffer.from('');
-      throw new Error(`Unexpected: ${cmd}`);
-    });
+    const skill = 'upstream graphify skill';
+    mkdirSync(join(dir, '.claude/skills/graphify'), { recursive: true });
+    writeFileSync(join(dir, '.claude/skills/graphify/SKILL.md'), skill);
+    mkdirSync(join(dir, '.nonoise'), { recursive: true });
+    writeFileSync(join(dir, '.nonoise/native-graphify.json'), JSON.stringify({ version: '0.9.91', platforms: { claudeCode: createHash('sha256').update(skill).digest('hex') } }));
+    mkdirSync(join(dir, 'graphify-out'));
+    writeFileSync(join(dir, 'CLAUDE.md'), '# Mine\n<!-- nonoise:begin v1.8.0 -->\n## graphify\nold rules\n<!-- nonoise:end -->\nPERSONAL TEXT\n');
+    happyPathExec();
     try {
-      const result = await runUpgrade({ vendorMode: 'embed',
-        targetPath: dir,
-        skillsRoot: skillsRootCopy,
-      });
-      expect(result.exitCode).toBe(1);
-      expect(result.graphifyReport.projectLocal.source).toBe('unavailable');
+      const result = await runUpgrade({ targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
+      expect(result.exitCode).toBe(0);
+      expect(result.codeGraphReport.binary).toBe('already-present');
+      expect(result.removed).toEqual(expect.arrayContaining(['.claude/skills/graphify', '.nonoise/native-graphify.json']));
+      expect(existsSync(join(dir, '.claude/skills/graphify'))).toBe(false);
+      expect(existsSync(join(dir, 'graphify-out'))).toBe(true);
+      const instructions = readFileSync(join(dir, 'CLAUDE.md'), 'utf8');
+      expect(instructions).not.toContain('## graphify');
+      expect(instructions).toContain('<!-- >>> codebase-memory (managed by create-nonoise) -->');
+      expect(instructions).toContain('<!-- >>> development-modes (managed by create-nonoise) -->');
+      expect(instructions).toContain('PERSONAL TEXT');
     } finally {
       rmSync(dir, { recursive: true, force: true });
-      rmSync(skillsRootCopy, { recursive: true, force: true });
+    }
+  });
+
+  it('returns exitCode=1 when an existing MCP entry had to be left alone', async () => {
+    const dir = makeProject({ withConfig: true });
+    const mine = JSON.stringify({ mcpServers: { 'codebase-memory-mcp': { command: 'docker', args: ['run', 'cbm'] } } });
+    writeFileSync(join(dir, '.mcp.json'), mine);
+    happyPathExec();
+    try {
+      const result = await runUpgrade({ vendorMode: 'embed', targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
+      expect(result.exitCode).toBe(1);
+      expect(result.codeGraphReport.preserved).toEqual(['.mcp.json']);
+      expect(readFileSync(join(dir, '.mcp.json'), 'utf8')).toBe(mine);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 

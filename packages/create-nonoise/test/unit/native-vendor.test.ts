@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn(), execSync: vi.fn() }));
 import { execFileSync } from 'node:child_process';
-import { MARKETPLACE_REF, marketplaceSource, configureEmbedPlugins, configureNativeVendors, nativePlan, doctor, installNativeGraphify, installNativeVendors, run, hasInstalledPlugin } from '../../src/native-vendor.js';
+import { MARKETPLACE_REF, marketplaceSource, configureEmbedPlugins, configureNativeVendors, nativePlan, doctor, installNativeVendors, run, hasInstalledPlugin } from '../../src/native-vendor.js';
 import { replaceManagedBlock } from '../../src/managed-block.js';
 import { migrateLegacyVendors } from '../../src/vendor-migration.js';
 import { scaffold } from '../../src/scaffold.js';
@@ -56,29 +56,6 @@ describe('native vendors', () => {
     expect(results.every(r => !r.ok)).toBe(true); expect(results[0]?.output).toContain('ENOENT test tool missing');
     expect(results.some(r => r.args.join(' ') === 'plugin install superpowers@nonoise')).toBe(true);
   });
-  it('pins graphify and wires project installations without bundled files', () => {
-    mocked.mockImplementation((bin, args) => bin === 'uv' && args?.join(' ') === 'tool list' ? 'graphifyy v0.9.91\n' : 'ok');
-    const r = installNativeGraphify({ ...ai, codex: true, projectPath: dir, bundledSkillsRoot: '/missing' });
-    expect(r.projectLocal.source).toBe('native'); expect(r.codexHook).toBe('ok');
-    expect(mocked.mock.calls.some(([b, a]) => b === 'graphify' && a?.join(' ') === 'install --project --platform codex')).toBe(true);
-    expect(mocked.mock.calls.some(([, , o]) => (o as any).cwd !== dir)).toBe(false);
-    expect(existsSync(join(dir, '.claude/skills/graphify'))).toBe(false);
-  });
-  it('installs the exact graphify pin when another version is present', () => {
-    mocked.mockImplementation((bin, args) => bin === 'uv' && args?.join(' ') === 'tool list' ? 'graphifyy v0.8.0\n' : 'ok');
-    installNativeGraphify({ ...ai, projectPath: dir, bundledSkillsRoot: '/missing' });
-    expect(mocked.mock.calls.some(([b, a]) => b === 'uv' && a?.join(' ') === 'tool install --force graphifyy==0.9.91')).toBe(true);
-  });
-  it('retains retry commands when graphify installation fails', () => {
-    const r = installNativeGraphify({ ...ai, copilot: true, projectPath: dir, bundledSkillsRoot: '/missing' });
-    expect(r.graphifyy).toBe('install-failed'); expect(r.hints.join('\n')).toContain('graphify install --project --platform copilot');
-  });
-  it('does not invoke graphify over a modified migrated user skill', () => {
-    put('.claude/skills/graphify/SKILL.md', 'mine'); mocked.mockReturnValue('graphifyy v0.9.91\n');
-    const r = installNativeGraphify({ ...ai, projectPath: dir, bundledSkillsRoot: '/missing', protectedPaths: ['.claude/skills/graphify/SKILL.md'] });
-    expect(r.claudeHook).toBe('failed'); expect(mocked.mock.calls.some(([b]) => b === 'graphify')).toBe(false);
-    expect(readFileSync(join(dir, '.claude/skills/graphify/SKILL.md'), 'utf8')).toBe('mine');
-  });
   it('native scaffold excludes all embedded packs and records its mode', async () => {
     await scaffold({ projectName: 'demo', projectPath: dir, template: 'single-project', workspaceKind: 'new', aiTools: ai, gitInit: false, frameworkVersion: '1.7.0' }, paths);
     for (const name of ['superpowers', 'impeccable', 'pptx', 'skill-creator', 'graphify']) expect(existsSync(join(dir, '.claude/skills', name))).toBe(false);
@@ -89,7 +66,7 @@ describe('native vendors', () => {
     put('nonoise.config.json', JSON.stringify({ frameworkVersion: '1.6.0', aiTools: ai, template: 'single-project' }));
     put('CLAUDE.md', '# My title\nPersonal line\n'); put('.claude/skills/user/SKILL.md', 'my skill');
     const opts = { targetPath: dir, ...paths }; const first = await runUpgrade(opts);
-    expect(first.exitCode).toBe(0); expect(first.graphifyReport.projectLocal.source).toBe('native');
+    expect(first.exitCode).toBe(0); expect(first.codeGraphReport.binary).toBe('install-failed'); expect(first.codeGraphReport.configured).toEqual(['.mcp.json']);
     const config = readFileSync(join(dir, 'nonoise.config.json'), 'utf8'); const instructions = readFileSync(join(dir, 'CLAUDE.md'), 'utf8');
     await runUpgrade(opts); expect(readFileSync(join(dir, 'CLAUDE.md'), 'utf8')).toBe(instructions); expect(readFileSync(join(dir, 'nonoise.config.json'), 'utf8')).toBe(config);
     expect(instructions).toContain('Personal line'); expect(readFileSync(join(dir, '.claude/skills/user/SKILL.md'), 'utf8')).toBe('my skill');
@@ -127,8 +104,10 @@ describe('doctor', () => {
     expect(mocked.mock.calls.every(([bin, args]) => bin === 'haft'
       ? args?.join(' ') === '--version' || args?.join(' ') === 'spec status --json'
       : bin === 'git' ? args?.[0] === 'rev-parse'
+      : bin === 'codebase-memory-mcp' ? args?.join(' ') === '--version'
       : args?.includes('list') || (bin === 'copilot' && args?.join(' ') === 'mcp get haft --json'))).toBe(true);
-    expect(lines).toContain('Haft expected');
+    expect(lines).toContain('Haft expected'); expect(lines).toContain('codebase-memory-mcp expected 0.12.1');
+    expect(lines).toContain('.codex/config.toml: codebase-memory-mcp server missing/invalid'); expect(lines).not.toContain('graphify');
     expect(readFileSync(join(dir, 'nonoise.config.json'), 'utf8')).toBe(config);
   });
   it('recognizes Codex installed records and disabled plugins', () => {
@@ -154,20 +133,6 @@ describe('native integration regressions', () => {
     put('.claude/settings.json', compact); configureNativeVendors(dir, ai);
     expect(readFileSync(join(dir, '.claude/settings.json'), 'utf8')).toBe(compact);
   });
-  it('skips a verified graphify install on repeat, but force repair still invokes upstream', () => {
-    mocked.mockImplementation((bin) => {
-      if (bin === 'uv') return 'graphifyy v0.9.91\n';
-      if (bin === 'graphify') put('.claude/skills/graphify/SKILL.md', 'upstream native skill');
-      return 'ok';
-    });
-    const ctx = { ...ai, projectPath: dir, bundledSkillsRoot: '/absent' };
-    installNativeGraphify(ctx); const receipt = readFileSync(join(dir, '.nonoise/native-graphify.json'), 'utf8');
-    expect(installNativeGraphify(ctx).projectLocal.skipped).toEqual(['.claude/skills/graphify/SKILL.md']);
-    expect(mocked.mock.calls.filter(([bin]) => bin === 'graphify')).toHaveLength(1);
-    expect(readFileSync(join(dir, '.nonoise/native-graphify.json'), 'utf8')).toBe(receipt);
-    installNativeGraphify({ ...ctx, force: true });
-    expect(mocked.mock.calls.filter(([bin]) => bin === 'graphify')).toHaveLength(2);
-  });
   it('records unknown user files inside impeccable and defers the upstream installer', async () => {
     put('.claude/skills/impeccable/notes.txt', 'user data');
     const migration = await migrateLegacyVendors(dir);
@@ -189,21 +154,6 @@ describe('native integration regressions', () => {
   });
 });
 
-it('preserves instruction bytes even when upstream graphify replaces a legacy section and trailing user prose', () => {
-  const original = '# Mine\r\n<!-- nonoise:begin v1.7.0 -->\r\n## graphify\r\nrules\r\n<!-- nonoise:end -->\r\nPERSONAL TEXT\r\n';
-  for (const file of ['CLAUDE.md', 'AGENTS.md', '.github/copilot-instructions.md']) put(file, original);
-  mocked.mockImplementation(bin => {
-    if (bin === 'uv') return 'graphifyy v0.9.91\n';
-    if (bin === 'graphify') {
-      for (const file of ['CLAUDE.md', 'AGENTS.md', '.github/copilot-instructions.md']) put(file, '# upstream replacement');
-      put('.claude/skills/graphify/SKILL.md', 'native graphify');
-    }
-    return 'ok';
-  });
-  expect(installNativeGraphify({ ...ai, projectPath: dir, bundledSkillsRoot: '/missing' }).claudeHook).toBe('ok');
-  for (const file of ['CLAUDE.md', 'AGENTS.md', '.github/copilot-instructions.md']) expect(readFileSync(join(dir, file), 'utf8')).toBe(original);
-  expect(readFileSync(join(dir, '.claude/skills/graphify/SKILL.md'), 'utf8')).toBe('native graphify');
-});
 
 
 describe('Claude project installation corrections', () => {
@@ -273,7 +223,6 @@ describe('bounded external network retries', () => {
     { bin: 'claude', args: ['plugin', 'marketplace', 'add', 'russosalv/NONoise'] },
     { bin: 'copilot', args: ['plugin', 'install', 'superpowers@nonoise'] },
     { bin: 'codex', args: ['plugin', 'add', 'superpowers@nonoise'] },
-    { bin: 'uv', args: ['tool', 'install', 'graphifyy==0.9.91'] },
   ];
   it.each(commands)('retries $bin DNS errors twice with increasing backoff', c => {
     const wait = vi.spyOn(Atomics, 'wait').mockReturnValue('timed-out');
@@ -363,8 +312,6 @@ it('embed upgrades preserve modified vendor skills and are byte-idempotent from 
   await runUpgrade({ targetPath: dir, ...paths, vendorMode: 'embed' });
   expect(readFileSync(join(dir, '.claude/skills/superpowers/brainstorming/SKILL.md'), 'utf8')).toBe('personal brainstorming');
   const config = readFileSync(join(dir, 'nonoise.config.json'), 'utf8');
-  // Real graphify creates this stamp after migration/config writing on the first run.
-  put('.claude/skills/graphify/.graphify_skill_version', '0.7.19');
   await runUpgrade({ targetPath: dir, ...paths, vendorMode: 'embed' });
   expect(readFileSync(join(dir, 'nonoise.config.json'), 'utf8')).toBe(config);
 });

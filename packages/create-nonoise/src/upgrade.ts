@@ -8,7 +8,7 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installSkills, installVendor, nonoiseSkillDirs, removeRetiredSkills } from './skill-installer.js';
-import { installGraphify, formatReport, type InstallReport } from './graphify-install.js';
+import { installCodebaseMemory, formatReport, type CbmReport } from './codebase-memory.js';
 import type { AiTools, AiToolKey } from './types.js';
 import { FLAG_TO_AI_TOOL } from './types.js';
 import { parseProfile, resolveProfile } from './profiles.js';
@@ -39,7 +39,7 @@ export type UpgradeResult = {
   source: 'config' | 'flag' | 'merged';
   skillsRefreshed: number;
   vendorPacksRefreshed: string[];
-  graphifyReport: InstallReport;
+  codeGraphReport: CbmReport;
   removed: string[];
   preserved: string[];
   exitCode: number;
@@ -105,7 +105,7 @@ function defaultSkillsRoot(): string {
 
 /**
  * Re-runs the post-scaffold parts that need to stay in sync with the
- * shipped create-nonoise version: bundled skills + graphify integration.
+ * shipped create-nonoise version: bundled skills + the codebase-memory-mcp code graph.
  * Instruction files refresh only their managed block; custom prose is preserved.
  */
 export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
@@ -151,7 +151,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   console.log(`[upgrade] aiTools:   from ${source} → ` +
     `claude=${aiTools.claudeCode} copilot=${aiTools.copilot} ` +
     `codex=${aiTools.codex} cursor=${aiTools.cursor} gemini=${aiTools.geminiCli}`);
-  console.log(`[upgrade] mode:      refresh owned skills + ECC assets + re-install graphify`);
+  console.log(`[upgrade] mode:      refresh owned skills + ECC assets + code graph (codebase-memory-mcp)`);
 
   const skillsRoot = opts.skillsRoot ?? defaultSkillsRoot();
 
@@ -235,28 +235,21 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     `${vendorPacksRefreshed.length} vendor pack(s) refreshed (${vendorPacksRefreshed.join(', ') || 'none'})`,
   );
 
-  // Step 3 — re-install graphify integration with the latest CLI version.
-  const graphifyReport: InstallReport = selected.vendors ? installGraphify({
-    projectPath: targetPath,
-    bundledSkillsRoot: skillsRoot,
-    vendorMode,
-    protectedPaths,
-    claudeCode: aiTools.claudeCode,
-    copilot: aiTools.copilot,
-    codex: aiTools.codex,
-    cursor: aiTools.cursor,
-    geminiCli: aiTools.geminiCli,
-  }) : { python: { found: false }, uv: { found: false }, graphifyy: 'skipped', projectLocal: { source: 'bundled', written: [], skipped: [], errors: [] }, claudeHook: 'skipped', copilotHook: 'skipped', codexHook: 'skipped', cursorHook: 'skipped', geminiHook: 'skipped', hints: ['External runtimes are not selected by the minimal profile.'] };
-  console.log('\n[upgrade] graphify install summary:\n' + formatReport(graphifyReport) + '\n');
+  // Step 3 — install the pinned code graph and retire the graphify integration
+  // earlier versions wired up.
+  const codeGraphReport: CbmReport = selected.vendors
+    ? installCodebaseMemory({ projectPath: targetPath, aiTools })
+    : { binary: 'skipped', configured: [], unchanged: [], preserved: [], legacyKept: [], retired: [], hints: ['External runtimes are not selected by the minimal profile.'] };
+  migration.removed.push(...codeGraphReport.retired);
+  migration.preserved.push(...codeGraphReport.preserved, ...codeGraphReport.legacyKept);
+  console.log('\n[upgrade] codebase-memory-mcp summary:\n' + formatReport(codeGraphReport) + '\n');
   console.log(`[upgrade] migration summary: ${migration.removed.length} known file(s) removed; ${migration.preserved.length} modified/user file(s) preserved (listed above).`);
 
   if (selected.vendors) await installHaft(targetPath, aiTools);
 
-  // Native installer failures are recoverable; embed requires bundled skill sources.
-  const projectLocalFailed =
-    graphifyReport.projectLocal.source === 'unavailable' ||
-    graphifyReport.projectLocal.errors.length > 0;
-  const failed = projectLocalFailed;
+  // A missing binary is recoverable by hand (the summary prints the command).
+  // A conflicting MCP entry the upgrade had to leave alone needs the user.
+  const failed = selected.vendors && codeGraphReport.preserved.length > 0;
 
   return {
     targetPath,
@@ -266,7 +259,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     preserved: migration.preserved,
     skillsRefreshed: selected.nativeSkills.length,
     vendorPacksRefreshed,
-    graphifyReport,
+    codeGraphReport,
     exitCode: failed ? 1 : 0,
   };
 }
