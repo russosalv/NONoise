@@ -115,7 +115,7 @@ hero: {
 ```
 40+ skills · entire SDLC
 6 phases · requirements → ops
-27 NONoise-native skills
+28 NONoise-native skills
 14 vendored superpowers
 2 first-class tools · Claude Code + Copilot
 Polly · greenfield + brownfield
@@ -185,8 +185,8 @@ pillars: {
       t: { it: "Pattern standard", en: "Standard patterns" },
       s: { it: "Memoria parametrica > context injection", en: "Parametric memory > context injection" },
       b: {
-        it: "I pattern ad alta frequenza (DDD, Repository, CQRS, Clean Architecture, hexagonal, BFF, saga, outbox) sono nella memoria parametrica dell'LLM: generazione zero-shot, zero token di descrizione. I pattern esotici forzano in-context learning, consumano token, competono per l'attenzione. arch-brainstorm li elenca per primi; arch-decision + quint-fpf auditano le deviazioni con Haft, confronto di parità e scelta esplicita umana.",
-        en: "High-frequency training-data patterns (DDD, Repository, CQRS, Clean Architecture, hexagonal, BFF, saga, outbox) live in the LLM's parametric memory: zero-shot generation, zero description tokens. Exotic patterns force in-context learning, consume tokens, compete for attention. arch-brainstorm lists them first; arch-decision + quint-fpf audit deviations through Haft parity comparison and an explicit operator choice.",
+        it: "I pattern ad alta frequenza (DDD, Repository, CQRS, Clean Architecture, hexagonal, BFF, saga, outbox) sono nella memoria parametrica dell'LLM: generazione zero-shot, zero token di descrizione. I pattern esotici forzano in-context learning, consumano token, competono per l'attenzione. arch-brainstorm li elenca per primi; arch-decision valuta il gate FPF: le deviazioni costose da invertire passano da quint-fpf con Haft, confronto di parità e scelta esplicita umana; le altre restano come decisione lightweight nel PRD.",
+        en: "High-frequency training-data patterns (DDD, Repository, CQRS, Clean Architecture, hexagonal, BFF, saga, outbox) live in the LLM's parametric memory: zero-shot generation, zero description tokens. Exotic patterns force in-context learning, consume tokens, compete for attention. arch-brainstorm lists them first; arch-decision evaluates the FPF gate: deviations that are costly to reverse go through quint-fpf with Haft parity comparison and an explicit operator choice; the others are recorded as a lightweight decision in the PRD.",
       },
       tags: ["DDD", "CQRS", "Clean Arch", "arch-brainstorm", "quint-fpf"],
     },
@@ -241,8 +241,8 @@ phases: {
       n: "02",
       t: { it: "Architettura", en: "Architecture" },
       d: {
-        it: "Brainstorm pattern canonici → PRD draft → validazione formale Haft FPF → DecisionRecord → diagrammi C4 vivi via Structurizr DSL. Skill: arch-brainstorm, arch-decision, quint-fpf, bmad-agent-architect (Alex), c4-doc-writer.",
-        en: "Canonical-pattern brainstorm → draft PRD → formal Haft FPF validation → DecisionRecord → living C4 diagrams via Structurizr DSL. Skills: arch-brainstorm, arch-decision, quint-fpf, bmad-agent-architect (Alex), c4-doc-writer.",
+        it: "Brainstorm pattern canonici → PRD draft → gate FPF: validazione formale Haft FPF con DecisionRecord se la scelta è costosa da invertire e ha più opzioni valide, altrimenti decisione lightweight nel PRD → diagrammi C4 vivi via Structurizr DSL. Skill: arch-brainstorm, arch-decision, quint-fpf, bmad-agent-architect (Alex), c4-doc-writer.",
+        en: "Canonical-pattern brainstorm → draft PRD → FPF gate: formal Haft FPF validation with a DecisionRecord when the choice is costly to reverse and has several viable options, otherwise a lightweight decision in the PRD → living C4 diagrams via Structurizr DSL. Skills: arch-brainstorm, arch-decision, quint-fpf, bmad-agent-architect (Alex), c4-doc-writer.",
       },
       dur: "[pair]",
     },
@@ -366,8 +366,8 @@ Ten domains, ≥ 40 skills. Shape matches the existing `skills.domains[].items[]
 skills: {
   title: { it: "Catalogo skill — 40+", en: "Skill catalog — 40+" },
   sub: {
-    it: "27 native NoNoise + 14 superpowers vendored + pack design (Impeccable) + skill-creator + tooling. Tutte plain Markdown. Cross-tool. Progressive disclosure: ~80 token di discovery, body caricato solo all'attivazione.",
-    en: "27 NoNoise-native + 14 vendored superpowers + design pack (Impeccable) + skill-creator + tooling. All plain Markdown. Cross-tool. Progressive disclosure: ~80 discovery tokens, body loaded only on activation.",
+    it: "28 native NoNoise + 14 superpowers vendored + pack design (Impeccable) + skill-creator + tooling. Tutte plain Markdown. Cross-tool. Progressive disclosure: ~80 token di discovery, body caricato solo all'attivazione.",
+    en: "28 NoNoise-native + 14 vendored superpowers + design pack (Impeccable) + skill-creator + tooling. All plain Markdown. Cross-tool. Progressive disclosure: ~80 discovery tokens, body loaded only on activation.",
   },
   domains: [
     {
@@ -392,11 +392,11 @@ skills: {
     {
       n: "D3",
       t: { it: "Architettura & Validazione", en: "Architecture & Validation" },
-      s: { it: "PRD draft → validazione formale → ADR", en: "Draft PRD → formal validation → ADR" },
+      s: { it: "PRD draft → gate FPF → decisione", en: "Draft PRD → FPF gate → decision" },
       items: [
         { k: "arch-brainstorm", d: { it: "Dialogo pattern-canonici-first · produce PRD draft", en: "Canonical-first dialogue · produces draft PRD" } },
-        { k: "arch-decision", d: { it: "Haft FPF validation · aggiorna status PRD + ADR", en: "Haft FPF validation · updates PRD status + ADR" } },
-        { k: "quint-fpf", d: { it: "Haft FPF adapter: frame, explore, compare, decide, verify", en: "Haft FPF adapter: frame, explore, compare, decide, verify" } },
+        { k: "arch-decision", d: { it: "Gate FPF · validazione Haft o decisione lightweight · aggiorna status PRD", en: "FPF gate · Haft validation or lightweight decision · updates PRD status" } },
+        { k: "quint-fpf", d: { it: "Haft FPF adapter (quando il gate scatta): frame, explore, compare, decide, verify", en: "Haft FPF adapter (when the gate fires): frame, explore, compare, decide, verify" } },
         { k: "bmad-agent-architect", d: { it: "Alex — architect persona · niente binary deps · simmetria", en: "Alex — architect persona · no binary deps · symmetry" } },
         { k: "c4-doc-writer", d: { it: "C4 vivi via Structurizr DSL · rigenera Mermaid/PlantUML", en: "Living C4 via Structurizr DSL · regenerates Mermaid/PlantUML" } },
       ],
@@ -414,8 +414,9 @@ skills: {
     {
       n: "D5",
       t: { it: "Brownfield & Knowledge", en: "Brownfield & Knowledge" },
-      s: { it: "Indicizzazione codebase + dossier reverse-engineering", en: "Codebase indexing + reverse-engineering dossiers" },
+      s: { it: "Grafo del codice + dossier reverse-engineering", en: "Code graph + reverse-engineering dossiers" },
       items: [
+        { k: "codebase-memory", d: { it: "Grafo del codice via codebase-memory-mcp · architettura · call chain · impatto", en: "Code graph via codebase-memory-mcp · architecture · call chains · change impact" } },
         { k: "reverse-engineering", d: { it: "Dossier versionato · Q&A interattivo · changelog", en: "Versioned dossier · interactive Q&A · changelog" } },
       ],
     },
@@ -536,7 +537,7 @@ metrics: {
     en: "Bootstrapper numbers describe what you get out-of-the-box. Pilot numbers (Andreani RiskoWeb, April 2026) are empirical validation of the packaged methodology.",
   },
   bootstrapper: [
-    { v: "40+", l: { it: "Skill bundled", en: "Bundled skills" }, n: { it: "25 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx", en: "25 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx" } },
+    { v: "40+", l: { it: "Skill bundled", en: "Bundled skills" }, n: { it: "28 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx", en: "28 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx" } },
     { v: "6",   l: { it: "Fasi SDLC coperte", en: "SDLC phases covered" }, n: { it: "Requisiti · Architettura · Sprint · Dev · Acceptance · Ops", en: "Requirements · Architecture · Sprint · Dev · Acceptance · Ops" } },
     { v: "6",   l: { it: "Cartelle docs/ source-of-truth", en: "docs/ source-of-truth folders" }, n: { it: "architecture · requirements · calls · support · prd · sprints", en: "architecture · requirements · calls · support · prd · sprints" } },
     { v: "2",   l: { it: "Tool first-class in v1", en: "First-class tools in v1" }, n: { it: "Claude Code + GitHub Copilot · Cursor/Gemini/Codex best-effort", en: "Claude Code + GitHub Copilot · Cursor/Gemini/Codex best-effort" } },
@@ -571,7 +572,7 @@ roadmap: {
   items: [
     { id: "SP-1",  s: "done",     t: { it: "CLI installer + template single-project", en: "CLI installer + single-project template" } },
     { id: "SP-2",  s: "done",     t: { it: "Skill library agnostica (25 native + vendor)", en: "Agnostic skill library (25 native + vendor)" } },
-    { id: "SP-7",  s: "done",     t: { it: "Skill nuove (graphify, vscode-config, docs-md, c4-doc-writer)", en: "New skills (graphify, vscode-config, docs-md, c4-doc-writer)" } },
+    { id: "SP-7",  s: "done",     t: { it: "Skill nuove (code graph, vscode-config, docs-md, c4-doc-writer)", en: "New skills (code graph, vscode-config, docs-md, c4-doc-writer)" } },
     { id: "SP-9",  s: "progress", t: { it: "Polly v1 — orchestrator Claude + Copilot", en: "Polly v1 — Claude + Copilot orchestrator" } },
     { id: "SP-10", s: "progress", t: { it: "Docs refactor + site brief (questa iterazione)", en: "Docs refactor + site brief (this iteration)" } },
     { id: "SP-8",  s: "next",     t: { it: "Site rework — bootstrapper framing + SDLC coverage", en: "Site rework — bootstrapper framing + SDLC coverage" } },

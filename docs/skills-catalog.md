@@ -1,7 +1,7 @@
 # Skill catalog — what ships in `.claude/skills/`
 
 NONoise selects skills through six [installation profiles](install-profiles.md).
-Core and larger profiles include the historical 27 native skills plus `rea-setup`;
+Core and larger profiles include the 28 native skills of the standard bundle plus `rea-setup`;
 minimal includes five essential skills. ECC contributes 16 available skills,
 selected by profile and stack; REA contributes `reverse-engineer-anything` only
 when enabled. Native skills are copied to `.claude/skills/` and also `.agents/skills/`
@@ -27,11 +27,11 @@ Every skill under `packages/skills/` falls into one of three provenance tiers. T
 
 | Tier | Meaning | Count |
 |---|---|---:|
-| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 26 |
-| **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. The `graphify` tool is installed directly by `create-nonoise` at scaffold time (not a skill wrapper). | 2 |
+| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 27 |
+| **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. | 2 |
 | **vendored** | Installed under a namespace from the upstream installer or plugin (native, default) or from a snapshot pinned by commit and refreshed via `scripts/sync-vendor.mjs` (embed). Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
 
-The `graphify` tool itself is external (not a skill bundled under `packages/skills/`). The `create-nonoise` CLI installs the `graphifyy` Python package and wires the per-tool hooks at scaffold time.
+That is 29 skill sources: 28 ship in scaffolds, and `bmad-req-validator` is distributed only through the `nonoise` plugin. The code graph engine, `codebase-memory-mcp`, is an external binary (not a skill): the `create-nonoise` CLI installs it and registers its MCP server at scaffold time, and the `codebase-memory` skill tells the AI how to use it.
 
 ---
 
@@ -42,9 +42,9 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 | [Orchestration](#orchestration) | 1 | Advise on the SDLC |
 | [Multi-model orchestration](#multi-model-orchestration) | 1 | Route/dispatch/fan-out tasks across multiple model CLIs by specialization |
 | [Requirements & discovery](#requirements--discovery) | 4 | Raw input → structured requirements |
-| [Architecture & validation](#architecture--validation) | 5 | Draft and formally validate architecture |
+| [Architecture & validation](#architecture--validation) | 5 | Draft architecture and decide it: formal validation when the FPF gate fires, lightweight decision otherwise |
 | [Sprint & implementation](#sprint--implementation) | 2 | Break work down, run acceptance |
-| [Brownfield & knowledge](#brownfield--knowledge) | 2 | Index and document existing code |
+| [Brownfield & knowledge](#brownfield--knowledge) | 2 | Query the code graph and document existing code |
 | [Ops & observability](#ops--observability) | 2 | Operate systems and triage incidents |
 | [Integrations](#integrations) | 5 | Trackers, browsers, UI/UX, personas |
 | [Generators](#generators) | 3 | VSCode config, docs MDs, design MD |
@@ -63,8 +63,8 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 ### `polly`
 - **SKILL.md:** [`packages/skills/polly/SKILL.md`](../packages/skills/polly/SKILL.md)
 - **Provenance:** custom NONoise.
-- **Purpose:** the NONoise SDLC advisor. Reads `.nonoise/sdlc-flow.md`, detects the current phase from filesystem fingerprints, and produces a one-shot 4-block message: where you are, what to do next, a copy-pasteable prompt, and an offer to delegate. One message per invocation, then terminates. Full dedicated doc: [`polly.md`](polly.md).
-- **Triggers:** `/polly` in Claude Code, *"start polly"* / *"avvia polly"* / *"run polly"* in Copilot and others, confusion-trigger (*"where do I start?"* / *"what's next?"* / *"sono perso"*).
+- **Purpose:** the NONoise SDLC advisor. Reads `.nonoise/sdlc-flow.md`, sizes the work as quick, medium or long (see [`development-modes.md`](development-modes.md)), detects the current phase from filesystem fingerprints, and produces a one-shot 4-block message: where you are, what to do next, a copy-pasteable prompt, and an offer to delegate. One message per invocation, then terminates. Full dedicated doc: [`polly.md`](polly.md).
+- **Triggers:** `/polly` in Claude Code (optionally `/polly quick|medium|long <goal>`), *"start polly"* / *"avvia polly"* / *"run polly"* in Copilot and others, confusion-trigger (*"where do I start?"* / *"what's next?"* / *"sono perso"*).
 - **Reads:** `.nonoise/sdlc-flow.md`, `nonoise.config.json`, `repositories.json`, filesystem fingerprints per phase.
 - **Writes:** nothing; delegates to specialist skills.
 - **Phase:** all.
@@ -137,20 +137,20 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 
 ### `arch-decision`
 - **SKILL.md:** [`packages/skills/arch-decision/SKILL.md`](../packages/skills/arch-decision/SKILL.md)
-- **Purpose:** Review a draft PRD through Haft ProblemCard, variants and parity comparison; Phase 5.5 is the explicit operator request needed to bind a DecisionRecord.
+- **Purpose:** Decide a draft PRD. Step 0 evaluates the **FPF gate**: it fires when the operator asks for formal validation, when the decision is costly to reverse (data model or storage engine, public API or event contract, security or tenancy boundary, infrastructure or deployment topology, vendor/licence lock-in) and the PRD has at least two materially different viable options, or when the PRD supersedes a Haft-bound decision. When it fires, the PRD is reviewed through Haft ProblemCard, variants and parity comparison; Phase 5.5 is the explicit operator request needed to bind a DecisionRecord. When it does not fire, the skill records a **lightweight decision** in the PRD frontmatter and stops, with no Haft run.
 - **Reads:** draft PRD, architectural constraints and exact Haft records when resuming.
-- **Writes:** canonical `.haft/` records through Haft; PRD status and `haft.problems`, `haft.solutions`, `haft.decisions` IDs/root-relative paths. Projects an architecture impact checklist into the PRD after acceptance.
+- **Writes:** gate fires — canonical `.haft/` records through Haft; PRD status and `haft.problems`, `haft.solutions`, `haft.decisions` IDs/root-relative paths. Gate does not fire — PRD `status: validated`, `validated_by: operator (lightweight)` and a `decision` block (`mode: lightweight`, `choice`, `rationale`, `rejected`, `gate`, `revisit_if`); no `.haft/` record. Either way, projects an architecture impact checklist into the PRD when the decision changes `docs/architecture/`.
 - **Gate:** human choice precedes binding; accepting risks cannot bypass kernel gates. No duplicate audit folder and no automatic architecture sync.
 
 ### `quint-fpf`
 - **SKILL.md:** [`packages/skills/quint-fpf/SKILL.md`](../packages/skills/quint-fpf/SKILL.md)
-- **Purpose:** Stable NONoise adapter name for Haft's independent `h-*` capabilities and MCP tools. Requires a connected `haft` server; otherwise stops with installation/doctor commands.
+- **Purpose:** Stable NONoise adapter name for Haft's independent `h-*` capabilities and MCP tools. Loaded by `arch-decision` only when the FPF gate fires. Requires a connected `haft` server; otherwise stops with installation/doctor commands.
 - **Reads:** current question, project records and FPF retrieved from the binary.
 - **Writes:** only the canonical records needed by the current use through Haft; does not copy FPF text or maintain a parallel register.
 
 ### `bmad-agent-architect`
 - **SKILL.md:** [`packages/skills/bmad-agent-architect/SKILL.md`](../packages/skills/bmad-agent-architect/SKILL.md)
-- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (direct integration with `arch-brainstorm` / `arch-decision`, Haft FPF as default validator, bias toward canonical patterns).
+- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (direct integration with `arch-brainstorm` / `arch-decision`, Haft FPF as the validator when the FPF gate fires, bias toward canonical patterns).
 - **Purpose:** *Alex* persona — system architect. Drives the `arch-brainstorm` → `arch-decision` → source-of-truth loop. Opinionated about canonical patterns, parametric memory, symmetry, local deducibility. Refuses opaque binary dependencies.
 - **Triggers:** Polly's Steps 6-7 (persona layer on top of the skills); manual "engage Alex" / "start the architect".
 - **Reads / writes:** same surface as `arch-brainstorm` and `arch-decision`.
@@ -171,7 +171,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **SKILL.md:** [`packages/skills/arch-sync/SKILL.md`](../packages/skills/arch-sync/SKILL.md)
 - **Triggers:** suggested by Polly after `arch-decision` PASS (the architect picks "Sì — invoco arch-sync" at the post-finalize menu); manual phrases like "arch-sync `<prd-path>`", "project the validated PRD into docs/architecture/", "sync architecture from `<prd-path>`", "recepisci il PRD validato `<path>`".
 - **Purpose:** Generic, opt-in projector of the Phase 6 "Impact on `docs/architecture/`" checklist into actual file writes. Reads the validated PRD checklist and its exact Haft decision references, parses bullets in the strict `[file: NN.md]` format, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under `docs/architecture/sync-reports/`. Stack-neutral — knows no target constraints, never validates anything, never reads source code.
-- **Reads:** the validated PRD and its `haft.decisions` IDs/paths; exact records must support the accepted choice and proposed effects.
+- **Reads:** the validated PRD and its `haft.decisions` IDs/paths (exact records must support the accepted choice and proposed effects), or its `decision.mode: lightweight` block when no formal validation ran.
 - **Writes:** files under `docs/architecture/` (per the parsed checklist, with per-file confirmation); a sync report at `docs/architecture/sync-reports/YYYY-MM-DD-<area>-<study>.md`.
 - **Provenance:** custom NONoise — generic distillation of the Andreani `andreani-arch-docs` mode M (sync-from-validated-prd), stack-neutral and content-agnostic. Project-locked sync skills (with target constraints / registries / debt registers) coexist alongside it.
 
@@ -207,9 +207,18 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **Provenance:** custom NONoise.
 - **Purpose:** versioned reverse-engineering dossier for any subject — legacy codebase, third-party API, data pipeline. Interactive Q&A with the user; explicit save trigger. Dossiers accumulate under `docs/support/reverse/<subject>/`.
 - **Triggers:** Polly's Step B3; manual "reverse-engineer X", "document how Y works".
-- **Reads:** the target codebase / API / pipeline; graphify output if available.
+- **Reads:** the target codebase / API / pipeline; the code graph (`codebase-memory`) for source repositories.
 - **Writes:** `docs/support/reverse/<subject>/chapters/*.md`, `docs/support/reverse/<subject>/changelog.md`.
 - **Phase:** Brownfield.
+
+### `codebase-memory`
+- **SKILL.md:** [`packages/skills/codebase-memory/SKILL.md`](../packages/skills/codebase-memory/SKILL.md)
+- **Provenance:** custom NONoise. The engine is the external [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) binary (MIT), installed and registered as a project MCP server by `create-nonoise`.
+- **Purpose:** queries and builds the project's code knowledge graph — architecture overview (`get_architecture`), symbol search (`search_graph`, `search_code`), call chains (`trace_path`), change impact (`detect_changes`), source reads (`get_code_snippet`, `get_file_outline`), read-only openCypher (`query_graph`). Checks first that the repository is indexed (`list_projects`, then `index_repository` once) and falls back to `codebase-memory-mcp cli <tool>` when the MCP tools are not connected. Indexing is local and deterministic: no LLM, no API key. The index lives in `~/.cache/codebase-memory-mcp/` and stays in sync while a session is open.
+- **Triggers:** "how does X work", "who calls X", "what breaks if I change X", "where is X defined", "index this repository", "indicizza il grafo", "rebuild the graph", `/index` in Claude Code; before any broad grep or multi-file read of an unfamiliar codebase.
+- **Reads:** the code graph; source files only for the symbols the graph named.
+- **Writes:** nothing in the repository (the optional `.codebase-memory/graph.db.zst` only with `index_repository` `persistence: true`). For a versioned dossier use `reverse-engineering`.
+- **Phase:** Brownfield and ongoing (any codebase question). Not installed by the `minimal` profile.
 
 ---
 

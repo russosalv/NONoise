@@ -1,7 +1,7 @@
 # External tools and project integrations
 
 Most tools Polly mentions are advisory. Explicit framework integrations are
-Graphify, Haft, native vendor plugins and optional REA. Profile selection controls
+the code graph (`codebase-memory-mcp`), Haft, native vendor plugins and optional REA. Profile selection controls
 which integrations the CLI installs; `minimal` skips external runtimes. No secrets
 are shipped. [Profiles](install-profiles.md) distinguish this setup from Polly's
 recommendations.
@@ -59,11 +59,11 @@ The `tools/devops-push/` Node CLI (scaffolded into every project) is a dedicated
 
 The mention surfaces during the atr phase; the framework does not push to Paseo automatically. Paseo has an "copy-as-fetch" pattern for bugs — the idea is that a failing acceptance test produces a Paseo-ready fetch command the user runs manually.
 
-### Knowledge graph
+### Code graph
 
-- **graphify** — indexes a codebase into a knowledge graph with god-nodes, community clusters, audit-trailed edges. The `create-nonoise` CLI installs the `graphifyy` Python package (`uv tool install graphifyy==0.9.91`) at scaffold time and wires the per-tool hooks (`graphify claude install`, `graphify copilot install`). Invoke as `/graphify <path>` — or use the project's `/index <path>` shortcut in Claude Code, which wraps `/graphify` with anti-pattern guidance against the bare CLI. The bare `graphify` binary is reserved for read-side operations only (`graphify query`, `graphify path`, `graphify explain`, AST-only `graphify update`); never use it for full indexing — `graphify extract` requires an external LLM API key, while the `/graphify` slash skill runs through the IDE assistant's session with no key required.
+- **codebase-memory-mcp** — indexes a codebase into a local knowledge graph: functions, classes, call chains, HTTP routes, infrastructure files and documentation sections, linked to each other. One native binary, no Python or `uv`, no LLM and no API key; indexing is deterministic. The `create-nonoise` CLI installs the pinned version (`npm install -g codebase-memory-mcp@0.12.1`) at scaffold time and registers the MCP server `codebase-memory-mcp` in the project-local config of each selected tool (`.mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, `.cursor/mcp.json`, `.gemini/settings.json`). It never runs upstream `codebase-memory-mcp install`, which edits user-global configuration. Build the graph once with `/index <path>` in Claude Code or "index this repository" in any tool; it then stays in sync while a session is open. The `codebase-memory` skill maps questions to tools (`get_architecture`, `search_graph`, `trace_path`, `detect_changes`, `get_code_snippet`, …); without MCP the same tools run as `codebase-memory-mcp cli <tool>`. https://github.com/DeusData/codebase-memory-mcp
 
-Output: `graphify-out/GRAPH_REPORT.md`, `graph.json`, `graph.html`, `manifest.json`. A pre-tool hook reminds the AI to read the report before searching raw files. See [`sdlc.md`](sdlc.md) §Brownfield prefix.
+Output: none in the repository. The index lives in `~/.cache/codebase-memory-mcp/`. The context files tell the AI to call `get_architecture` and `search_graph` before grep or raw file reads. See [`sdlc.md`](sdlc.md) §Brownfield prefix and [`installation.md`](installation.md#code-graph-codebase-memory-mcp-19).
 
 ### LSPs and editor plugins
 
@@ -91,7 +91,7 @@ The user runs it; Polly then continues.
 | GitHub Issues | Sprint phase | Work-item tracker | adapter in `spec-to-workitem` |
 | Linear | Sprint phase | Work-item tracker | adapter in `spec-to-workitem` |
 | Paseo | UAT / SIT | Bug triage kanban | upstream search |
-| graphify | Brownfield | Codebase knowledge graph | installed at scaffold time by `create-nonoise` |
+| codebase-memory-mcp | Brownfield and every codebase question | Code knowledge graph (MCP server) | installed at scaffold time by `create-nonoise` |
 | App Insights | Observability | Tracing + logs | adapter in `observability-debug` |
 | Datadog | Observability | Tracing + logs | adapter in `observability-debug` |
 | Grafana + Loki | Observability | Dashboards + logs | adapter in `observability-debug` |
@@ -121,6 +121,8 @@ An earlier iteration of NONoise considered auto-installing MCP servers (e.g., an
 - The user's security team may not have approved the MCP server; auto-installing circumvents review.
 
 Instead NONoise uses the adapter pattern — the adapter is plain Markdown that says "run this CLI command" — and lets the user choose if and when to adopt an MCP layer on top.
+
+The MCP servers NONoise does register — Haft, the code graph (`codebase-memory-mcp`) and optional REA — are written only to project-local config, never to user-global settings, and the AI tool asks the user to approve them. The code graph also works without MCP, through its CLI.
 
 ## Where to read more
 

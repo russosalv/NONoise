@@ -19,6 +19,18 @@ Every scaffolded project ships with `.nonoise/sdlc-flow.md`, an editable version
 
 Every arrow is annotated `[pair]` or `[solo]`. The phases run in that order; skip rules (§Skip rules) let you elide phases that don't apply to the current task.
 
+## Development modes
+
+The flow is sized to the work. Every task runs in one of three modes, chosen with `/polly quick|medium|long <goal>` or inferred by Polly from the goal:
+
+| Mode | Fits | Runs |
+|---|---|---|
+| **quick** | a fix, a tweak, one or two files | implement → verify. No documents, no subagents, never FPF |
+| **medium** (default) | a feature or refactor inside an already-decided architecture | short spec → plan → implement → verify. FPF only if the gate fires |
+| **long** | a new product, an epic, anything that changes the architecture | every phase below, in order. FPF whenever the gate fires |
+
+The phases described in this document are the **long** flow. Medium uses Phase 2 (a short spec) and Phase 5; quick uses Phase 5 only, without a plan document. Each phase in `.nonoise/sdlc-flow.md` lists its `modes`, and `default_mode` applies when nothing else decides. Full description, including Regia compatibility and how Codex and Copilot apply the same modes: [`development-modes.md`](development-modes.md).
+
 ## Phases
 
 ### Phase 1 — Requirements & Discovery
@@ -61,10 +73,10 @@ This is the phase where NONoise's opinion is loudest (see [`philosophy.md`](phil
 
 - `arch-brainstorm` — `[pair]` — dialogic brainstorm of architecture options. Surfaces canonical patterns first, lists exotic options only when constraints eliminate the canonical set. Produces a draft PRD under `docs/prd/<area>/<feature>.md`.
 - `bmad-agent-architect` (Alex persona) — `[pair]` — system architect persona. Drives the arch-brainstorm → arch-decision loop. Pushes hard on parametric-memory considerations, symmetry, local deducibility. No opaque binary dependencies.
-- `arch-decision` — `[pair]` — formal Haft FPF validation of the draft PRD. Updates the frontmatter to `validated` (ship it) or `rejected` (back to brainstorm). This is where exotic deviations are audited.
-- `quint-fpf` — `[pair]` — required Haft adapter. Routes the current question to `h-frame`, `h-explore`, `h-compare`, `h-decide`, `h-verify`, `h-status` or `h-reason`. Durable records live in `.haft/`; no conversational fallback or duplicate per-phase register.
+- `arch-decision` — `[pair]` — decides the draft PRD. Its Step 0 evaluates the **FPF gate**: formal Haft FPF validation runs only when the operator asks for it, when the decision is costly to reverse and the PRD has at least two materially different viable options, or when the PRD supersedes a Haft-bound decision. Otherwise the skill records a **lightweight decision** in the PRD frontmatter (`decision.mode: lightweight`) with no Haft run. Either path updates the frontmatter to `validated` (ship it); a formal review can also end in `rejected` (back to brainstorm).
+- `quint-fpf` — `[pair]` — Haft adapter, loaded only when the FPF gate fires. Routes the current question to `h-frame`, `h-explore`, `h-compare`, `h-decide`, `h-verify`, `h-status` or `h-reason`. Durable records live in `.haft/`; no conversational fallback or duplicate per-phase register.
 - `c4-doc-writer` — `[solo]` — after `arch-decision` returns PASS, updates `docs/architecture/c4/workspace.dsl` (Structurizr DSL) and regenerates Context / Container / Component views. Keeps living C4 diagrams in sync with validated decisions.
-- `arch-sync` — `[solo]` — optional projection of the validated PRD into `docs/architecture/`. Suggested by Polly right after `arch-decision` PASS (never automatic). Parses the strict `[file: NN.md]` checklist from the validated PRD, recovering its exact Haft decision refs, shows a unified diff per file, applies only the diffs the architect approves, writes a sync report.
+- `arch-sync` — `[solo]` — optional projection of the validated PRD into `docs/architecture/`. Suggested by Polly right after `arch-decision` PASS (never automatic). Parses the strict `[file: NN.md]` checklist from the validated PRD, recovering its exact Haft decision refs (or its lightweight decision), shows a unified diff per file, applies only the diffs the architect approves, writes a sync report.
 
 **Phase output:** a `validated` PRD under `docs/prd/<area>/` plus updated `docs/architecture/` (including C4 views). The sprint phase takes this as input.
 
@@ -137,7 +149,8 @@ Step  Phase                            Mode     Skill(s)
  4    Requirements elicitation         [pair]   bmad-agent-analyst (+ bmad-advanced-elicitation, + bmad-req-validator)
  5    Feature / product design         [pair]   superpowers:brainstorming (+ bmad-agent-ux-designer, + frontend-design)
  6    Architecture options             [pair]   arch-brainstorm (if non-trivial)
- 7    Architecture decision            [pair]   arch-decision (+ quint-fpf, + Phase 5.5 human gate)
+ 7    Architecture decision            [pair]   arch-decision (FPF gate fires: + quint-fpf, + Phase 5.5 human gate;
+                                                  otherwise: lightweight decision in the PRD)
  7b   Living C4 diagrams               [solo]   c4-doc-writer (after arch-decision PASS)
  7c   Arch source-of-truth sync        [solo]   arch-sync (after arch-decision PASS, optional)
  8    Sprint breakdown                 [pair]   sprint-manifest (+ spec-to-workitem)
@@ -157,13 +170,13 @@ Applied when starting on an existing codebase. Inserted before the greenfield fl
 Step  Phase                            Mode     Skill(s)
 ────  ─────                            ────     ────────
 B1    Path of the existing code        [pair]   —
-B2    Index the codebase               [pair]   reverse-engineering (full pipeline)
+B2    Index the codebase               [pair]   codebase-memory (/index, once)
 B3    Understand what's there          [pair]   reverse-engineering (interactive Q&A, versioned dossier)
 B4    Existing source material         [pair]   requirements-ingest
 B5    Re-enter greenfield at step 5    —        (new feature) or step 6 (architectural change)
 ```
 
-**Graphify.** The `create-nonoise` CLI installs the knowledge-graph tool (`graphifyy`) at scaffold time; `/graphify <path>` produces `graphify-out/GRAPH_REPORT.md` + a JSON/HTML graph. The report lists god-nodes (most connected — the system's core abstractions), community hubs (semantic clusters), surprising connections, and knowledge gaps (isolated nodes = possible doc gaps). **Read `GRAPH_REPORT.md` before diving into raw files** — a pre-tool hook reminds you to do so.
+**Code graph.** The `create-nonoise` CLI installs `codebase-memory-mcp` at scaffold time and registers it as a project MCP server; `/index <path>` (or "index this repository") builds the graph once, and it then stays in sync while a session is open. The graph holds functions, classes, call chains, HTTP routes, infrastructure files and documentation sections. `get_architecture` returns languages, packages, routes, hotspots and clusters; `search_graph` finds symbols; `trace_path` follows call chains; `detect_changes` maps a diff to the symbols it affects. **Call `get_architecture` and `search_graph` before diving into raw files** — the `codebase-memory` block in every context file says so. There is no output folder in the repository: the index lives in `~/.cache/codebase-memory-mcp/`.
 
 **Reverse engineering.** The `reverse-engineering` skill maintains a versioned dossier per subject (legacy codebase, third-party API, data pipeline) under `docs/support/reverse/<subject>/`. Interactive Q&A, explicit save trigger. Dossiers accumulate — re-entry into a brownfield project reads the dossier first.
 
@@ -208,6 +221,7 @@ Details in [`docs-hierarchy.md`](docs-hierarchy.md) §Multi-repo.
 ## Further reading
 
 - [`polly.md`](polly.md) — the full decision tree, phrasing per step, pair/solo rationale, three-way resume routing for brownfield.
+- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate, Regia compatibility.
 - [`skills-catalog.md`](skills-catalog.md) — what each skill actually does, trigger surface, references.
 - [`docs-hierarchy.md`](docs-hierarchy.md) — where phase outputs land and who owns each folder.
 - [`packages/skills/polly/SKILL.md`](../packages/skills/polly/SKILL.md) — the authoritative Polly specification (this document summarises; the SKILL.md runs).

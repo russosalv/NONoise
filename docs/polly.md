@@ -14,18 +14,34 @@ If you know what you want, just say it — skip Polly. If you don't, `/polly`.
 
 Three equivalent ways:
 
-1. **Slash.** `/polly` in Claude Code. Wired via `.claude/commands/polly.md`.
-2. **Phrase.** *"start polly"*, *"avvia polly"*, *"run polly"* — Copilot and any other chat interface.
+1. **Slash.** `/polly` in Claude Code, optionally with a mode and a goal: `/polly quick|medium|long <goal>`. Wired via `.claude/commands/polly.md`.
+2. **Phrase.** *"start polly"*, *"avvia polly"*, *"run polly"* — Copilot and any other chat interface. The mode can follow the phrase: *"start polly quick …"*.
 3. **Confusion fallback.** If the user writes *"where do I start?"*, *"what's next?"*, *"sono perso"* and the phrase does not map to a specific skill, the AI offers Polly. If the phrase does map to a specific skill, the AI engages that skill directly and does not route through Polly.
 
 There is no auto-trigger. Older NONoise versions wrote `.nonoise/POLLY_START.md` as a first-session marker; that mechanism has been removed. Existing scaffolds can delete the leftover marker safely.
+
+## Development modes
+
+Before walking the flow, Polly sizes the work as **quick**, **medium** or **long**, without asking:
+
+- **You named the mode** (`/polly quick fix the date parser`, "modalità long") — she uses it.
+- **You gave a goal and no mode** — she infers the lightest mode that fits and names the heavier one as the fallback.
+- **No goal** (`/polly` on its own) — she uses `default_mode` from `.nonoise/sdlc-flow.md` (`medium` in a new scaffold), or long if the project has no code and no documents yet.
+
+Then she keeps only the phases whose `modes` contain that mode. Quick has no phase walk: the suggestion is the quick prompt, filled with the goal. Medium is `feature-design` → `implementation`. Long walks every phase. The mode is not stored; it is derived again on every invocation.
+
+**FPF gate.** Polly suggests `arch-decision` with formal Haft validation only when the gate fires: you asked for it, or the decision is costly to reverse and the draft PRD shows at least two materially different viable options. When it does not fire she says so in one sentence and hands over the lightweight-decision prompt instead. FPF is never suggested in quick mode. If the case is borderline she names the fact that would tip it and lets you choose, inside the 4-block message.
+
+**Regia.** If the Regia mod for Claude Code is active in the session, Polly prefixes the example prompt with `/regia <mode>` and notes that Regia will hold the plan and the questions. In Codex, Copilot and the other tools she hands over the plain prompt, whose first words already state the mode.
+
+Full description: [`development-modes.md`](development-modes.md).
 
 ## The 4-block output pattern
 
 Every Polly invocation produces exactly one message with four blocks:
 
-1. **Where you are in the flow.** Polly reads `.nonoise/sdlc-flow.md`, walks the phases, checks each fingerprint against the filesystem, and reports the phase you are in.
-2. **What I suggest next.** The next phase, its associated skill, and a one-line reason.
+1. **Where you are in the flow.** Polly reads `.nonoise/sdlc-flow.md`, names the mode she is using and why, walks the phases of that mode, checks each fingerprint against the filesystem, and reports the phase you are in.
+2. **What I suggest next.** The next phase, its associated skill, and a one-line reason. If the FPF gate was evaluated, its outcome and the fact it rests on.
 3. **How to trigger it.** A copy-pasteable example prompt in your language. The skill will engage automatically from this prompt — no need to type `/<skill-name>`.
 4. **Or — delegate.** Polly offers: *"Say 'vai' / 'go' and I'll engage the skill for you, then disappear."*
 
@@ -33,7 +49,7 @@ After producing the message, Polly terminates. If the user says *"vai"*, Polly e
 
 ## `.nonoise/sdlc-flow.md` — the source of truth
 
-Every scaffolded project gets a default `.nonoise/sdlc-flow.md`. YAML frontmatter declares the phases; per-phase Markdown sections hold example prompts in IT + EN. The file is user-editable: remove phases that don't apply, add custom ones, rewrite prompts to match your domain.
+Every scaffolded project gets a default `.nonoise/sdlc-flow.md`. YAML frontmatter declares `default_mode` and the phases, each with the `modes` it belongs to; a `## Modes` section and per-phase Markdown sections hold example prompts in IT + EN. The file is user-editable: remove phases that don't apply, add custom ones, rewrite prompts to match your domain.
 
 Polly reads the project-local copy every invocation. If it is missing, she falls back to `packages/skills/polly/references/sdlc-flow.default.md` (the embedded copy shipped with the skill) and mentions the fallback in her output.
 
@@ -68,6 +84,7 @@ If the workspace is multi-repo (`repositories.json` present or `nonoise.config.j
 ## Related
 
 - [`sdlc.md`](sdlc.md) — the SDLC flow the advisor reads against.
+- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate, Regia compatibility.
 - [`multi-repo.md`](multi-repo.md) — multi-repo workspace setup.
 - [`team-model.md`](team-model.md) — pair vs solo rationale.
 - `packages/skills/polly/SKILL.md` — the skill source. If this doc disagrees, the SKILL.md wins.

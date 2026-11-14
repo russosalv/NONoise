@@ -51,7 +51,7 @@ Some people prefer the framing *"project operating system"* — you install it o
 Across every design decision, three levers recur:
 
 1. **Skill > prompt.** A prompt dies with the window. A skill is a named, versioned, discoverable artifact with a Markdown body and YAML frontmatter that any AI tool can load. NONoise ships skills exclusively — no hidden prompt libraries, no proprietary templates. If your team wants to customise, they edit the Markdown. If another team wants to reuse, they copy the folder.
-2. **Canonical > exotic.** Every frontier LLM has read the Repository pattern, CQRS, Clean Architecture, DDD, standard REST, MVC, observer, strategy, event-sourcing thousands of times. Those patterns cost zero context tokens because they are already in the weights. NONoise's architectural skills (`arch-brainstorm`, `arch-decision`, `quint-fpf`) actively reward canonical choices and formally validate anything exotic. The LLM you pay for is not a replacement for the patterns the community has already written down — it is a machine that works spectacularly well when you feed it patterns it already knows.
+2. **Canonical > exotic.** Every frontier LLM has read the Repository pattern, CQRS, Clean Architecture, DDD, standard REST, MVC, observer, strategy, event-sourcing thousands of times. Those patterns cost zero context tokens because they are already in the weights. NONoise's architectural skills (`arch-brainstorm`, `arch-decision`, `quint-fpf`) actively reward canonical choices and make exotic ones justify themselves — through a formal validation when the FPF gate fires (a costly-to-reverse decision with real alternatives), through a lightweight decision recorded in the PRD otherwise. The LLM you pay for is not a replacement for the patterns the community has already written down — it is a machine that works spectacularly well when you feed it patterns it already knows.
 3. **Team > solo.** Every step is annotated `[pair]` or `[solo]`. Pair work is high-bandwidth work on a large model (analyst + senior dev, or architect + lead, or whatever the project needs). Solo work is parallelisable, repeatable, smaller-model work. The value of labelling the mode is that *nobody wastes the wrong model on the wrong problem* — a solo dev does not convene a three-person architecture meeting for a string-format bug, and a pair of seniors does not use a 2-billion-parameter model to argue about event-sourcing.
 
 ## What changes day-to-day
@@ -70,7 +70,7 @@ After NONoise:
 - `npx create-nonoise` gives every new project the same starting shape, regardless of who scaffolds it.
 - The context files are generated from one source of truth, stay coherent, and are reviewed in PR.
 - Requirements go into `docs/requirements/` via the `requirements-ingest` skill; meeting transcripts go into `docs/calls/`.
-- Architecture decisions are PRDs under `docs/prd/<area>/` with frontmatter showing `draft` → `validated` / `rejected`; validation goes through the Haft FPF.
+- Architecture decisions are PRDs under `docs/prd/<area>/` with frontmatter showing `draft` → `validated` / `rejected`; the decision is a formal Haft FPF validation when the FPF gate fires, a lightweight decision recorded in the same frontmatter otherwise.
 - Every skill is in `.claude/skills/` in every project. If a senior develops a new skill, it propagates by being committed, not by Slack screenshot.
 - "How do we start?" is a three-word answer: `npx create-nonoise`.
 
@@ -80,7 +80,7 @@ After NONoise:
 NONoise-frmw/
 ├── packages/
 │   ├── create-nonoise/              # The CLI
-│   ├── skills/                      # 27 NONoise-native skills + vendor/
+│   ├── skills/                      # 28 NONoise-native skills + vendor/
 │   └── templates/single-project/    # What gets scaffolded into user projects
 ├── docs/                            # This documentation (and site source material)
 ├── scripts/                         # Vendor sync, release tooling
@@ -94,14 +94,14 @@ See [`installation.md`](installation.md) §Repository layout for the full tree.
 This documentation explicitly incorporates feedback from an independent review (`todo.txt` at the repository root) that flagged four issues in the prior README:
 
 1. **Messaging.** The earlier framing called NONoise a "framework". We now use **bootstrapper** (primary) and "project operating system" (secondary). The word *framework* is retained only where it refers generically to a body of conventions, not to a runtime framework.
-2. **Doc coherence.** Earlier drafts mentioned "3 skill bundles" while the scaffold actually installs 27+14 = 41+ skills. This documentation reflects the actual count and organises them by domain (see [`skills-catalog.md`](skills-catalog.md)).
+2. **Doc coherence.** Earlier drafts mentioned "3 skill bundles" while the scaffold actually installs 28+14 = 42+ skills. This documentation reflects the actual count and organises them by domain (see [`skills-catalog.md`](skills-catalog.md)).
 3. **Overreach risk.** The review flagged that if NONoise keeps bundling more and more skills, it becomes "noise itself". The response is to move toward a **core + optional packs** model: core always installed (Polly + requirements + architecture + sprint + dev trio), optional packs explicitly selected at scaffold time (frontend pack, docs/analysis pack, ops pack, PM/architecture pack). That split is planned, not yet implemented — see [`skills-catalog.md`](skills-catalog.md) §Roadmap.
 4. **Vendor drift.** Since 1.7.0, vendor packs are installed by their upstream installers by default (native mode); the offline `--vendor-mode embed` snapshots (superpowers, impeccable, skill-creator, pptx tooling, Polly's own vendored payloads) pin a commit in `VENDOR.json`. Snapshot tests fail when the vendored material changes; the response is a deliberate `node scripts/sync-vendor.mjs` + updated snapshot, reviewed in PR. Automatic updates on the user side are **not** enabled by design: the compromise is *automatic check, manual apply* (a future `nonoise update --check` + `nonoise update`).
 
 ## Where to read next
 
 - If you want the **principles**: [`philosophy.md`](philosophy.md).
-- If you want the **flow**: [`sdlc.md`](sdlc.md).
+- If you want the **flow**: [`sdlc.md`](sdlc.md), and [`development-modes.md`](development-modes.md) for how it is sized to a task (quick / medium / long).
 - If you want the **catalog**: [`skills-catalog.md`](skills-catalog.md).
 - If you want the **mechanics**: [`installation.md`](installation.md).
 

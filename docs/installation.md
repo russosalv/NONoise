@@ -14,12 +14,12 @@ This document covers two distinct audiences:
 - **Node ≥ 20** — required to run `npx create-nonoise`.
 - **Git** — the scaffold initialises a Git repo.
 - **An AI tool with a project-level context mechanism.** V1 first-class: Claude Code or GitHub Copilot. V1 best-effort: Cursor, Gemini CLI, Codex. See [`cross-tool.md`](cross-tool.md).
-- **Haft** (required FPF runtime) — installed automatically by scaffold and `--upgrade` on Linux (amd64/arm64) and macOS arm64; Windows needs WSL. See [Haft: required FPF runtime](#haft-required-fpf-runtime-170).
-- **Network access to upstream installers** for the default native vendor mode (Claude/Codex/Copilot plugin CLIs, `npx`, `uv`); use `--vendor-mode embed` offline.
+- **Haft** (FPF runtime) — installed automatically by scaffold and `--upgrade` on Linux (amd64/arm64) and macOS arm64; Windows needs WSL. It is used only when a decision goes through formal validation (the FPF gate). See [Haft: required FPF runtime](#haft-required-fpf-runtime-170).
+- **Code graph** (`codebase-memory-mcp`) — installed automatically by scaffold and `--upgrade` with `npm install -g codebase-memory-mcp@0.12.1` on macOS, Linux and native Windows. The npm global bin directory must be on `PATH`. Python and `uv` are not needed. See [Code graph: codebase-memory-mcp](#code-graph-codebase-memory-mcp-19).
+- **Network access to upstream installers** for the default native vendor mode (Claude/Codex/Copilot plugin CLIs, `npx`, `npm`); use `--vendor-mode embed` offline.
 
 Optional (scaffolded but advisor-only — you install if and when you need them):
 
-- **graphify** — for brownfield codebases. The `create-nonoise` scaffolder installs the `graphifyy` Python package automatically at project creation time (via `uv tool install "graphifyy==0.9.91"`); no on-demand install step is needed.
 - **LlamaCloud API key** — if using `tools/md-extractor/` for PDF / DOCX ingestion. The tool prompts for the key; the scaffold does not store it.
 - **Playwright** — installed automatically the first time `atr` runs; brings its own browsers.
 - **Voice-to-text** — Wispr Flow / Handy / Superwhisper / native Copilot transcription. Polly mentions; you install. See [`external-tools.md`](external-tools.md).
@@ -45,6 +45,7 @@ Then the scaffold runs, bundling:
 - `.claude/skills/` — the NONoise skill library (Polly + specialists); third-party skills use native installers by default. See [`skills-catalog.md`](skills-catalog.md).
 - `.agents/skills/` — a copy of the NONoise skills when Codex or Copilot CLI is selected (the directory those harnesses read).
 - `.claude/commands/` + `.claude/settings.json` (Claude Code selected).
+- Project-local MCP config for the code graph — `.mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, `.cursor/mcp.json`, `.gemini/settings.json`, according to the selected tools (not in the `minimal` profile).
 - `CLAUDE.md` (Claude Code selected).
 - `.github/copilot-instructions.md` (Copilot selected).
 - `AGENTS.md` (industry-standard, always written).
@@ -52,7 +53,7 @@ Then the scaffold runs, bundling:
 - `tools/md-extractor/` — Node CLI for ingesting PDF / DOCX / images via LlamaCloud Agentic API.
 - `tools/devops-push/` — Node CLI for pushing sprint task breakdowns to Azure DevOps.
 - `nonoise.config.json` — project-level settings (installed packs, selected tools, scaffold-time choices).
-- `.nonoise/sdlc-flow.md` — SDLC flow file Polly reads to detect your current phase and suggest the next skill.
+- `.nonoise/sdlc-flow.md` — SDLC flow file Polly reads to detect your current phase and suggest the next skill. Each phase lists the [development modes](development-modes.md) (quick / medium / long) it belongs to.
 
 ### First session
 
@@ -71,7 +72,9 @@ Invoke Polly whenever you're unsure what to do next:
 - **Copilot:** "start polly" / "avvia polly"
 - **Cursor / Gemini / Codex:** open `.claude/skills/polly/SKILL.md` and ask the model to follow it.
 
-Polly reads `.nonoise/sdlc-flow.md`, detects your current phase, and produces a one-shot 4-block message: where you are, what skill to engage next, a copy-pasteable prompt, and an offer to delegate. One message per invocation.
+Polly reads `.nonoise/sdlc-flow.md`, detects your current phase, and produces a one-shot 4-block message: where you are, what skill to engage next, a copy-pasteable prompt, and an offer to delegate. One message per invocation. `/polly quick|medium|long <goal>` sizes the process to the task — see [`development-modes.md`](development-modes.md).
+
+Build the code graph once (`/index` in Claude Code, "index this repository" elsewhere). After the first index it stays in sync while a session is open.
 
 ### Native vendor installation and upgrades (1.7)
 
@@ -88,7 +91,7 @@ vendor packs come from their upstream installers and plugin registries.
 upgrade. The CLI still bundles vendor snapshots for this fallback; native
 scaffolds do not copy them.
 
-NONoise's own 27 skills are copied to `.claude/skills/` and, when Codex or
+NONoise's own 28 skills are copied to `.claude/skills/` and, when Codex or
 Copilot CLI is selected, also to `.agents/skills/` — the directory those
 harnesses read repository skills from. Both modes do this.
 
@@ -112,11 +115,10 @@ change caused by rewriting identical files. See the
 
 #### Installer backups and skill symlinks
 
-New scaffolds ignore `*.graphify-bak` at every directory depth. Graphify creates
-these rolling backups before changing hook/settings JSON; NONoise keeps them
-available for recovery while excluding them from the initial commit. Existing
-projects need the same ignore rule added manually; already tracked backups must
-also be removed from the Git index if they should stop being tracked.
+Projects scaffolded before 1.9 may contain `*.graphify-bak` files and the matching
+ignore rule: graphify wrote these rolling backups before changing hook/settings
+JSON. Graphify is no longer installed, so nothing creates them any more and new
+scaffolds no longer write the ignore rule.
 
 `create-nonoise doctor <project>` reports broken symlinks within the selected
 tools' skill directories, including both `.agents/skills` and `.codex/skills`
@@ -133,7 +135,7 @@ directory symlinks are checked but not traversed.
 | Superpowers | `superpowers@nonoise` via the NONoise marketplace; Git URL + immutable SHA `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7) |
 | Claude documents / skill creator | `document-skills@anthropic-agent-skills` from `anthropics/skills`; `skill-creator@claude-plugins-official` from `anthropics/claude-plugins-official` |
 | Impeccable | `npx --yes impeccable install --yes --providers=claude,codex,github --scope=project` (selected providers only); one `/impeccable` skill with subcommands |
-| Graphify | `uv tool install --force graphifyy==0.9.91`, then `graphify install --project --platform claude` (also `codex`, `copilot`, `cursor`, `gemini` as selected) |
+| Code graph | `npm install -g codebase-memory-mcp@0.12.1`, then the MCP server `codebase-memory-mcp` is registered in the project-local config of the selected tools; same in native and embed mode. See [Code graph: codebase-memory-mcp](#code-graph-codebase-memory-mcp-19) |
 | Codex delegation (Claude Code) | `codex@openai-codex`, OpenAI's official Claude Code plugin from marketplace `openai/codex-plugin-cc`; declared in `.claude/settings.json` in both modes, installed only in native mode |
 
 Claude's `.claude/settings.json` merges `extraKnownMarketplaces` and
@@ -174,7 +176,7 @@ project is trusted. Explicit profile migration (`--upgrade --profile core`) remo
 shipped version and preserves (and lists) modified ones.
 Already registered marketplaces and confirmed installations are reused.
 Transient DNS, connection, timeout and HTTP 5xx failures in marketplace/plugin,
-impeccable and uv installers get two retries, after 1 and 2 seconds. Other errors
+impeccable installers get two retries, after 1 and 2 seconds. Other errors
 return immediately. The old `example-skills` declaration and any installation
 scoped to this project are removed during native upgrade; unrelated plugins remain.
 The official [standalone skill-creator plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
@@ -182,17 +184,16 @@ avoids installing the other example skills and their conflicting frontend-design
 Embed snapshots were refreshed on 2026-10-15: impeccable is one skill, superpowers
 is 7.0.0 (skills and hooks; upstream no longer ships commands or agents). Historical
 1.6.0 hashes, including all 18 impeccable directories, remain available for migration.
-After vendor refreshes run `node scripts/sync-graphify-platform-skills.mjs` and
-`node scripts/update-vendor-hashes.mjs` to update lean assets and append ownership hashes. Missing commands and installer failures
+After vendor refreshes run `node scripts/update-vendor-hashes.mjs` to append ownership hashes. Missing commands and installer failures
 are non-fatal and printed with exact retry commands. `doctor [path]` only reads
-project files and native `plugin list --json` / `uv tool list` output; catalog
+project files, native `plugin list --json` output and `codebase-memory-mcp --version`; catalog
 availability is not reported as installation. It checks the NONoise skills in
 the directory each selected harness reads (`.claude/skills` for Claude Code,
 `.agents/skills` for Codex and Copilot CLI). Disabled or unconfirmed plugins
 are reported as missing/unverified. Codex/Copilot have no Anthropic plugin channel
 configured here; use Claude or the explicit embed fallback for pptx/skill-creator.
-Cursor/Gemini have native impeccable/graphify installers but no superpowers plugin
-channel in this CLI; use embed if they need that pack.
+Cursor/Gemini have the native impeccable installer and the code-graph MCP config but
+no superpowers plugin channel in this CLI; use embed if they need that pack.
 
 
 The native Superpowers dependency remains at the existing 5.0.7 immutable pin;
@@ -216,15 +217,13 @@ including namespaced and flat impeccable layouts, ancillary superpowers files,
 and graphify platform copies. It deletes only exact matches and empty vendor
 directories, never traverses symlinks, and lists removals and modifications.
 Preserved modified vendor files are recorded in `preservedVendorFiles`; native
-installers that would overwrite those impeccable/graphify paths are deferred.
+installers that would overwrite those impeccable paths are deferred.
 Resolve those files and remove the corresponding entries to enable installation.
 New user files are never inferred to belong to NONoise from their name alone.
 Run upgrade twice to check stable project output.
 
-Graphify's native skill performs semantic extraction with the harness model;
-NONoise no longer provides its own native-mode copy. For VS Code, optional
-`graphify vscode install` and `code --install-extension renaissance-geek.impeccable`
-remain separate editor choices. Codex impeccable hooks require approval in `/hooks`
+For VS Code, `code --install-extension renaissance-geek.impeccable` remains a
+separate editor choice. Codex impeccable hooks require approval in `/hooks`
 inside the harness, as upstream documents.
 
 ---
@@ -241,6 +240,7 @@ NONoise-frmw/
 │   ├── philosophy.md
 │   ├── sdlc.md
 │   ├── polly.md
+│   ├── development-modes.md
 │   ├── team-model.md
 │   ├── skills-catalog.md
 │   ├── docs-hierarchy.md
@@ -248,11 +248,6 @@ NONoise-frmw/
 │   ├── external-tools.md
 │   ├── installation.md
 │   └── superpowers/specs/             # Framework-internal specs
-├── graphify-out/                      # Graphify output for THIS repo
-│   ├── GRAPH_REPORT.md                # god-nodes + communities
-│   ├── graph.html
-│   ├── graph.json
-│   └── manifest.json
 ├── logos/                             # nonoise-cat.png, nonoise-logo-*.png
 ├── packages/
 │   ├── create-nonoise/                # The CLI
@@ -263,7 +258,7 @@ NONoise-frmw/
 │   │   ├── scripts/bundle-assets.mjs  # Pulls skills + templates into dist/
 │   │   ├── vitest.config.ts
 │   │   └── package.json
-│   ├── skills/                        # NONoise-native skills (27 shipped in scaffolds)
+│   ├── skills/                        # NONoise-native skills (28 shipped in scaffolds)
 │   │   ├── _shared/                   # Cross-skill references
 │   │   ├── arch-brainstorm/
 │   │   ├── arch-decision/
@@ -275,6 +270,7 @@ NONoise-frmw/
 │   │   ├── bmad-agent-ux-designer/
 │   │   ├── bmad-req-validator/
 │   │   ├── c4-doc-writer/
+│   │   ├── codebase-memory/
 │   │   ├── design-md-generator/
 │   │   ├── docs-md-generator/
 │   │   ├── frontend-design/
@@ -361,11 +357,12 @@ The CLI test suite is a snapshot-based integration suite: it scaffolds projects 
 
 ```bash
 node scripts/sync-vendor.mjs --all
-node scripts/sync-graphify-platform-skills.mjs
 node scripts/update-vendor-hashes.mjs
 ```
 
-Fetches each configured upstream `ref` (Superpowers, Impeccable, skill-creator, pptx and Graphify), writes the fetched revision to `VENDOR.json`, and refreshes its scoped contents. The second command refreshes the lean Graphify files shipped in the package; the third appends current ownership hashes without dropping historical migration entries. Re-run tests and review the resulting diff before committing.
+Fetches each configured upstream `ref` (Superpowers, Impeccable, skill-creator and pptx), writes the fetched revision to `VENDOR.json`, and refreshes its scoped contents. The second command appends current ownership hashes without dropping historical migration entries (the graphify hashes stay in the table so upgrades can still remove unmodified copies). Re-run tests and review the resulting diff before committing.
+
+The code graph is not a vendored pack: its version is the `CBM_VERSION` constant in `packages/create-nonoise/src/codebase-memory.ts`.
 
 **Review tip.** Vendor diffs are large; use `git diff --stat packages/skills/vendor/` to get a sense of scope. Read the upstream changelogs before bumping.
 
@@ -414,7 +411,7 @@ Fetches each configured upstream `ref` (Superpowers, Impeccable, skill-creator, 
 This repository is itself a NONoise project:
 
 - `.claude/` is present at the repo root; the skills inside are the live copies.
-- `graphify-out/GRAPH_REPORT.md` is produced by running `graphify .` on the repo itself.
+- The code graph of the repo itself is built with `codebase-memory-mcp` (`index_repository`); the index lives in `~/.cache/codebase-memory-mcp/`, not in the repository.
 - `CLAUDE.md` at the repo root is the context file for Claude Code working on NONoise.
 - Polly can be invoked on this repo: `/polly` asks greenfield-vs-brownfield and walks the SDLC for changes to NONoise itself.
 
@@ -432,15 +429,15 @@ The self-hosting means skill authors test skills on a real project (NONoise's ow
 | Add a cross-tool scaffold target | Create `packages/templates/single-project/_if-<tool>/` + update CLI prompt + extend [`cross-tool.md`](cross-tool.md) |
 | Run the public site preview locally | See `D:/DEV/NONoise-frmw-site/` README; the site consumes these `docs/` files |
 
-### Regenerating the graphify index on this repo
+### Indexing this repo in the code graph
 
 ```bash
-graphify .
+codebase-memory-mcp cli index_repository --repo-path .
 ```
 
-Produces / refreshes `graphify-out/GRAPH_REPORT.md`. Useful after a large refactor or before a release — the report's god-nodes and community hubs are a sanity check that the architecture hasn't drifted.
+Needed once per machine; after that the graph stays in sync while a session is open. `get_architecture` (languages, packages, routes, hotspots, clusters) is a sanity check that the architecture hasn't drifted after a large refactor or before a release.
 
-Note: `graphify-out/cache/` is gitignored; the report, `graph.json`, `graph.html`, and `manifest.json` are committed.
+Note: the `graphify-out/` folder still present in the repository is output of the retired graphify tool. Nothing reads it any more.
 
 ### Site source material
 
@@ -458,9 +455,12 @@ This `docs/` folder doubles as the source material for the public site at [NONoi
 | CLI test snapshots fail unexpectedly | a vendored pack bumped | `git diff packages/skills/vendor/` to see; update snapshots deliberately |
 | Scaffolded project is missing a skill | `bundle-assets.mjs` didn't pick it up | check the glob; sometimes a new top-level folder needs explicit inclusion |
 | Polly can't find the SDLC flow | `.nonoise/sdlc-flow.md` missing | Polly falls back to the embedded default and mentions the missing file; create one from `packages/skills/polly/references/sdlc-flow.default.md` |
-| `graphify .` produces an empty report | graphify binary not installed or not on PATH | re-run `create-nonoise` in the project, or install manually: `uv tool install "graphifyy==0.9.91"` |
+| The code-graph tools (`get_architecture`, `search_graph`, …) are not available in the AI tool | the project MCP server is not approved, the session was not restarted, or the binary is missing | restart the AI tool and approve the project MCP server; `create-nonoise doctor .`; meanwhile the same tools run as `codebase-memory-mcp cli <tool>` |
+| `codebase-memory-mcp` is missing or the wrong version | `npm install -g` failed, or the npm global bin directory is not on `PATH` | fix `PATH`, then `create-nonoise --code-graph-only <path>` (or `npm install -g codebase-memory-mcp@0.12.1`) |
+| Upgrade reports an existing `codebase-memory-mcp` entry or unreadable file kept | an MCP config file already holds a different entry for that server, or is not valid JSON | point the entry at `codebase-memory-mcp` (no args), then `create-nonoise --code-graph-only <path>` |
+| `doctor` reports graphify leftovers | graphify skill folders from an earlier version are still in the project | `create-nonoise --code-graph-only <path>` retires unmodified copies; a modified copy is kept, delete it when no longer needed |
 | `superpowers@nonoise` install fails with an unknown ref | the CLI version's tag `v<version>` is missing from the repository | push the tag; for an untagged branch set `NONOISE_MARKETPLACE_REF=<branch>` |
-| After native → embed → native upgrades, `npx impeccable install` stays PENDING ("Preserved modified legacy impeccable files"); graphify likewise | known issue [#8](https://github.com/russosalv/NONoise/issues/8): files written by the native installers are recorded as preserved user files in `preservedVendorFiles` | delete `.claude/skills/impeccable` and `.agents/skills/impeccable` (graphify: its native skill folders), remove the matching entries from `preservedVendorFiles` in `nonoise.config.json`, rerun `--upgrade` |
+| After native → embed → native upgrades, `npx impeccable install` stays PENDING ("Preserved modified legacy impeccable files") | known issue [#8](https://github.com/russosalv/NONoise/issues/8): files written by the native installers are recorded as preserved user files in `preservedVendorFiles` | delete `.claude/skills/impeccable` and `.agents/skills/impeccable`, remove the matching entries from `preservedVendorFiles` in `nonoise.config.json`, rerun `--upgrade` |
 | `upgrade` reports a preserved `codex-delegate` skill | the skill was modified locally, so it is not removed | use the `codex@openai-codex` plugin instead and delete the folder once the local changes are no longer needed |
 
 ---
@@ -485,14 +485,17 @@ Copilot 1.0.98 prunes remote plugin entries when their marketplace is registered
 as a live local directory. For local validation, register through Git transport;
 normal deployment uses the hosted repository. See [container validation](native-vendor-validation.md).
 
-Graphify 0.9.91 can replace a legacy `## graphify` section through the end of an
-instruction file. NONoise preserves existing instruction-file bytes around the
-upstream installer, keeping user prose and NONoise markers intact while allowing
-native skills, references and hooks to be installed. Use `--graphify-only` for a
-forced repair through this protection. Successful native installs have a local
-version/hash receipt so repeated upgrades do not rewrite graphify backup files.
+NONoise never runs upstream `codebase-memory-mcp install`: that command edits
+user-global agent configuration and hooks. The server entry is written only to
+the project-local MCP config files, and an entry that already exists is never
+rewritten. Use `--code-graph-only` to reinstall the pinned binary and repair the
+project config.
 
 ## Haft: required FPF runtime (1.7.0)
+
+Haft is the runtime for formal FPF validation. Since 1.9 `arch-decision` runs it
+only when the FPF gate fires (see [FPF gate and development modes](#fpf-gate-and-development-modes-19));
+a lightweight decision needs no Haft runtime. The installation below is unchanged.
 
 Scaffold and `--upgrade` install Haft in both native and embed modes. The temporary
 MIT fork `russosalv/haft`, pinned to `v9.1.1-nonoise.1`, fixes the validity dates
@@ -594,3 +597,84 @@ context cost; registration alone does not prove server connectivity.
 The 1.8.0 release preparation updates package version, one changelog entry including
 goal 5, and both release tarball URLs together. The container validation does not
 push tags, publish or deploy; the release maintainer still follows the checklist above.
+
+## Code graph: codebase-memory-mcp (1.9)
+
+[`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) (MIT)
+replaces graphify as the project's code knowledge graph. It is one native binary:
+no Python, no `uv`, no LLM and no API key. Indexing is deterministic. The index
+lives in `~/.cache/codebase-memory-mcp/`, outside the repository, and after the
+first index it stays in sync while a session is open.
+
+| What | Where |
+|---|---|
+| Binary, pinned to 0.12.1 | `npm install -g codebase-memory-mcp@0.12.1` (macOS, Linux, native Windows); reused when that version already answers on `PATH` |
+| MCP server `codebase-memory-mcp` — Claude Code, Copilot CLI | `.mcp.json` |
+| MCP server — Copilot in VS Code | `.vscode/mcp.json` |
+| MCP server — Codex | `.codex/config.toml` |
+| MCP server — Cursor | `.cursor/mcp.json` |
+| MCP server — Gemini CLI | `.gemini/settings.json` |
+| Skill | `codebase-memory` in `.claude/skills/` (and `.agents/skills/` for Codex / Copilot CLI) |
+| Slash command (Claude Code) | `/index [path]` |
+| Context files | a `codebase-memory` section inside the NONoise managed block of `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.cursor/rules.md`, `GEMINI.md` |
+
+Only the config files of the selected tools are written. An existing server entry
+is kept as it is; a conflicting entry or an unreadable file is left alone and
+reported. The `minimal` profile installs no code graph. In the repository,
+`.codebase-memory/graph.db.zst` exists only if someone runs `index_repository`
+with `persistence=true`; committing it is a team decision.
+
+```sh
+create-nonoise --code-graph-only /path/to/project   # binary + MCP config only
+create-nonoise doctor /path/to/project              # version on PATH, MCP config per tool, graphify leftovers
+```
+
+`--graphify-only` is still accepted as an alias of `--code-graph-only`.
+
+Build the graph once: `/index` in Claude Code, "index this repository" in any
+tool, or `codebase-memory-mcp cli index_repository --repo-path .`. When the MCP
+tools are not connected the same tools run through the CLI
+(`codebase-memory-mcp cli <tool> --help`). An optional browser view is available
+with `codebase-memory-mcp daemon start --open`.
+
+### Upgrading a project that used graphify
+
+`--upgrade` (and `--code-graph-only`) installs the code graph and retires the
+graphify integration earlier versions installed. Only files NONoise can prove it
+wrote are removed:
+
+- graphify skill folders (`.claude/skills/graphify`, `.copilot/skills/graphify`,
+  `.agents/skills/graphify`, `.cursor/skills/graphify`, `.gemini/skills/graphify`)
+  whose `SKILL.md` is unmodified; a modified copy is kept and listed;
+- graphify hooks in `.claude/settings.json`;
+- `.nonoise/native-graphify.json`.
+
+`graphify-out/` and the graphify CLI are left alone. Delete the folder when you
+no longer need the old graph; `uv tool uninstall graphifyy` removes the CLI.
+
+| With graphify | With codebase-memory-mcp |
+|---|---|
+| `graphify-out/GRAPH_REPORT.md` (god nodes, communities) | `get_architecture` (languages, packages, routes, hotspots, clusters) |
+| `graphify query "<question>"` | `search_graph` (`name_pattern` / `semantic_query`) or `search_code` |
+| `graphify path "<A>" "<B>"` | `trace_path` |
+| `graphify explain "<concept>"` | `search_graph` + `get_code_snippet` |
+| `graphify update .` | nothing: the graph syncs by itself |
+| `/graphify <path>`, `graphify extract` | `/index` or `index_repository` |
+| `graphify-out/` (`graph.json`, `graph.html`, wiki) | no output in the repository |
+| Semantic (LLM) indexing of docs and PDF-derived Markdown | deterministic indexing of Markdown / reST / AsciiDoc sections, linked to code through `MENTIONS` edges |
+
+## FPF gate and development modes (1.9)
+
+`arch-decision` evaluates the FPF gate before loading any runtime. The gate fires
+when the operator asks for formal validation, when the decision is costly to
+reverse and the PRD has at least two materially different viable options, or when
+the PRD supersedes a Haft-bound decision. When it does not fire, the choice is
+recorded in the PRD frontmatter as a lightweight decision (`decision.mode:
+lightweight`) with no Haft run and no `.haft/` record; `arch-sync` and
+`sprint-manifest` accept it.
+
+`.nonoise/sdlc-flow.md` is now `version: 2`: every phase lists its `modes` and the
+frontmatter carries `default_mode: medium`. The context files carry a
+`development-modes` section inside the NONoise managed block. The three modes,
+how Polly picks one, and Regia compatibility are described in
+[`development-modes.md`](development-modes.md).

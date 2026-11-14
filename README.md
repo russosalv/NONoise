@@ -31,10 +31,10 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — a library of **27 NONoise skills plus native vendor integrations** (Codex delegation via the official `codex@openai-codex` plugin): Polly advisor, BMAD-derived personas, Haft FPF validator, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
+- **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — a library of **28 NONoise skills plus native vendor integrations** (Codex delegation via the official `codex@openai-codex` plugin): Polly advisor, BMAD-derived personas, Haft FPF validator, the `codebase-memory` code graph, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs, plus `swarm-router` for multi-model orchestration across Claude / Codex / Gemini / Copilot.
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
-- **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill.
+- **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill, sized per task as quick, medium or long ([development modes](docs/development-modes.md)).
 
 ---
 
@@ -66,7 +66,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 You never pick the wrong skill. You always know the next step.
 
-**Canonical architectures beat exotic ones** because they're already in the parametric memory of every frontier LLM. NONoise's architectural skills push toward DDD, Clean Architecture, CQRS, standard REST — and only allow deviations that survive a formal Haft FPF validation. Every token you spend re-teaching the LLM your bespoke abstraction is a token it isn't spending on your actual problem.
+**Canonical architectures beat exotic ones** because they're already in the parametric memory of every frontier LLM. NONoise's architectural skills push toward DDD, Clean Architecture, CQRS, standard REST — and make deviations justify themselves: a formal Haft FPF validation when the decision is costly to reverse and has real alternatives (the FPF gate), a lightweight decision recorded in the PRD otherwise. Every token you spend re-teaching the LLM your bespoke abstraction is a token it isn't spending on your actual problem.
 
 **Local tooling, no service.** Everything runs inside your AI tool of choice. No server, no telemetry, no account. NONoise skills are plain Markdown; a `git clone` carries them between projects. Vendor plugins are installed through each harness; Claude project settings declare the dependencies for teammates. External tools (issue trackers, voice recorders, memory systems) are mentioned by Polly at the right moment — not wired, not required.
 
@@ -124,7 +124,9 @@ Invoke Polly whenever you're unsure what to do next:
 
 Polly reads `.nonoise/sdlc-flow.md`, tells you where you are in the SDLC, and hands you the exact prompt to trigger the right skill. One message per invocation, then she terminates.
 
-A full walkthrough of the SDLC lives in [`docs/sdlc.md`](docs/sdlc.md); Polly's advisor model is documented in [`docs/polly.md`](docs/polly.md).
+Size the process to the work: `/polly quick <goal>` for a fix, `/polly medium <goal>` for a feature inside an already-decided architecture, `/polly long <goal>` for the full flow. With a goal and no mode, Polly picks the lightest mode that fits. See [`docs/development-modes.md`](docs/development-modes.md).
+
+A full walkthrough of the SDLC lives in [`docs/sdlc.md`](docs/sdlc.md); Polly's advisor model is documented in [`docs/polly.md`](docs/polly.md); the three modes in [`docs/development-modes.md`](docs/development-modes.md).
 
 ---
 
@@ -145,7 +147,9 @@ outside the markers survive; older files gain a block after their title.
 Known, unmodified 1.6.0 vendor files are removed by SHA-256 comparison; changed
 or user-added files are preserved and listed. Superpowers stays pinned to
 commit `b55764852ac78870e65c6565fb585b6cd8b3c5c9` (5.0.7); other vendors follow
-upstream, except the required graphify runtime pin `graphifyy==0.9.91`.
+upstream. The code graph is `codebase-memory-mcp`, pinned to 0.12.1 and installed
+with `npm install -g`; upgrade also retires an unmodified graphify integration
+(see [Code graph, FPF gate and development modes](#code-graph-fpf-gate-and-development-modes-19)).
 Claude plugins are installed immediately at project scope and verified in the
 registry; skill-creator uses its dedicated official plugin. Network failures get
 two retries with increasing waits. Failed/missing installers leave exact recovery
@@ -155,7 +159,7 @@ The `codex-delegate` skill is replaced by OpenAI's official `codex@openai-codex`
 plugin (`/codex:rescue`, `/codex:review`, …); upgrade removes unmodified copies.
 See [installation](docs/installation.md) for plugin setup and `doctor` details.
 
-Auto-detection guard: when you pass a positional path that already contains a `nonoise.config.json`, the CLI **never silently scaffolds over it**. Without `--yes` it prompts (Upgrade / Graphify-only / Cancel); with `--yes` it aborts and prints the explicit `--upgrade` / `--graphify-only` commands you should run instead.
+Auto-detection guard: when you pass a positional path that already contains a `nonoise.config.json`, the CLI **never silently scaffolds over it**. Without `--yes` it prompts (Upgrade / Install the code graph only / Cancel); with `--yes` it aborts and prints the explicit `--upgrade` / `--code-graph-only` commands you should run instead.
 
 ---
 
@@ -167,6 +171,7 @@ Auto-detection guard: when you pass a positional path that already contains a `n
 | **Understand the philosophy** — 5 noise sources, parametric memory, canonical patterns | [`docs/philosophy.md`](docs/philosophy.md) |
 | **Follow the SDLC flow** — greenfield + brownfield, step by step | [`docs/sdlc.md`](docs/sdlc.md) |
 | **Meet Polly** — advisor model, one-shot 4-block output, pair/solo modes | [`docs/polly.md`](docs/polly.md) |
+| **Size the process** — quick / medium / long development modes, FPF gate, Regia | [`docs/development-modes.md`](docs/development-modes.md) |
 | **See the team model** — why NONoise is team-first, not one-man-band | [`docs/team-model.md`](docs/team-model.md) |
 | **Browse the skill catalog** — 40+ skills organized by domain | [`docs/skills-catalog.md`](docs/skills-catalog.md) |
 | **Understand the docs/ tree** — six folders, each a source of truth | [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md) |
@@ -245,3 +250,38 @@ scripts. REA 6.5.0 is enabled by `--with-rea` or brownfield/full, using only pro
 MCP configuration and compact schemas (172 tools; Node >=22.19).
 
 See [profile table](docs/install-profiles.md), [verified hook formats](docs/hooks-compatibility.md), and [REA activation](docs/rea-integration.md).
+
+### Code graph, FPF gate and development modes (1.9)
+
+**Code graph.** [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp)
+replaces graphify. It is one native binary (no Python, no `uv`, no LLM or API key),
+pinned to 0.12.1 and installed with `npm install -g codebase-memory-mcp@0.12.1` on
+macOS, Linux and native Windows. NONoise registers the MCP server in project-local
+config only (`.mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`,
+`.cursor/mcp.json`, `.gemini/settings.json`, according to the selected tools) and
+ships the `codebase-memory` skill. The index lives in `~/.cache/codebase-memory-mcp/`,
+outside the repository, and stays in sync while a session is open. Build it once
+with `/index` or "index this repository".
+
+```sh
+npx create-nonoise@latest --upgrade path/to/project          # installs the code graph, retires graphify
+npx create-nonoise@latest --code-graph-only path/to/project  # narrow repair: binary + MCP config only
+```
+
+`--upgrade` removes the graphify pieces NONoise installed and can recognise as
+unmodified (graphify skill folders, graphify hooks in `.claude/settings.json`,
+`.nonoise/native-graphify.json`). It leaves `graphify-out/` and the graphify CLI
+alone; delete the folder and run `uv tool uninstall graphifyy` when you no longer
+need them. `--graphify-only` is still accepted as an alias of `--code-graph-only`.
+
+**FPF gate.** `arch-decision` runs the formal Haft validation only when the gate
+fires: you ask for it, or the decision is costly to reverse and the PRD has at
+least two materially different viable options, or the PRD supersedes a Haft-bound
+decision. Otherwise the choice is recorded in the PRD frontmatter as a lightweight
+decision, with no Haft run.
+
+**Development modes.** Every task is sized as quick, medium or long, chosen with
+`/polly quick|medium|long <goal>` or inferred by Polly. The same three modes are
+the modes of the optional [Regia](https://github.com/russosalv/claude-regia) mod
+for Claude Code; Codex, Copilot, Cursor and Gemini CLI apply them from their context
+file. See [development modes](docs/development-modes.md).

@@ -13,9 +13,10 @@ NONoise targets multiple AI coding assistants. Some are **first-class** (fully v
 |---|---|---|
 | **Scaffold writes context file** | `CLAUDE.md` (plus `.claude/skills/`, `.claude/commands/`, `.claude/settings.json`) | `.github/copilot-instructions.md` |
 | **Launch Polly** | `/polly` slash command (wired via `.claude/commands/polly.md`) | Phrase trigger: "start polly" / "avvia polly" / "run polly" |
+| **Pick a development mode** | `/polly quick\|medium\|long <goal>`; optionally `/regia <mode> <goal>` with the Regia mod | Phrase trigger: `start polly quick <goal>`; the `development-modes` block in `.github/copilot-instructions.md` |
 | **Invoke a specialist skill** | `Skill` tool by name — e.g. `arch-brainstorm`, `superpowers:writing-plans` | Read the SKILL.md file inline and follow its instructions |
 | **Optional NONoise hooks** | Project `.claude/settings.json` | CLI project `.github/hooks/nonoise.json` (version 1); see verified limits below |
-| **MCP servers** (`.mcp.json`) | Project Haft/optional REA | CLI workspace `.mcp.json` (Haft/optional REA) |
+| **MCP servers** (`.mcp.json`) | Project code graph (`codebase-memory-mcp`), Haft, optional REA | CLI workspace `.mcp.json` (code graph, Haft, optional REA); `.vscode/mcp.json` (code graph) for Copilot in VS Code |
 | **Worktrees** (`superpowers:using-git-worktrees`) | Active | Active (worktrees are a git feature, not tool-specific) |
 | **Native vendors** | `superpowers:<name>` plugin; `/impeccable <subcommand>` | Native Copilot plugin skills and `.github/skills/impeccable/` |
 | **Memory integration** | `claude-mem` plugin mentioned by Polly (info-only) | Native memory features used by the user |
@@ -35,7 +36,8 @@ These tools read plain Markdown and can follow a SKILL.md by hand. NONoise write
 | **Scaffold writes context file** | `.cursor/rules.md` | `GEMINI.md` | `AGENTS.md` |
 | **Launch Polly** | Read `.claude/skills/polly/SKILL.md` manually | Ask Gemini to activate `polly` skill | Ask Codex to use the `polly` skill (from `.agents/skills/`) |
 | **Invoke a specialist skill** | Read its SKILL.md manually | Ask Gemini to activate the named skill | Ask Codex to use the named skill from `.agents/skills/` |
-| **NONoise hooks / MCP** | No optional hook integration | No optional hook integration | Project hooks per verified CLI support; MCP in `.codex/config.toml` |
+| **NONoise hooks / MCP** | No optional hook integration; code graph MCP in `.cursor/mcp.json` | No optional hook integration; code graph MCP in `.gemini/settings.json` | Project hooks per verified CLI support; MCP in `.codex/config.toml` |
+| **Development modes** | `development-modes` block in `.cursor/rules.md` | `development-modes` block in `GEMINI.md` | `development-modes` block in `AGENTS.md` |
 
 Most of the SDLC flow works in best-effort tier because skills are plain Markdown and the AI follows them conversationally. What degrades is slash-command ergonomics and hook-based validations.
 
@@ -71,7 +73,7 @@ The scaffold writes:
 - If Cursor: `.cursor/rules.md`.
 - If Gemini CLI: `GEMINI.md`.
 
-All entry files are generated from one template per template plus shared stanzas — the Polly invocation block, the graphify-report-first block, the project glossary — so edits to shared content don't require touching each file manually.
+All entry files are generated from one template per template plus shared stanzas — the Polly invocation block, the `codebase-memory` (code graph first) block, the `development-modes` block, the project glossary — so edits to shared content don't require touching each file manually.
 
 ## Why multiple tools matter
 
@@ -114,6 +116,7 @@ The `swarm-router` SKILL.md itself encodes the per-harness dispatch tables so th
 ## Where to read more
 
 - [`polly.md`](polly.md) §Best-effort mode — what degrades when Polly runs outside Claude Code / Copilot.
+- [`development-modes.md`](development-modes.md) — quick / medium / long, the FPF gate, and how each tool gets the same behaviour.
 - [`skills-catalog.md`](skills-catalog.md) §Authoring a new skill — conventions that keep skills cross-tool.
 - `packages/skills/vendor/superpowers/skills/using-superpowers/references/copilot-tools.md`, `gemini-tools.md`, `codex-tools.md` — tool-equivalence mapping for the superpowers ecosystem, which NONoise inherits.
 
@@ -157,14 +160,51 @@ Claude project settings declare the NONoise, Anthropic and `openai-codex`
 marketplaces and vendor plugins. The NONoise marketplace is pinned to the CLI's
 release tag (`russosalv/NONoise#v<version>` for Claude, `@v<version>` for Codex;
 Copilot reads the default branch). Impeccable uses one skill with subcommands (providers `claude`,
-`codex`, `github`); graphify 0.9.91 uses `install --project --platform <platform>`.
-Codex graphify 0.9.91 lands under `.codex/skills/`, impeccable under `.agents/skills/`; Copilot graphify
-uses `.copilot/skills/`. Offline `--vendor-mode embed` retains the old layout.
+`codex`, `github`); for Codex it lands under `.agents/skills/`. Offline `--vendor-mode embed` retains the old layout.
 See [installation](installation.md#native-vendor-installation-and-upgrades-17).
+
+### Code graph (1.9)
+
+The code graph is the same MCP server, `codebase-memory-mcp`, in every tool. It
+replaces graphify and its per-platform skill folders. NONoise installs the pinned
+binary once per machine (`npm install -g codebase-memory-mcp@0.12.1`) and
+registers the server only in project-local config:
+
+| Harness | MCP config |
+|---|---|
+| Claude Code | `.mcp.json` |
+| Copilot CLI | `.mcp.json` |
+| Copilot in VS Code | `.vscode/mcp.json` |
+| Codex | `.codex/config.toml` |
+| Cursor | `.cursor/mcp.json` |
+| Gemini CLI | `.gemini/settings.json` |
+
+The `codebase-memory` skill and the `codebase-memory` block of each context file
+tell the assistant to query the graph before grep or raw file reads. Where the
+MCP tools are not connected (host without MCP, server not yet approved, session
+not restarted) the same tools run through `codebase-memory-mcp cli <tool>`.
+Project trust and MCP approval work as described for Haft below.
+See [installation](installation.md#code-graph-codebase-memory-mcp-19).
+
+## Development modes across tools (1.9)
+
+The quick / medium / long modes are plain instructions, so they work the same in
+every tool:
+
+- **Claude Code** — `/polly quick|medium|long <goal>`, or Polly infers the mode.
+  With the optional [Regia](https://github.com/russosalv/claude-regia) mod
+  installed, `/regia <mode> <goal>` maps 1:1 to the same three modes. Regia is
+  Claude-Code-only.
+- **Codex and Copilot** — the `development-modes` managed block in `AGENTS.md`
+  and `.github/copilot-instructions.md` carries the same table and rules. Phrase
+  triggers such as `start polly quick <goal>` select the mode. No Regia needed.
+- **Cursor and Gemini CLI** — the same block in `.cursor/rules.md` and `GEMINI.md`.
+
+Full description: [`development-modes.md`](development-modes.md).
 
 ## Haft FPF integration
 
-Haft is required in both vendor modes. Claude and Codex use upstream-generated
+Haft is installed in both vendor modes and is required for formal FPF validation. Claude and Codex use upstream-generated
 project carriers; Copilot CLI is configured by NONoise and reuses Haft's agent
 skill output, with no second skill distribution:
 
@@ -191,6 +231,8 @@ an authenticated model-to-tool execution test.
 
 Both `<!-- haft:start -->` / `<!-- haft:end -->` and the NONoise managed block
 coexist in project instructions. Each installer owns only its own block.
+Formal validation runs only when the FPF gate in `arch-decision` fires; a
+lightweight decision recorded in the PRD needs no Haft runtime.
 `quint-fpf` retains its name as an adapter, routes to `h-frame`, `h-explore`,
 `h-compare`, `h-decide`, `h-verify`, `h-status` or `h-reason`, and stops if Haft MCP
 is unavailable. The Phase 5.5 operator choice in `arch-decision` supplies the

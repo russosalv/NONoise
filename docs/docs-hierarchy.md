@@ -137,9 +137,10 @@ Haft owns the Markdown carriers in `.haft/problems/`, `.haft/solutions/`,
 `~/.haft/projects/<id>/`. Commit project carriers while honoring `.haft/.gitignore`.
 The FPF publication stays embedded in the executable, queried on demand.
 
-`quint-fpf` requires Haft MCP and routes independent `h-*` capabilities. PRD
-validation has a durable downstream use, so `arch-decision` records the problem,
-variants and comparison, then binds the explicit operator choice at Phase 5.5.
+`quint-fpf` requires Haft MCP and routes independent `h-*` capabilities. When the
+FPF gate fires, PRD validation has a durable downstream use, so `arch-decision`
+records the problem, variants and comparison, then binds the explicit operator
+choice at Phase 5.5. A lightweight decision (gate not fired) leaves no `.haft/` record.
 Historical `docs/fpf/`, `docs/prd/*/audit/*-fpf/` and `.quint/` data remains user
 history; do not erase it or treat it as an automatically migrated Haft decision.
 
@@ -180,6 +181,8 @@ decided_at: 2026-04-18
 ```
 
 **Haft references.** All paths resolve from the repository root and remain unchanged when the PRD moves to a sprint. The architecture impact checklist is a derived PRD section, consumed by `arch-sync`; the binding source stays in `.haft/`.
+
+**Lightweight decisions.** When the FPF gate does not fire, the PRD has no `haft` block. `arch-decision` sets `status: validated`, `validated_by: operator (lightweight)` and a `decision` block (`mode: lightweight`, `choice`, `rationale`, `rejected`, `gate`, `revisit_if`). `arch-sync` and `sprint-manifest` accept it.
 
 **Editorial rule.** The PRD captures *why* the architectural choice was made, not just *what*. Future implementers read this to understand the constraint landscape that led to the decision. `arch-decision` refuses to validate PRDs lacking rationale.
 
@@ -223,13 +226,14 @@ A cross-reference of which skill reads / writes which folder (condensed from [`s
 | `bmad-advanced-elicitation` | `docs/requirements/` | `docs/requirements/` (annotations) |
 | `bmad-req-validator` | `docs/requirements/` | `docs/requirements/` (frontmatter) |
 | `arch-brainstorm` | `docs/requirements/`, `docs/architecture/`, `docs/prd/` | `docs/prd/<area>/<feature>.md` (draft) |
-| `arch-decision` | draft PRD and Haft records | `.haft/` through Haft; PRD status, IDs/paths and impact checklist |
+| `arch-decision` | draft PRD and Haft records | FPF gate fires: `.haft/` through Haft; PRD status, IDs/paths and impact checklist. Otherwise: PRD status and a lightweight `decision` block |
 | `quint-fpf` | current question and live Haft runtime | canonical `.haft/` records when required by the receiving use |
 | `c4-doc-writer` | ADRs, `docs/architecture/c4/` | `docs/architecture/c4/workspace.dsl`, `c4/views/` |
 | `sprint-manifest` | validated PRDs | `docs/sprints/Sprint-N/manifest.md` |
 | `atr` | sprint manifest, acceptance criteria | `docs/sprints/Sprint-N/acceptance/` |
 | `spec-to-workitem` | sprint manifest | external tracker, `workitem-map.json` in sprint folder |
 | `reverse-engineering` | target codebase | `docs/support/reverse/<subject>/` |
+| `codebase-memory` | the code graph (`codebase-memory-mcp`, index outside the repository) | — (nothing under `docs/`) |
 | `ops-skill-builder` | target ops system, existing skills | `.claude/skills/ops-<name>/` |
 | `observability-debug` | backend via CLI | `docs/support/incidents/` |
 | `superpowers:writing-plans` | `docs/architecture/`, `docs/requirements/`, sprint manifest | `docs/superpowers/specs/<plan>.md` |
