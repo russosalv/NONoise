@@ -44,6 +44,7 @@ Then the scaffold runs, bundling:
 - `docs/` — the six-folder source-of-truth tree (see [`docs-hierarchy.md`](docs-hierarchy.md)).
 - `.claude/skills/` — the NONoise skill library (Polly + specialists); third-party skills use native installers by default. See [`skills-catalog.md`](skills-catalog.md).
 - `.agents/skills/` — a copy of the NONoise skills when Codex or Copilot CLI is selected (the directory those harnesses read).
+- Agents — `.claude/agents/` (Claude Code), `.github/agents/` (Copilot), `.codex/agents/` (Codex): the three NONoise agents plus the ECC agents of the selected profile and `--stack`; none for Cursor and Gemini CLI, none in the `minimal` profile. The roster is `.nonoise/ecc/index.md`. See [`agents.md`](agents.md).
 - `.claude/commands/` + `.claude/settings.json` (Claude Code selected).
 - Project-local MCP config for the code graph — `.mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, `.cursor/mcp.json`, `.gemini/settings.json`, according to the selected tools (not in the `minimal` profile).
 - `CLAUDE.md` (Claude Code selected).
@@ -91,7 +92,7 @@ vendor packs come from their upstream installers and plugin registries.
 upgrade. The CLI still bundles vendor snapshots for this fallback; native
 scaffolds do not copy them.
 
-NONoise's own 25 skills are copied to `.claude/skills/` and, when Codex or
+NONoise's own 27 skills are copied to `.claude/skills/` and, when Codex or
 Copilot CLI is selected, also to `.agents/skills/` — the directory those
 harnesses read repository skills from. Both modes do this.
 
@@ -168,7 +169,7 @@ has no ref syntax and reads the default branch. Maintainers validating an
 untagged branch can override the ref with `NONOISE_MARKETPLACE_REF=<branch>`.
 
 Regia is the orchestration layer for Claude Code: `/regia long|medium|quick`,
-model and effort per task, swarms of Claude, Codex and Qwen Code agents (see
+model and effort per task, swarms of Claude, Codex, Qwen Code and Copilot agents (see
 [`regia.md`](regia.md)). It has no ref: like any Claude plugin it follows its own
 marketplace and updates on its own. Embed mode stays offline: the plugin is only
 declared in `.claude/settings.json`, and Claude Code offers it when the project is
@@ -251,6 +252,7 @@ NONoise-frmw/
 │   ├── development-modes.md
 │   ├── team-model.md
 │   ├── skills-catalog.md
+│   ├── agents.md
 │   ├── docs-hierarchy.md
 │   ├── cross-tool.md
 │   ├── external-tools.md
@@ -266,7 +268,8 @@ NONoise-frmw/
 │   │   ├── scripts/bundle-assets.mjs  # Pulls skills + templates into dist/
 │   │   ├── vitest.config.ts
 │   │   └── package.json
-│   ├── skills/                        # NONoise-native skills (25 shipped in scaffolds)
+│   ├── skills/                        # NONoise-native skills (27 shipped in scaffolds)
+│   │   ├── _agents/                   # NONoise agent sources (graph-explorer, blueprint-architect, evidence-reviewer)
 │   │   ├── _shared/                   # Cross-skill references
 │   │   ├── arch-brainstorm/
 │   │   ├── arch-decision/
@@ -281,6 +284,7 @@ NONoise-frmw/
 │   │   ├── codebase-memory/
 │   │   ├── design-md-generator/
 │   │   ├── docs-md-generator/
+│   │   ├── docs-steward/
 │   │   ├── frontend-design/
 │   │   ├── observability-debug/
 │   │   ├── ops-skill-builder/
@@ -288,6 +292,7 @@ NONoise-frmw/
 │   │   ├── polly/
 │   │   ├── quint-fpf/
 │   │   ├── requirements-ingest/
+│   │   ├── reuse-first/
 │   │   ├── reverse-engineering/
 │   │   ├── skill-finder/
 │   │   ├── spec-to-workitem/
@@ -591,6 +596,11 @@ npx create-nonoise --upgrade demo --with-rea
 npx create-nonoise doctor demo
 ```
 
+`--stack` accepts `dotnet`, `typescript`, `angular`, `web`, `python`, `go`, `rust`,
+`java`, `kotlin`, `cpp`, `swift`, `php`, `ruby`, `react`, `vue`, `flutter` and
+`fsharp`, comma-separated, or `none` alone (see
+[Agents, new skills and language stacks](#agents-new-skills-and-language-stacks-19)).
+
 REA registration uses `npx -y rea-agents@6.5.0 mcp`, compact input schemas, and
 Codex startup timeout 120 seconds. It is project-local, never `rea setup`.
 Brownfield/full opt in at scaffold time; otherwise `rea-setup` asks one confirmation
@@ -694,15 +704,16 @@ For Claude Code, scaffold and `--upgrade` install the
 installs it at project scope, embed mode declares it in `.claude/settings.json`,
 the `minimal` profile skips it. Regia is not pinned and updates through its own
 marketplace. It makes the main session delegate, picks model and effort per task
-and runs swarms of Claude, Codex and Qwen Code agents; its three modes are
+and runs swarms of Claude, Codex, Qwen Code and Copilot agents; its three modes are
 NONoise's three development modes. Restart Claude Code after the installation and
 run `/regia doctor`.
 
 Upgrade note: the skills Regia replaces — `swarm-router`, `copilot-delegate`,
 `gemini-delegate` and `codex-delegate` — are no longer shipped. `--upgrade`
 removes pristine copies from `.claude/skills/` and `.agents/skills/` and keeps
-edited ones, which it lists. Regia is Claude-Code-only and does not delegate to
-Copilot CLI or Gemini CLI. Full description: [`regia.md`](regia.md).
+edited ones, which it lists. Regia is Claude-Code-only. Its executors are Claude,
+Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through
+Regia, and there is none to Gemini CLI. Full description: [`regia.md`](regia.md).
 
 ## FPF gate and development modes (1.9)
 
@@ -720,3 +731,34 @@ frontmatter carries `default_mode: medium`. The context files carry a
 and how Polly picks one are described in
 [`development-modes.md`](development-modes.md); how they map onto Regia's modes in
 [`regia.md`](regia.md).
+
+## Agents, new skills and language stacks (1.9)
+
+Every profile except `minimal` installs three agents written by NONoise:
+`graph-explorer` (maps existing code through the code graph before design),
+`blueprint-architect` (turns an approved spec into a file-level blueprint) and
+`evidence-reviewer` (reviews a change and reports only findings it can prove).
+They are converted, like the ECC agents, into the format of each host:
+
+| Host | Agent files |
+|---|---|
+| Claude Code | `.claude/agents/<name>.md` |
+| Copilot | `.github/agents/<name>.agent.md` |
+| Codex | `.codex/agents/<name>.toml` |
+| Cursor, Gemini CLI | none |
+
+Two skills join the standard bundle, which now has 27 skills: `reuse-first`
+(an adopt / extend / build decision before new code or a new dependency) and
+`docs-steward` (one owner document per kind of fact; audit first, fixes only on
+request).
+
+`--stack` now also accepts `python`, `go`, `rust`, `java`, `kotlin`, `cpp`,
+`swift`, `php`, `ruby`, `react`, `vue`, `flutter` and `fsharp`. Each installs the
+ECC reviewer for that language, its build resolver where ECC has one, and its
+rule group, from the same pinned ECC commit as before. The ECC agents go from 10
+to 31. No ECC skills were added for the new stacks.
+
+`.nonoise/ecc/index.md` lists what is installed, the NONoise agents under their
+own heading. `create-nonoise doctor` reports missing or modified agent files.
+Full description: [`agents.md`](agents.md); stack mapping:
+[`ecc-integration.md`](ecc-integration.md).

@@ -30,17 +30,21 @@ Polly states the mode and a one-line reason in the first block of her message. S
 
 ### quick
 
-No phase walk. Polly hands over the `### quick` prompt from the flow file, filled with the goal. The assistant works directly: the smallest change, the relevant tests, and a three-line summary of what changed and what was verified. No documents, no subagents, no FPF. If the work turns out bigger, it stops and proposes medium.
+No phase walk. Polly hands over the `### quick` prompt from the flow file, filled with the goal. The assistant works directly: the smallest change, the relevant tests, and a three-line summary of what changed and what was verified. No documents, no subagents, no FPF. That also means no `reuse-first` step and none of the NONoise agents. If the work turns out bigger, it stops and proposes medium.
 
 ### medium
 
 Two phases: `feature-design` → `implementation`. The assistant writes a short spec under `docs/superpowers/specs/`, then a plan under `docs/superpowers/plans/`, executes the plan with TDD, delegates the independent pieces, and closes with verification (tests and build). The architecture is treated as decided. If a hard-to-reverse choice with several viable options comes up, the work stops and `arch-decision` is proposed.
+
+Since 1.9 three steps sit inside those two phases. `feature-design` starts with the `reuse-first` skill, which records an adopt / extend / build decision in the spec. When the feature lands in existing code, the `graph-explorer` agent maps the area and the `blueprint-architect` agent derives a file-level blueprint before the spec is closed. Each implementation task closes with the `evidence-reviewer` agent and the language reviewer installed for the stack. See [`agents.md`](agents.md).
 
 Fingerprints left by earlier work do not count for a new goal: Polly starts from `feature-design` unless a spec for this goal already exists.
 
 ### long
 
 The full flow, in order, starting from the first phase whose fingerprint is missing: stack, requirements ingest and elicitation, feature design, architectural options, architectural decision, architecture sync, sprint breakdown, implementation, acceptance. The assistant plans first, runs parallel agents and reviews every piece. The phases are described in [`sdlc.md`](sdlc.md).
+
+The medium steps apply here too, and long adds its own: `arch-brainstorm` also starts with `reuse-first`; the `docs-steward` skill audits the documentation after `arch-sync` and at sprint closure; and `atr` requests `evidence-reviewer` and the other installed reviewers before acceptance or a sprint is marked complete.
 
 ## The FPF gate
 
@@ -80,7 +84,7 @@ In a borderline case the assistant names the fact that would tip the answer and 
 
 ## Regia
 
-In Claude Code the three modes are also the modes of [Regia](regia.md), the mod NONoise installs as its orchestration layer (`regia@claude-regia`): `/regia quick|medium|long <goal>`. The mapping is 1:1 — a NONoise quick is a Regia quick, and so on. The "Delegation" row of the table above is what Regia enforces: in medium the main session delegates the independent pieces, in long it orchestrates. In both, Regia picks model and effort for each delegated task and can run swarms of Claude, Codex and Qwen Code agents.
+In Claude Code the three modes are also the modes of [Regia](regia.md), the mod NONoise installs as its orchestration layer (`regia@claude-regia`): `/regia quick|medium|long <goal>`. The mapping is 1:1 — a NONoise quick is a Regia quick, and so on. The "Delegation" row of the table above is what Regia enforces: in medium the main session delegates the independent pieces, in long it orchestrates. In both, Regia picks model and effort for each delegated task and can run swarms of Claude, Codex, Qwen Code and Copilot agents.
 
 When Regia is active in the session, Polly prefixes the example prompt with `/regia <mode>` and says that Regia will hold the plan (`scaletta_scrivi`) and the questions (`domanda_scrivi`). Polly does not call Regia's tools herself.
 
@@ -116,5 +120,6 @@ A flow file without `modes` (version 1) is read as a long-only flow: every phase
 - [`sdlc.md`](sdlc.md) — the phases of the long flow.
 - [`polly.md`](polly.md) — the advisor that picks the mode.
 - [`regia.md`](regia.md) — the orchestration layer for Claude Code.
+- [`agents.md`](agents.md) — the agents the modes call and where they are installed.
 - [`cross-tool.md`](cross-tool.md) — what each tool supports.
 - `packages/skills/polly/SKILL.md` (Step 1.5) and `packages/skills/arch-decision/SKILL.md` (Step 0) — the sources. If this document disagrees with them, they win.

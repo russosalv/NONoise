@@ -69,6 +69,12 @@ What `--upgrade` does, so you can explain the diff to the user:
   and `gemini-delegate` (and `codex-delegate`, retired in 1.7). Pristine copies are removed;
   edited ones are kept and listed. Orchestration in Claude Code now belongs to the Regia mod
   ([`docs/regia.md`](docs/regia.md)).
+- Installs the agents of the saved profile and stack for Claude Code (`.claude/agents/`),
+  Copilot (`.github/agents/`) and Codex (`.codex/agents/`). Since 1.9 these include three
+  NONoise agents (`graph-explorer`, `blueprint-architect`, `evidence-reviewer`) in every
+  profile except `minimal`, and two new skills join the bundle (`reuse-first`,
+  `docs-steward`). Cursor and Gemini CLI get no agent files. The installed roster is
+  `.nonoise/ecc/index.md` ([`docs/agents.md`](docs/agents.md)).
 - Rewrites only the text between `<!-- nonoise:begin vX.Y.Z -->` and `<!-- nonoise:end -->` in
   `AGENTS.md`, `CLAUDE.md` (Claude Code) and `.github/copilot-instructions.md` (Copilot). Everything outside the
   markers is kept. Files without markers get a block inserted after their title. The block
@@ -99,7 +105,7 @@ Optional flags (only if the user asks for them):
 |---|---|
 | Add/override AI tools | `--ai claude-code,copilot,codex,cursor,gemini-cli` (merged with config) |
 | Change capability profile | `--profile minimal\|core\|developer\|security\|brownfield\|full` |
-| Change stack | `--stack dotnet,typescript,angular,web` |
+| Change stack | `--stack <csv>` with any of `dotnet`, `typescript`, `angular`, `web`, `python`, `go`, `rust`, `java`, `kotlin`, `cpp`, `swift`, `php`, `ruby`, `react`, `vue`, `flutter`, `fsharp`, or `none` alone. An explicit `--stack` replaces the saved selection |
 | Enable REA | `--with-rea` |
 | Offline / no upstream installers | `--vendor-mode embed` (produces a large diff; warn the user) |
 | Only repair the code graph | `--code-graph-only .` instead of `--upgrade .` (`--graphify-only` is still accepted as an alias) |
@@ -156,7 +162,7 @@ Do these in order and tell the user which ones need their action:
    `codebase-memory-mcp cli index_repository --repo-path .`. If the project still has
    `graphify-out/`, it is left in place and can be deleted; `uv tool uninstall graphifyy`
    removes the old graphify CLI. Both are the user's call.
-4. **Restart the AI harness** (Claude Code, Copilot, Codex…) so new skills, plugins, hooks and
+4. **Restart the AI harness** (Claude Code, Copilot, Codex…) so new skills, agents, plugins, hooks and
    MCP servers are loaded. In Claude Code the user may have to approve the project's declared
    plugins/marketplaces (Regia among them) and the `codebase-memory-mcp` project MCP server; in Codex, impeccable
    hooks must be approved in `/hooks`; REA needs its MCP server approved/restarted.

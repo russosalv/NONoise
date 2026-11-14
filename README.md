@@ -31,7 +31,8 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 
 - **`src/`** — your code. Stack-agnostic: pick .NET, Node, Python, Rust, Go. The SDLC flow doesn't care.
 - **`docs/`** — the six-folder source-of-truth hierarchy (`architecture/`, `requirements/`, `calls/`, `support/`, `prd/`, `sprints/`) — see [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md).
-- **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — a library of **25 NONoise skills plus native vendor integrations**: Polly advisor, BMAD-derived personas, Haft FPF validator, the `codebase-memory` code graph, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs. For Claude Code, the [Regia](docs/regia.md) mod (`regia@claude-regia`) adds orchestration: the main session delegates, model and effort are chosen per task, and swarms of Claude, Codex and Qwen Code agents run on a dependency board.
+- **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — a library of **27 NONoise skills plus native vendor integrations**: Polly advisor, BMAD-derived personas, Haft FPF validator, the `codebase-memory` code graph, `reuse-first` and `docs-steward`, native [superpowers](https://github.com/obra/superpowers), design / ops / testing packs. For Claude Code, the [Regia](docs/regia.md) mod (`regia@claude-regia`) adds orchestration: the main session delegates, model and effort are chosen per task, and swarms of Claude, Codex, Qwen Code and Copilot agents run on a dependency board.
+- **Agents** (`.claude/agents/`, `.github/agents/`, `.codex/agents/`) — three NONoise agents (`graph-explorer`, `blueprint-architect`, `evidence-reviewer`) plus the reviewers and build resolvers selected by profile and `--stack`. See [`docs/agents.md`](docs/agents.md).
 - **Context files for every selected tool** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs ready to use.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill, sized per task as quick, medium or long ([development modes](docs/development-modes.md)).
@@ -76,12 +77,12 @@ In Claude Code, orchestration belongs to [Regia](https://github.com/russosalv/cl
 
 - **Three modes** — `/regia long|medium|quick [goal]`, the same three as NONoise's [development modes](docs/development-modes.md). `/polly long <goal>` hands back a prompt that starts with `/regia long`, so the mode is chosen once.
 - **Model and effort per task** — picked for each subagent call from the task itself; a failed task retries one step higher.
-- **Swarms** — Claude, Codex and Qwen Code agents on a board with dependencies and a parallelism limit; every task that writes gets its own git worktree. `/regia swarm` shows the boards.
+- **Swarms** — Claude, Codex, Qwen Code and Copilot agents on a board with dependencies and a parallelism limit; every task that writes gets its own git worktree. `/regia swarm` shows the boards.
 - **The plan as a task list, and questions with their context** — each decision that is yours arrives with where things stand, the options and a recommendation, and as a notification when you are away (`/regia away` / `/regia here`).
 - **Surveillance and wake** — stuck agents are detected, and a session left alone is woken while the plan still has open items.
 - **A live pane** beside the chat (`/regia`), and `/regia doctor` to see what is active.
 
-Regia replaces the `swarm-router`, `copilot-delegate` and `gemini-delegate` skills, which NONoise no longer ships. Two limits follow. Regia is Claude-Code-only: Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. And Regia's executors are Claude, Codex and Qwen Code: there is no delegation to Copilot CLI or Gemini CLI any more.
+Regia replaces the `swarm-router`, `copilot-delegate` and `gemini-delegate` skills, which NONoise no longer ships. Two limits follow. Regia is Claude-Code-only: Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. And Regia's executors are Claude, Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through Regia, while there is none to Gemini CLI.
 
 How NONoise installs it, the mode mapping and the limits: [`docs/regia.md`](docs/regia.md). Full reference: [russosalv/claude-regia](https://github.com/russosalv/claude-regia).
 
@@ -172,6 +173,7 @@ Auto-detection guard: when you pass a positional path that already contains a `n
 | **Orchestrate in Claude Code** — Regia: modes, swarms, how NONoise installs it, limits | [`docs/regia.md`](docs/regia.md) |
 | **See the team model** — why NONoise is team-first, not one-man-band | [`docs/team-model.md`](docs/team-model.md) |
 | **Browse the skill catalog** — 40+ skills organized by domain | [`docs/skills-catalog.md`](docs/skills-catalog.md) |
+| **Use the agents** — the three NONoise agents, the ECC reviewers per profile and `--stack` | [`docs/agents.md`](docs/agents.md) |
 | **Understand the docs/ tree** — six folders, each a source of truth | [`docs/docs-hierarchy.md`](docs/docs-hierarchy.md) |
 | **Check tool support** — Claude Code, Copilot, Cursor, Gemini CLI, Codex | [`docs/cross-tool.md`](docs/cross-tool.md) |
 | **See external tools** Polly mentions (info-only) | [`docs/external-tools.md`](docs/external-tools.md) |
@@ -210,6 +212,15 @@ MIT (see `LICENSE`, landing with the first tagged release). Use of the framework
 
 NONoise was created by **Alessandro Russo** ([@russosalv](https://github.com/russosalv)) as a lesson-learned, packaged and open-sourced so the method — not just one implementation — outlives the project it was born in.
 
+## Acknowledgements
+
+NONoise owes a specific debt to [ECC](https://github.com/affaan-m/ECC) (MIT), for two things:
+
+- **A pinned snapshot.** The common agents, language reviewers, build resolvers, rules and process skills selected by `--profile` and `--stack` are an adapted copy of ECC at a fixed commit. Source, commit and adaptations: [`packages/skills/vendor/ecc/UPSTREAM.md`](packages/skills/vendor/ecc/UPSTREAM.md) and [`docs/ecc-integration.md`](docs/ecc-integration.md).
+- **Inspiration.** NONoise's own agents (`graph-explorer`, `blueprint-architect`, `evidence-reviewer`) and the skills `reuse-first` and `docs-steward` were written by NONoise after studying ECC. Each one names, in its own text, the ECC agent or skill it draws on. See [`docs/agents.md`](docs/agents.md).
+
+The other upstream projects NONoise integrates (superpowers, Impeccable, skill-creator, Haft, codebase-memory-mcp, Regia) are credited where they are described, in [`docs/skills-catalog.md`](docs/skills-catalog.md) and [`docs/installation.md`](docs/installation.md).
+
 ## Haft powers FPF
 
 NONoise 1.7.0 requires Haft for FPF work in native and embed modes. Scaffold and
@@ -229,9 +240,9 @@ See [installation](docs/installation.md#haft-required-fpf-runtime-170) and
 
 ### Stack-specific agents and rules (1.8.0)
 
-Use `--stack dotnet,angular`, `--stack typescript` or `--stack none` with the wizard or `--upgrade`. The choice is saved in `nonoise.config.json`. The profile selects common ECC agents/rules and process skills; language rules, reviewers and stack skills follow `--stack`. Minimal excludes ECC capabilities. ECC is a pinned local MIT snapshot, never an auto-updating plugin. Upgrades preserve modified agents, rules and NONoise/ECC skills using SHA-256 ownership; `doctor` reports missing or modified ECC files.
+Use `--stack dotnet,angular`, `--stack typescript` or `--stack none` with the wizard or `--upgrade`. Accepted values: `dotnet`, `typescript`, `angular`, `web`, `python`, `go`, `rust`, `java`, `kotlin`, `cpp`, `swift`, `php`, `ruby`, `react`, `vue`, `flutter`, `fsharp`, or `none` (the thirteen from `python` on were added in 1.9 and install a language reviewer, a build resolver where ECC has one, and a rule group — no stack skills). The choice is saved in `nonoise.config.json`. The profile selects common ECC agents/rules and process skills; language rules, reviewers and stack skills follow `--stack`. Minimal excludes ECC capabilities. ECC is a pinned local MIT snapshot, never an auto-updating plugin. Upgrades preserve modified agents, rules and NONoise/ECC skills using SHA-256 ownership; `doctor` reports missing or modified ECC files.
 
-[Full stack mapping and update procedure](docs/ecc-integration.md).
+[Full stack mapping and update procedure](docs/ecc-integration.md) · [Agents](docs/agents.md).
 
 ### Installation profiles, optional hooks and REA (1.8.0)
 
@@ -286,12 +297,13 @@ decision, with no Haft run.
 [Regia](https://github.com/russosalv/claude-regia) mod as the plugin
 `regia@claude-regia` (native mode installs it at project scope; embed mode declares
 it in `.claude/settings.json`). Regia is the orchestration layer: the main session
-delegates, model and effort are chosen per task, and swarms of Claude, Codex and
-Qwen Code agents run on a dependency board. The skills that did this by hand,
+delegates, model and effort are chosen per task, and swarms of Claude, Codex,
+Qwen Code and Copilot agents run on a dependency board. The skills that did this by hand,
 `swarm-router`, `copilot-delegate` and `gemini-delegate`, are retired; `--upgrade`
 removes pristine copies and keeps edited ones. Regia also installs the Codex plugin
 `codex@openai-codex` when the `codex` CLI is present, so NONoise no longer does.
-Regia is Claude-Code-only and does not delegate to Copilot CLI or Gemini CLI.
+Regia is Claude-Code-only. Its executors are Claude, Codex, Qwen Code and Copilot:
+delegation to Copilot CLI exists again, through Regia; there is none to Gemini CLI.
 See [Regia](docs/regia.md).
 
 **Development modes.** Every task is sized as quick, medium or long, chosen with
@@ -299,3 +311,19 @@ See [Regia](docs/regia.md).
 modes map one to one onto Regia's `/regia quick|medium|long`; Codex, Copilot, Cursor
 and Gemini CLI apply them from their context file. See
 [development modes](docs/development-modes.md).
+
+**Agents and two new skills.** Every profile except `minimal` installs three
+NONoise agents, converted for Claude Code (`.claude/agents/`), Copilot
+(`.github/agents/`) and Codex (`.codex/agents/`); Cursor and Gemini CLI get none.
+`graph-explorer` maps existing code through the code graph before design,
+`blueprint-architect` turns a spec into a file-level blueprint with a build
+sequence, and `evidence-reviewer` reviews a change and reports only findings it can
+prove. Two skills join the standard bundle: `reuse-first` (an adopt / extend / build
+decision before new code or a new dependency) and `docs-steward` (one owner document
+per kind of fact; audit first, fixes on request). See [agents](docs/agents.md).
+
+**Language stacks.** `--stack` now also accepts `python`, `go`, `rust`, `java`,
+`kotlin`, `cpp`, `swift`, `php`, `ruby`, `react`, `vue`, `flutter` and `fsharp`.
+Each installs the ECC reviewer for that language, its build resolver where ECC has
+one, and its rule group, from the same pinned ECC commit. The ECC agents go from 10
+to 31; no ECC skills were added for the new stacks.

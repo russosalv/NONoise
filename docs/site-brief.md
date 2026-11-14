@@ -56,7 +56,7 @@ Keep the section spine; reshape the content of each.
 | 3 | Skills | Catalog | **REPLACE 5 pilot domains with bootstrapper catalog**: Orchestration / Requirements & discovery / Architecture & validation / Sprint & implementation / Brownfield / Ops & observability / Integrations / Generators / Vendored superpowers / Vendored design pack — ≥ 40 skills |
 | 4 | Metrics | **Reframe: "Evidence from the pilot"** | Keep the numbers; add 3-4 bootstrapper-level numbers (40+ skills, 6 SDLC phases, 5 tools supported, 2 first-class, docs tree 6 folders) |
 | NEW | **Polly** | Orchestrator deep-dive | **NEW SECTION** — pair/solo modes, dev trio, greenfield/brownfield decision tree |
-| NEW | **Regia** | Orchestration layer (Claude Code) | **NEW SECTION** — three modes, model and effort per task, swarms of Claude / Codex / Qwen Code agents, Claude-Code-only limit |
+| NEW | **Regia** | Orchestration layer (Claude Code) | **NEW SECTION** — three modes, model and effort per task, swarms of Claude / Codex / Qwen Code / Copilot agents, Claude-Code-only limit |
 | NEW | **Cross-tool** | Support matrix | **NEW SECTION** — Claude/Copilot first-class; others best-effort |
 | 5 | Roadmap | Trajectory | **UPDATE** — recent items (Polly v1, docs refactor, bootstrapper migration, core+pack split, multi-repo template) |
 | 6 | Author | Author | Reframe bio to "lesson-learned, packaged and open-sourced" |
@@ -117,7 +117,7 @@ hero: {
 ```
 40+ skills · entire SDLC
 6 phases · requirements → ops
-25 NONoise-native skills
+27 NONoise-native skills
 14 vendored superpowers
 Regia · orchestration in Claude Code
 2 first-class tools · Claude Code + Copilot
@@ -365,7 +365,7 @@ polly: {
 
 **Anchor:** `#regia`. **Placement:** right after Polly, before Skills.
 
-Regia is not a skill: it is a Claude Code mod that `create-nonoise` installs as the plugin `regia@claude-regia`. It replaces the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills. The section must state the limit as clearly as the features: Claude Code only, and no delegation to Copilot CLI or Gemini CLI.
+Regia is not a skill: it is a Claude Code mod that `create-nonoise` installs as the plugin `regia@claude-regia`. It replaces the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills. The section must state the limit as clearly as the features: Claude Code only, and no delegation to Gemini CLI. Delegation to Copilot CLI exists again, through Regia: its executors are Claude, Codex, Qwen Code and Copilot.
 
 ```js
 regia: {
@@ -395,8 +395,8 @@ regia: {
       k: "swarms",
       t: { it: "Sciami di agenti", en: "Swarms of agents" },
       d: {
-        it: "Agenti Claude, Codex e Qwen Code su una board con dipendenze e limite di parallelismo. Ogni task che scrive ha il proprio git worktree isolato.",
-        en: "Claude, Codex and Qwen Code agents on a board with dependencies and a parallelism limit. Every task that writes gets its own isolated git worktree.",
+        it: "Agenti Claude, Codex, Qwen Code e Copilot su una board con dipendenze e limite di parallelismo. Ogni task che scrive ha il proprio git worktree isolato.",
+        en: "Claude, Codex, Qwen Code and Copilot agents on a board with dependencies and a parallelism limit. Every task that writes gets its own isolated git worktree.",
       },
     },
     {
@@ -419,8 +419,8 @@ regia: {
       k: "limits",
       t: { it: "I limiti, detti chiaramente", en: "The limits, stated plainly" },
       d: {
-        it: "Solo Claude Code. Codex, Copilot, Cursor e Gemini CLI ricevono la tabella delle modalità nel loro context file e usano i propri subagent. Gli esecutori sono Claude, Codex e Qwen Code: nessuna delega a Copilot CLI o Gemini CLI.",
-        en: "Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the modes table in their context file and use their own subagents. The executors are Claude, Codex and Qwen Code: no delegation to Copilot CLI or Gemini CLI.",
+        it: "Solo Claude Code. Codex, Copilot, Cursor e Gemini CLI ricevono la tabella delle modalità nel loro context file e usano i propri subagent. Gli esecutori sono Claude, Codex, Qwen Code e Copilot: la delega a Copilot CLI esiste di nuovo, tramite Regia; nessuna delega a Gemini CLI.",
+        en: "Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the modes table in their context file and use their own subagents. The executors are Claude, Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through Regia; there is none to Gemini CLI.",
       },
     },
   ],
@@ -437,8 +437,8 @@ Ten domains, ≥ 40 skills. Shape matches the existing `skills.domains[].items[]
 skills: {
   title: { it: "Catalogo skill — 40+", en: "Skill catalog — 40+" },
   sub: {
-    it: "25 native NoNoise + 14 superpowers vendored + pack design (Impeccable) + skill-creator + tooling. Tutte plain Markdown. Cross-tool. Progressive disclosure: ~80 token di discovery, body caricato solo all'attivazione.",
-    en: "25 NoNoise-native + 14 vendored superpowers + design pack (Impeccable) + skill-creator + tooling. All plain Markdown. Cross-tool. Progressive disclosure: ~80 discovery tokens, body loaded only on activation.",
+    it: "27 native NoNoise + 14 superpowers vendored + pack design (Impeccable) + skill-creator + tooling. Tutte plain Markdown. Cross-tool. Progressive disclosure: ~80 token di discovery, body caricato solo all'attivazione.",
+    en: "27 NoNoise-native + 14 vendored superpowers + design pack (Impeccable) + skill-creator + tooling. All plain Markdown. Cross-tool. Progressive disclosure: ~80 discovery tokens, body loaded only on activation.",
   },
   domains: [
     {
@@ -465,6 +465,7 @@ skills: {
       t: { it: "Architettura & Validazione", en: "Architecture & Validation" },
       s: { it: "PRD draft → gate FPF → decisione", en: "Draft PRD → FPF gate → decision" },
       items: [
+        { k: "reuse-first", d: { it: "Prima di scrivere codice nuovo: cerca cosa esiste già · decisione adopt / extend / build", en: "Before new code: look for what already exists · adopt / extend / build decision" } },
         { k: "arch-brainstorm", d: { it: "Dialogo pattern-canonici-first · produce PRD draft", en: "Canonical-first dialogue · produces draft PRD" } },
         { k: "arch-decision", d: { it: "Gate FPF · validazione Haft o decisione lightweight · aggiorna status PRD", en: "FPF gate · Haft validation or lightweight decision · updates PRD status" } },
         { k: "quint-fpf", d: { it: "Haft FPF adapter (quando il gate scatta): frame, explore, compare, decide, verify", en: "Haft FPF adapter (when the gate fires): frame, explore, compare, decide, verify" } },
@@ -481,6 +482,7 @@ skills: {
         { k: "sprint-manifest", d: { it: "PRD → macro-task vertical-slice · confidence levels", en: "PRDs → vertical-slice macro tasks · confidence levels" } },
         { k: "spec-to-workitem", d: { it: "GitHub / Azure DevOps / Jira / Linear adapter pattern", en: "GitHub / Azure DevOps / Jira / Linear adapter pattern" } },
         { k: "atr", d: { it: "Testbook → Playwright run → report Markdown + screenshot", en: "Testbook → Playwright run → Markdown report + screenshots" } },
+        { k: "docs-steward", d: { it: "Un documento proprietario per ogni tipo di fatto · audit di duplicati, drift e link rotti", en: "One owner document per kind of fact · audits duplicates, drift and broken links" } },
       ],
     },
     {
@@ -555,6 +557,8 @@ skills: {
 },
 ```
 
+**Agents — no block yet.** The site has no "Agents" section in this brief. Until one is specified, the three NONoise agents (`graph-explorer`, `blueprint-architect`, `evidence-reviewer`) and the ECC reviewers per `--stack` are documented only in [`agents.md`](agents.md); do not list them as skills.
+
 ### 4.8 NEW section — Cross-tool support
 
 **Anchor:** `#crosstool`. **Placement:** after Skills, before Metrics.
@@ -610,7 +614,7 @@ metrics: {
     en: "Bootstrapper numbers describe what you get out-of-the-box. Pilot numbers (Andreani RiskoWeb, April 2026) are empirical validation of the packaged methodology.",
   },
   bootstrapper: [
-    { v: "40+", l: { it: "Skill bundled", en: "Bundled skills" }, n: { it: "25 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx", en: "25 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx" } },
+    { v: "40+", l: { it: "Skill bundled", en: "Bundled skills" }, n: { it: "27 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx", en: "27 NoNoise + 14 superpowers + Impeccable + skill-creator + pptx" } },
     { v: "6",   l: { it: "Fasi SDLC coperte", en: "SDLC phases covered" }, n: { it: "Requisiti · Architettura · Sprint · Dev · Acceptance · Ops", en: "Requirements · Architecture · Sprint · Dev · Acceptance · Ops" } },
     { v: "6",   l: { it: "Cartelle docs/ source-of-truth", en: "docs/ source-of-truth folders" }, n: { it: "architecture · requirements · calls · support · prd · sprints", en: "architecture · requirements · calls · support · prd · sprints" } },
     { v: "2",   l: { it: "Tool first-class in v1", en: "First-class tools in v1" }, n: { it: "Claude Code + GitHub Copilot · Cursor/Gemini/Codex best-effort", en: "Claude Code + GitHub Copilot · Cursor/Gemini/Codex best-effort" } },
@@ -644,7 +648,7 @@ roadmap: {
   },
   items: [
     { id: "SP-1",  s: "done",     t: { it: "CLI installer + template single-project", en: "CLI installer + single-project template" } },
-    { id: "SP-2",  s: "done",     t: { it: "Skill library agnostica (25 native + vendor)", en: "Agnostic skill library (25 native + vendor)" } },
+    { id: "SP-2",  s: "done",     t: { it: "Skill library agnostica (27 native + vendor)", en: "Agnostic skill library (27 native + vendor)" } },
     { id: "SP-7",  s: "done",     t: { it: "Skill nuove (code graph, vscode-config, docs-md, c4-doc-writer)", en: "New skills (code graph, vscode-config, docs-md, c4-doc-writer)" } },
     { id: "SP-9",  s: "progress", t: { it: "Polly v1 — orchestrator Claude + Copilot", en: "Polly v1 — Claude + Copilot orchestrator" } },
     { id: "SP-10", s: "progress", t: { it: "Docs refactor + site brief (questa iterazione)", en: "Docs refactor + site brief (this iteration)" } },
@@ -741,7 +745,7 @@ A visitor scrolling through the reworked site should verify, within 30 seconds o
 - [ ] Nav includes `SDLC`, `Polly`, `Regia`, `Cross-tool` entries.
 - [ ] SDLC section lists 6 phases, each with a `[pair]` / `[solo]` badge.
 - [ ] Polly section explains orchestrator + pair/solo + greenfield/brownfield.
-- [ ] Regia section explains the three modes, model and effort per task and swarms, and states that it is **Claude Code only** with no delegation to Copilot CLI or Gemini CLI.
+- [ ] Regia section explains the three modes, model and effort per task and swarms, and states that it is **Claude Code only**, that its executors are Claude, Codex, Qwen Code and Copilot, and that there is no delegation to Gemini CLI.
 - [ ] Skills section shows **10 domains**, at least **40 skill entries** total.
 - [ ] Cross-tool section distinguishes **first-class** (Claude Code + Copilot) from **best-effort** (Cursor / Gemini / Codex).
 - [ ] Metrics split into **bootstrapper** (40+ / 6 / 6 / 2 / 1) and **pilot** (9.4× / 93 / 0 / 550× / 2-3m).
@@ -761,6 +765,7 @@ When all twelve check, the rework is shippable.
 - [`regia.md`](regia.md) — Regia: installation, mode mapping, what it adds, what it replaces, limits.
 - [`team-model.md`](team-model.md) — roles, pair/solo mapping, rhythms, one-man-band case.
 - [`skills-catalog.md`](skills-catalog.md) — full 40+ skill catalog, roadmap for core+packs.
+- [`agents.md`](agents.md) — the agents NONoise installs (not skills): NONoise agents, ECC reviewers per profile and stack.
 - [`docs-hierarchy.md`](docs-hierarchy.md) — 6-folder tree, ownership, skill→folder matrix.
 - [`cross-tool.md`](cross-tool.md) — support matrix, degradation profile.
 - [`external-tools.md`](external-tools.md) — advisor-only list, anti-pattern MCP auto-install.

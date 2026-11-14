@@ -1,6 +1,6 @@
 # Regia — orchestration in Claude Code
 
-[Regia](https://github.com/russosalv/claude-regia) ("direction", as in film directing) is a Claude Code mod. It makes the main session coordinate instead of doing all the work itself, gives each task the model and effort it needs, and runs swarms of Claude, Codex and Qwen Code agents, watched from a live pane beside the chat.
+[Regia](https://github.com/russosalv/claude-regia) ("direction", as in film directing) is a Claude Code mod. It makes the main session coordinate instead of doing all the work itself, gives each task the model and effort it needs, and runs swarms of Claude, Codex, Qwen Code and Copilot agents, watched from a live pane beside the chat.
 
 Since 1.9 NONoise installs Regia for Claude Code and treats it as the framework's orchestration layer. This page covers how the two fit together. The full reference — every command, tool, config key and known limit — is the [Regia README](https://github.com/russosalv/claude-regia).
 
@@ -48,7 +48,7 @@ When Regia is not active — the plugin is not loaded yet, or the tool is not Cl
 ## What Regia adds
 
 - **Model and effort per task.** For each subagent call a quick check reads the task and picks the model (`haiku`, `sonnet`, `opus`) and the effort (`low`, `medium`, `high`). What the call or the agent's own file states is never overridden. A failed task retries one step higher.
-- **Swarms.** `sciame_avvia` runs Claude, Codex and Qwen Code agents on a board with dependencies and a parallelism limit. Each task that writes gets its own git worktree and branch; agents can write to each other. `/regia swarm` shows the boards.
+- **Swarms.** `sciame_avvia` runs Claude, Codex, Qwen Code and Copilot agents on a board with dependencies and a parallelism limit. Each task that writes gets its own git worktree and branch; agents can write to each other. `/regia swarm` shows the boards.
 - **The plan as a task list.** `scaletta_scrivi` records each item with a description and a phase; finished items fold away.
 - **Questions with their context.** `domanda_scrivi` records a decision that is yours with where things stand, the options and a recommendation. After `/regia away` it reaches you as a notification; `/regia here` turns notifications off.
 - **Surveillance and wake.** Stuck agents are detected. In long mode a session left alone is woken while the plan still has open items.
@@ -61,7 +61,7 @@ When Regia is not active — the plugin is not loaded yet, or the tool is not Cl
 |---|---|
 | `swarm-router` | Regia's per-task model and effort, and its swarms (`sciame_avvia`, `/regia swarm`). |
 | `codex-delegate` (retired in 1.7) | Codex as a swarm executor or a Codex job started by Regia. The Codex plugin `codex@openai-codex` is installed by Regia when the `codex` CLI is present. |
-| `copilot-delegate` | No replacement: Regia does not delegate to Copilot CLI. |
+| `copilot-delegate` | Copilot as a Regia executor: delegation to Copilot CLI exists again, through Regia, from Regia 0.14.0 (`copilot_avvia`, `copilot_riprendi`, and `esecutore: "copilot"` in a swarm). |
 | `gemini-delegate` | No replacement: Regia does not delegate to Gemini CLI. |
 
 These skills are no longer shipped. `create-nonoise --upgrade` removes pristine copies from `.claude/skills/` and `.agents/skills/` and keeps edited ones, which it lists. A profile-less 1.6/1.7 project keeps every previous file until an explicit `--profile` opts into the cleanup.
@@ -69,8 +69,8 @@ These skills are no longer shipped. `create-nonoise --upgrade` removes pristine 
 ## Limits
 
 - **Claude Code only.** Regia is a Claude Code mod. Codex, Copilot, Cursor and Gemini CLI get no orchestration from NONoise: they get the `development-modes` table in their context file and use their own subagent features.
-- **Executors are Claude, Codex and Qwen Code.** There is no delegation to Copilot CLI or Gemini CLI any more. `swarm-router` could send UI work to Gemini and reach other models through Copilot; Regia does neither. Its automatic choice is among Claude models and effort levels, and Codex or Qwen Code run the tasks that name them as executor.
-- **Codex and Qwen Code are optional.** They need their own CLI on the machine (`codex`, `qwen`). Without them Regia works with Claude agents only.
+- **Executors are Claude, Codex, Qwen Code and Copilot.** Delegation to Copilot CLI exists again, through Regia and therefore from Claude Code only, from Regia 0.14.0. The Copilot executor was built against the Copilot CLI documentation and tested with a stand-in CLI; it has not yet been run against a real `copilot`. There is no delegation to Gemini CLI: `swarm-router` could send UI work to Gemini, Regia does not. Regia's automatic choice is among Claude models and effort levels; Codex, Qwen Code and Copilot run the tasks that name them as executor.
+- **Codex, Qwen Code and Copilot are optional.** Each needs its own CLI on the machine (`codex`, `qwen`, `copilot`). Without a CLI Regia runs without that executor. Regia installs a companion Claude Code plugin for Codex and for Qwen Code; Copilot has none and needs only the CLI.
 - **It needs an interactive session.** The delegation rule and the wake do not apply to `claude -p` or the SDK.
 - **Not pinned.** Regia's behaviour follows Regia's releases, not the NONoise version.
 - **Partly in Italian.** The commands and the README are in English; the pane, the tool names and parameters, the config keys and the messages are still in Italian.
@@ -80,5 +80,6 @@ These skills are no longer shipped. `create-nonoise --upgrade` removes pristine 
 - [Regia README](https://github.com/russosalv/claude-regia) — the full reference.
 - [`development-modes.md`](development-modes.md) — quick / medium / long and the FPF gate.
 - [`polly.md`](polly.md) — the advisor that picks the mode and writes the prompt.
+- [`agents.md`](agents.md) — the agents NONoise installs and when the flow calls them.
 - [`cross-tool.md`](cross-tool.md) — what each tool supports.
 - [`installation.md`](installation.md) — native and embed vendor modes, `doctor`.

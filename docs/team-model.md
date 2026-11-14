@@ -82,7 +82,7 @@ Implementation of a well-specified task is:
 
 - **Parallelisable.** Five developers can work on five tasks independently because the sprint manifest sliced vertically.
 - **Repeatable.** `writing-plans` → `executing-plans` with TDD is the same loop every time. A smaller model is competent at this loop because the hard parts (architecture, acceptance criteria, API shape) are already decided upstream.
-- **Reviewable.** The plan was reviewed before execution; the code is reviewed after execution; the acceptance test is reviewed by the shadow tester. Three review gates catch what a pair session wouldn't.
+- **Reviewable.** The plan was reviewed before execution; the code is reviewed after execution; the acceptance test is reviewed by the shadow tester. Three review gates catch what a pair session wouldn't. Since 1.9 the review after execution has a fixed first step: each task closes with the `evidence-reviewer` agent, which reports only findings it can prove, and the language reviewer installed for the stack (see [`agents.md`](agents.md)).
 
 Moving implementation to solo is what makes NONoise scale. A six-person team that pair-programmed every task would finish one task a day; the same six people each doing their own task with the dev trio finishes six — with better coverage.
 

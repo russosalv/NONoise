@@ -67,9 +67,9 @@ Output: none in the repository. The index lives in `~/.cache/codebase-memory-mcp
 
 ### Orchestration (Claude Code)
 
-- **Regia** — a Claude Code mod that makes the main session coordinate instead of doing all the work itself: three modes (`/regia long|medium|quick`, the same as NONoise's development modes), model and effort chosen per task, swarms of Claude, Codex and Qwen Code agents, the plan as a task list, questions with their context, a live pane. The `create-nonoise` CLI installs it for Claude Code as the plugin `regia@claude-regia` (native mode) or declares it in `.claude/settings.json` (embed mode). It is not pinned and updates through its own marketplace. https://github.com/russosalv/claude-regia
+- **Regia** — a Claude Code mod that makes the main session coordinate instead of doing all the work itself: three modes (`/regia long|medium|quick`, the same as NONoise's development modes), model and effort chosen per task, swarms of Claude, Codex, Qwen Code and Copilot agents, the plan as a task list, questions with their context, a live pane. The `create-nonoise` CLI installs it for Claude Code as the plugin `regia@claude-regia` (native mode) or declares it in `.claude/settings.json` (embed mode). It is not pinned and updates through its own marketplace. https://github.com/russosalv/claude-regia
 
-Regia is installed, not just mentioned, and it replaces the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills. It is Claude-Code-only, and it does not delegate to Copilot CLI or Gemini CLI. On its first interactive session Regia itself installs Ponytail, plus the Codex plugin `codex@openai-codex` and a Qwen Code plugin when the `codex` and `qwen` CLIs are on the machine; NONoise does not install those. See [`regia.md`](regia.md).
+Regia is installed, not just mentioned, and it replaces the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills. It is Claude-Code-only. Its executors are Claude, Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through Regia, and there is none to Gemini CLI. On its first interactive session Regia itself installs Ponytail, plus the Codex plugin `codex@openai-codex` and a Qwen Code plugin when the `codex` and `qwen` CLIs are on the machine; NONoise does not install those. See [`regia.md`](regia.md).
 
 ### LSPs and editor plugins
 

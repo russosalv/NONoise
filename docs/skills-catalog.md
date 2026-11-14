@@ -1,13 +1,16 @@
 # Skill catalog — what ships in `.claude/skills/`
 
 NONoise selects skills through six [installation profiles](install-profiles.md).
-Core and larger profiles include the 25 native skills of the standard bundle plus `rea-setup`;
+Core and larger profiles include the 27 native skills of the standard bundle plus `rea-setup`;
 minimal includes five essential skills. ECC contributes 16 available skills,
 selected by profile and stack; REA contributes `reverse-engineer-anything` only
 when enabled. Native skills are copied to `.claude/skills/` and also `.agents/skills/`
 for Codex/Copilot. Other vendor packs use native installers by default or the
 bundled `--vendor-mode embed` fallback; minimal skips those packs. All shipped
 skill frontmatter and converted agents are checked in CI for host discovery.
+
+Agents are not skills. The three NONoise agents and the ECC agents selected by
+profile and `--stack` are described in [`agents.md`](agents.md).
 
 
 This document is organised by **domain**. Each skill entry has:
@@ -27,11 +30,11 @@ Every skill under `packages/skills/` falls into one of three provenance tiers. T
 
 | Tier | Meaning | Count |
 |---|---|---:|
-| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 24 |
+| **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 26 |
 | **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. | 2 |
 | **vendored** | Installed under a namespace from the upstream installer or plugin (native, default) or from a snapshot pinned by commit and refreshed via `scripts/sync-vendor.mjs` (embed). Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
 
-That is 26 skill sources: 25 ship in scaffolds, and `bmad-req-validator` is distributed only through the `nonoise` plugin. Orchestration in Claude Code is not a skill either: it is the Regia mod, installed as a plugin (see [Orchestration: Regia](#orchestration-regia)). The code graph engine, `codebase-memory-mcp`, is an external binary (not a skill): the `create-nonoise` CLI installs it and registers its MCP server at scaffold time, and the `codebase-memory` skill tells the AI how to use it.
+That is 28 skill sources: 27 ship in scaffolds, and `bmad-req-validator` is distributed only through the `nonoise` plugin (`rea-setup` is installed with every profile and counted separately, as before). The three NONoise agents are not skills and are not in these counts. Orchestration in Claude Code is not a skill either: it is the Regia mod, installed as a plugin (see [Orchestration: Regia](#orchestration-regia)). The code graph engine, `codebase-memory-mcp`, is an external binary (not a skill): the `create-nonoise` CLI installs it and registers its MCP server at scaffold time, and the `codebase-memory` skill tells the AI how to use it.
 
 ---
 
@@ -40,10 +43,10 @@ That is 26 skill sources: 25 ship in scaffolds, and `bmad-req-validator` is dist
 | Domain | Skills | Primary purpose |
 |---|---:|---|
 | [Orchestration](#orchestration) | 1 | Advise on the SDLC |
-| [Orchestration: Regia](#orchestration-regia) | plugin | Claude Code only: delegation, model and effort per task, swarms of Claude, Codex and Qwen Code agents |
+| [Orchestration: Regia](#orchestration-regia) | plugin | Claude Code only: delegation, model and effort per task, swarms of Claude, Codex, Qwen Code and Copilot agents |
 | [Requirements & discovery](#requirements--discovery) | 4 | Raw input → structured requirements |
-| [Architecture & validation](#architecture--validation) | 6 | Draft architecture and decide it: formal validation when the FPF gate fires, lightweight decision otherwise |
-| [Sprint & implementation](#sprint--implementation) | 2 | Break work down, run acceptance |
+| [Architecture & validation](#architecture--validation) | 7 | Check what can be reused, draft architecture and decide it: formal validation when the FPF gate fires, lightweight decision otherwise |
+| [Sprint & implementation](#sprint--implementation) | 3 | Break work down, run acceptance, audit the documentation |
 | [Brownfield & knowledge](#brownfield--knowledge) | 2 | Query the code graph and document existing code |
 | [Ops & observability](#ops--observability) | 2 | Operate systems and triage incidents |
 | [Integrations](#integrations) | 5 | Trackers, browsers, UI/UX, personas |
@@ -52,6 +55,7 @@ That is 26 skill sources: 25 ship in scaffolds, and `bmad-req-validator` is dist
 | [Vendored superpowers](#vendored-superpowers) | 14 | Planning / execution / review / worktrees |
 | [Vendored design pack](#vendored-impeccable-design-pack) | ~19 | UI/UX polish, audit, critique |
 | [Vendored skill-creator + tooling](#vendored-skill-creator--tooling) | 2+ | Meta-skill authoring and office tooling |
+| [Agents](#agents-not-skills) | not skills | Three NONoise agents, plus ECC reviewers and build resolvers per profile and `--stack` |
 
 > **Profiles are available in 1.8.0.** Use `--profile` with `--stack`; selection is saved and respected by upgrades. See [the catalog](install-profiles.md).
 
@@ -74,11 +78,11 @@ That is 26 skill sources: 25 ship in scaffolds, and `bmad-req-validator` is dist
 
 Not a NONoise skill: a Claude Code mod that NONoise installs as the plugin `regia@claude-regia` (native mode installs it at project scope; embed mode declares it in `.claude/settings.json`; the `minimal` profile skips it). Regia is the framework's orchestration layer. Dedicated doc: [`regia.md`](regia.md); full reference: [russosalv/claude-regia](https://github.com/russosalv/claude-regia).
 
-- **Purpose:** makes the main session coordinate instead of doing all the work itself. Picks model and effort per task, runs swarms of Claude, Codex and Qwen Code agents on a dependency board with an isolated git worktree for each task that writes, keeps the plan as a task list, brings questions to the user with their context (as notifications when away), detects stuck agents and wakes an idle session while the plan has open items.
+- **Purpose:** makes the main session coordinate instead of doing all the work itself. Picks model and effort per task, runs swarms of Claude, Codex, Qwen Code and Copilot agents on a dependency board with an isolated git worktree for each task that writes, keeps the plan as a task list, brings questions to the user with their context (as notifications when away), detects stuck agents and wakes an idle session while the plan has open items.
 - **Triggers:** `/regia long|medium|quick [goal]` — the same three modes as NONoise's [development modes](development-modes.md); Polly prefixes her example prompt with `/regia <mode>` when Regia is active. Also `/regia` (live pane), `/regia swarm` (swarm boards), `/regia away` / `/regia here` (notifications), `/regia doctor` (what is active).
 - **Codex and Qwen Code:** on its first interactive session Regia installs the Codex plugin `codex@openai-codex` when the `codex` CLI is on the machine, and a Qwen Code plugin when `qwen` is. NONoise no longer installs the Codex plugin itself.
 - **Replaces:** the retired skills `swarm-router`, `copilot-delegate` and `gemini-delegate` (and `codex-delegate`, retired in 1.7). They are no longer shipped; `--upgrade` removes pristine copies and keeps edited ones.
-- **Limits:** Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. Regia's executors are Claude, Codex and Qwen Code: there is no delegation to Copilot CLI or Gemini CLI, and no routing to other models through Copilot.
+- **Limits:** Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. Regia's executors are Claude, Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through Regia, and there is none to Gemini CLI.
 - **Phase:** cross-cutting — any medium or long task in Claude Code.
 
 ---
@@ -124,6 +128,15 @@ Not a NONoise skill: a Claude Code mod that NONoise installs as the plugin `regi
 ---
 
 ## Architecture & validation
+
+### `reuse-first`
+- **SKILL.md:** [`packages/skills/reuse-first/SKILL.md`](../packages/skills/reuse-first/SKILL.md)
+- **Provenance:** custom NONoise — written after studying ECC. The mandatory research step with an adopt / extend / build outcome is inspired by ECC's `search-first` skill ([affaan-m/ECC](https://github.com/affaan-m/ECC), MIT), and the skill says so.
+- **Purpose:** before new code or a new dependency, checks what already solves the problem. States the capability in one sentence, then searches nearest first and stops at the first good answer: this codebase, what the project already depends on, the platform and the standard library, a maintained external package. Ends with one of three decisions: **adopt**, **extend** or **build**. A dependency that is costly to remove is presented to the user with the alternatives; the skill does not install packages and does not choose an architecture.
+- **Triggers:** first step of feature design (medium and long mode) and of `arch-brainstorm` (long mode); any task that introduces a new dependency, utility module or service client. Skipped in quick mode and for work that only changes existing behaviour.
+- **Reads:** the code graph (`search_graph`, `search_code`; Grep without it), the project's manifests (`package.json`, `*.csproj`, `pyproject.toml`, `go.mod`, …), sibling repositories in a multi-repo workspace, package registries through the host's web or documentation tools.
+- **Writes:** a "Reuse check" section in the document the phase is producing — the spec under `docs/superpowers/specs/` or the PRD under `docs/prd/<area>/`. No separate file.
+- **Phase:** Feature design and Architecture.
 
 ### `arch-brainstorm`
 - **SKILL.md:** [`packages/skills/arch-brainstorm/SKILL.md`](../packages/skills/arch-brainstorm/SKILL.md)
@@ -196,6 +209,15 @@ Not a NONoise skill: a Claude Code mod that NONoise installs as the plugin `regi
 - **Writes:** `docs/sprints/Sprint-N/acceptance/<report>.md`, screenshot assets.
 - **Phase:** Implementation (acceptance sub-phase).
 - **References:** `references/output-templates.md`, `references/paseo-integration.md`.
+
+### `docs-steward`
+- **SKILL.md:** [`packages/skills/docs-steward/SKILL.md`](../packages/skills/docs-steward/SKILL.md)
+- **Provenance:** custom NONoise — written after studying ECC. The four roles and the rule of updating only the role a change affects are inspired by ECC's `living-docs-governance` and `docs-governance` skills ([affaan-m/ECC](https://github.com/affaan-m/ECC), MIT), and the skill says so.
+- **Purpose:** gives each kind of fact one owner document in the NONoise docs hierarchy and checks that the rest points to it instead of repeating it. Constitution: `AGENTS.md` (the other context files are adapters). Map: `docs/architecture/`. Status: `docs/sprints/Sprint-N/` and draft PRDs. History: PRD frontmatter and the `.haft/` records. It audits duplicated facts, drift between map and code and between history and map, the decision index, broken references, adapters out of sync and orphan documents. It audits first and changes nothing; fixes are made only on request, one finding or one group at a time, with a diff shown first.
+- **Triggers:** after `arch-sync`, at sprint closure or acceptance, before a release; manual "the docs are out of date", "audit the docs", "controlla la documentazione".
+- **Reads:** `AGENTS.md` and the context files, `docs/architecture/`, `docs/prd/`, `docs/sprints/`, `docs/requirements/`, `.haft/decisions/`; the code graph for the code side of a drift check.
+- **Writes:** nothing by default — the report is shown in the conversation. On request it is saved as `docs/sprints/Sprint-N/docs-audit.md`, and approved fixes are applied. `.haft/` records are never edited by hand.
+- **Phase:** Architecture (after sync), Sprint closure / acceptance, ongoing.
 
 ---
 
@@ -406,6 +428,10 @@ Plus an **update** story: `nonoise update --check` (compares local manifest with
 
 Not implemented yet. When implemented, the relevant bits of `nonoise.config.json` will carry a `packs` array with `name` + `version` + `source_commit` per installed pack.
 
+## Agents (not skills)
+
+Agents are specialists the host runs as subagents; they are installed under `.claude/agents/`, `.github/agents/` and `.codex/agents/`, not under the skill directories. NONoise ships three of its own in every profile except minimal — `graph-explorer` (maps existing code through the code graph before design), `blueprint-architect` (turns a spec into a file-level blueprint), `evidence-reviewer` (reports only findings it can prove) — and selects ECC agents by profile and `--stack`. Full description: [`agents.md`](agents.md).
+
 ## ECC — curated manual snapshot
 
 [Selection and harness paths](ecc-integration.md) · [Source and adaptations](../packages/skills/vendor/ecc/UPSTREAM.md). MIT, commit `b92f181b3b748d1abbc2afd94af6aa7d8c8fca29`; no ECC plugin or hooks.
@@ -423,12 +449,12 @@ Not implemented yet. When implemented, the relevant bits of `nonoise.config.json
 | [dotnet-patterns](../packages/skills/vendor/ecc/skills/dotnet-patterns/SKILL.md) | .NET implementation; project conventions → implementation guidance | dotnet; development |
 | [csharp-testing](../packages/skills/vendor/ecc/skills/csharp-testing/SKILL.md) | C# test work; behavior → test strategy and checks | dotnet; verification |
 | [angular-developer](../packages/skills/vendor/ecc/skills/angular-developer/SKILL.md) | Angular work; project version → component/form/router guidance | angular; development |
-| [database-migrations](../packages/skills/vendor/ecc/skills/database-migrations/SKILL.md) | Schema evolution; schema/data → migration and rollback plan | Any stack; development |
-| [api-design](../packages/skills/vendor/ecc/skills/api-design/SKILL.md) | API design; consumers/resources → interface design | Any stack; design |
-| [contract-first](../packages/skills/vendor/ecc/skills/contract-first/SKILL.md) | Cross-boundary change; contract → provider/consumer evidence | Any stack; design |
+| [database-migrations](../packages/skills/vendor/ecc/skills/database-migrations/SKILL.md) | Schema evolution; schema/data → migration and rollback plan | dotnet/typescript/angular/web; development |
+| [api-design](../packages/skills/vendor/ecc/skills/api-design/SKILL.md) | API design; consumers/resources → interface design | dotnet/typescript/angular/web; design |
+| [contract-first](../packages/skills/vendor/ecc/skills/contract-first/SKILL.md) | Cross-boundary change; contract → provider/consumer evidence | dotnet/typescript/angular/web; design |
 | [e2e-testing](../packages/skills/vendor/ecc/skills/e2e-testing/SKILL.md) | Browser journey; acceptance scenario → Playwright checks | typescript/angular/web; acceptance |
 
-The ten imported agents are documented in the selection table, separately from skills. Only the language reviewers selected by `--stack` are installed.
+The 31 imported agents (10 before 1.9) are documented in [`agents.md`](agents.md) and in the selection table, separately from skills. Only the language reviewers and build resolvers selected by `--stack` are installed. The stacks added in 1.9 (`python`, `go`, `rust`, `java`, `kotlin`, `cpp`, `swift`, `php`, `ruby`, `react`, `vue`, `flutter`, `fsharp`) brought agents and rules only: no ECC skills were added for them, so the table above is unchanged.
 
 ## REA and dependency review (1.8.0)
 

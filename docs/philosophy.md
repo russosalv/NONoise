@@ -83,6 +83,8 @@ Six folders, six ownerships (detailed in [`docs-hierarchy.md`](docs-hierarchy.md
 
 **Corollary.** If you find yourself pasting the same background into chat every morning, that background is missing from `docs/` and needs to be written there once.
 
+**Once, and in one place.** A source of truth stops being one when the same fact is written in three documents and only one of them gets updated. The `docs-steward` skill gives each kind of fact a single owner document — `AGENTS.md` for the rules, `docs/architecture/` for the map, `docs/sprints/` and draft PRDs for the status, PRD frontmatter and `.haft/` for the history — and audits the rest for duplicates, drift and broken references. It reports first and fixes only on request.
+
 ## 5. Skills are plain Markdown
 
 Every skill in `.claude/skills/` is:
@@ -119,6 +121,7 @@ Restating §2 in operational terms:
 
 - If the pattern is in every LLM's training data (DDD, Clean Arch, CQRS, Repository, standard REST, MVC, observer, strategy, event-sourcing, hexagonal, BFF, saga, outbox), prefer it. The LLM will generate correct idiomatic code zero-shot.
 - If the pattern is unusual (a custom event bus, a bespoke aggregate boundary rule, a "we-always-do-it-this-way" convention), require a recorded justification: a Haft FPF audit when the FPF gate fires, a lightweight decision in the PRD otherwise.
+- Before new code or a new dependency, look for what already does the job. The `reuse-first` skill searches this codebase, the project's dependencies, the platform and then maintained packages, prefers the canonical choice for the ecosystem over a clever newcomer, and records an adopt / extend / build decision in the spec or the PRD.
 - Binary-only vendor dependencies are a yellow flag. The LLM sees signatures but can't reason about behaviour. Prefer source dependencies (`ProjectReference` in .NET, Git submodule or workspace package in Node/Python, vendored source trees where licence permits).
 
 **What this does for the team.** A junior + small model is productive on canonical patterns because the LLM carries the idiom. The same junior + same model on an exotic architecture is a source of bugs because every decision requires an explanation the LLM doesn't have the memory for.
