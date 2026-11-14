@@ -28,8 +28,5 @@ export const MVP_SKILL_BUNDLE = [
   'observability-debug',
   'polly',
   'c4-doc-writer',
-  'swarm-router',
-  'copilot-delegate',
-  'gemini-delegate',
   'codebase-memory',
 ] as const;

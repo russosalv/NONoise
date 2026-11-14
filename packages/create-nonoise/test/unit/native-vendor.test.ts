@@ -106,7 +106,7 @@ describe('doctor', () => {
       : bin === 'git' ? args?.[0] === 'rev-parse'
       : bin === 'codebase-memory-mcp' ? args?.join(' ') === '--version'
       : args?.includes('list') || (bin === 'copilot' && args?.join(' ') === 'mcp get haft --json'))).toBe(true);
-    expect(lines).toContain('Haft expected'); expect(lines).toContain('codebase-memory-mcp expected 0.12.1');
+    expect(lines).toContain('Haft expected'); expect(lines).toContain('codebase-memory-mcp: missing from PATH');
     expect(lines).toContain('.codex/config.toml: codebase-memory-mcp server missing/invalid'); expect(lines).not.toContain('graphify');
     expect(readFileSync(join(dir, 'nonoise.config.json'), 'utf8')).toBe(config);
   });
@@ -171,15 +171,15 @@ describe('Claude project installation corrections', () => {
     });
     const results = installNativeVendors(dir, ai);
     expect(results.every(r => r.ok)).toBe(true);
-    expect(installed.map(p => p.id)).toEqual(['superpowers@nonoise', 'document-skills@anthropic-agent-skills', 'skill-creator@claude-plugins-official', 'codex@openai-codex']);
+    expect(installed.map(p => p.id)).toEqual(['superpowers@nonoise', 'document-skills@anthropic-agent-skills', 'skill-creator@claude-plugins-official', 'regia@claude-regia']);
     expect(mocked.mock.calls.filter(([, a]) => a?.slice(0, 3).join(' ') === 'plugin marketplace add').map(([, a]) => a?.[3]))
-      .toEqual([`russosalv/NONoise#${MARKETPLACE_REF}`, 'anthropics/skills', 'anthropics/claude-plugins-official', 'openai/codex-plugin-cc']);
+      .toEqual([`russosalv/NONoise#${MARKETPLACE_REF}`, 'anthropics/skills', 'anthropics/claude-plugins-official', 'russosalv/claude-regia']);
   });
   it('does not confuse a registered NONoise marketplace with the others', () => {
     mocked.mockImplementation((bin, args) => args?.join(' ') === 'plugin marketplace list --json' ? '[{"name":"nonoise"}]' : '[]');
     installNativeVendors(dir, ai);
     expect(mocked.mock.calls.filter(([, a]) => a?.slice(0, 3).join(' ') === 'plugin marketplace add').map(([, a]) => a?.[3]))
-      .toEqual(['anthropics/skills', 'anthropics/claude-plugins-official', 'openai/codex-plugin-cc']);
+      .toEqual(['anthropics/skills', 'anthropics/claude-plugins-official', 'russosalv/claude-regia']);
   });
   it('requires registry confirmation after an apparently successful installer', () => {
     mocked.mockReturnValue('[]');
@@ -194,7 +194,7 @@ describe('Claude project installation corrections', () => {
     put('.claude/settings.json', JSON.stringify({ enabledPlugins: { 'example-skills@anthropic-agent-skills': true, 'mine@local': true } }));
     configureNativeVendors(dir, ai);
     const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
-    expect(settings.enabledPlugins).toEqual({ 'mine@local': true, 'superpowers@nonoise': true, 'document-skills@anthropic-agent-skills': true, 'skill-creator@claude-plugins-official': true, 'codex@openai-codex': true });
+    expect(settings.enabledPlugins).toEqual({ 'mine@local': true, 'superpowers@nonoise': true, 'document-skills@anthropic-agent-skills': true, 'skill-creator@claude-plugins-official': true, 'regia@claude-regia': true });
     expect(settings.extraKnownMarketplaces['claude-plugins-official'].source.repo).toBe('anthropics/claude-plugins-official');
   });
   it('uninstalls obsolete project records, even when their declaration is gone', () => {
@@ -265,26 +265,26 @@ it('explicit profile migration removes recognized obsolete impeccable skills and
   expect(readFileSync(join(dir, '.claude/skills/impeccable/user/SKILL.md'), 'utf8')).toBe('personal skill');
 });
 
-describe('official Codex plugin for Claude Code', () => {
-  it('native mode declares and plans codex@openai-codex from openai/codex-plugin-cc', () => {
+describe('Regia mod for Claude Code', () => {
+  it('native mode declares and plans regia@claude-regia from russosalv/claude-regia', () => {
     configureNativeVendors(dir, ai);
     const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
-    expect(settings.enabledPlugins['codex@openai-codex']).toBe(true);
-    expect(settings.extraKnownMarketplaces['openai-codex'].source.repo).toBe('openai/codex-plugin-cc');
-    expect(nativePlan(ai).map(c => c.args.join(' '))).toContain('plugin install codex@openai-codex --scope project');
+    expect(settings.enabledPlugins['regia@claude-regia']).toBe(true);
+    expect(settings.extraKnownMarketplaces['claude-regia'].source.repo).toBe('russosalv/claude-regia');
+    expect(nativePlan(ai).map(c => c.args.join(' '))).toContain('plugin install regia@claude-regia --scope project');
   });
-  it('embed mode declares only the Codex plugin, offline, preserving user settings', () => {
+  it('embed mode declares only Regia, offline, preserving user settings', () => {
     put('.claude/settings.json', JSON.stringify({ enabledPlugins: { 'mine@local': true } }));
     configureEmbedPlugins(dir, ai);
     const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
-    expect(settings.enabledPlugins).toEqual({ 'mine@local': true, 'codex@openai-codex': true });
-    expect(Object.keys(settings.extraKnownMarketplaces)).toEqual(['openai-codex']);
+    expect(settings.enabledPlugins).toEqual({ 'mine@local': true, 'regia@claude-regia': true });
+    expect(Object.keys(settings.extraKnownMarketplaces)).toEqual(['claude-regia']);
     expect(mocked).not.toHaveBeenCalled();
   });
   it('is not declared when Claude Code is not selected', () => {
     configureEmbedPlugins(dir, { ...ai, claudeCode: false, codex: true });
     expect(existsSync(join(dir, '.claude/settings.json'))).toBe(false);
-    expect(nativePlan({ ...ai, claudeCode: false, codex: true }).some(c => c.args.includes('codex@openai-codex'))).toBe(false);
+    expect(nativePlan({ ...ai, claudeCode: false, codex: true }).some(c => c.args.includes('regia@claude-regia'))).toBe(false);
   });
 });
 
@@ -295,13 +295,13 @@ describe('NONoise marketplace pinned to the CLI release tag', () => {
     expect(marketplaceSource('claude', 'russosalv/NONoise', 'v9.9.9')).toBe('russosalv/NONoise#v9.9.9');
     expect(marketplaceSource('codex', 'russosalv/NONoise', 'v9.9.9')).toBe('russosalv/NONoise@v9.9.9');
     expect(marketplaceSource('copilot', 'russosalv/NONoise', 'v9.9.9')).toBe('russosalv/NONoise');
-    expect(marketplaceSource('claude', 'openai/codex-plugin-cc')).toBe('openai/codex-plugin-cc');
+    expect(marketplaceSource('claude', 'russosalv/claude-regia')).toBe('russosalv/claude-regia');
   });
   it('pins the nonoise marketplace in Claude settings and in the Codex plan', () => {
     configureNativeVendors(dir, ai);
     const settings = JSON.parse(readFileSync(join(dir, '.claude/settings.json'), 'utf8'));
     expect(settings.extraKnownMarketplaces.nonoise.source).toEqual({ source: 'github', repo: 'russosalv/NONoise', ref: MARKETPLACE_REF });
-    expect(settings.extraKnownMarketplaces['openai-codex'].source).toEqual({ source: 'github', repo: 'openai/codex-plugin-cc' });
+    expect(settings.extraKnownMarketplaces['claude-regia'].source).toEqual({ source: 'github', repo: 'russosalv/claude-regia' });
     expect(nativePlan({ ...ai, claudeCode: false, codex: true }).map(c => c.args.join(' '))).toContain(`plugin marketplace add russosalv/NONoise@${MARKETPLACE_REF}`);
   });
 });

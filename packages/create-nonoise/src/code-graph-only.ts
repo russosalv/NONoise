@@ -75,8 +75,8 @@ function anyToolEnabled(t: AiTools): boolean {
 }
 
 /**
- * Runs only the code-graph step on an existing NONoise project: installs the
- * pinned codebase-memory-mcp binary, registers its MCP server for the selected
+ * Runs only the code-graph step on an existing NONoise project: installs or
+ * updates the codebase-memory-mcp binary to its latest release, registers its MCP server for the selected
  * AI tools and retires the graphify integration earlier versions installed.
  * Reads aiTools from nonoise.config.json (or accepts --ai override).
  */
@@ -125,7 +125,7 @@ export function runCodeGraphOnly(opts: CodeGraphOnlyOptions): CodeGraphOnlyResul
     `claude=${aiTools.claudeCode} copilot=${aiTools.copilot} ` +
     `codex=${aiTools.codex} cursor=${aiTools.cursor} gemini=${aiTools.geminiCli}`);
 
-  const report = installCodebaseMemory({ projectPath: targetPath, aiTools, force: true, runner: opts.runner });
+  const report = installCodebaseMemory({ projectPath: targetPath, aiTools, mode: 'update', runner: opts.runner });
   console.log('\n[code-graph] codebase-memory-mcp summary:\n' + formatReport(report) + '\n');
 
   // The binary is recoverable by hand (the summary prints the command); a

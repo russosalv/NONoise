@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-  CBM_SERVER, CBM_VERSION, codebaseMemoryMissing, configureCodebaseMemory, doctorCodebaseMemory,
-  ensureBinary, formatReport, installCodebaseMemory, retireGraphify, type Runner,
+  CBM_MIN_VERSION, CBM_SERVER, codebaseMemoryMissing, configureCodebaseMemory, doctorCodebaseMemory,
+  ensureBinary, formatReport, installCodebaseMemory, parseVersion, retireGraphify, type Runner,
 } from '../../src/codebase-memory.js';
 import { LEGACY_VENDOR_HASHES } from '../../src/legacy-vendor-hashes.js';
 import type { AiTools } from '../../src/types.js';
@@ -32,30 +32,48 @@ function runner(before: string | undefined, after: string | undefined, npmOk = t
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'nonoise-cbm-')); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-describe('ensureBinary', () => {
-  it('leaves an already pinned binary alone', () => {
-    const r = runner(`codebase-memory-mcp ${CBM_VERSION}`, undefined);
-    expect(ensureBinary(dir, r)).toMatchObject({ binary: 'already-present', version: CBM_VERSION });
-    expect(r.calls).toEqual([`${CBM_SERVER} --version`]);
+const LATEST = 'npm install -g codebase-memory-mcp@latest';
+describe('ensureBinary (not pinned)', () => {
+  it('reads the version the binary prints', () => {
+    expect(parseVersion('codebase-memory-mcp 0.12.1')).toBe('0.12.1');
+    expect(parseVersion('v1.4.0\n')).toBe('1.4.0');
+    expect(parseVersion('command not found')).toBeUndefined();
   });
-  it('installs the exact pin when the binary is missing or another version', () => {
-    for (const before of [undefined, 'codebase-memory-mcp 0.11.0']) {
-      const r = runner(before, `v${CBM_VERSION}`);
-      expect(ensureBinary(dir, r).binary).toBe('installed');
-      expect(r.calls).toContain(`npm install -g codebase-memory-mcp@${CBM_VERSION}`);
+  it('a scaffold leaves any installed binary alone, whatever its version', () => {
+    for (const version of ['0.12.1', '3.0.0']) {
+      const r = runner(`codebase-memory-mcp ${version}`, undefined);
+      expect(ensureBinary(dir, r)).toEqual({ binary: 'already-present', version, hints: [] });
+      expect(r.calls).toEqual([`${CBM_SERVER} --version`]);
     }
   });
-  it('reinstalls on force even when the pin is present', () => {
-    const r = runner(CBM_VERSION, CBM_VERSION);
-    expect(ensureBinary(dir, r, true).binary).toBe('installed');
-    expect(r.calls.some(c => c.startsWith('npm install -g'))).toBe(true);
+  it('a scaffold installs the latest release when no binary answers', () => {
+    const r = runner(undefined, 'codebase-memory-mcp 0.13.0');
+    expect(ensureBinary(dir, r)).toMatchObject({ binary: 'installed', version: '0.13.0' });
+    expect(r.calls).toContain(LATEST);
+    expect(r.calls.some(c => /@\d/.test(c))).toBe(false);
+  });
+  it('update mode moves to the latest release and says whether anything changed', () => {
+    expect(ensureBinary(dir, runner('0.12.1', '0.13.0'), 'update')).toMatchObject({ binary: 'updated', version: '0.13.0' });
+    const same = runner('0.13.0', '0.13.0');
+    expect(ensureBinary(dir, same, 'update')).toMatchObject({ binary: 'already-present', version: '0.13.0' });
+    expect(same.calls).toContain(LATEST);
+  });
+  it('a failed update keeps the working binary and reports why', () => {
+    const offline = ensureBinary(dir, runner('0.12.1', undefined, false), 'update');
+    expect(offline).toMatchObject({ binary: 'already-present', version: '0.12.1' });
+    expect(offline.hints.join('\n')).toContain('EACCES');
+  });
+  it('suggests updating a binary older than the release the skill was written against', () => {
+    const old = ensureBinary(dir, runner('codebase-memory-mcp 0.9.0', undefined));
+    expect(old.binary).toBe('already-present');
+    expect(old.hints.join('\n')).toContain(`older than ${CBM_MIN_VERSION}`);
   });
   it('reports a failed install with the command to retry and never throws', () => {
     const failed = ensureBinary(dir, runner(undefined, undefined, false));
     expect(failed.binary).toBe('install-failed');
-    expect(failed.hints.join('\n')).toContain(`npm install -g codebase-memory-mcp@${CBM_VERSION}`);
+    expect(failed.hints.join('\n')).toContain(LATEST);
     expect(failed.hints.join('\n')).toContain('EACCES');
-    // npm succeeded but the pinned version still does not answer (bin dir not on PATH).
+    // npm succeeded but the binary still does not answer (bin dir not on PATH).
     expect(ensureBinary(dir, runner(undefined, undefined, true)).binary).toBe('install-failed');
   });
 });
@@ -150,12 +168,12 @@ describe('installCodebaseMemory and doctor', () => {
   });
   it('a modified graphify skill is reported but is not a config conflict', () => {
     put('.claude/skills/graphify/SKILL.md', 'my own notes');
-    const report = installCodebaseMemory({ projectPath: dir, aiTools: { ...none, claudeCode: true }, runner: runner(CBM_VERSION, CBM_VERSION) });
+    const report = installCodebaseMemory({ projectPath: dir, aiTools: { ...none, claudeCode: true }, runner: runner('0.12.1', '0.12.1') });
     expect(report.preserved).toEqual([]);
     expect(report.legacyKept).toEqual(['.claude/skills/graphify/SKILL.md']);
   });
   it('tells the user to build the graph once after a successful install', () => {
-    const report = installCodebaseMemory({ projectPath: dir, aiTools: all, runner: runner(CBM_VERSION, CBM_VERSION) });
+    const report = installCodebaseMemory({ projectPath: dir, aiTools: all, runner: runner('0.12.1', '0.12.1') });
     expect(report.binary).toBe('already-present');
     expect(formatReport(report)).toContain('index_repository');
   });
@@ -169,6 +187,9 @@ describe('installCodebaseMemory and doctor', () => {
     expect(lines).toContain('graphify leftovers: .claude/skills/graphify');
     expect(r.calls.some(c => c.startsWith('npm'))).toBe(false);
     configureCodebaseMemory(dir, { ...none, claudeCode: true, codex: true });
-    expect(doctorCodebaseMemory(dir, { ...none, claudeCode: true, codex: true }, runner(CBM_VERSION, CBM_VERSION)).join('\n')).toContain('MCP configs: present');
+    const healthy = doctorCodebaseMemory(dir, { ...none, claudeCode: true, codex: true }, runner('0.12.1', '0.12.1')).join('\n');
+    expect(healthy).toContain('MCP configs: present');
+    expect(healthy).toContain('0.12.1: installed (not pinned');
+    expect(doctorCodebaseMemory(dir, none, runner('0.9.0', '0.9.0')).join('\n')).toContain(`older than ${CBM_MIN_VERSION}`);
   });
 });

@@ -191,7 +191,7 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
   migration.removed.push(...retired.removed);
   migration.preserved.push(...retired.preserved);
   for (const file of retired.removed) console.log(`[upgrade] removed retired skill: ${file}`);
-  for (const file of retired.preserved) console.log(`[upgrade] preserved modified retired skill: ${file} (codex-delegate is replaced by the codex@openai-codex plugin)`);
+  for (const file of retired.preserved) console.log(`[upgrade] preserved modified retired skill: ${file} (delegation and swarms are now handled by the Regia mod, regia@claude-regia)`);
 
   // Step 2 — refresh vendor packs (superpowers, impeccable). Same flag.
   const vendorPacksRefreshed: string[] = [];
@@ -235,10 +235,10 @@ export async function runUpgrade(opts: UpgradeOptions): Promise<UpgradeResult> {
     `${vendorPacksRefreshed.length} vendor pack(s) refreshed (${vendorPacksRefreshed.join(', ') || 'none'})`,
   );
 
-  // Step 3 — install the pinned code graph and retire the graphify integration
-  // earlier versions wired up.
+  // Step 3 — bring the code graph to its latest release and retire the graphify
+  // integration earlier versions wired up.
   const codeGraphReport: CbmReport = selected.vendors
-    ? installCodebaseMemory({ projectPath: targetPath, aiTools })
+    ? installCodebaseMemory({ projectPath: targetPath, aiTools, mode: 'update' })
     : { binary: 'skipped', configured: [], unchanged: [], preserved: [], legacyKept: [], retired: [], hints: ['External runtimes are not selected by the minimal profile.'] };
   migration.removed.push(...codeGraphReport.retired);
   migration.preserved.push(...codeGraphReport.preserved, ...codeGraphReport.legacyKept);

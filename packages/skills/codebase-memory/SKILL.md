@@ -11,7 +11,8 @@ documentation sections, linked to each other. Indexing is deterministic (tree-si
 no LLM, no API key) and the index lives in `~/.cache/codebase-memory-mcp/`, outside
 the repository. One graph query usually replaces a dozen grep-and-read rounds.
 
-NONoise installs the pinned binary and registers the MCP server
+NONoise installs the binary (the latest release, never pinned: `npm install -g
+codebase-memory-mcp@latest` updates it at any time) and registers the MCP server
 `codebase-memory-mcp` in the project (`.mcp.json`, `.codex/config.toml`,
 `.vscode/mcp.json`, `.cursor/mcp.json`, `.gemini/settings.json`, according to the
 selected tools).

@@ -248,8 +248,8 @@ Maintenance:
                       User content outside the markers is preserved. Pass --ai to override AI tool selection.
 
   --code-graph-only [path]
-                      Narrow path: only installs the pinned codebase-memory-mcp
-                      binary, registers its MCP server for the selected AI tools
+                      Narrow path: only installs codebase-memory-mcp (or updates
+                      it to the latest release), registers its MCP server for the selected AI tools
                       and retires an unmodified graphify integration. Bundled
                       skills are not touched. --graphify-only is accepted as an
                       alias of this flag.

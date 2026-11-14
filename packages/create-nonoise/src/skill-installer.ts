@@ -127,10 +127,15 @@ async function isSkillDir(path: string): Promise<boolean> {
   }
 }
 
-/** Skills NONoise no longer ships, with the SHA-256 of every SKILL.md it ever shipped. */
+/** Skills NONoise no longer ships, with the SHA-256 of every SKILL.md it ever
+ * shipped. Hashes recorded in LEGACY_SKILL_HASHES count as shipped too. */
 const RETIRED_SKILLS: Record<string, string[]> = {
-  // Replaced by OpenAI's official Claude Code plugin `codex@openai-codex`.
+  // Delegation and orchestration now belong to the Regia mod (regia@claude-regia),
+  // which also installs the Codex and Qwen plugins when their CLIs are present.
   'codex-delegate': ['06711719de4393b9d4e7b4959ddf58a04bdd996ef02f5b601223c3ba9e6d4345'],
+  'copilot-delegate': [],
+  'gemini-delegate': [],
+  'swarm-router': [],
 };
 
 /**
@@ -140,8 +145,9 @@ const RETIRED_SKILLS: Record<string, string[]> = {
 export async function removeRetiredSkills(projectPath: string): Promise<{ removed: string[]; preserved: string[] }> {
   const removed: string[] = [], preserved: string[] = [];
   for (const dir of ['.claude/skills', '.agents/skills']) {
-    for (const [name, hashes] of Object.entries(RETIRED_SKILLS)) {
+    for (const [name, own] of Object.entries(RETIRED_SKILLS)) {
       const rel = `${dir}/${name}`;
+      const hashes = [...own, ...(LEGACY_SKILL_HASHES[`${rel}/SKILL.md`] ?? [])];
       const path = join(projectPath, rel);
       let info;
       try { info = await lstat(path); } catch { continue; }

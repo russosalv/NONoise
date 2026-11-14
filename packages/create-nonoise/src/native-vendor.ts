@@ -50,13 +50,18 @@ export function run(c: Command, cwd: string): Outcome {
     }
   }
 }
-/** OpenAI's official Codex plugin for Claude Code; replaces the former codex-delegate skill. */
-export const CODEX_PLUGIN: { id: string; marketplace: string; repo: string; ref?: string } = { id: 'codex@openai-codex', marketplace: 'openai-codex', repo: 'openai/codex-plugin-cc' };
+/** Regia (https://github.com/russosalv/claude-regia): the Claude Code mod that
+ * orchestrates the main session, routes model and effort per task and runs
+ * swarms of Claude, Codex and Qwen agents. It replaces the former delegate and
+ * swarm-router skills, and installs the Codex and Qwen plugins itself when their
+ * CLIs are on the machine. No ref: like every Claude plugin it follows its own
+ * marketplace and updates on its own. */
+export const REGIA_PLUGIN: { id: string; marketplace: string; repo: string; ref?: string } = { id: 'regia@claude-regia', marketplace: 'claude-regia', repo: 'russosalv/claude-regia' };
 const claudePlugins: Array<{ id: string; marketplace: string; repo: string; ref?: string }> = [
   { id: 'superpowers@nonoise', marketplace: 'nonoise', repo: MARKETPLACE, ref: MARKETPLACE_REF },
   { id: 'document-skills@anthropic-agent-skills', marketplace: 'anthropic-agent-skills', repo: 'anthropics/skills' },
   { id: 'skill-creator@claude-plugins-official', marketplace: 'claude-plugins-official', repo: 'anthropics/claude-plugins-official' },
-  CODEX_PLUGIN,
+  REGIA_PLUGIN,
 ];
 const obsoletePlugin = 'example-skills@anthropic-agent-skills';
 function json(path: string): any { return existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}; }
@@ -92,7 +97,7 @@ export function configureNativeVendors(projectPath: string, ai: AiTools): void {
   }
   save(path, settings);
 }
-/** Embed mode stays offline: declare the Codex plugin so Claude Code offers it on first trust. */
+/** Embed mode stays offline: declare Regia so Claude Code offers it on first trust. */
 export function configureEmbedPlugins(projectPath: string, ai: AiTools): void {
   if (!ai.claudeCode) return;
   if (!safeAssetPath(projectPath, '.claude/settings.json')) throw new Error('Unsafe Claude settings path; existing files preserved.');
@@ -100,8 +105,8 @@ export function configureEmbedPlugins(projectPath: string, ai: AiTools): void {
   const settings = json(path);
   settings.extraKnownMarketplaces ??= {};
   settings.enabledPlugins ??= {};
-  settings.extraKnownMarketplaces[CODEX_PLUGIN.marketplace] = { source: { source: 'github', repo: CODEX_PLUGIN.repo } };
-  settings.enabledPlugins[CODEX_PLUGIN.id] = true;
+  settings.extraKnownMarketplaces[REGIA_PLUGIN.marketplace] = { source: { source: 'github', repo: REGIA_PLUGIN.repo } };
+  settings.enabledPlugins[REGIA_PLUGIN.id] = true;
   save(path, settings);
 }
 const providers: Record<AiToolKey, string> = { claudeCode: 'claude', copilot: 'github', codex: 'codex', cursor: 'cursor', geminiCli: 'gemini' };

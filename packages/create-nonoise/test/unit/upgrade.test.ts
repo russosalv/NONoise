@@ -28,11 +28,12 @@ const mockedExec = vi.mocked(execSync);
 
 const mockedExecFile = vi.mocked(execFileSync);
 
-/** The pinned code-graph binary answers; nothing else may be executed. */
+/** The code-graph binary answers and npm updates it; nothing else may be executed. */
 function happyPathExec(): void {
   mockedExec.mockImplementation((cmd) => { throw new Error(`Unexpected: ${cmd}`); });
   mockedExecFile.mockImplementation((bin, args) => {
     if (bin === 'codebase-memory-mcp' && args?.[0] === '--version') return 'codebase-memory-mcp 0.12.1';
+    if (bin === 'npm' && args?.join(' ') === 'install -g codebase-memory-mcp@latest') return '';
     throw new Error(`Unexpected: ${bin} ${args?.join(' ')}`);
   });
 }
@@ -190,7 +191,7 @@ describe('runUpgrade', () => {
       const result = await runUpgrade({ vendorMode: 'embed', targetPath: dir, skillsRoot: BUNDLED_SKILLS_ROOT });
       expect(result.exitCode).toBe(0);
       expect(result.codeGraphReport.binary).toBe('install-failed');
-      expect(result.codeGraphReport.hints.join('\n')).toContain('npm install -g codebase-memory-mcp@');
+      expect(result.codeGraphReport.hints.join('\n')).toContain('npm install -g codebase-memory-mcp@latest');
       expect(result.codeGraphReport.configured).toEqual(['.mcp.json', '.vscode/mcp.json']);
       expect(JSON.parse(readFileSync(join(dir, '.mcp.json'), 'utf8')).mcpServers['codebase-memory-mcp'].command).toBe('codebase-memory-mcp');
       expect(result.skillsRefreshed).toBeGreaterThan(0);

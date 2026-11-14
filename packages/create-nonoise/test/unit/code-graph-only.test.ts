@@ -3,21 +3,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runCodeGraphOnly } from '../../src/code-graph-only.js';
-import { CBM_SERVER, CBM_VERSION, type Runner } from '../../src/codebase-memory.js';
+import { CBM_SERVER, type Runner } from '../../src/codebase-memory.js';
 
 let dir: string;
-const ok: Runner = (bin) => ({ ok: true, output: bin === 'npm' ? '' : CBM_VERSION });
+const ok: Runner = (bin) => ({ ok: true, output: bin === 'npm' ? '' : 'codebase-memory-mcp 0.12.1' });
 const config = (aiTools: Record<string, boolean>) => writeFileSync(join(dir, 'nonoise.config.json'), JSON.stringify({ aiTools }));
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'nonoise-cg-')); });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('runCodeGraphOnly', () => {
-  it('reads the AI tools from nonoise.config.json and force-installs the pin', () => {
+  it('reads the AI tools from nonoise.config.json and updates the binary to the latest release', () => {
     config({ claudeCode: true, codex: true });
     const calls: string[] = [];
     const result = runCodeGraphOnly({ targetPath: dir, runner: (bin, args) => { calls.push([bin, ...args].join(' ')); return ok(bin, args, dir); } });
     expect(result).toMatchObject({ source: 'config', exitCode: 0 });
-    expect(calls).toContain(`npm install -g codebase-memory-mcp@${CBM_VERSION}`);
+    expect(calls).toContain('npm install -g codebase-memory-mcp@latest');
     expect(JSON.parse(readFileSync(join(dir, '.mcp.json'), 'utf8')).mcpServers[CBM_SERVER]).toBeDefined();
     expect(readFileSync(join(dir, '.codex/config.toml'), 'utf8')).toContain(`[mcp_servers.${CBM_SERVER}]`);
     expect(existsSync(join(dir, '.cursor/mcp.json'))).toBe(false);

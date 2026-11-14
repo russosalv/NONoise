@@ -105,7 +105,7 @@ describe('NONoise skill directories per harness', () => {
   });
 });
 
-describe('removeRetiredSkills (codex-delegate → codex@openai-codex plugin)', () => {
+describe('removeRetiredSkills (delegation skills → the Regia mod)', () => {
   const shipped = fileURLToPath(new URL('../fixtures/retired-skills/codex-delegate/SKILL.md', import.meta.url));
   let project: string;
   beforeEach(async () => { project = await mkdtemp(join(tmpdir(), 'nonoise-retired-')); });
@@ -132,5 +132,16 @@ describe('removeRetiredSkills (codex-delegate → codex@openai-codex plugin)', (
   });
   it('is a no-op when nothing retired is present', async () => {
     expect(await removeRetiredSkills(project)).toEqual({ removed: [], preserved: [] });
+  });
+  it.each(['swarm-router', 'copilot-delegate', 'gemini-delegate'])('removes the pristine 1.8 copy of %s from both skill roots and keeps an edited one', async (name) => {
+    const bytes = await readFile(fileURLToPath(new URL(`../fixtures/retired-skills/${name}/SKILL.md`, import.meta.url)));
+    for (const root of ['.claude/skills', '.agents/skills']) {
+      await mkdir(join(project, root, name), { recursive: true });
+      await writeFile(join(project, root, name, 'SKILL.md'), bytes);
+    }
+    expect(await removeRetiredSkills(project)).toEqual({ removed: [`.claude/skills/${name}`, `.agents/skills/${name}`], preserved: [] });
+    await mkdir(join(project, '.claude/skills', name), { recursive: true });
+    await writeFile(join(project, '.claude/skills', name, 'SKILL.md'), 'my own router');
+    expect(await removeRetiredSkills(project)).toEqual({ removed: [], preserved: [`.claude/skills/${name}`] });
   });
 });
