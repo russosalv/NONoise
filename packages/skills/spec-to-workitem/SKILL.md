@@ -18,9 +18,9 @@ The skill is **tracker-agnostic**: all tracker-specific logic is isolated in **a
 │ arch-       │──▶│ arch-        │──▶│ sprint-manifest  │──▶│ spec-to-workitem │
 │ brainstorm  │   │ decision     │   │                  │   │ (THIS SKILL)     │
 │             │   │              │   │ produces         │   │                  │
-│ produces    │   │ validates    │   │ aggregated       │   │ exports manifest │
-│ PRDs as     │   │ via          │   │ manifest +       │   │ to external      │
-│ draft       │   │ quint-fpf    │   │ macro tasks      │   │ tracker          │
+│ produces    │   │ FPF gate →   │   │ aggregated       │   │ exports manifest │
+│ PRDs as     │   │ Haft or      │   │ manifest +       │   │ to external      │
+│ draft       │   │ lightweight  │   │ macro tasks      │   │ tracker          │
 │             │   │              │   │                  │   │                  │
 └─────────────┘   └──────────────┘   └──────────────────┘   └──────────────────┘
      STEP 1            STEP 2              STEP 3                  STEP 4
@@ -313,8 +313,10 @@ The description is stable — re-running on an existing item shows no diff unles
 - [`atr`](../atr/SKILL.md) — acceptance testing of tasks after export
 - [`arch-decision`](../arch-decision/SKILL.md) / [`arch-brainstorm`](../arch-brainstorm/SKILL.md) — upstream skills that produce validated PRDs
 
-For architectural validation, route through `arch-decision` and the required Haft
-runtime via `quint-fpf`. Retain PRD `haft` IDs and repository-root-relative paths
-in handoffs/work items; do not copy `.haft/` records into an audit folder. If
-Haft is missing, stop that validation with `create-nonoise --upgrade .` and
-`create-nonoise doctor .`.
+For architectural validation, route through `arch-decision`, which first
+evaluates the FPF gate. Haft (via `quint-fpf`) is required only when the gate
+fires; a PRD with `decision.mode: lightweight` is a valid basis and carries no
+`haft` refs. When `haft` refs are present, retain the PRD `haft` IDs and
+repository-root-relative paths in handoffs/work items; do not copy `.haft/`
+records into an audit folder. If the gate fires and Haft is missing, stop that
+validation with `create-nonoise --upgrade .` and `create-nonoise doctor .`.

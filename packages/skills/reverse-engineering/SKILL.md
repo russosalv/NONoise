@@ -1,6 +1,6 @@
 ---
 name: reverse-engineering
-description: Produces and incrementally maintains a versioned reverse-engineering dossier for a subject — a legacy codebase, a microservice, a third-party API, an internal library, a data pipeline. Output is markdown chapters under `docs/support/reverse/<subject-slug>/`, combining project documents (sprint inputs, meeting notes, functional specs) with the subject's code/artifacts indexed via the graphify knowledge graph. Flow — (1) graphify indexing loads context only, (2) long-running interactive Q&A on graph and source, (3) explicit save trigger ("save", "ok write it", "make v1.5") bumps minor version, updates only chapters in the consolidated intent, appends a changelog entry. Triggers — "reverse-engineer X", "document legacy Y", "build a dossier on vendor Z's API", "refresh the reverse on <subject>", "new version of the reverse", or mention of a path under `docs/support/reverse/` in an update context. Do NOT use for one-shot graph queries or single-chapter manual edits.
+description: Produces and incrementally maintains a versioned reverse-engineering dossier for a subject — a legacy codebase, a microservice, a third-party API, an internal library, a data pipeline. Output is markdown chapters under `docs/support/reverse/<subject-slug>/`, combining project documents (sprint inputs, meeting notes, functional specs) with the subject's code/artifacts indexed in the codebase-memory-mcp code graph. Flow — (1) code-graph indexing loads context only, (2) long-running interactive Q&A on graph and source, (3) explicit save trigger ("save", "ok write it", "make v1.5") bumps minor version, updates only chapters in the consolidated intent, appends a changelog entry. Triggers — "reverse-engineer X", "document legacy Y", "build a dossier on vendor Z's API", "refresh the reverse on <subject>", "new version of the reverse", or mention of a path under `docs/support/reverse/` in an update context. Do NOT use for one-shot graph queries or single-chapter manual edits.
 source: Risko reference-project (reworked whitelabel for NONoise)
 variant: nonoise generic; stack-neutral; output under docs/support/reverse/<subject-slug>/
 ---
@@ -17,7 +17,7 @@ docs/support/reverse/<subject-slug>/
 ├── ...
 ├── CHANGELOG.md                 ← versioned history, newest on top
 └── .meta/
-    └── graphify-index.json      ← pointer to the subject's graph (not versioned content)
+    └── code-graph-index.json    ← pointer to the subject's graph (not versioned content)
 ```
 
 A subject is anything worth a dedicated dossier: a **legacy codebase** you're porting, a **current microservice** you need to document, a **vendor API** you're integrating, an **internal library** inherited from another team, a **data pipeline**, a **monolith module** being extracted. The methodology applies equally to legacy-understanding and to current-system documentation — the same chapters, the same workflow, the same versioning.
@@ -35,7 +35,7 @@ The output is a **minor-version bump** of the dossier (v1.N → v1.N+1) each tim
 
 1. **Incremental, not one-shot**. The dossier evolves over many sessions. We never rewrite from scratch; we edit the minimum subset of chapters implied by the user's intent.
 2. **Never write on our own initiative**. Indexing and analysis happen freely in chat, but the target folder is **not touched** until the user says "save" (or equivalent). A reverse session can run for hours and produce dozens of scratch drafts — most are discarded; only the final consolidated result reaches disk.
-3. **Graphify is context, not output**. The knowledge graph produced by graphify is consumed to answer questions during the loop; it is not re-indexed on save and it is not copied into the dossier.
+3. **The code graph is context, not output**. The knowledge graph built by `codebase-memory-mcp` is consumed to answer questions during the loop; it is not re-indexed on save and it is not copied into the dossier.
 4. **Source documents are read-only**. Project inputs (sprint docs, meeting notes, research PDFs, code) are sources. The dossier is a derived artifact. Don't write back.
 
 ## When to use this skill
@@ -52,9 +52,9 @@ Activate when the user says (either language of the project):
 
 **Do not activate** for:
 
-- Ad-hoc questions on the graph ("how does X work in the legacy?") → route to `/graphify query`
+- Ad-hoc questions on the graph ("how does X work in the legacy?") → route to the `codebase-memory` skill (`search_graph`, `trace_path`)
 - Single-chapter manual edit outside a version bump → use `Edit` directly
-- Pure indexing of a folder with no dossier production → use `/graphify <path>`
+- Pure indexing of a repository with no dossier production → use `/index` or `index_repository` (`codebase-memory` skill)
 
 ## Working language
 
@@ -86,7 +86,7 @@ The dossier lives in `docs/support/` — the NONoise convention for research / s
 
 ## REA artifact routing
 
-Before checking Graphify prerequisites, inspect the supplied target. For .NET
+Before checking code-graph prerequisites, inspect the supplied target. For .NET
 `.dll`/`.exe` without `.csproj` or source, `app.asar`/Electron applications,
 `.har`/`.saz` traffic captures, SQLite databases, APKs, native binaries, firmware,
 or “how does this app/site work without code?”, route to `rea-setup` when the
@@ -99,27 +99,28 @@ client approval, not repeated installation.
 
 For artifact-only investigations, REA Evidence replaces the source-graph input:
 use the relevant shipped-artifact tools, retain evidence IDs/paths, limitations,
-and unknowns. Do not send raw executables, captures or databases to Graphify or
-block this path on Graphify availability. Apply Graphify prerequisites and
-indexing steps only to actual source/document inputs when those are present.
-Keep `.meta/graphify-index.json` accurate: no REA result counts as an indexed
-source graph; record a source-less run when source indexing did not occur.
+and unknowns. Do not send raw executables, captures or databases to the code
+graph or block this path on `codebase-memory-mcp` availability. Apply the
+code-graph prerequisites and indexing steps only to actual source/document
+inputs when those are present. Keep `.meta/code-graph-index.json` accurate: no
+REA result counts as an indexed source graph; record a source-less run when
+source indexing did not occur.
 This route changes evidence collection only: retain the explicit save boundary,
 read-only target handling, incremental chapters and dossier versioning below.
-For ordinary repositories with complete source, keep the Graphify workflow;
+For ordinary repositories with complete source, keep the code-graph workflow;
 REA is optional and should not be installed merely because a repo is old.
 
 ## Brownfield support from the ECC snapshot
 
 Read `.nonoise/ecc/index.md` to discover installed support. During initial analysis, use `spec-miner` to extract evidence-backed behavior into `docs/architecture/specs/<capability>/spec.md` and `inherit-legacy-style` to record real code conventions before proposing changes. Preserve the dossier's incremental update rules and link these artifacts instead of copying them into a second lifecycle system.
 
-When changing an existing module, use `module-regression` to capture affected consumers and executable acceptance commands. Use `brownfield-retrospective` when the task includes reassessing historical choices; send architectural decisions through `arch-decision` and Haft. For discovery alone, stop at the requested analysis. These capabilities do not authorize implementation or hooks.
+When changing an existing module, use `module-regression` to capture affected consumers and executable acceptance commands. Use `brownfield-retrospective` when the task includes reassessing historical choices; send architectural decisions through `arch-decision`, which runs Haft only when its FPF gate fires. For discovery alone, stop at the requested analysis. These capabilities do not authorize implementation or hooks.
 
 ## Flow — 7 steps
 
 - **Step 0** — prerequisites
 - **Step 1** — collect input (subject slug, source folders)
-- **Step 2** — graphify indexing (loads context only)
+- **Step 2** — code-graph indexing (loads context only)
 - **Step 3** — interactive analysis loop (the heart — user-driven, no writes)
 - **Step 4** — explicit save trigger + current-version read
 - **Step 5** — regeneration of impacted chapters (only after save)
@@ -129,67 +130,36 @@ Steps 0–3 are linear. Steps 4–6 fire **only** when the user utters a save ph
 
 ### Step 0 — Prerequisites
 
-**0.1 — graphify installed AND `/graphify` skill registered**
+**0.1 — code graph reachable (`codebase-memory-mcp`)**
 
-Two checks. Both must pass — the binary alone is not enough (see Hard rule #11: this skill must never invoke the bare `graphify` CLI for indexing).
+The graph is built and queried by the `codebase-memory-mcp` MCP server (sibling skill [`codebase-memory`](../codebase-memory/SKILL.md)). Indexing is deterministic — no LLM pass, no API key — and the index lives in `~/.cache/codebase-memory-mcp/`, outside the repository.
 
-**Check A — binary is on PATH**
+**Check A — MCP tools connected**
 
-```bash
-graphify --help >/dev/null 2>&1 && echo "BIN_OK" || echo "BIN_MISSING"
-```
+If the tools `list_projects` / `search_graph` are available, the server is connected. Call `list_projects` and keep the result for Q4.
 
-**Check B — `/graphify` slash skill is registered in the active IDE**
+**Check B — CLI fallback**
 
-The semantic-extraction step runs through the IDE assistant's own model (no external API key required) only when the `/graphify` skill is loaded. Probe the platform-specific install paths:
+If the MCP tools are **not** available (host without MCP, server not yet approved, session not restarted), the CLI runs the same tools:
 
 ```bash
-# Claude Code
-test -f "$HOME/.claude/skills/graphify/SKILL.md" && echo "CLAUDE_OK"
-# GitHub Copilot
-test -f "$HOME/.copilot/skills/graphify/SKILL.md" && echo "COPILOT_OK"
-# Cursor (rules format)
-test -f "$HOME/.cursor/rules/graphify.mdc" && echo "CURSOR_OK"
+codebase-memory-mcp cli list_projects >/dev/null 2>&1 && echo "CLI_OK" || echo "CLI_MISSING"
 ```
 
-At least one of those must print OK on the IDE the user is currently in. If none do, the bare CLI is the only path left — and that path requires an API key, which is exactly what we're avoiding.
+On `CLI_OK`, run every graph call in this skill as `codebase-memory-mcp cli <tool>` (`codebase-memory-mcp cli <tool> --help` lists the flags) and tell the user once that you are on the CLI path.
 
-**If Check A fails:**
+**If both checks fail:**
 
-> Graphify is not installed. It's normally installed at scaffold time by `create-nonoise`. Re-run the scaffold's graphify-only mode (idempotent, safe on existing projects):
+> `codebase-memory-mcp` is not available in this project. It's normally installed at scaffold time by `create-nonoise`. Re-run the code-graph-only mode (idempotent, safe on existing projects), then check the result:
 >
 > ```
-> npx create-nonoise@latest --graphify-only
+> create-nonoise --code-graph-only .
+> create-nonoise doctor .
 > ```
 >
-> Or install manually:
->
-> ```
-> uv tool install "graphifyy>=0.7.0"
-> ```
->
-> If `uv` is not available, bootstrap it first:
->
-> - macOS / Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
-> - Windows:       `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
->
-> Can't proceed without graphify — re-run me once it's installed.
+> Then restart the AI tool and approve the project MCP server. Can't proceed without the code graph — re-run me once it's available.
 
-**If Check A passes but Check B fails (binary present, skill not registered):**
-
-> The graphify binary is installed, but the `/graphify` slash skill is not registered in your IDE. Without it, the indexing step would fall back to the headless CLI (`graphify extract`), which requires a separate LLM API key (`ANTHROPIC_API_KEY` / `MOONSHOT_API_KEY` / `OPENAI_API_KEY`). That defeats the point of running through the IDE assistant.
->
-> Register the skill (idempotent):
->
-> ```
-> npx create-nonoise@latest --graphify-only
-> ```
->
-> This re-runs the per-IDE skill install (`graphify claude install` / `graphify copilot install`) inside this project. After that, restart the IDE chat session so the skill is picked up, then re-run me.
->
-> Cannot proceed — Hard rule #11 forbids the bare CLI path.
-
-Then stop.
+Then stop. Do not carry on as if the graph had been consulted.
 
 **0.2 — Local developer config**
 
@@ -296,31 +266,31 @@ Only a literal `yes` (case-insensitive) moves forward. Any other response (inclu
 
 If the user already confirmed `source_less_run` at Q3, skip Q4 entirely — there's nothing to reuse or reindex.
 
-Otherwise check graph presence:
+Otherwise check graph presence: look in the `list_projects` result (Step 0.1) for a project rooted at `<source_path>` — or, when `<source_path>` is a folder inside this repository, for this repository's own project. Found → `EXISTS`; not found → `MISSING`.
 
-```bash
-test -f "<source_path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
-```
-
-**Freshness check** (when `EXISTS`): read `indexed_at` from
-`<source_path>/graphify-out/manifest.json` if present, else fall back to
-the file mtime of `graph.json`. Compute age in days. Read
+**Freshness check** (when `EXISTS`): a subject inside this repository is
+kept in sync by the server while a session is open — treat it as fresh. A
+subject source outside this repository can move between sessions: read
+`source_graph.indexed_at` from
+`docs/support/reverse/<slug>/.meta/code-graph-index.json` if a previous run
+wrote it, else ask `index_status` for the project. If neither gives a date,
+treat the graph as stale. Compute age in days. Read
 `reverse.graph_freshness_days` from `nonoise.config.json`; default `30`.
 
 **Case EXISTS, fresh** (age ≤ threshold):
-> **Q4**: The subject graph at `<source_path>/graphify-out/` is fresh — indexed N days ago. Reuse it as-is, or re-index to pick up any changes? Default: **reuse**. Type `reindex` to force.
+> **Q4**: The code graph for `<source_path>` is fresh — indexed N days ago. Reuse it as-is, or re-index to pick up any changes? Default: **reuse**. Type `reindex` to force.
 
 **Case EXISTS, stale** (age > threshold):
-> **Q4**: The subject graph at `<source_path>/graphify-out/` was last indexed **N days ago** (threshold: T days). If the codebase has moved since, a stale graph can mislead the reverse.
+> **Q4**: The code graph for `<source_path>` was last indexed **N days ago** (threshold: T days). If the codebase has moved since, a stale graph can mislead the reverse.
 >
 > **Recommended: reindex.** Press Enter (or type `reindex`) to rebuild, or type `reuse` to keep the old graph anyway.
 
 Default flips from `reuse` to `reindex` in this case — empty input = reindex.
 
 **Case MISSING** (first time for this subject):
-> **Q4**: No existing graph at `<source_path>/graphify-out/`. **Indexing is essential** — without it, chapters that depend on source become source-less stubs.
+> **Q4**: `<source_path>` is not indexed in the code graph yet. **Indexing is essential** — without it, chapters that depend on source become source-less stubs.
 >
-> Proceed? (`yes` / `skip-no-source`) — indexing can take several minutes on large codebases.
+> Proceed? (`yes` / `skip-no-source`) — indexing runs once and can take a while on very large codebases.
 
 If the user types `skip-no-source` here, run the same explicit confirmation prompt used in Q3:
 
@@ -340,115 +310,94 @@ Print a terse recap — **do not** mention a target version or chapter intent (t
 >
 > Proceeding will load context only. I will not write anything under `docs/support/reverse/<slug>/` until you explicitly say "save" (or equivalent). Go? (yes/no)
 
-### Step 2 — graphify indexing
+### Step 2 — code-graph indexing
+
+Indexing goes through `index_repository` (see the `codebase-memory` skill). It parses code structurally and indexes Markdown / reST / AsciiDoc sections, linking them to the code they mention (`MENTIONS` edges). It is deterministic: no LLM pass, no API key, no output folder inside the repository. Index each project once, then query.
 
 **2.0 — Only indexable content — hard rule**
 
-Graphify must see **useful text only**. Before indexing, filter:
+The graph must see **useful text only**. Before indexing, filter:
 
 - **Raw PDFs**: the convention in NONoise projects is to convert PDFs to markdown upstream (a `tools/md-extractor` or equivalent produces a sibling `.md` with extracted images). If you find a `.pdf`:
-  1. If a sibling `.md` exists → exclude the `.pdf`, keep the `.md` as canonical source.
-  2. If not → **block the skill** and tell the user: *"File `<name>.pdf` has no markdown sibling. Convert it (e.g. via `tools/md-extractor` if the project ships one) before re-running the reverse. I don't index raw PDFs because graphify processes them worse than a cleanly-extracted markdown."*
+  1. If a sibling `.md` exists → the `.md` is the canonical source; the `.pdf` is ignored.
+  2. If not → **block the skill** and tell the user: *"File `<name>.pdf` has no markdown sibling. Convert it (e.g. via `tools/md-extractor` if the project ships one) before re-running the reverse. I don't index raw PDFs: the code graph indexes Markdown, not PDF."*
 - **PDF-conversion artifact folders** (`*/page_N_image_M.jpg`, chart dumps, etc.): exclude any folder whose files are >80% `page_*_image_*` or `page_*_chart_*` noise.
 - **`docs/support/reverse/<slug>/`**: destination, never input (see 2.3).
-- **Residual `graphify-out/`** inside a source path: output of a previous run, not input. Remove before re-indexing.
-- **Broken `.docx` / `.xlsx`**: if graphify's Office extra isn't installed, tell the user to either convert manually to `.md` or install `graphifyy[office]`.
+- **`.docx` / `.xlsx`**: not indexed. Tell the user to convert them to `.md` first (`tools/md-extractor` handles `.docx` when the project ships it).
 
-**Extra textual formats not recognized natively as `document` by graphify** — add them manually:
+Exclusions are expressed in `.cbmignore` (gitignore syntax) at the root of the repository being indexed. In this project, show the user the missing lines and add them once they agree. In an external subject source, write nothing (Hard rule #9): show the user the lines to add. Either way, if they decline, ignore results from those paths during the loop.
 
-- `.srt` / `.vtt` — subtitle / meeting-transcript files. The timing markers are noise; the text is valuable. After `detect()`:
-  ```python
-  srt_files = [str(p) for p in Path(src).rglob('*.srt')]
-  if srt_files:
-      result['files'].setdefault('document', []).extend(srt_files)
-  ```
-- Other textual formats (`.org`, `.adoc`, `.asciidoc`) — same pattern: add them to the `document` bucket, recompute `total_files` / `total_words`, continue.
+**Textual formats the graph does not index as documentation** — read them directly:
 
-**Legacy code with no AST parser — reclassify as `document`.** Graphify's structural extraction (AST) only handles modern languages with available parsers (Python, TypeScript, Go, Rust, Java, C/C++, Ruby, Swift, Kotlin, C#, Scala, PHP, Lua). Legacy code falls through that step and loses all signal. The fix is to move it into the `document` bucket so the semantic LLM pass reads it as prose — which is the *correct* approach for legacy reverse-engineering: the LLM extracts programs, paragraphs, `PERFORM`/`CALL` targets, copybook references, file/dataset names, `DATA DIVISION` items and so on directly from the text. Don't go hunting for COBOL AST parsers — they're either missing, half-baked, or worse than the LLM.
+- `.srt` / `.vtt` — subtitle / meeting-transcript files. The timing markers are noise; the text is valuable. Read them with `Read` / `Grep` during the loop; do not convert or rewrite them.
+- Other textual formats outside Markdown / reST / AsciiDoc (`.org`, plain `.txt` notes) — same pattern.
 
-Affected extensions:
+**Legacy code — check coverage, then read as prose what the graph lacks.** The indexer parses many legacy languages structurally (COBOL, Fortran, Pascal, PL/SQL, NASM assembly among them), but not all: RPG `.rpg` / `.rpgle`, JCL `.jcl`, PL/I `.pli` / `.pl1`, ABAP `.abap` and dialects such as CLIST, REXX, NATURAL and Easytrieve have no parser. After indexing a legacy subject, run `check_index_coverage` on it before assuming anything. Where coverage is missing, the graph holds no structure for those files. Don't go hunting for parsers: read the files directly (`Read`, `Grep`) and extract programs, paragraphs, `PERFORM`/`CALL` targets, copybook references, file/dataset names, data definitions and so on from the text — for those languages that is the *correct* approach. A non-standard extension of a supported language can be mapped in `.codebase-memory.json` (`extra_extensions`).
 
-- COBOL (`.cbl`, `.cob`, `.cpy`), RPG (`.rpg`, `.rpgle`), FORTRAN (`.f`, `.f90`, `.for`), JCL (`.jcl`), PL/I (`.pli`, `.pl1`), ABAP (`.abap`), Assembler (`.asm`, `.s`). Extend the set if the subject uses other legacy dialects (CLIST, REXX, NATURAL, Easytrieve, etc.).
+When the **subject source** (Q3) is mostly legacy code, tell the user which extensions the graph does not cover, so they understand why the graph is thin or empty there. Per-project tuning (`.cbmignore`, extra file extensions in `.codebase-memory.json`) is described in the `codebase-memory` skill.
 
-After `detect()`:
-
-```python
-LEGACY_EXTS = {'.cbl','.cob','.cpy','.rpg','.rpgle','.f','.f90','.for',
-               '.jcl','.pli','.pl1','.abap','.asm','.s'}
-files = result['files']
-moved = [f for f in files.get('code', []) if Path(f).suffix.lower() in LEGACY_EXTS]
-if moved:
-    files['code']     = [f for f in files['code'] if f not in moved]
-    files.setdefault('document', []).extend(moved)
-    print(f'Reclassified {len(moved)} legacy file(s) as documents (no AST parser).')
-```
-
-When the **subject source** (Q3) is mostly legacy code, *always* apply this before invoking graphify on it (Step 2.2). Print to the user which extensions were reclassified so they understand why the AST node count is low / zero.
-
-After filtering, show the user before/after counts and the final file list. If total > 200 (graphify threshold) or > 15 post-filter, ask explicit confirmation.
+After filtering, show the user the final list of paths to index and the exclusions.
 
 **PDF note** (print once per run when you detect raw PDFs):
 
-> **PDF note**: NONoise projects typically convert PDFs to markdown via a project-local tool (e.g. `tools/md-extractor`) — **not** via graphify's built-in extractor. The sibling `.md` is the canonical indexable source. If your project has a different convention, wire it up and re-run.
+> **PDF note**: NONoise projects typically convert PDFs to markdown via a project-local tool (e.g. `tools/md-extractor`). The sibling `.md` is the canonical indexable source: the code graph only reads a PDF's text layer (no OCR, no diagrams or tables), so a raw PDF is a poor substitute. If your project has a different convention, wire it up and re-run.
 
 **2.1 — Document folders** (from Q2)
 
-For each path:
-```bash
-test -f "<path>/graphify-out/graph.json" && echo "EXISTS" || echo "MISSING"
-```
+Document folders inside this repository belong to this repository's project — there is no per-folder graph. Check `list_projects`:
 
-- `EXISTS` → `/graphify "<path>" --update` (incremental, semantic cache reuse) if the intent suggests new material ("new", "added", "update", "changed"); else **reuse**.
-- `MISSING` → `/graphify "<path>"` full build.
+- This repository is **not listed** → `index_repository` with `repo_path` = the absolute project root (first build).
+- This repository is **listed** → **reuse**. If the intent suggests new material ("new", "added", "update", "changed") and that material does not show up in `search_graph` yet, run `index_repository` again on the same `repo_path`.
+- A document folder **outside** this repository → index it as its own project: `index_repository` with `repo_path` = that folder's absolute path.
 
-Quote paths — they can contain spaces. graphify writes to `./graphify-out/` relative to CWD; move under `<path>/graphify-out/` if needed for consistency and future incremental runs.
-
-**Invocation note — see Hard rule #11.** `/graphify <path>` is a **slash skill invocation**, NOT the `graphify` binary. The bare CLI's `extract` subcommand requires an external LLM API key; the slash skill runs the same pipeline through the IDE assistant's model with no key required. In Claude Code: type `/graphify <path>` or call `Skill(skill: "graphify", args: "<path>")`. In Copilot / Cursor / Gemini / Codex / any IDE without slash commands: open the skill file at the path probed in Step 0.1 (Check B) and follow its steps. The bare CLI is allowed *only* for read-side ops: `graphify update <path>` (AST-only), `graphify cluster-only`, `graphify query`/`path`/`explain`. For a reverse dossier we always need the semantic pass — always the skill, never `graphify extract`.
+Quote paths — they can contain spaces. Note the project name `list_projects` reports for each path: later queries are scoped to it.
 
 **2.2 — Subject source** (from Q3/Q4)
 
 - `reuse` → nothing to do.
-- `reindex` → `/graphify "<source_path>" --update` if graph exists, else `/graphify "<source_path>"` (full pipeline).
-- `initial` → `/graphify "<source_path>"` (full pipeline — AST + semantic + clustering).
+- `reindex` → `index_repository` again on the same `repo_path`.
+- `initial` → `index_repository` with `repo_path` = the absolute `<source_path>`. For a very large repository start with `mode: "fast"`. When `<source_path>` is a folder inside this repository it is already covered by this repository's project from 2.1 — do not index it twice.
 - skipped → no source graph (some chapters will be source-less; warn the user).
 
-Same invocation note as 2.1 applies — `/graphify` is the skill, not the bare CLI.
+After completion, verify the index actually covers the subject: `check_index_coverage` (or `index_status`) for the project, then one `get_architecture` call. A near-empty result on a subject that clearly has code means the source is in a language or layout the indexer does not cover (see 2.0). Surface this to the user — do not carry on as if the graph were complete.
 
-After completion, verify the semantic pass actually ran by checking `graphify-out/GRAPH_REPORT.md` — on an initial build, the "Token cost" line should be non-zero. If it reports `0 input · 0 output` on a brand-new build, the LLM extraction was skipped (likely credentials missing, or `--no-semantic` slipped in). Surface this to the user — the report will be near-empty without semantic edges.
-
-Large codebases can take minutes — show progress if available.
+Large codebases can take a while — `index_status` shows where indexing is. Index once; do not re-index during the loop.
 
 **2.3 — Anti-destination guard**
 
-Before every `graphify` call, verify the target path is not, contains, nor is contained in `docs/support/reverse/<slug>`. If it resolves there, abort:
+Before every `index_repository` call, verify the target path is not `docs/support/reverse/<slug>` and is not contained in it. If it resolves there, abort:
 
 > Defensive abort: this skill is about to index `docs/support/reverse/<slug>/` which is the output folder. Never do that. Please re-check the paths you gave in Q2/Q3.
+
+When the target *contains* the destination — the normal case when this repository's root is indexed — make sure `.cbmignore` at the project root lists `docs/support/reverse/<slug>/` before indexing, and discard any graph result whose path falls under that folder. The existing dossier is read with `Read`, for context only (3.2), never through the graph.
 
 Q1/Q2 already filter — this is the safety net.
 
 **2.4 — Persist graph pointer**
 
-After successful indexing, write/refresh `docs/support/reverse/<slug>/.meta/graphify-index.json` (creating the folder if needed — the parent `<slug>` folder may not exist yet if this is a NEW subject):
+After successful indexing, write/refresh `docs/support/reverse/<slug>/.meta/code-graph-index.json` (creating the folder if needed — the parent `<slug>` folder may not exist yet if this is a NEW subject):
 
 ```json
 {
   "subject": "<slug>",
   "document_graphs": [
-    { "path": "<q2-path-1>/graphify-out", "indexed_at": "<iso>" },
-    { "path": "<q2-path-2>/graphify-out", "indexed_at": "<iso>" }
+    { "path": "<q2-path-1>", "project": "<project name>", "indexed_at": "<iso>" },
+    { "path": "<q2-path-2>", "project": "<project name>", "indexed_at": "<iso>" }
   ],
-  "source_graph": { "path": "<source_path>/graphify-out", "indexed_at": "<iso>" },
+  "source_graph": { "path": "<source_path>", "project": "<project name>", "indexed_at": "<iso>" },
   "source_less_run": false,
   "updated_at": "<iso>"
 }
 ```
+
+`project` is the name `list_projects` reports for that path. `indexed_at` is when this skill last ran `index_repository` for it; on `reuse`, keep the previous value (`null` if there is none). The graph itself stays in `~/.cache/codebase-memory-mcp/` — this file only points at it.
 
 When the in-run flag `source_less_run` (set by Q3 or Q4 confirmation) is
 `true`, write `"source_graph": null` and `"source_less_run": true`. This
 file is read by Step 6 on save to decide whether to emit the overview
 banner and the CHANGELOG warning.
 
-This file is the only one the skill may create before a save trigger. It's metadata, not content — no chapter ever lives in `.meta/`. Add `.meta/` to a project `.gitignore` if the user prefers local-only graphs; the decision is the user's.
+This file is the only one the skill may create before a save trigger. It's metadata, not content — no chapter ever lives in `.meta/`. Add `.meta/` to a project `.gitignore` if the user prefers to keep the pointer local (it can hold machine-specific paths); the decision is the user's.
 
 ### Step 3 — Interactive analysis loop (the heart)
 
@@ -456,20 +405,21 @@ Once indexing is done, **do not write anything**. Open the loop.
 
 **3.1 — Post-indexing summary**
 
-Show concisely, in markdown, from `GRAPH_REPORT.md` and friends:
+Show concisely, in markdown, from `get_architecture` (one call per indexed project):
 
-- node / edge / community counts per graph
-- top 10 **God Nodes** (highest-degree — most central concepts)
-- 5-6 **Surprising Connections**
-- 4-5 **Suggested Questions** the graph is uniquely positioned to answer
+- languages and packages, plus node / edge counts where `list_projects` reports them
+- entry points and HTTP routes
+- top 10 **hotspots** (the most connected, most central symbols)
+- the main **clusters**, with one line on what each seems to be about
+- 4-5 **Suggested Questions** the graph is well placed to answer for this subject
 
 Then open the loop with a question:
 
-> What do you want to analyze? You can ask me to trace a relationship (`/graphify query`, `/graphify path`, `/graphify explain`), compare scenarios, inspect the subject source, read specific passages from the documents, or ask thematic syntheses. When the discussion produces a result you want to freeze into the dossier, say **"save"** (or equivalent) and we'll move to writing. Until then, nothing changes in `docs/support/reverse/<slug>/`.
+> What do you want to analyze? You can ask me to find where something lives (`search_graph`), trace who calls what (`trace_path`), read a symbol (`get_code_snippet`), compare scenarios, inspect the subject source, read specific passages from the documents, or ask thematic syntheses. When the discussion produces a result you want to freeze into the dossier, say **"save"** (or equivalent) and we'll move to writing. Until then, nothing changes in `docs/support/reverse/<slug>/`.
 
 **3.2 — Behavior during the loop**
 
-- **Answer** using: the freshly-built graphs, the subject source (via its graph or direct inspection), the document folders, the current dossier chapters (read-only for context).
+- **Answer** using: the indexed graphs, the subject source (via its graph or direct inspection), the document folders, the current dossier chapters (read-only for context).
 - **Show drafts in chat**, never on disk. If the user says "draft this chapter so I can see", reply with the markdown in chat — do not write the file.
 - **Track mentally** which points the user seems happy to freeze. When the save trigger fires, you'll use that trail to derive the scope.
 - **Do not propose a save on your own.** The user may want to iterate more. At most, occasionally and softly note "this draft is ready whenever you want to save" and leave the decision alone.
@@ -478,16 +428,17 @@ Then open the loop with a question:
 **3.3 — Tools allowed in the loop**
 
 - Direct `Read` on source files (chapters, documents, code)
-- `/graphify query "..."` on any of the indexed graphs
-- `/graphify path "A" "B"` for relationships
-- `/graphify explain "X"` for single nodes
+- `search_graph` on any of the indexed projects (`name_pattern` / `label` for structure, `semantic_query` for meaning)
+- `trace_path` for call chains and relationships (`mode: "cross_service"` across services)
+- `get_code_snippet` / `get_file_outline` for a single symbol or file
+- `search_code` for strings and patterns; `query_graph` (read-only openCypher, after `get_graph_schema`) for structural questions the other tools don't cover
 - Sub-agents (`general-purpose`) for targeted searches on big folders
 - `Grep` / `Glob` on source
 - **Transient drafts in chat** (never on file)
 
 **3.4 — Hard guard — no silent writes**
 
-During Step 3, **any `Write` or `Edit` on a path inside `docs/support/reverse/<slug>/` is forbidden** (except `.meta/graphify-index.json` from 2.4). If you catch yourself thinking "I'll just write chapter NN because I've understood the problem", stop and wait for the explicit trigger.
+During Step 3, **any `Write` or `Edit` on a path inside `docs/support/reverse/<slug>/` is forbidden** (except `.meta/code-graph-index.json` from 2.4). If you catch yourself thinking "I'll just write chapter NN because I've understood the problem", stop and wait for the explicit trigger.
 
 If a write slips through without a trigger, abort and explain: *"I've prepared these edits as a draft but won't commit them to disk until you say 'save'."*
 
@@ -553,7 +504,7 @@ This is the writing core. Never rewrite chapters that are not in the consolidate
 Combine three signals:
 
 1. **User intent** (from 4.3). E.g. "add the retry semantics to the payment flow" → candidate chapters are the ones about payment flow, retries, open points.
-2. **Graph delta**. If you re-indexed the document graph with `--update`, compare the report before/after (if available) — look at new god nodes, new communities, new source files, `INFERRED` similarity edges bridging new material to old chapters.
+2. **Graph delta**. If source or documents changed since the last version, use `detect_changes` on a project under git (it maps the diff to symbols and risk) and `search_graph` on the new material's key terms to see which code and document sections it touches. Map those onto the chapters that cite them.
 3. **Temporal delta**. If the user said "everything new in the last 2 days", use `git log --since="2 days ago" --name-only -- <q2-path>` and map each modified file onto the chapters that cite it.
 
 Produce `ChaptersToUpdate = [NN-file.md, ...]` and show for confirmation:
@@ -592,9 +543,11 @@ of the dossier, currently at version v<current>, moving to v<next>.
 ## Available sources
 
 1. **Project documents** under <list of Q2 paths>:
-   indexed with graphify at <paths>/graphify-out/
+   indexed in the codebase-memory-mcp project(s) <project names>
 2. **Subject source** at <source_path> (if provided):
-   - graph.json, GRAPH_REPORT.md
+   - codebase-memory-mcp project <project name> — query it with the
+     `codebase-memory` skill's tools (`get_architecture`, `search_graph`,
+     `trace_path`, `get_code_snippet`)
    - raw source code/artifacts under <source_path>
 3. **Other chapters of this dossier** (cross-reference, read-only):
    `docs/support/reverse/<slug>/` (all `NN-*.md`)
@@ -604,7 +557,7 @@ of the dossier, currently at version v<current>, moving to v<next>.
 <source_less = true | false>
 
 - `false` → full source graph available; produce an analytic chapter that
-  draws directly from code structure, god nodes, and main flows.
+  draws directly from code structure, hotspots, and main flows.
 - `true` → this is a source-less run. The chapter must be a stub:
   - State clearly at the top that internals-, data-model-, and
     main-flow-level claims are not validated against source.
@@ -692,13 +645,13 @@ In `docs/support/reverse/<slug>/00-overview.md`, update:
 2. `**Date**: <previous date>` → today, in the dossier's language (e.g. `15 April 2026`, `15 aprile 2026`)
 3. If new chapters were added in 5.3, update the chapter list / table of contents if the overview includes one.
 
-**Source-less banner** (depends on `source_less_run` from `.meta/graphify-index.json`):
+**Source-less banner** (depends on `source_less_run` from `.meta/code-graph-index.json`):
 
 - If the CURRENT run is source-less → insert (or replace if already present) this managed block immediately after the H1 title:
 
   ```markdown
   <!-- >>> source-less-warning (managed by reverse-engineering skill) -->
-  > ⚠️ **Partial reverse**: this dossier version was produced without subject-source indexing. Chapters covering internals, data model, and main flows are document-derived only. Re-index via `/graphify <source_path>` and run a new save to upgrade.
+  > ⚠️ **Partial reverse**: this dossier version was produced without subject-source indexing. Chapters covering internals, data model, and main flows are document-derived only. Index the source (`index_repository` on `<source_path>`) and run a new save to upgrade.
   <!-- <<< source-less-warning -->
   ```
 
@@ -736,7 +689,7 @@ Then **prepend** (above any existing entries) a new entry using the template at 
 - **Sources consulted**: top-level references the sub-agents used
 
 **Source-less run tracking**: when `source_less_run = true` (read from
-`.meta/graphify-index.json`), the CHANGELOG entry MUST include the
+`.meta/code-graph-index.json`), the CHANGELOG entry MUST include the
 source-less block from the template. Populate the chapter list from the
 sub-agents' `source_less: true` return values — one entry per chapter
 that could not be analyzed due to missing source indexing. When
@@ -777,9 +730,9 @@ Suggested next steps:
 
 ## Hard rules (invariant — cannot be bypassed)
 
-1. **Never index `docs/support/reverse/<slug>/`** — it's the output. If a selected path collides, reject.
-2. **Never invoke `graphify` without verifying install** in Step 0.1.
-3. **Never write under `docs/support/reverse/<slug>/` without an explicit save trigger** — the cardinal rule. During indexing (Step 2) and the entire loop (Step 3), any `Write` / `Edit` under that folder is forbidden (except `.meta/graphify-index.json` from 2.4, which is metadata). The transition to Steps 4–6 happens **only** when the user utters a save phrase (4.1). If you're about to write without a trigger, stop and ask.
+1. **Never index `docs/support/reverse/<slug>/`** — it's the output. If a selected path collides, reject. When this repository's root is indexed, the folder is excluded through `.cbmignore` (2.3).
+2. **Never build or query the code graph without the Step 0.1 check** — and never carry on as if the graph had been consulted when it was not.
+3. **Never write under `docs/support/reverse/<slug>/` without an explicit save trigger** — the cardinal rule. During indexing (Step 2) and the entire loop (Step 3), any `Write` / `Edit` under that folder is forbidden (except `.meta/code-graph-index.json` from 2.4, which is metadata). The transition to Steps 4–6 happens **only** when the user utters a save phrase (4.1). If you're about to write without a trigger, stop and ask.
 4. **Never skip the current-version read** from `00-overview.md` — it's the ground truth for the bump. Missing → abort run.
 5. **Never index raw PDFs** when a sibling markdown exists — PDFs are converted upstream. An orphan `.pdf` blocks the run and requires user conversion.
 6. **Never regenerate chapters outside the consolidated intent** from 4.3 — delta discipline keeps diffs review-able.
@@ -787,14 +740,14 @@ Suggested next steps:
 8. **Never commit on the user's behalf** — the final summary suggests a commit; the commit is the user's call.
 9. **Never modify source documents** (`docs/sprints/`, `docs/calls/`, `docs/requirements/`, any Q2 path, any Q3 source). The dossier is a derived read-only artifact.
 10. **Never switch language mid-version** — the whole v1.(N+1) stays in the same working language as v1.N.
-11. **Never invoke the bare `graphify` CLI for indexing** — never call `graphify extract`, `graphify generate`, `graphify-cli`, or any subcommand that performs LLM-driven semantic extraction. Those paths require a separate API key (`ANTHROPIC_API_KEY` / `MOONSHOT_API_KEY` / `OPENAI_API_KEY` / Bedrock / etc.) and bypass the IDE assistant's session. Always invoke the **`/graphify <path>` slash skill** instead, so the LLM-extraction step runs through the host AI's own model — no external key needed. If the slash skill isn't registered, Step 0.1 (Check B) must abort with a hint to run `npx create-nonoise@latest --graphify-only`. The bare CLI is allowed only for read-side ops (`graphify query`, `graphify path`, `graphify explain`) and the AST-only `graphify update`.
+11. **Never change the user's setup on the graph's behalf** — never run upstream `codebase-memory-mcp install` (it edits user-global agent configuration and hooks), never write the shared artifact `.codebase-memory/graph.db.zst` (`index_repository` with `persistence: true`) unless the user asks for it, and never re-index after every edit: index once, then query. A missing binary is fixed by `create-nonoise --code-graph-only .`, not by this skill.
 
 ## Known edge cases
 
 | Scenario | Behavior |
 |---|---|
-| User says "full sync" in 4.3 | Re-index documents with `--update`, diff the graph, map all deltas to chapters, update every impacted chapter. Don't touch undelta-ed chapters. |
-| Multiple document folders in Q2 | Index all, either unify graphs or leave separate — the sub-agents can read both. |
+| User says "full sync" in 4.3 | Run `index_repository` again on the document project(s), find what moved with `detect_changes` / `git log`, map all deltas to chapters, update every impacted chapter. Don't touch undelta-ed chapters. |
+| Multiple document folders in Q2 | Folders inside this repository share its project; a folder outside it is a separate project. Leave them separate — the sub-agents can query both. |
 | Subject source graph missing and user doesn't want to wait | Offer to proceed **without subject context** — some chapters (the ones most dependent on source, e.g. data-model, internals) become read-only for this run. Warn explicitly. |
 | A sub-agent in 5.2 fails or returns something suspicious | Log the error, restore the chapter to the previous version (git or pre-overwrite backup), mark it as "regeneration failed" in the CHANGELOG. Don't block the other chapters. |
 | 4.3 intent is vague ("make it better") | Ask for clarification — don't guess on a task that writes many files. |

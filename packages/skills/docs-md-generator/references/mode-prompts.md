@@ -80,7 +80,8 @@ only (tool-specific)."
 
 Before writing, show: "Managed blocks I will preserve verbatim:
 - `polly` (in CLAUDE.md, copilot-instructions.md)
-- `graphify` (in AGENTS.md, CLAUDE.md, copilot-instructions.md)
+- `codebase-memory` (in AGENTS.md, CLAUDE.md, copilot-instructions.md)
+- `development-modes` (in AGENTS.md, CLAUDE.md, copilot-instructions.md)
 Any orphans flagged separately below."
 
 ## Mode 3 — Sync (silent mode)

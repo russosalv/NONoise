@@ -37,7 +37,7 @@ When you are in this persona and the user calls a skill, this persona must carry
 
 | Code | Description | Handoff |
 |------|-------------|---------|
-| DP | Analyze existing project → produce comprehensive documentation (brownfield scan) | `reverse-engineering` skill (fallback: inline using graphify-out/ output) |
+| DP | Analyze existing project → produce comprehensive documentation (brownfield scan) | `reverse-engineering` skill (fallback: inline, querying the code graph via the `codebase-memory` skill) |
 | SYN | Keep CLAUDE.md / AGENTS.md / copilot-instructions.md in sync | `docs-md-generator` skill (stub today → fallback: Daniel writes manually with explicit diff) |
 | REA | Author / update README.md for the project | Inline (Daniel drafts, asks for review) |
 | WD | Author a document following best practices through guided conversation | Inline (CommonMark, audience-aware) |

@@ -37,10 +37,15 @@ See `.github/copilot-instructions.md` for GitHub Copilot rules.
 <cross-tool conventions — things that apply regardless of which AI
 tool the developer uses>
 
-<!-- >>> graphify (managed by create-nonoise CLI) -->
-## graphify
+<!-- >>> codebase-memory (managed by create-nonoise) -->
+## Code graph — codebase-memory-mcp
 ...owned by create-nonoise...
-<!-- <<< graphify -->
+<!-- <<< codebase-memory -->
+
+<!-- >>> development-modes (managed by create-nonoise) -->
+## Development modes
+...owned by create-nonoise...
+<!-- <<< development-modes -->
 
 ---
 
@@ -82,10 +87,15 @@ Claude Code>
 ...owned by polly...
 <!-- <<< polly -->
 
-<!-- >>> graphify (managed by create-nonoise CLI) -->
-## graphify
+<!-- >>> codebase-memory (managed by create-nonoise) -->
+## Code graph — codebase-memory-mcp
 ...owned by create-nonoise...
-<!-- <<< graphify -->
+<!-- <<< codebase-memory -->
+
+<!-- >>> development-modes (managed by create-nonoise) -->
+## Development modes
+...owned by create-nonoise...
+<!-- <<< development-modes -->
 
 ---
 
@@ -129,10 +139,15 @@ instructions.
 ...owned by polly...
 <!-- <<< polly -->
 
-<!-- >>> graphify (managed by create-nonoise CLI) -->
-## graphify
+<!-- >>> codebase-memory (managed by create-nonoise) -->
+## Code graph — codebase-memory-mcp
 ...owned by create-nonoise...
-<!-- <<< graphify -->
+<!-- <<< codebase-memory -->
+
+<!-- >>> development-modes (managed by create-nonoise) -->
+## Development modes
+...owned by create-nonoise...
+<!-- <<< development-modes -->
 
 ---
 

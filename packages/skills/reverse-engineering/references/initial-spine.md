@@ -16,7 +16,7 @@ docs/support/reverse/<slug>/
 ├── 99-open-points.md      ← assumptions, gaps, things to validate with the business
 ├── CHANGELOG.md
 └── .meta/
-    └── graphify-index.json
+    └── code-graph-index.json
 ```
 
 ## Chapter guide
