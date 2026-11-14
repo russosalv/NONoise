@@ -53,7 +53,7 @@ Size the process to the work. The mode is chosen per task: the user names it (`/
 Rules:
 - Never run a heavier mode than the work needs. If the task turns out bigger, say so and propose the next mode up; do not expand silently.
 - **FPF gate.** Propose formal validation (`arch-decision` → Haft FPF) only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) and at least two materially different options are viable. Otherwise record the choice in the PRD as a lightweight decision (`decision.mode: lightweight`) and move on.
-- **Regia.** In Claude Code, NONoise installs the Regia mod (`regia@claude-regia`), which owns orchestration: delegation to subagents, model and effort per task, swarms of Claude, Codex and Qwen agents, the plan list and the questions for the user. Its three modes are these same three: start the work with `/regia quick|medium|long <goal>` and keep its plan (`scaletta_scrivi`) and questions (`domanda_scrivi`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
+- **Regia.** In Claude Code, NONoise installs the Regia mod (`regia@claude-regia`), which owns orchestration: delegation to subagents, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for the user. Its three modes are these same three: start the work with `/regia quick|medium|long <goal>` and keep its plan (`scaletta_scrivi`) and questions (`domanda_scrivi`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
 <!-- <<< development-modes -->
 
 ---

@@ -52,7 +52,7 @@ export function run(c: Command, cwd: string): Outcome {
 }
 /** Regia (https://github.com/russosalv/claude-regia): the Claude Code mod that
  * orchestrates the main session, routes model and effort per task and runs
- * swarms of Claude, Codex and Qwen agents. It replaces the former delegate and
+ * swarms of Claude, Codex, Qwen and Copilot agents. It replaces the former delegate and
  * swarm-router skills, and installs the Codex and Qwen plugins itself when their
  * CLIs are on the machine. No ref: like every Claude plugin it follows its own
  * marketplace and updates on its own. */
