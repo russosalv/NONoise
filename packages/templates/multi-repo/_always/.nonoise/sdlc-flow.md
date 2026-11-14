@@ -196,6 +196,8 @@ Fai brainstorming sulla feature <nome>. Requisiti in docs/requirements/<file>.md
 Brainstorm the feature <name>. Requirements at docs/requirements/<file>.md. Known constraints: <…>. Explore 2-3 approaches with trade-offs, pick one, save a spec under docs/superpowers/specs/. Proceed.
 ```
 
+Start with `reuse-first`; in existing code, have `graph-explorer` map the area and `blueprint-architect` derive the blueprint before the spec is closed.
+
 Skip when: the work is a pure refactor with no new feature.
 
 ## arch-brainstorm
@@ -207,6 +209,8 @@ Voglio esplorare opzioni architetturali per <area / feature>. Contesto: <scope, 
 ```prompt (en)
 I want to explore architectural options for <area / feature>. Context: <scope, constraints, expected canonical patterns>. Produce 2-3 options with trade-offs and a recommendation under docs/architecture/brainstorm/. Proceed.
 ```
+
+Start with `reuse-first`, so the options build on what already exists.
 
 Skip when: the feature fits an already-decided architecture.
 
@@ -264,6 +268,8 @@ Devo implementare il task <id> dello Sprint-<N>. Scrivi un plan dettagliato e po
 I need to implement task <id> of Sprint-<N>. Write a detailed plan and execute it via subagent-driven-development with TDD. Proceed.
 ```
 
+Close each task with `evidence-reviewer` (plus the installed language reviewer) before acceptance.
+
 ## acceptance
 
 ```prompt (it)
@@ -278,4 +284,4 @@ Vendor skill identifiers such as `superpowers:writing-plans` resolve through the
 
 ## Supporting checks from the ECC snapshot
 
-Read `.nonoise/ecc/index.md` for installed capabilities. Before risky sprint tasks use `change-impact`; for brownfield work use `spec-miner`, `inherit-legacy-style` and, when redesign is requested, `brownfield-retrospective`. Before acceptance use `module-regression`, `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter` and the installed language reviewer through `atr`. Final evidence comes from `verification-loop` alongside `superpowers:verification-before-completion`; release readiness uses `production-audit`. These checks support the existing phases and do not add a lifecycle.
+Read `.nonoise/ecc/index.md` for installed capabilities. Before risky sprint tasks use `change-impact`; for brownfield work use `spec-miner`, `inherit-legacy-style` and, when redesign is requested, `brownfield-retrospective`. Before acceptance use `evidence-reviewer`, `module-regression`, `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter` and the installed language reviewer through `atr`. After `arch-sync` and at sprint closure run `docs-steward`. Final evidence comes from `verification-loop` alongside `superpowers:verification-before-completion`; release readiness uses `production-audit`. These checks support the existing phases and do not add a lifecycle.

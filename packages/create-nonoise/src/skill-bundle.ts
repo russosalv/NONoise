@@ -29,4 +29,6 @@ export const MVP_SKILL_BUNDLE = [
   'polly',
   'c4-doc-writer',
   'codebase-memory',
+  'reuse-first',
+  'docs-steward',
 ] as const;

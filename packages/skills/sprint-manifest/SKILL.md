@@ -49,7 +49,7 @@ This skill is **step 3** of the NONoise architectural workflow. It takes `valida
 
 Use `change-impact` before breaking down risky tasks: CL1 uncertainty, migrations, authentication, cross-service contracts, public APIs or deployment changes. Record affected code/data/interfaces, downstream consumers, validation commands and rollback constraints in the acceptance notes. Keep the existing manifest and `arch-decision`/Haft ownership of decisions.
 
-At sprint closure, hand off to `atr` with `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter` and the installed language reviewer from `.nonoise/ecc/index.md`. Require `module-regression` evidence for affected consumers and pair `verification-loop` with `superpowers:verification-before-completion`.
+At sprint closure, hand off to `atr` with `evidence-reviewer`, `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter` and the installed language reviewer from `.nonoise/ecc/index.md`. Require `module-regression` evidence for affected consumers and pair `verification-loop` with `superpowers:verification-before-completion`. Then run `docs-steward` to check that the documents still agree.
 
 ## Golden rule — MACRO granularity (read twice)
 

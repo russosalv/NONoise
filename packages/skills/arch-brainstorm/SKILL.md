@@ -95,7 +95,7 @@ The skill can be triggered in several ways:
    - Existing entities, APIs, events, contracts
    - Cross-component dependencies
 
-   **Tools**: use the `Explore` agent for this reconnaissance, especially when the area spans multiple components. The prompt should be explicit: "Given that I'm studying area X, I want to know what exists today in Y, Z, W; what gaps exist relative to the goal; which patterns are reusable".
+   **Tools**: use the `Explore` agent for this reconnaissance, especially when the area spans multiple components. The prompt should be explicit: "Given that I'm studying area X, I want to know what exists today in Y, Z, W; what gaps exist relative to the goal; which patterns are reusable". Run `reuse-first` before this step; where the `graph-explorer` agent is installed, it can do the exploration.
 
 5. **Summarize to the architect** in ~150 words what you found, before starting questions. Example:
 

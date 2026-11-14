@@ -77,6 +77,14 @@ async function verify() {
       errors.push(`vendor/${required} is required but is missing at ${path}`);
     }
   }
+  // `_agents` is a grouping directory of NONoise agent sources, read by src/ecc.ts
+  // at scaffold time: every source file must reach the published bundle.
+  const agents = (await readdir(resolve(SKILLS_FROM, '_agents'))).filter((f) => f.endsWith('.md'));
+  if (agents.length === 0) errors.push('packages/skills/_agents has no agent sources');
+  for (const file of agents) {
+    const path = resolve(SKILLS_TO, '_agents', file);
+    if (!(await exists(path))) errors.push(`_agents/${file} is required but is missing at ${path}`);
+  }
   if (errors.length > 0) {
     console.error('Bundle verification failed:');
     for (const e of errors) console.error(`  - ${e}`);

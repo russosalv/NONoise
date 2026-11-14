@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { renderEccFiles, STACKS } from '../../src/ecc.js';
+import { renderEccFiles, listNonoiseAgents, STACKS } from '../../src/ecc.js';
 import { listShippedSkills, validateSkill, validateAgent } from '../../src/skill-host-compat.js';
 
 const root = fileURLToPath(new URL('../../../skills/', import.meta.url));
@@ -72,7 +72,19 @@ describe('skill-host-compat shipped assets', () => {
       errors.push(...validateAgent(content, host, m[2]!).map(e => `${path}: ${e}`));
       checked++;
     }
-    expect(checked).toBe(30);
+    // (10 original + 21 language ECC agents + 3 NONoise agents) x 3 hosts.
+    expect(checked).toBe(102);
     expect(errors, errors.join('\n')).toEqual([]);
+  });
+  it('treats _agents as a grouping directory of valid agent sources, not as a skill', () => {
+    expect(listShippedSkills(root).some(s => s.name === '_agents' || s.path.includes('/_agents/'))).toBe(false);
+    const names = listNonoiseAgents(root);
+    expect(names).toEqual(['blueprint-architect', 'evidence-reviewer', 'graph-explorer']);
+    for (const name of names) {
+      // The source shape is the ECC one: name, description and a comma-separated tools string.
+      const source = readFileSync(`${root}_agents/${name}.md`, 'utf8');
+      expect(validateSkill(source, name), name).toEqual([]);
+      expect(source, name).toMatch(/^tools: (?:Read|Grep|Glob|Bash|Write|Edit)(?:, (?:Read|Grep|Glob|Bash|Write|Edit))*$/m);
+    }
   });
 });

@@ -1,4 +1,5 @@
 import { parseProfile } from './profiles.js';
+import { STACKS } from './ecc.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -228,7 +229,9 @@ Options:
   --template <name>   Template: single-project | multi-repo (back-compat; inferred from --workspace if present)
   --profile <name>    minimal|core|developer|security|brownfield|full (default core)
   --with-rea          Enable pinned REA MCP and skill in this project only
-  --stack <csv>       dotnet,typescript,angular,web or none (default); saved for upgrades
+  --stack <csv>       Languages/frameworks, or none (default); saved for upgrades:
+                      ${STACKS.slice(0, 9).join(',')},
+                      ${STACKS.slice(9).join(',')}
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
   --user-name <name>  Developer name (used by AI to address you; default: git user.name)
   --user-locale <iso> Language for the AI to reply in (ISO 639-1; default: OS locale)

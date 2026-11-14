@@ -55,12 +55,15 @@ Read `.nonoise/ecc/index.md` when present and check `nonoise.config.json` before
 | Brownfield discovery | `spec-miner`, then `inherit-legacy-style`; `code-tour` for a navigable tour |
 | Existing design needs reassessment | `brownfield-retrospective`, with `reverse-engineering` |
 | Unclear intent or risky task | `intent-driven-development` or `change-impact` before implementation |
+| Designing in existing code | `graph-explorer`, then `blueprint-architect` |
+| About to add a dependency or a utility | `reuse-first` |
 | API or schema boundary changes | `api-design`, `contract-first`, `database-migrations`, `database-reviewer` |
 | .NET implementation/testing | `dotnet-patterns`, `csharp-testing`, `csharp-reviewer` |
 | Angular or TypeScript work | `angular-developer` where installed; `typescript-reviewer` |
-| Build failure | `build-error-resolver`, scoped to the project's actual build command |
+| Build failure | `build-error-resolver`, or the installed stack build resolver (for example `go-build-resolver`), scoped to the project's actual build command |
 | Cleanup | `code-simplifier` or `refactor-cleaner`, followed by `module-regression` |
-| Acceptance / sprint closure | `atr`, `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter`, installed language reviewer |
+| Acceptance / sprint closure | `atr`, `evidence-reviewer`, `pr-test-analyzer`, `security-reviewer`, `silent-failure-hunter`, installed language reviewer |
+| Docs drifted / sprint closure | `docs-steward` |
 | Release readiness | `verification-loop` with `superpowers:verification-before-completion`, then `production-audit`; `e2e-testing` for web journeys |
 
 For REA recommendations, say why the artifact needs it in one sentence and hand off to `rea-setup` for its single combined installation/target-authorization confirmation. Polly remains advisor-only: do not install or ask that confirmation while producing advice. A connected REA server can be used directly by the receiving analysis skill.

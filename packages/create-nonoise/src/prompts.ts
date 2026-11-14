@@ -611,12 +611,16 @@ function abortIfCancel(value: unknown): void {
 
 export { outro, spinner, note };
 
+const STACK_HINTS: Partial<Record<Stack, string>> = { dotnet: '.NET / C#', web: 'HTML, CSS and browser front ends', go: 'Go', cpp: 'C and C++', flutter: 'Flutter and Dart', fsharp: 'F#' };
+
 export async function askStack(flags: CliFlags): Promise<Stack[]> {
   if (flags.stack !== undefined) return parseStack(flags.stack);
   if (flags.yes) return [];
+  // "None" comes first: with 17 stacks the list is long, and pressing enter
+  // straight away must remain the obvious way to skip it.
   const selected = await multiselect({
-    message: 'Stack (space to toggle; none for common guidance only)',
-    options: [...STACKS.map(value => ({ value, label: value })), { value: 'none', label: 'None / nessuno' }],
+    message: 'Stack — languages and frameworks of this project (space to toggle, enter to confirm; none = common guidance only)',
+    options: [{ value: 'none', label: 'None / nessuno', hint: 'common agents and rules only' }, ...STACKS.map(value => ({ value, label: value, ...(STACK_HINTS[value] ? { hint: STACK_HINTS[value] } : {}) }))],
     required: false,
   });
   abortIfCancel(selected);

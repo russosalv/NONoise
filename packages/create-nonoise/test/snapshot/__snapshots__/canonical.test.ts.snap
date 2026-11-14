@@ -99,7 +99,7 @@ The skill can be triggered in several ways:
    - Existing entities, APIs, events, contracts
    - Cross-component dependencies
 
-   **Tools**: use the \`Explore\` agent for this reconnaissance, especially when the area spans multiple components. The prompt should be explicit: "Given that I'm studying area X, I want to know what exists today in Y, Z, W; what gaps exist relative to the goal; which patterns are reusable".
+   **Tools**: use the \`Explore\` agent for this reconnaissance, especially when the area spans multiple components. The prompt should be explicit: "Given that I'm studying area X, I want to know what exists today in Y, Z, W; what gaps exist relative to the goal; which patterns are reusable". Run \`reuse-first\` before this step; where the \`graph-explorer\` agent is installed, it can do the exploration.
 
 5. **Summarize to the architect** in ~150 words what you found, before starting questions. Example:
 
@@ -1672,9 +1672,9 @@ The backlog (\`backlog.md\`) is also written incrementally. On the first FAIL, t
 
 ### Sprint closure review
 
-Before marking acceptance or a sprint complete, read \`.nonoise/ecc/index.md\` and request \`pr-test-analyzer\` for behavioral coverage, \`security-reviewer\` for security findings, and \`silent-failure-hunter\` for error propagation and fallbacks. Add \`csharp-reviewer\` for .NET changes and \`typescript-reviewer\` for TypeScript/Angular changes when installed. Scope every reviewer to the actual diff and acceptance criteria; collect all findings, resolve blockers and rerun the affected tests. Record reviewer name, scope, findings and validation evidence in the report. If delegation is unavailable, disclose that the review was performed inline.
+Before marking acceptance or a sprint complete, read \`.nonoise/ecc/index.md\` and request \`evidence-reviewer\` for proven defects against the intent, \`pr-test-analyzer\` for behavioral coverage, \`security-reviewer\` for security findings, and \`silent-failure-hunter\` for error propagation and fallbacks. Add \`csharp-reviewer\` for .NET changes, \`typescript-reviewer\` for TypeScript/Angular changes, or the language reviewer listed there for another stack, when installed. Scope every reviewer to the actual diff and acceptance criteria; collect all findings, resolve blockers and rerun the affected tests. Record reviewer name, scope, findings and validation evidence in the report. If delegation is unavailable, disclose that the review was performed inline.
 
-Run \`module-regression\` for affected downstream consumers and \`verification-loop\` for the final build/typecheck/test/security/diff evidence; use \`superpowers:verification-before-completion\` before asserting completion. Missing review or failing checks must remain visible in the acceptance result.
+Run \`module-regression\` for affected downstream consumers and \`verification-loop\` for the final build/typecheck/test/security/diff evidence; use \`superpowers:verification-before-completion\` before asserting completion. Missing review or failing checks must remain visible in the acceptance result. At sprint closure, also run \`docs-steward\` and attach its audit.
 
 ### After all sections complete
 
@@ -4839,6 +4839,99 @@ group at the end with the full list (or reference the
 - If mixed, default to English and flag it in the summary.
 - Never translate managed-block bodies — they are owned by their
   skills and preserved byte-for-byte.
+",
+  ".agents/skills/docs-steward/SKILL.md": "---
+name: docs-steward
+description: Keeps the project's documentation trustworthy - one owner document for each kind of fact, no fact stated in two places, links and the decision index that still resolve. Audits the NONoise docs hierarchy (AGENTS.md, docs/architecture, docs/prd, docs/sprints, docs/requirements) and reports drift, duplicates and broken references; fixes only what the user approves. Use after arch-sync, at sprint closure or acceptance, before a release, and when someone says "the docs are out of date", "audit the docs", "controlla la documentazione".
+---
+
+# docs-steward — one owner per fact
+
+Documentation rots in a predictable way: the same fact is written in three
+places, one of them is updated, and nobody knows which to believe. This skill
+gives every kind of fact a single owner document in the NONoise hierarchy and
+checks that the rest of the documentation points to it instead of repeating it.
+
+It was written for NONoise and works on the folders \`create-nonoise\` scaffolds.
+The four roles and the rule of updating only the role a change affects are
+inspired by the \`living-docs-governance\` and \`docs-governance\` skills of ECC
+(https://github.com/affaan-m/ECC, MIT).
+
+## The four roles, mapped onto NONoise
+
+| Role | Question it answers | Owner in a NONoise project |
+|---|---|---|
+| **Constitution** | What rules does every contributor and every AI tool follow? | \`AGENTS.md\` (source of truth); \`CLAUDE.md\`, \`.github/copilot-instructions.md\`, \`.cursor/rules.md\`, \`GEMINI.md\` are adapters kept in sync by \`docs-md-generator\` |
+| **Map** | What is the system and how is it built? | \`docs/architecture/\` (constraints, C4, components), written through \`arch-sync\` and \`c4-doc-writer\` |
+| **Status** | What is being built now, and what state is it in? | \`docs/sprints/Sprint-N/\` (manifest, promoted PRDs, acceptance reports) and draft PRDs under \`docs/prd/\` |
+| **History** | What was decided, when and why? | PRD frontmatter (\`status\`, \`decision\`, \`haft\` references) and the canonical \`.haft/\` records; \`docs/requirements/\` for what was asked |
+
+Read \`docs/README.md\` first: if the project documents a different mapping there,
+that mapping wins. Do not create new top-level documents to host a role: every
+role already has a home.
+
+## What to check
+
+Run the checks that apply; say which you skipped.
+
+1. **Duplicated facts.** The same fact (a version, a port, a rule, a component
+   list, a decision) stated in more than one role. The owner keeps it; the others
+   should link to it. Use Grep for the distinctive values; when the
+   \`codebase-memory\` graph is available, \`search_code\` finds them across code and
+   docs together.
+2. **Drift between map and code.** Components, endpoints or modules named in
+   \`docs/architecture/\` that the code no longer has, and the reverse.
+   \`get_architecture\` and \`search_graph\` give the code side.
+3. **Drift between history and map.** A validated PRD whose
+   \`## Impact on docs/architecture/\` checklist was never applied (no sync report
+   under \`docs/architecture/sync-reports/\`), or a decision superseded without the
+   map following.
+4. **Decision index.** Every validated PRD has either \`haft.decisions\` references
+   that resolve to files under \`.haft/decisions/\`, or \`decision.mode:
+   lightweight\` with \`choice\` and \`rationale\`. PRDs with \`status: draft\` older
+   than the current sprint are listed, not judged.
+5. **Broken references.** Relative links and file paths in Markdown that do not
+   resolve; references to skills, commands or folders that no longer exist.
+6. **Adapters out of sync.** The managed blocks in the context files differ from
+   \`AGENTS.md\` in substance (hand this to \`docs-md-generator\`).
+7. **Orphans.** Documents nothing links to and no index lists.
+
+## How to work
+
+- **Audit first, change nothing.** Produce the report below and stop.
+- **Fix only on request**, one finding or one group at a time, with a diff the
+  user sees before it is written.
+- **Update only the role the change affects.** A new endpoint changes the map,
+  not the constitution. A decision changes history and, through \`arch-sync\`, the
+  map.
+- **Never rewrite history.** A superseded decision is marked superseded; it is
+  not deleted or edited to look right. \`.haft/\` records are never edited by hand.
+- **Documents are evidence, not truth.** When a document and the code disagree,
+  report both; do not assume which is right.
+
+## The report
+
+\`\`\`markdown
+## Docs audit — <date>
+
+Scope: <folders checked> · Skipped: <checks not run and why>
+
+| # | Check | Where | What is wrong | Owner document | Suggested fix |
+|---|-------|-------|---------------|----------------|---------------|
+
+Summary: <n> duplicated facts, <n> drifts, <n> broken references, <n> orphans.
+Next: <the one or two fixes that matter most>
+\`\`\`
+
+Show the report in the conversation. Save it only if the user asks; the place
+for it is the current sprint's folder (\`docs/sprints/Sprint-N/docs-audit.md\`).
+
+## Related
+
+- \`arch-sync\` applies a validated PRD's checklist to \`docs/architecture/\`.
+- \`docs-md-generator\` regenerates the tool adapters from \`AGENTS.md\`.
+- \`c4-doc-writer\` writes the architecture diagrams.
+- \`bmad-agent-tech-writer\` writes new documentation; this skill audits what exists.
 ",
   ".agents/skills/frontend-design/SKILL.md": "---
 name: frontend-design
@@ -9405,12 +9498,15 @@ Read \`.nonoise/ecc/index.md\` when present and check \`nonoise.config.json\` be
 | Brownfield discovery | \`spec-miner\`, then \`inherit-legacy-style\`; \`code-tour\` for a navigable tour |
 | Existing design needs reassessment | \`brownfield-retrospective\`, with \`reverse-engineering\` |
 | Unclear intent or risky task | \`intent-driven-development\` or \`change-impact\` before implementation |
+| Designing in existing code | \`graph-explorer\`, then \`blueprint-architect\` |
+| About to add a dependency or a utility | \`reuse-first\` |
 | API or schema boundary changes | \`api-design\`, \`contract-first\`, \`database-migrations\`, \`database-reviewer\` |
 | .NET implementation/testing | \`dotnet-patterns\`, \`csharp-testing\`, \`csharp-reviewer\` |
 | Angular or TypeScript work | \`angular-developer\` where installed; \`typescript-reviewer\` |
-| Build failure | \`build-error-resolver\`, scoped to the project's actual build command |
+| Build failure | \`build-error-resolver\`, or the installed stack build resolver (for example \`go-build-resolver\`), scoped to the project's actual build command |
 | Cleanup | \`code-simplifier\` or \`refactor-cleaner\`, followed by \`module-regression\` |
-| Acceptance / sprint closure | \`atr\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\`, installed language reviewer |
+| Acceptance / sprint closure | \`atr\`, \`evidence-reviewer\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\`, installed language reviewer |
+| Docs drifted / sprint closure | \`docs-steward\` |
 | Release readiness | \`verification-loop\` with \`superpowers:verification-before-completion\`, then \`production-audit\`; \`e2e-testing\` for web journeys |
 
 For REA recommendations, say why the artifact needs it in one sentence and hand off to \`rea-setup\` for its single combined installation/target-authorization confirmation. Polly remains advisor-only: do not install or ask that confirmation while producing advice. A connected REA server can be used directly by the receiving analysis skill.
@@ -10057,6 +10153,8 @@ Fai brainstorming sulla feature <nome>. Requisiti in docs/requirements/<file>.md
 Brainstorm the feature <name>. Requirements at docs/requirements/<file>.md. Known constraints: <…>. Explore 2-3 approaches with trade-offs, pick one, save a spec under docs/superpowers/specs/. Proceed.
 \`\`\`
 
+Start with \`reuse-first\`; in existing code, have \`graph-explorer\` map the area and \`blueprint-architect\` derive the blueprint before the spec is closed.
+
 Skip when: the work is a pure refactor with no new feature.
 
 ## arch-brainstorm
@@ -10068,6 +10166,8 @@ Voglio esplorare opzioni architetturali per <area / feature>. Contesto: <scope, 
 \`\`\`prompt (en)
 I want to explore architectural options for <area / feature>. Context: <scope, constraints, expected canonical patterns>. Produce 2-3 options with trade-offs and a recommendation under docs/architecture/brainstorm/. Proceed.
 \`\`\`
+
+Start with \`reuse-first\`, so the options build on what already exists.
 
 Skip when: the feature fits an already-decided architecture.
 
@@ -10125,6 +10225,8 @@ Devo implementare il task <id> dello Sprint-<N>. Scrivi un plan dettagliato e po
 I need to implement task <id> of Sprint-<N>. Write a detailed plan and execute it via subagent-driven-development with TDD. Proceed.
 \`\`\`
 
+Close each task with \`evidence-reviewer\` (plus the installed language reviewer) before acceptance.
+
 ## acceptance
 
 \`\`\`prompt (it)
@@ -10139,7 +10241,7 @@ Vendor skill identifiers such as \`superpowers:writing-plans\` resolve through t
 
 ## Supporting checks from the ECC snapshot
 
-Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
+Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`evidence-reviewer\`, \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. After \`arch-sync\` and at sprint closure run \`docs-steward\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
 ",
   ".agents/skills/production-audit/SKILL.md": "---
 # Source: https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/production-audit/SKILL.md | Commit: b92f181b3b748d1abbc2afd94af6aa7d8c8fca29 | MIT | Adapted for NONoise; see UPSTREAM.md.
@@ -11565,6 +11667,97 @@ When the feature file already exists and new input brings additional candidates:
 6. **Open points**: add new ones; resolve existing ones only if the new source explicitly resolves them.
 7. **Source quotes**: append — preserve audit trail.
 8. **Ingestion history**: always append a new entry with date, added candidate IDs, and source path.
+",
+  ".agents/skills/reuse-first/SKILL.md": "---
+name: reuse-first
+description: Before writing new code or adding a dependency, check what already solves the problem - in this codebase, in the project's dependencies, in the standard library, in a well-maintained package - and record an adopt / extend / build decision. Use at the start of feature design and architecture brainstorming, and whenever the task is "add X" where X sounds like something that already exists (a client, a parser, a validator, a retry helper, a date utility). Not needed in quick mode for a one-line fix.
+---
+
+# reuse-first — look before you build
+
+New code is the most expensive way to get a capability: it has to be written,
+tested, documented and maintained. This skill makes the search for an existing
+answer an explicit, recorded step instead of an afterthought.
+
+It was written for NONoise and follows its "canonical over exotic" principle.
+The idea of a mandatory research step with an adopt / extend / build outcome is
+inspired by the \`search-first\` skill of ECC (https://github.com/affaan-m/ECC, MIT).
+
+## When to run it
+
+- At the start of \`feature-design\` (medium and long mode) and of
+  \`arch-brainstorm\` (long mode).
+- When a task introduces a new dependency, a new utility module or a new service
+  client.
+- Skip it in quick mode, and for work that only changes existing behaviour.
+
+## Step 1 — State the capability, not the solution
+
+Write one sentence: what must the code be able to do, with which inputs and
+constraints (runtime, licence, offline, performance, security). "A wrapper around
+fetch" is a solution; "call the billing API with retries and a timeout, from the
+browser and from Node" is a capability.
+
+## Step 2 — Search, nearest first
+
+Stop at the first level that gives a good answer.
+
+1. **This codebase.** Use the \`codebase-memory\` tools: \`search_graph\` with a
+   \`semantic_query\` for the capability and a \`name_pattern\` for likely names;
+   \`search_code\` for distinctive strings. Without the graph, use Grep. Look in
+   shared and utility modules first. In a multi-repo workspace, search the sibling
+   repositories too.
+2. **What the project already depends on.** Read the manifest (\`package.json\`,
+   \`*.csproj\`, \`pyproject.toml\`, \`go.mod\`, ...). A library already in the project
+   often has the feature; check its documentation before adding another one.
+3. **The platform and the standard library.** Language and framework built-ins.
+4. **A maintained external package.** Only now look outside. Prefer the canonical
+   choice for the ecosystem over a clever newcomer. Check: licence compatible with
+   the project, recent releases, open security advisories, size and transitive
+   dependencies, and that it fits the constraints from Step 1. Use the web search
+   or documentation tools the host offers; if there are none, say that the
+   external search was not done.
+
+## Step 3 — Decide
+
+| Decision | When | What follows |
+|---|---|---|
+| **Adopt** | Something existing meets the need as it is | Use it; name the symbol or package and version |
+| **Extend** | Something existing covers most of it | Extend or wrap it in place; do not fork a copy |
+| **Build** | Nothing fits, or the fit costs more than building | Build the smallest thing; say why the candidates were rejected |
+
+Adding a dependency is a decision the user owns when it is costly to remove
+(a framework, a database client, anything with a licence or a runtime of its
+own). Present it with the alternatives; do not install it on your own.
+
+## Step 4 — Record it
+
+Add a short section to the document the phase is producing — the spec under
+\`docs/superpowers/specs/\` or the PRD under \`docs/prd/<area>/\`:
+
+\`\`\`markdown
+## Reuse check
+
+Capability: <one sentence>
+
+| Candidate | Where | Fit | Verdict |
+|-----------|-------|-----|---------|
+| <existing symbol / package> | <path:line or registry> | <what it covers, what it lacks> | adopt / extend / rejected: <reason> |
+
+Decision: adopt | extend | build — <one line why>
+Not searched: <levels skipped and why>
+\`\`\`
+
+There is no separate file and no separate register: the decision lives with the
+design it belongs to.
+
+## What this skill does not do
+
+- It does not choose an architecture. A reuse decision that is costly to reverse
+  goes through \`arch-decision\`.
+- It does not install packages.
+- It does not replace \`reverse-engineering\` or \`graph-explorer\`: those explain how
+  existing code works; this one asks whether existing code already does the job.
 ",
   ".agents/skills/reverse-engineering/SKILL.md": "---
 name: reverse-engineering
@@ -13797,7 +13990,7 @@ This skill is **step 3** of the NONoise architectural workflow. It takes \`valid
 
 Use \`change-impact\` before breaking down risky tasks: CL1 uncertainty, migrations, authentication, cross-service contracts, public APIs or deployment changes. Record affected code/data/interfaces, downstream consumers, validation commands and rollback constraints in the acceptance notes. Keep the existing manifest and \`arch-decision\`/Haft ownership of decisions.
 
-At sprint closure, hand off to \`atr\` with \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer from \`.nonoise/ecc/index.md\`. Require \`module-regression\` evidence for affected consumers and pair \`verification-loop\` with \`superpowers:verification-before-completion\`.
+At sprint closure, hand off to \`atr\` with \`evidence-reviewer\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer from \`.nonoise/ecc/index.md\`. Require \`module-regression\` evidence for affected consumers and pair \`verification-loop\` with \`superpowers:verification-before-completion\`. Then run \`docs-steward\` to check that the documents still agree.
 
 ## Golden rule — MACRO granularity (read twice)
 
@@ -14537,6 +14730,106 @@ See the \`assets/\` directory for the handlebars source templates.
 }
 ",
   ".claude/agents/.gitkeep": "",
+  ".claude/agents/blueprint-architect.md": "---
+name: blueprint-architect
+description: Turns an approved requirement or spec into an implementation blueprint that fits the existing codebase - the files to create and change, the interfaces, the data flow and the order of work, each step small enough to test. Use after the code has been explored (graph-explorer) and before writing the plan. It designs within the decided architecture; it does not choose between architectures. Read-only.
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+---
+
+<!-- NONoise agent | MIT | Inspired by ECC (https://github.com/affaan-m/ECC); see the note in the agent body. -->
+
+# Blueprint architect
+
+You design how a feature fits into the code that already exists. You produce a
+blueprint someone can turn into a plan and then into commits. You never edit
+source files.
+
+This agent was written for NONoise. Deriving a file-level blueprint from the
+codebase's own patterns, with a build sequence, is inspired by the
+\`code-architect\` agent of ECC (https://github.com/affaan-m/ECC, MIT).
+
+## Your boundary
+
+You work **inside** the architecture the project has already decided
+(\`docs/architecture/\`, validated PRDs under \`docs/prd/\` and \`docs/sprints/\`).
+If the feature needs a choice that is costly to reverse and has more than one
+viable option — a data model, a public contract, a security boundary,
+infrastructure, a vendor — stop and say so: that decision belongs to
+\`arch-brainstorm\` and \`arch-decision\`, not to a blueprint. Name the decision and
+the options you see, then design only what does not depend on it.
+
+## Process
+
+1. **Read the intent**: the requirement, spec or PRD, and its acceptance criteria.
+   If acceptance criteria are missing, list the ones you are assuming.
+2. **Read the terrain**: the exploration the caller gives you (from
+   \`graph-explorer\`). If there is none, do a short one yourself with the
+   \`codebase-memory\` tools (\`get_architecture\`, \`search_graph\`, \`trace_path\`) —
+   enough to know the conventions and the reusable pieces.
+3. **Reuse before adding**: for each thing the feature needs, name the existing
+   symbol that already does it, or state that none exists and where the new one
+   belongs by the project's conventions.
+4. **Design the smallest change** that meets the acceptance criteria. Follow the
+   patterns already in use; when you depart from one, say why.
+5. **Sequence it**: order the work so that each step compiles, has a test, and
+   leaves the system working.
+
+## The blueprint
+
+\`\`\`markdown
+## Blueprint: <feature>
+
+### Fits into
+- <existing module / layer / pattern it extends>, with locations
+
+### Decisions inside the existing architecture
+- <decision>: <why>, <alternative discarded>
+
+### Needs an architectural decision first (if any)
+- <decision>, the options, and what is blocked until it is made
+
+### Files to create
+| File | Purpose | Follows the pattern of |
+|------|---------|------------------------|
+
+### Files to change
+| File | Change | Why |
+|------|--------|-----|
+
+### Interfaces
+- <signature, endpoint, event or schema>, with types and error cases
+
+### Data flow
+1. <step>
+
+### Build sequence
+1. <step>: what to write, the test that proves it, what stays working
+
+### Acceptance criteria → where they are met
+| Criterion | Step | Test |
+|-----------|------|------|
+
+### Risks
+- <what could go wrong and how the sequence limits it>
+\`\`\`
+
+Rules:
+
+- Every file you name either exists (give the location) or is new (say which
+  existing file it is modelled on).
+- No step without a test, unless you say why it cannot have one.
+- No speculative abstractions: design for the acceptance criteria you were given.
+- Keep it to what a plan needs. The plan itself is written by
+  \`superpowers:writing-plans\`.
+
+Your output goes back to the caller. In NONoise it becomes the design section of
+the spec under \`docs/superpowers/specs/\` (medium mode) or feeds the sprint
+breakdown (long mode).
+",
   ".claude/agents/build-error-resolver.md": "---
 name: build-error-resolver
 description: Build and TypeScript error resolution specialist. Use PROACTIVELY when build fails or type errors occur. Fixes build/type errors only with minimal diffs, no architectural edits. Focuses on getting the build green quickly.
@@ -14838,6 +15131,204 @@ For detailed index patterns, schema design examples, connection management, conc
 
 *Patterns adapted from Supabase Agent Skills (credit: Supabase team) under MIT license.*
 ",
+  ".claude/agents/evidence-reviewer.md": "---
+name: evidence-reviewer
+description: Reviews a diff or a set of changed files and reports only findings it can prove - each with the exact line, the concrete failure, and the context it checked. Use at the end of an implementation task, before acceptance (atr) and before a pull request. Returns "no findings" when the change is sound. Read-only - it never edits code.
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+---
+
+<!-- NONoise agent | MIT | Inspired by ECC (https://github.com/affaan-m/ECC); see the note in the agent body. -->
+
+# Evidence reviewer
+
+You review a change and report what is actually wrong with it. A short report
+with three proven findings is worth more than a long one with thirty guesses.
+You never edit files: you read, run read-only commands, and report.
+
+This agent was written for NONoise. The proof-before-report discipline, the
+false-positive list and the rule that an empty report is a valid result are
+inspired by the \`code-reviewer\` agent of ECC (https://github.com/affaan-m/ECC, MIT).
+
+## 1. Establish what changed
+
+- Run \`git diff --stat\` and \`git diff\` against the base the caller names (default:
+  the merge base with the default branch). If there is no git history, review the
+  files the caller lists.
+- Read the task, spec or PRD the change implements, when the caller gives one
+  (\`docs/superpowers/specs/\`, \`docs/superpowers/plans/\`, \`docs/prd/\`,
+  \`docs/sprints/Sprint-N/\`). A change is reviewed against its intent, not in a
+  vacuum.
+- If the \`codebase-memory\` MCP tools are available, call \`detect_changes\` to see
+  which symbols the diff touches and \`trace_path\` (inbound) on the changed
+  functions to find their callers. Otherwise find callers with Grep.
+
+## 2. The gate every finding must pass
+
+Before you write a finding, answer four questions. If any answer is "no" or
+"not sure", lower the severity or drop the finding.
+
+1. **Exact place.** Can you name the file and the line?
+2. **Concrete failure.** Can you name the input or state that triggers it and the
+   wrong result that follows? If you cannot name the trigger, you are matching a
+   pattern, not reviewing.
+3. **Context read.** Did you read the callers, the types and the tests around it?
+   Many apparent defects are handled one frame up.
+4. **Defensible severity.** Would the author agree this severity is fair after
+   reading your evidence?
+
+**Critical and high findings need proof**: the path from an entry point to the
+defect, or a command you ran and its output, or a test that fails. Without proof
+the finding is at most medium, worded as a question.
+
+## 3. What to look for, in this order
+
+1. **Correctness against the intent**: a requirement the change claims to meet and
+   does not; an acceptance criterion with no code or no test behind it.
+2. **Data loss and security**: unvalidated input reaching a query, a shell, a path
+   or a template; secrets in code or logs; an authorization check missing on a new
+   entry point; a migration that cannot be rolled back.
+3. **Failure handling**: errors swallowed, a fallback that hides a failure, a
+   promise or task nobody awaits, a resource never released.
+4. **Contracts**: a public function, API, event or schema changed without its
+   callers, consumers or documents following.
+5. **Tests**: new behaviour with no test; a test that cannot fail; a test deleted
+   or skipped to make the suite pass.
+6. **Maintainability**, only when it will cost someone soon: duplicated logic that
+   already exists in the codebase (name the existing symbol), dead code added by
+   this change.
+
+Language- and framework-specific rules are not your job when a language reviewer
+is installed (\`csharp-reviewer\`, \`typescript-reviewer\`, \`python-reviewer\`, ...):
+say which one should also run and leave those rules to it.
+
+## 4. Do not report these
+
+They are the usual false positives of an automated review. Skip them unless you
+have evidence specific to this codebase.
+
+- "Add error handling" where the caller, the framework or a top-level handler
+  already deals with the error.
+- "Validate this input" on an internal function whose callers validate. Trace one
+  caller before you flag it.
+- "Magic number" for well-known values (HTTP codes, 0, 1, -1, 60, 1024) or a
+  single-use constant whose name says what it is.
+- "Add a comment" or "add documentation" on code that reads clearly.
+- "Could be more efficient" with no measurement and no realistic size at which it
+  matters.
+- Style the formatter or the linter already enforces.
+- Anything in code this change did not touch, unless the change made it wrong.
+
+## 5. The report
+
+\`\`\`markdown
+## Review: <what was reviewed, against which base>
+
+Verdict: approve | approve with notes | changes needed
+
+### Findings
+| # | Severity | File:line | What fails, and when | Evidence |
+|---|----------|-----------|----------------------|----------|
+
+### Checked and sound
+- <the risky areas you examined and found correct, one line each>
+
+### Not reviewed
+- <what you could not check and why: no tests to run, generated code, ...>
+\`\`\`
+
+**No findings is a valid and expected result.** When the change is sound, say
+"No findings", list what you checked, and stop. Do not pad the report.
+
+"Changes needed" requires at least one critical or high finding with proof.
+Hand the report back to the caller; where it is stored (a sprint acceptance
+report, a pull-request comment) is the caller's decision.
+",
+  ".claude/agents/graph-explorer.md": "---
+name: graph-explorer
+description: Maps how an existing feature or area of the codebase works before new work starts - entry points, the call path, the layers and modules involved, the patterns in use and what can be reused. Queries the project's code graph (codebase-memory) first and reads source only for the symbols the graph names. Use before designing a feature or a refactor in code you did not write. Read-only.
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+---
+
+<!-- NONoise agent | MIT | Inspired by ECC (https://github.com/affaan-m/ECC); see the note in the agent body. -->
+
+# Graph explorer
+
+You explain how an existing part of the codebase works, so that whoever designs
+the next change builds on what is there instead of beside it. You never edit
+files and you do not propose a design: that is \`blueprint-architect\`'s job.
+
+This agent was written for NONoise. Exploring before designing, as a separate
+read-only step, is inspired by the \`code-explorer\` agent of ECC
+(https://github.com/affaan-m/ECC, MIT). The graph-first method is NONoise's own.
+
+## Method: graph first, files second
+
+1. **Check the graph.** If the \`codebase-memory\` MCP tools are available, call
+   \`list_projects\`; if this repository is not listed, say so and ask the caller to
+   run \`/index\` (or call \`index_repository\` yourself if you were told you may).
+   Without MCP, use the CLI: \`codebase-memory-mcp cli <tool> --help\`. With no
+   graph at all, fall back to Glob and Grep and say that the map is partial.
+2. **Find the entry points** of the area: \`search_graph\` by name or meaning
+   (routes, handlers, commands, jobs, public functions).
+3. **Trace the path** from each entry point with \`trace_path\` (outbound): the
+   calls, the async or queue boundaries, where data is transformed, where errors
+   go. Use \`mode: "cross_service"\` when the path leaves the process.
+4. **Find who depends on it**: \`trace_path\` (inbound) on the central symbols.
+5. **Read the source** of the symbols that matter with \`get_code_snippet\` or Read.
+   Read enough to state behaviour, not every file.
+6. **Check coverage** with \`check_index_coverage\` before writing "there is no
+   such thing". A missing result is not proof of absence.
+
+## What to report
+
+\`\`\`markdown
+## Exploration: <feature or area>
+
+### Entry points
+- <symbol or route> (\`path:line\`): how it is triggered
+
+### Flow
+1. <step>: <symbol> (\`path:line\`), what it does to the data
+
+### Layers and modules
+- <layer or module>: its role here, and how it talks to its neighbours
+
+### Conventions in use
+- <naming, error handling, validation, persistence, testing pattern> — with one
+  example location each
+
+### Reusable pieces
+- <existing function, component or utility> (\`path:line\`): what it already does
+
+### Dependencies
+- internal: <module> ; external: <library or service>
+
+### Risks and unknowns
+- <tight coupling, missing tests, code the graph does not cover, open questions>
+\`\`\`
+
+Rules:
+
+- Every statement about the code carries a location. No location, no statement.
+- Separate what you observed from what you infer; mark inferences as such.
+- Quote the graph queries you ran, so the caller can run them again.
+- Stay inside the area you were asked about. Name adjacent areas that matter; do
+  not explore them.
+- Documents are evidence, not truth: when \`docs/architecture/\` and the code
+  disagree, report the disagreement with both locations.
+
+Your output goes back to the caller. In NONoise it normally becomes the
+"Existing behaviour" section of the spec under \`docs/superpowers/specs/\` (medium
+mode) or of the PRD under \`docs/prd/<area>/\` (long mode).
+",
   ".claude/agents/pr-test-analyzer.md": "---
 name: pr-test-analyzer
 description: Review pull request test coverage quality and completeness, with emphasis on behavioral coverage and real bug prevention.
@@ -15079,9 +15570,11 @@ No state is persisted across turns. No auto-trigger.
 
 NONoise installs a pinned selection of ECC agents with bare names. Read the generated .nonoise/ecc/index.md for the installed roster and stack rules. Use the harness agent tool when available; otherwise apply the agent instructions directly and disclose that no independent review ran.
 
-Use security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus csharp-reviewer or typescript-reviewer when installed. Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.
+NONoise's own agents are listed there too: graph-explorer maps existing code before design, blueprint-architect turns a spec into a file-level blueprint, evidence-reviewer reviews a change and reports only what it can prove.
 
-Planning uses superpowers:writing-plans; architecture decisions use arch-decision and Haft; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.
+Use evidence-reviewer, security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus the language reviewer installed for the stack (csharp-reviewer, typescript-reviewer, python-reviewer, go-reviewer and so on). Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver or the stack's own build resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.
+
+Planning uses superpowers:writing-plans; architecture decisions use arch-decision, with Haft when the FPF gate fires; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.
 
 Delegate only when appropriate to the user's task and harness permissions. Collect and integrate every delegated result before reporting completion. Do not redelegate work that fits one agent's context.
 ",
@@ -15723,7 +16216,7 @@ The skill can be triggered in several ways:
    - Existing entities, APIs, events, contracts
    - Cross-component dependencies
 
-   **Tools**: use the \`Explore\` agent for this reconnaissance, especially when the area spans multiple components. The prompt should be explicit: "Given that I'm studying area X, I want to know what exists today in Y, Z, W; what gaps exist relative to the goal; which patterns are reusable".
+   **Tools**: use the \`Explore\` agent for this reconnaissance, especially when the area spans multiple components. The prompt should be explicit: "Given that I'm studying area X, I want to know what exists today in Y, Z, W; what gaps exist relative to the goal; which patterns are reusable". Run \`reuse-first\` before this step; where the \`graph-explorer\` agent is installed, it can do the exploration.
 
 5. **Summarize to the architect** in ~150 words what you found, before starting questions. Example:
 
@@ -17296,9 +17789,9 @@ The backlog (\`backlog.md\`) is also written incrementally. On the first FAIL, t
 
 ### Sprint closure review
 
-Before marking acceptance or a sprint complete, read \`.nonoise/ecc/index.md\` and request \`pr-test-analyzer\` for behavioral coverage, \`security-reviewer\` for security findings, and \`silent-failure-hunter\` for error propagation and fallbacks. Add \`csharp-reviewer\` for .NET changes and \`typescript-reviewer\` for TypeScript/Angular changes when installed. Scope every reviewer to the actual diff and acceptance criteria; collect all findings, resolve blockers and rerun the affected tests. Record reviewer name, scope, findings and validation evidence in the report. If delegation is unavailable, disclose that the review was performed inline.
+Before marking acceptance or a sprint complete, read \`.nonoise/ecc/index.md\` and request \`evidence-reviewer\` for proven defects against the intent, \`pr-test-analyzer\` for behavioral coverage, \`security-reviewer\` for security findings, and \`silent-failure-hunter\` for error propagation and fallbacks. Add \`csharp-reviewer\` for .NET changes, \`typescript-reviewer\` for TypeScript/Angular changes, or the language reviewer listed there for another stack, when installed. Scope every reviewer to the actual diff and acceptance criteria; collect all findings, resolve blockers and rerun the affected tests. Record reviewer name, scope, findings and validation evidence in the report. If delegation is unavailable, disclose that the review was performed inline.
 
-Run \`module-regression\` for affected downstream consumers and \`verification-loop\` for the final build/typecheck/test/security/diff evidence; use \`superpowers:verification-before-completion\` before asserting completion. Missing review or failing checks must remain visible in the acceptance result.
+Run \`module-regression\` for affected downstream consumers and \`verification-loop\` for the final build/typecheck/test/security/diff evidence; use \`superpowers:verification-before-completion\` before asserting completion. Missing review or failing checks must remain visible in the acceptance result. At sprint closure, also run \`docs-steward\` and attach its audit.
 
 ### After all sections complete
 
@@ -20463,6 +20956,99 @@ group at the end with the full list (or reference the
 - If mixed, default to English and flag it in the summary.
 - Never translate managed-block bodies — they are owned by their
   skills and preserved byte-for-byte.
+",
+  ".claude/skills/docs-steward/SKILL.md": "---
+name: docs-steward
+description: Keeps the project's documentation trustworthy - one owner document for each kind of fact, no fact stated in two places, links and the decision index that still resolve. Audits the NONoise docs hierarchy (AGENTS.md, docs/architecture, docs/prd, docs/sprints, docs/requirements) and reports drift, duplicates and broken references; fixes only what the user approves. Use after arch-sync, at sprint closure or acceptance, before a release, and when someone says "the docs are out of date", "audit the docs", "controlla la documentazione".
+---
+
+# docs-steward — one owner per fact
+
+Documentation rots in a predictable way: the same fact is written in three
+places, one of them is updated, and nobody knows which to believe. This skill
+gives every kind of fact a single owner document in the NONoise hierarchy and
+checks that the rest of the documentation points to it instead of repeating it.
+
+It was written for NONoise and works on the folders \`create-nonoise\` scaffolds.
+The four roles and the rule of updating only the role a change affects are
+inspired by the \`living-docs-governance\` and \`docs-governance\` skills of ECC
+(https://github.com/affaan-m/ECC, MIT).
+
+## The four roles, mapped onto NONoise
+
+| Role | Question it answers | Owner in a NONoise project |
+|---|---|---|
+| **Constitution** | What rules does every contributor and every AI tool follow? | \`AGENTS.md\` (source of truth); \`CLAUDE.md\`, \`.github/copilot-instructions.md\`, \`.cursor/rules.md\`, \`GEMINI.md\` are adapters kept in sync by \`docs-md-generator\` |
+| **Map** | What is the system and how is it built? | \`docs/architecture/\` (constraints, C4, components), written through \`arch-sync\` and \`c4-doc-writer\` |
+| **Status** | What is being built now, and what state is it in? | \`docs/sprints/Sprint-N/\` (manifest, promoted PRDs, acceptance reports) and draft PRDs under \`docs/prd/\` |
+| **History** | What was decided, when and why? | PRD frontmatter (\`status\`, \`decision\`, \`haft\` references) and the canonical \`.haft/\` records; \`docs/requirements/\` for what was asked |
+
+Read \`docs/README.md\` first: if the project documents a different mapping there,
+that mapping wins. Do not create new top-level documents to host a role: every
+role already has a home.
+
+## What to check
+
+Run the checks that apply; say which you skipped.
+
+1. **Duplicated facts.** The same fact (a version, a port, a rule, a component
+   list, a decision) stated in more than one role. The owner keeps it; the others
+   should link to it. Use Grep for the distinctive values; when the
+   \`codebase-memory\` graph is available, \`search_code\` finds them across code and
+   docs together.
+2. **Drift between map and code.** Components, endpoints or modules named in
+   \`docs/architecture/\` that the code no longer has, and the reverse.
+   \`get_architecture\` and \`search_graph\` give the code side.
+3. **Drift between history and map.** A validated PRD whose
+   \`## Impact on docs/architecture/\` checklist was never applied (no sync report
+   under \`docs/architecture/sync-reports/\`), or a decision superseded without the
+   map following.
+4. **Decision index.** Every validated PRD has either \`haft.decisions\` references
+   that resolve to files under \`.haft/decisions/\`, or \`decision.mode:
+   lightweight\` with \`choice\` and \`rationale\`. PRDs with \`status: draft\` older
+   than the current sprint are listed, not judged.
+5. **Broken references.** Relative links and file paths in Markdown that do not
+   resolve; references to skills, commands or folders that no longer exist.
+6. **Adapters out of sync.** The managed blocks in the context files differ from
+   \`AGENTS.md\` in substance (hand this to \`docs-md-generator\`).
+7. **Orphans.** Documents nothing links to and no index lists.
+
+## How to work
+
+- **Audit first, change nothing.** Produce the report below and stop.
+- **Fix only on request**, one finding or one group at a time, with a diff the
+  user sees before it is written.
+- **Update only the role the change affects.** A new endpoint changes the map,
+  not the constitution. A decision changes history and, through \`arch-sync\`, the
+  map.
+- **Never rewrite history.** A superseded decision is marked superseded; it is
+  not deleted or edited to look right. \`.haft/\` records are never edited by hand.
+- **Documents are evidence, not truth.** When a document and the code disagree,
+  report both; do not assume which is right.
+
+## The report
+
+\`\`\`markdown
+## Docs audit — <date>
+
+Scope: <folders checked> · Skipped: <checks not run and why>
+
+| # | Check | Where | What is wrong | Owner document | Suggested fix |
+|---|-------|-------|---------------|----------------|---------------|
+
+Summary: <n> duplicated facts, <n> drifts, <n> broken references, <n> orphans.
+Next: <the one or two fixes that matter most>
+\`\`\`
+
+Show the report in the conversation. Save it only if the user asks; the place
+for it is the current sprint's folder (\`docs/sprints/Sprint-N/docs-audit.md\`).
+
+## Related
+
+- \`arch-sync\` applies a validated PRD's checklist to \`docs/architecture/\`.
+- \`docs-md-generator\` regenerates the tool adapters from \`AGENTS.md\`.
+- \`c4-doc-writer\` writes the architecture diagrams.
+- \`bmad-agent-tech-writer\` writes new documentation; this skill audits what exists.
 ",
   ".claude/skills/frontend-design/SKILL.md": "---
 name: frontend-design
@@ -25029,12 +25615,15 @@ Read \`.nonoise/ecc/index.md\` when present and check \`nonoise.config.json\` be
 | Brownfield discovery | \`spec-miner\`, then \`inherit-legacy-style\`; \`code-tour\` for a navigable tour |
 | Existing design needs reassessment | \`brownfield-retrospective\`, with \`reverse-engineering\` |
 | Unclear intent or risky task | \`intent-driven-development\` or \`change-impact\` before implementation |
+| Designing in existing code | \`graph-explorer\`, then \`blueprint-architect\` |
+| About to add a dependency or a utility | \`reuse-first\` |
 | API or schema boundary changes | \`api-design\`, \`contract-first\`, \`database-migrations\`, \`database-reviewer\` |
 | .NET implementation/testing | \`dotnet-patterns\`, \`csharp-testing\`, \`csharp-reviewer\` |
 | Angular or TypeScript work | \`angular-developer\` where installed; \`typescript-reviewer\` |
-| Build failure | \`build-error-resolver\`, scoped to the project's actual build command |
+| Build failure | \`build-error-resolver\`, or the installed stack build resolver (for example \`go-build-resolver\`), scoped to the project's actual build command |
 | Cleanup | \`code-simplifier\` or \`refactor-cleaner\`, followed by \`module-regression\` |
-| Acceptance / sprint closure | \`atr\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\`, installed language reviewer |
+| Acceptance / sprint closure | \`atr\`, \`evidence-reviewer\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\`, installed language reviewer |
+| Docs drifted / sprint closure | \`docs-steward\` |
 | Release readiness | \`verification-loop\` with \`superpowers:verification-before-completion\`, then \`production-audit\`; \`e2e-testing\` for web journeys |
 
 For REA recommendations, say why the artifact needs it in one sentence and hand off to \`rea-setup\` for its single combined installation/target-authorization confirmation. Polly remains advisor-only: do not install or ask that confirmation while producing advice. A connected REA server can be used directly by the receiving analysis skill.
@@ -25681,6 +26270,8 @@ Fai brainstorming sulla feature <nome>. Requisiti in docs/requirements/<file>.md
 Brainstorm the feature <name>. Requirements at docs/requirements/<file>.md. Known constraints: <…>. Explore 2-3 approaches with trade-offs, pick one, save a spec under docs/superpowers/specs/. Proceed.
 \`\`\`
 
+Start with \`reuse-first\`; in existing code, have \`graph-explorer\` map the area and \`blueprint-architect\` derive the blueprint before the spec is closed.
+
 Skip when: the work is a pure refactor with no new feature.
 
 ## arch-brainstorm
@@ -25692,6 +26283,8 @@ Voglio esplorare opzioni architetturali per <area / feature>. Contesto: <scope, 
 \`\`\`prompt (en)
 I want to explore architectural options for <area / feature>. Context: <scope, constraints, expected canonical patterns>. Produce 2-3 options with trade-offs and a recommendation under docs/architecture/brainstorm/. Proceed.
 \`\`\`
+
+Start with \`reuse-first\`, so the options build on what already exists.
 
 Skip when: the feature fits an already-decided architecture.
 
@@ -25749,6 +26342,8 @@ Devo implementare il task <id> dello Sprint-<N>. Scrivi un plan dettagliato e po
 I need to implement task <id> of Sprint-<N>. Write a detailed plan and execute it via subagent-driven-development with TDD. Proceed.
 \`\`\`
 
+Close each task with \`evidence-reviewer\` (plus the installed language reviewer) before acceptance.
+
 ## acceptance
 
 \`\`\`prompt (it)
@@ -25763,7 +26358,7 @@ Vendor skill identifiers such as \`superpowers:writing-plans\` resolve through t
 
 ## Supporting checks from the ECC snapshot
 
-Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
+Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`evidence-reviewer\`, \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. After \`arch-sync\` and at sprint closure run \`docs-steward\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
 ",
   ".claude/skills/production-audit/SKILL.md": "---
 # Source: https://github.com/affaan-m/ECC/blob/b92f181b3b748d1abbc2afd94af6aa7d8c8fca29/skills/production-audit/SKILL.md | Commit: b92f181b3b748d1abbc2afd94af6aa7d8c8fca29 | MIT | Adapted for NONoise; see UPSTREAM.md.
@@ -27189,6 +27784,97 @@ When the feature file already exists and new input brings additional candidates:
 6. **Open points**: add new ones; resolve existing ones only if the new source explicitly resolves them.
 7. **Source quotes**: append — preserve audit trail.
 8. **Ingestion history**: always append a new entry with date, added candidate IDs, and source path.
+",
+  ".claude/skills/reuse-first/SKILL.md": "---
+name: reuse-first
+description: Before writing new code or adding a dependency, check what already solves the problem - in this codebase, in the project's dependencies, in the standard library, in a well-maintained package - and record an adopt / extend / build decision. Use at the start of feature design and architecture brainstorming, and whenever the task is "add X" where X sounds like something that already exists (a client, a parser, a validator, a retry helper, a date utility). Not needed in quick mode for a one-line fix.
+---
+
+# reuse-first — look before you build
+
+New code is the most expensive way to get a capability: it has to be written,
+tested, documented and maintained. This skill makes the search for an existing
+answer an explicit, recorded step instead of an afterthought.
+
+It was written for NONoise and follows its "canonical over exotic" principle.
+The idea of a mandatory research step with an adopt / extend / build outcome is
+inspired by the \`search-first\` skill of ECC (https://github.com/affaan-m/ECC, MIT).
+
+## When to run it
+
+- At the start of \`feature-design\` (medium and long mode) and of
+  \`arch-brainstorm\` (long mode).
+- When a task introduces a new dependency, a new utility module or a new service
+  client.
+- Skip it in quick mode, and for work that only changes existing behaviour.
+
+## Step 1 — State the capability, not the solution
+
+Write one sentence: what must the code be able to do, with which inputs and
+constraints (runtime, licence, offline, performance, security). "A wrapper around
+fetch" is a solution; "call the billing API with retries and a timeout, from the
+browser and from Node" is a capability.
+
+## Step 2 — Search, nearest first
+
+Stop at the first level that gives a good answer.
+
+1. **This codebase.** Use the \`codebase-memory\` tools: \`search_graph\` with a
+   \`semantic_query\` for the capability and a \`name_pattern\` for likely names;
+   \`search_code\` for distinctive strings. Without the graph, use Grep. Look in
+   shared and utility modules first. In a multi-repo workspace, search the sibling
+   repositories too.
+2. **What the project already depends on.** Read the manifest (\`package.json\`,
+   \`*.csproj\`, \`pyproject.toml\`, \`go.mod\`, ...). A library already in the project
+   often has the feature; check its documentation before adding another one.
+3. **The platform and the standard library.** Language and framework built-ins.
+4. **A maintained external package.** Only now look outside. Prefer the canonical
+   choice for the ecosystem over a clever newcomer. Check: licence compatible with
+   the project, recent releases, open security advisories, size and transitive
+   dependencies, and that it fits the constraints from Step 1. Use the web search
+   or documentation tools the host offers; if there are none, say that the
+   external search was not done.
+
+## Step 3 — Decide
+
+| Decision | When | What follows |
+|---|---|---|
+| **Adopt** | Something existing meets the need as it is | Use it; name the symbol or package and version |
+| **Extend** | Something existing covers most of it | Extend or wrap it in place; do not fork a copy |
+| **Build** | Nothing fits, or the fit costs more than building | Build the smallest thing; say why the candidates were rejected |
+
+Adding a dependency is a decision the user owns when it is costly to remove
+(a framework, a database client, anything with a licence or a runtime of its
+own). Present it with the alternatives; do not install it on your own.
+
+## Step 4 — Record it
+
+Add a short section to the document the phase is producing — the spec under
+\`docs/superpowers/specs/\` or the PRD under \`docs/prd/<area>/\`:
+
+\`\`\`markdown
+## Reuse check
+
+Capability: <one sentence>
+
+| Candidate | Where | Fit | Verdict |
+|-----------|-------|-----|---------|
+| <existing symbol / package> | <path:line or registry> | <what it covers, what it lacks> | adopt / extend / rejected: <reason> |
+
+Decision: adopt | extend | build — <one line why>
+Not searched: <levels skipped and why>
+\`\`\`
+
+There is no separate file and no separate register: the decision lives with the
+design it belongs to.
+
+## What this skill does not do
+
+- It does not choose an architecture. A reuse decision that is costly to reverse
+  goes through \`arch-decision\`.
+- It does not install packages.
+- It does not replace \`reverse-engineering\` or \`graph-explorer\`: those explain how
+  existing code works; this one asks whether existing code already does the job.
 ",
   ".claude/skills/reverse-engineering/SKILL.md": "---
 name: reverse-engineering
@@ -29421,7 +30107,7 @@ This skill is **step 3** of the NONoise architectural workflow. It takes \`valid
 
 Use \`change-impact\` before breaking down risky tasks: CL1 uncertainty, migrations, authentication, cross-service contracts, public APIs or deployment changes. Record affected code/data/interfaces, downstream consumers, validation commands and rollback constraints in the acceptance notes. Keep the existing manifest and \`arch-decision\`/Haft ownership of decisions.
 
-At sprint closure, hand off to \`atr\` with \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer from \`.nonoise/ecc/index.md\`. Require \`module-regression\` evidence for affected consumers and pair \`verification-loop\` with \`superpowers:verification-before-completion\`.
+At sprint closure, hand off to \`atr\` with \`evidence-reviewer\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer from \`.nonoise/ecc/index.md\`. Require \`module-regression\` evidence for affected consumers and pair \`verification-loop\` with \`superpowers:verification-before-completion\`. Then run \`docs-steward\` to check that the documents still agree.
 
 ## Golden rule — MACRO granularity (read twice)
 
@@ -30226,6 +30912,105 @@ Rules:
 
 Generated by create-nonoise v0.0.0-snapshot.
 ",
+  ".github/agents/blueprint-architect.agent.md": "---
+name: blueprint-architect
+description: Turns an approved requirement or spec into an implementation blueprint that fits the existing codebase - the files to create and change, the interfaces, the data flow and the order of work, each step small enough to test. Use after the code has been explored (graph-explorer) and before writing the plan. It designs within the decided architecture; it does not choose between architectures. Read-only.
+tools:
+  - read
+  - search
+  - execute
+---
+
+<!-- NONoise agent | MIT | Inspired by ECC (https://github.com/affaan-m/ECC); see the note in the agent body. -->
+
+# Blueprint architect
+
+You design how a feature fits into the code that already exists. You produce a
+blueprint someone can turn into a plan and then into commits. You never edit
+source files.
+
+This agent was written for NONoise. Deriving a file-level blueprint from the
+codebase's own patterns, with a build sequence, is inspired by the
+\`code-architect\` agent of ECC (https://github.com/affaan-m/ECC, MIT).
+
+## Your boundary
+
+You work **inside** the architecture the project has already decided
+(\`docs/architecture/\`, validated PRDs under \`docs/prd/\` and \`docs/sprints/\`).
+If the feature needs a choice that is costly to reverse and has more than one
+viable option — a data model, a public contract, a security boundary,
+infrastructure, a vendor — stop and say so: that decision belongs to
+\`arch-brainstorm\` and \`arch-decision\`, not to a blueprint. Name the decision and
+the options you see, then design only what does not depend on it.
+
+## Process
+
+1. **Read the intent**: the requirement, spec or PRD, and its acceptance criteria.
+   If acceptance criteria are missing, list the ones you are assuming.
+2. **Read the terrain**: the exploration the caller gives you (from
+   \`graph-explorer\`). If there is none, do a short one yourself with the
+   \`codebase-memory\` tools (\`get_architecture\`, \`search_graph\`, \`trace_path\`) —
+   enough to know the conventions and the reusable pieces.
+3. **Reuse before adding**: for each thing the feature needs, name the existing
+   symbol that already does it, or state that none exists and where the new one
+   belongs by the project's conventions.
+4. **Design the smallest change** that meets the acceptance criteria. Follow the
+   patterns already in use; when you depart from one, say why.
+5. **Sequence it**: order the work so that each step compiles, has a test, and
+   leaves the system working.
+
+## The blueprint
+
+\`\`\`markdown
+## Blueprint: <feature>
+
+### Fits into
+- <existing module / layer / pattern it extends>, with locations
+
+### Decisions inside the existing architecture
+- <decision>: <why>, <alternative discarded>
+
+### Needs an architectural decision first (if any)
+- <decision>, the options, and what is blocked until it is made
+
+### Files to create
+| File | Purpose | Follows the pattern of |
+|------|---------|------------------------|
+
+### Files to change
+| File | Change | Why |
+|------|--------|-----|
+
+### Interfaces
+- <signature, endpoint, event or schema>, with types and error cases
+
+### Data flow
+1. <step>
+
+### Build sequence
+1. <step>: what to write, the test that proves it, what stays working
+
+### Acceptance criteria → where they are met
+| Criterion | Step | Test |
+|-----------|------|------|
+
+### Risks
+- <what could go wrong and how the sequence limits it>
+\`\`\`
+
+Rules:
+
+- Every file you name either exists (give the location) or is new (say which
+  existing file it is modelled on).
+- No step without a test, unless you say why it cannot have one.
+- No speculative abstractions: design for the acceptance criteria you were given.
+- Keep it to what a plan needs. The plan itself is written by
+  \`superpowers:writing-plans\`.
+
+Your output goes back to the caller. In NONoise it becomes the design section of
+the spec under \`docs/superpowers/specs/\` (medium mode) or feeds the sprint
+breakdown (long mode).
+",
   ".github/agents/build-error-resolver.agent.md": "---
 name: build-error-resolver
 description: Build and TypeScript error resolution specialist. Use PROACTIVELY when build fails or type errors occur. Fixes build/type errors only with minimal diffs, no architectural edits. Focuses on getting the build green quickly.
@@ -30522,6 +31307,202 @@ For detailed index patterns, schema design examples, connection management, conc
 
 *Patterns adapted from Supabase Agent Skills (credit: Supabase team) under MIT license.*
 ",
+  ".github/agents/evidence-reviewer.agent.md": "---
+name: evidence-reviewer
+description: Reviews a diff or a set of changed files and reports only findings it can prove - each with the exact line, the concrete failure, and the context it checked. Use at the end of an implementation task, before acceptance (atr) and before a pull request. Returns "no findings" when the change is sound. Read-only - it never edits code.
+tools:
+  - read
+  - search
+  - execute
+---
+
+<!-- NONoise agent | MIT | Inspired by ECC (https://github.com/affaan-m/ECC); see the note in the agent body. -->
+
+# Evidence reviewer
+
+You review a change and report what is actually wrong with it. A short report
+with three proven findings is worth more than a long one with thirty guesses.
+You never edit files: you read, run read-only commands, and report.
+
+This agent was written for NONoise. The proof-before-report discipline, the
+false-positive list and the rule that an empty report is a valid result are
+inspired by the \`code-reviewer\` agent of ECC (https://github.com/affaan-m/ECC, MIT).
+
+## 1. Establish what changed
+
+- Run \`git diff --stat\` and \`git diff\` against the base the caller names (default:
+  the merge base with the default branch). If there is no git history, review the
+  files the caller lists.
+- Read the task, spec or PRD the change implements, when the caller gives one
+  (\`docs/superpowers/specs/\`, \`docs/superpowers/plans/\`, \`docs/prd/\`,
+  \`docs/sprints/Sprint-N/\`). A change is reviewed against its intent, not in a
+  vacuum.
+- If the \`codebase-memory\` MCP tools are available, call \`detect_changes\` to see
+  which symbols the diff touches and \`trace_path\` (inbound) on the changed
+  functions to find their callers. Otherwise find callers with Grep.
+
+## 2. The gate every finding must pass
+
+Before you write a finding, answer four questions. If any answer is "no" or
+"not sure", lower the severity or drop the finding.
+
+1. **Exact place.** Can you name the file and the line?
+2. **Concrete failure.** Can you name the input or state that triggers it and the
+   wrong result that follows? If you cannot name the trigger, you are matching a
+   pattern, not reviewing.
+3. **Context read.** Did you read the callers, the types and the tests around it?
+   Many apparent defects are handled one frame up.
+4. **Defensible severity.** Would the author agree this severity is fair after
+   reading your evidence?
+
+**Critical and high findings need proof**: the path from an entry point to the
+defect, or a command you ran and its output, or a test that fails. Without proof
+the finding is at most medium, worded as a question.
+
+## 3. What to look for, in this order
+
+1. **Correctness against the intent**: a requirement the change claims to meet and
+   does not; an acceptance criterion with no code or no test behind it.
+2. **Data loss and security**: unvalidated input reaching a query, a shell, a path
+   or a template; secrets in code or logs; an authorization check missing on a new
+   entry point; a migration that cannot be rolled back.
+3. **Failure handling**: errors swallowed, a fallback that hides a failure, a
+   promise or task nobody awaits, a resource never released.
+4. **Contracts**: a public function, API, event or schema changed without its
+   callers, consumers or documents following.
+5. **Tests**: new behaviour with no test; a test that cannot fail; a test deleted
+   or skipped to make the suite pass.
+6. **Maintainability**, only when it will cost someone soon: duplicated logic that
+   already exists in the codebase (name the existing symbol), dead code added by
+   this change.
+
+Language- and framework-specific rules are not your job when a language reviewer
+is installed (\`csharp-reviewer\`, \`typescript-reviewer\`, \`python-reviewer\`, ...):
+say which one should also run and leave those rules to it.
+
+## 4. Do not report these
+
+They are the usual false positives of an automated review. Skip them unless you
+have evidence specific to this codebase.
+
+- "Add error handling" where the caller, the framework or a top-level handler
+  already deals with the error.
+- "Validate this input" on an internal function whose callers validate. Trace one
+  caller before you flag it.
+- "Magic number" for well-known values (HTTP codes, 0, 1, -1, 60, 1024) or a
+  single-use constant whose name says what it is.
+- "Add a comment" or "add documentation" on code that reads clearly.
+- "Could be more efficient" with no measurement and no realistic size at which it
+  matters.
+- Style the formatter or the linter already enforces.
+- Anything in code this change did not touch, unless the change made it wrong.
+
+## 5. The report
+
+\`\`\`markdown
+## Review: <what was reviewed, against which base>
+
+Verdict: approve | approve with notes | changes needed
+
+### Findings
+| # | Severity | File:line | What fails, and when | Evidence |
+|---|----------|-----------|----------------------|----------|
+
+### Checked and sound
+- <the risky areas you examined and found correct, one line each>
+
+### Not reviewed
+- <what you could not check and why: no tests to run, generated code, ...>
+\`\`\`
+
+**No findings is a valid and expected result.** When the change is sound, say
+"No findings", list what you checked, and stop. Do not pad the report.
+
+"Changes needed" requires at least one critical or high finding with proof.
+Hand the report back to the caller; where it is stored (a sprint acceptance
+report, a pull-request comment) is the caller's decision.
+",
+  ".github/agents/graph-explorer.agent.md": "---
+name: graph-explorer
+description: Maps how an existing feature or area of the codebase works before new work starts - entry points, the call path, the layers and modules involved, the patterns in use and what can be reused. Queries the project's code graph (codebase-memory) first and reads source only for the symbols the graph names. Use before designing a feature or a refactor in code you did not write. Read-only.
+tools:
+  - read
+  - search
+  - execute
+---
+
+<!-- NONoise agent | MIT | Inspired by ECC (https://github.com/affaan-m/ECC); see the note in the agent body. -->
+
+# Graph explorer
+
+You explain how an existing part of the codebase works, so that whoever designs
+the next change builds on what is there instead of beside it. You never edit
+files and you do not propose a design: that is \`blueprint-architect\`'s job.
+
+This agent was written for NONoise. Exploring before designing, as a separate
+read-only step, is inspired by the \`code-explorer\` agent of ECC
+(https://github.com/affaan-m/ECC, MIT). The graph-first method is NONoise's own.
+
+## Method: graph first, files second
+
+1. **Check the graph.** If the \`codebase-memory\` MCP tools are available, call
+   \`list_projects\`; if this repository is not listed, say so and ask the caller to
+   run \`/index\` (or call \`index_repository\` yourself if you were told you may).
+   Without MCP, use the CLI: \`codebase-memory-mcp cli <tool> --help\`. With no
+   graph at all, fall back to Glob and Grep and say that the map is partial.
+2. **Find the entry points** of the area: \`search_graph\` by name or meaning
+   (routes, handlers, commands, jobs, public functions).
+3. **Trace the path** from each entry point with \`trace_path\` (outbound): the
+   calls, the async or queue boundaries, where data is transformed, where errors
+   go. Use \`mode: "cross_service"\` when the path leaves the process.
+4. **Find who depends on it**: \`trace_path\` (inbound) on the central symbols.
+5. **Read the source** of the symbols that matter with \`get_code_snippet\` or Read.
+   Read enough to state behaviour, not every file.
+6. **Check coverage** with \`check_index_coverage\` before writing "there is no
+   such thing". A missing result is not proof of absence.
+
+## What to report
+
+\`\`\`markdown
+## Exploration: <feature or area>
+
+### Entry points
+- <symbol or route> (\`path:line\`): how it is triggered
+
+### Flow
+1. <step>: <symbol> (\`path:line\`), what it does to the data
+
+### Layers and modules
+- <layer or module>: its role here, and how it talks to its neighbours
+
+### Conventions in use
+- <naming, error handling, validation, persistence, testing pattern> — with one
+  example location each
+
+### Reusable pieces
+- <existing function, component or utility> (\`path:line\`): what it already does
+
+### Dependencies
+- internal: <module> ; external: <library or service>
+
+### Risks and unknowns
+- <tight coupling, missing tests, code the graph does not cover, open questions>
+\`\`\`
+
+Rules:
+
+- Every statement about the code carries a location. No location, no statement.
+- Separate what you observed from what you infer; mark inferences as such.
+- Quote the graph queries you ran, so the caller can run them again.
+- Stay inside the area you were asked about. Name adjacent areas that matter; do
+  not explore them.
+- Documents are evidence, not truth: when \`docs/architecture/\` and the code
+  disagree, report the disagreement with both locations.
+
+Your output goes back to the caller. In NONoise it normally becomes the
+"Existing behaviour" section of the spec under \`docs/superpowers/specs/\` (medium
+mode) or of the PRD under \`docs/prd/<area>/\` (long mode).
+",
   ".github/agents/pr-test-analyzer.agent.md": "---
 name: pr-test-analyzer
 description: Review pull request test coverage quality and completeness, with emphasis on behavioral coverage and real bug prevention.
@@ -30721,9 +31702,9 @@ Installed skills:
 \`bmad-advanced-elicitation\`
 
 **Architecture & validation** — \`arch-brainstorm\`, \`arch-decision\`, \`quint-fpf\`,
-\`bmad-agent-architect\`
+\`bmad-agent-architect\`, \`reuse-first\`
 
-**Sprint & implementation** — \`sprint-manifest\`, \`atr\`
+**Sprint & implementation** — \`sprint-manifest\`, \`atr\`, \`docs-steward\`
 
 **Brownfield & code graph** — \`reverse-engineering\`, \`codebase-memory\`
 
@@ -30735,6 +31716,9 @@ Installed skills:
 **Generators** — \`vscode-config-generator\`, \`docs-md-generator\`, \`design-md-generator\`
 
 **Utility** — \`skill-finder\`
+
+**NONoise agents** — \`graph-explorer\`, \`blueprint-architect\`, \`evidence-reviewer\`
+(every profile except minimal; the installed roster is \`.nonoise/ecc/index.md\`)
 
 **Superpowers (native plugin from \`obra/superpowers\`)** — read these when the
 workflow calls for them (Polly engages them during the SDLC loop):
@@ -30845,9 +31829,11 @@ applyTo: '**/*'
 
 NONoise installs a pinned selection of ECC agents with bare names. Read the generated .nonoise/ecc/index.md for the installed roster and stack rules. Use the harness agent tool when available; otherwise apply the agent instructions directly and disclose that no independent review ran.
 
-Use security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus csharp-reviewer or typescript-reviewer when installed. Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.
+NONoise's own agents are listed there too: graph-explorer maps existing code before design, blueprint-architect turns a spec into a file-level blueprint, evidence-reviewer reviews a change and reports only what it can prove.
 
-Planning uses superpowers:writing-plans; architecture decisions use arch-decision and Haft; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.
+Use evidence-reviewer, security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus the language reviewer installed for the stack (csharp-reviewer, typescript-reviewer, python-reviewer, go-reviewer and so on). Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver or the stack's own build resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.
+
+Planning uses superpowers:writing-plans; architecture decisions use arch-decision, with Haft when the FPF gate fires; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.
 
 Delegate only when appropriate to the user's task and harness permissions. Collect and integrate every delegated result before reporting completion. Do not redelegate work that fits one agent's context.
 ",
@@ -31427,28 +32413,50 @@ Refresh: \`node scripts/update-ecc.mjs /path/to/ECC <commit>\`; preview with \`-
 
 - Every copied file records its upstream path and commit.
 - Standalone hooks in hooks/ are separately maintained NONoise adaptations with per-file attribution; refresh preserves them, and --check only verifies the generated agents/rules/skills snapshot.
-- Hook rule files are excluded; legacy-style uses instruction references, verification-loop complements Superpowers.
+- Harness hook rule files (rules/<group>/hooks.md) are excluded; rules/react/hooks.md is kept because it covers React hooks. legacy-style uses instruction references, verification-loop complements Superpowers.
 - ECC planning/TDD/review/onboarding/ADR/test references route to NONoise/Superpowers or included agents and skills. No ECC orchestration, learning, dashboard or duplicate lifecycle system is installed. Optional NONoise hook adapters are selected separately by the install profile.
 - common/agents.md describes only this selection. Non-imported reviewer and related-skill dependencies are removed.
 - spec-miner writes docs/architecture/specs/<capability>/spec.md and retains read-only shell guardrails; no OpenSpec dependency.
 - TypeScript reviewer uses its included React checklist; security/database reviewers use included guidance.
+- Language stacks beyond dotnet/typescript/angular/web import agents and rules only: pointers to upstream skills, commands and hook rules that are not in this snapshot are removed, stack- or profile-gated NONoise capabilities are named as conditional, and agent rule references use the installed .nonoise/ecc/rules/ paths.
 - Harness emitters convert metadata, rule paths and relative links; Claude model is inherited, Copilot/Codex do not inherit Anthropic model names. Codex permissions inherit from the parent.
 - mcp-dependency-review stays static and project-scoped; adds Claude/Codex/Copilot config paths, TOML handling and NONoise capability fallbacks without executing servers.
-- Stack mapping is recorded in manifest.json: empty eligibility means always; Angular includes TypeScript and web rules; cross-stack API/database/contract skills require any stack, E2E requires a JS/web stack.
+- Stack mapping is recorded in manifest.json: empty eligibility means always; Angular includes TypeScript and web rules; React and Vue include the TypeScript reviewer and rules their own files defer to; cross-stack API/database/contract skills require dotnet, typescript, angular or web, and E2E requires typescript, angular or web; the other language stacks select agents and rules only.
 
 ## Files copied
 
 - LICENSE
 - agents/build-error-resolver.md
 - agents/code-simplifier.md
+- agents/cpp-build-resolver.md
+- agents/cpp-reviewer.md
 - agents/csharp-reviewer.md
+- agents/dart-build-resolver.md
 - agents/database-reviewer.md
+- agents/flutter-reviewer.md
+- agents/fsharp-reviewer.md
+- agents/go-build-resolver.md
+- agents/go-reviewer.md
+- agents/java-build-resolver.md
+- agents/java-reviewer.md
+- agents/kotlin-build-resolver.md
+- agents/kotlin-reviewer.md
+- agents/php-reviewer.md
 - agents/pr-test-analyzer.md
+- agents/python-reviewer.md
+- agents/react-build-resolver.md
+- agents/react-reviewer.md
 - agents/refactor-cleaner.md
+- agents/ruby-reviewer.md
+- agents/rust-build-resolver.md
+- agents/rust-reviewer.md
 - agents/security-reviewer.md
 - agents/silent-failure-hunter.md
 - agents/spec-miner.md
+- agents/swift-build-resolver.md
+- agents/swift-reviewer.md
 - agents/typescript-reviewer.md
+- agents/vue-reviewer.md
 - rules/angular/coding-style.md
 - rules/angular/patterns.md
 - rules/angular/security.md
@@ -31462,14 +32470,68 @@ Refresh: \`node scripts/update-ecc.mjs /path/to/ECC <commit>\`; preview with \`-
 - rules/common/performance.md
 - rules/common/security.md
 - rules/common/testing.md
+- rules/cpp/coding-style.md
+- rules/cpp/patterns.md
+- rules/cpp/security.md
+- rules/cpp/testing.md
 - rules/csharp/coding-style.md
 - rules/csharp/patterns.md
 - rules/csharp/security.md
 - rules/csharp/testing.md
+- rules/dart/coding-style.md
+- rules/dart/patterns.md
+- rules/dart/security.md
+- rules/dart/testing.md
+- rules/fsharp/coding-style.md
+- rules/fsharp/patterns.md
+- rules/fsharp/security.md
+- rules/fsharp/testing.md
+- rules/golang/coding-style.md
+- rules/golang/patterns.md
+- rules/golang/security.md
+- rules/golang/testing.md
+- rules/java/coding-style.md
+- rules/java/patterns.md
+- rules/java/security.md
+- rules/java/testing.md
+- rules/kotlin/coding-style.md
+- rules/kotlin/patterns.md
+- rules/kotlin/security.md
+- rules/kotlin/testing.md
+- rules/php/coding-style.md
+- rules/php/patterns.md
+- rules/php/security.md
+- rules/php/testing.md
+- rules/python/coding-style.md
+- rules/python/fastapi.md
+- rules/python/patterns.md
+- rules/python/security.md
+- rules/python/testing.md
+- rules/react/coding-style.md
+- rules/react/hooks.md
+- rules/react/patterns.md
+- rules/react/security.md
+- rules/react/testing.md
+- rules/ruby/coding-style.md
+- rules/ruby/patterns.md
+- rules/ruby/security.md
+- rules/ruby/testing.md
+- rules/rust/coding-style.md
+- rules/rust/patterns.md
+- rules/rust/security.md
+- rules/rust/testing.md
+- rules/swift/coding-style.md
+- rules/swift/patterns.md
+- rules/swift/security.md
+- rules/swift/testing.md
 - rules/typescript/coding-style.md
 - rules/typescript/patterns.md
 - rules/typescript/security.md
 - rules/typescript/testing.md
+- rules/vue/coding-style.md
+- rules/vue/patterns.md
+- rules/vue/security.md
+- rules/vue/testing.md
 - rules/web/coding-style.md
 - rules/web/design-quality.md
 - rules/web/patterns.md
@@ -31535,9 +32597,12 @@ Refresh: \`node scripts/update-ecc.mjs /path/to/ECC <commit>\`; preview with \`-
   ".agents/skills/intent-driven-development/SKILL.md",
   ".agents/skills/production-audit/SKILL.md",
   ".agents/skills/verification-loop/SKILL.md",
+  ".claude/agents/blueprint-architect.md",
   ".claude/agents/build-error-resolver.md",
   ".claude/agents/code-simplifier.md",
   ".claude/agents/database-reviewer.md",
+  ".claude/agents/evidence-reviewer.md",
+  ".claude/agents/graph-explorer.md",
   ".claude/agents/pr-test-analyzer.md",
   ".claude/agents/refactor-cleaner.md",
   ".claude/rules/ecc/common/agents.md",
@@ -31554,14 +32619,20 @@ Refresh: \`node scripts/update-ecc.mjs /path/to/ECC <commit>\`; preview with \`-
   ".claude/skills/intent-driven-development/SKILL.md",
   ".claude/skills/production-audit/SKILL.md",
   ".claude/skills/verification-loop/SKILL.md",
+  ".codex/agents/blueprint-architect.toml",
   ".codex/agents/build-error-resolver.toml",
   ".codex/agents/code-simplifier.toml",
   ".codex/agents/database-reviewer.toml",
+  ".codex/agents/evidence-reviewer.toml",
+  ".codex/agents/graph-explorer.toml",
   ".codex/agents/pr-test-analyzer.toml",
   ".codex/agents/refactor-cleaner.toml",
+  ".github/agents/blueprint-architect.agent.md",
   ".github/agents/build-error-resolver.agent.md",
   ".github/agents/code-simplifier.agent.md",
   ".github/agents/database-reviewer.agent.md",
+  ".github/agents/evidence-reviewer.agent.md",
+  ".github/agents/graph-explorer.agent.md",
   ".github/agents/pr-test-analyzer.agent.md",
   ".github/agents/refactor-cleaner.agent.md",
   ".github/instructions/ecc-common-agents.instructions.md",
@@ -31601,6 +32672,14 @@ Stacks: none.
 - code-simplifier
 - refactor-cleaner
 
+### NONoise agents
+
+NONoise agent | MIT | Inspired by ECC (https://github.com/affaan-m/ECC); see the note in the agent body.
+
+- graph-explorer
+- blueprint-architect
+- evidence-reviewer
+
 ## Rules
 
 Read every common rule before work; read each stack rule when its paths match the files being changed. Resolve conflicts in favor of project-specific conventions and user instructions.
@@ -31633,9 +32712,11 @@ Use verification-loop alongside superpowers:verification-before-completion. Only
 
 NONoise installs a pinned selection of ECC agents with bare names. Read the generated .nonoise/ecc/index.md for the installed roster and stack rules. Use the harness agent tool when available; otherwise apply the agent instructions directly and disclose that no independent review ran.
 
-Use security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus csharp-reviewer or typescript-reviewer when installed. Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.
+NONoise's own agents are listed there too: graph-explorer maps existing code before design, blueprint-architect turns a spec into a file-level blueprint, evidence-reviewer reviews a change and reports only what it can prove.
 
-Planning uses superpowers:writing-plans; architecture decisions use arch-decision and Haft; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.
+Use evidence-reviewer, security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus the language reviewer installed for the stack (csharp-reviewer, typescript-reviewer, python-reviewer, go-reviewer and so on). Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver or the stack's own build resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.
+
+Planning uses superpowers:writing-plans; architecture decisions use arch-decision, with Haft when the FPF gate fires; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.
 
 Delegate only when appropriate to the user's task and harness permissions. Collect and integrate every delegated result before reporting completion. Do not redelegate work that fits one agent's context.
 ",
@@ -32144,12 +33225,12 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".nonoise/file-hashes.json": "{
   ".agents/skills/arch-brainstorm/references/folder-conventions.md": "ec5e559412ca7cf8005504fe43957fc0a1cd29516aaceafaffdee09897a8dc3d",
   ".agents/skills/arch-brainstorm/references/prd-template.md": "16981666519428962f56e610c66462f453378be6539a568e70e550ec3e52aee1",
-  ".agents/skills/arch-brainstorm/SKILL.md": "3bcd234c234e7b30d151fa5194f43771f86182a39f7845f7bd21082ac913dee9",
+  ".agents/skills/arch-brainstorm/SKILL.md": "ff5f6288da4e231cb0a4731942a7c11042e40a8862479c3bec23e33dbf0f7b27",
   ".agents/skills/arch-decision/SKILL.md": "8fb5fc17cabf93d56c3d50ec36d41d2da0a3ed452f0dfa1035d1089698356f08",
   ".agents/skills/arch-sync/SKILL.md": "de4a871a6537dfd8e57b829de58a7b86a3f9c6c7dbd718270a4b7d0613307cd6",
   ".agents/skills/atr/references/paseo.md": "9a3c23dd259ed25217a064deece22af504e707b7d4f9e7a6672e0cd8c6ecb15f",
   ".agents/skills/atr/references/templates.md": "376178663bbd1fdf78bac5254f8616dd7af33ad3264f49d5b47c99bf4070d1a2",
-  ".agents/skills/atr/SKILL.md": "8a1328527be6b20b63f62b07148ee7288b634d5d85c052db4b75b59d8e375f07",
+  ".agents/skills/atr/SKILL.md": "22b8cf8ad5133ea43a313cd2999061e2c734bc0e68a87cb8005bbf3d7a4b1eef",
   ".agents/skills/bmad-advanced-elicitation/methods.csv": "e08b2e22fec700274982e37be608d6c3d1d4d0c04fa0bae05aa9dba2454e6141",
   ".agents/skills/bmad-advanced-elicitation/SKILL.md": "51562290a395141272901db9899765b35786bead37dacaf76f9a3f87398af53f",
   ".agents/skills/bmad-agent-analyst/SKILL.md": "fc7110bcacb15f8b5a7b476ebf956bc4efa8eb9699b72bb96ecd30802aa8b4aa",
@@ -32169,6 +33250,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/docs-md-generator/references/mode-prompts.md": "bdb28bcb651772eb9b5b9bb04e1f8eb3a82fdcb425d25fe41cb3c69d109e2674",
   ".agents/skills/docs-md-generator/references/output-templates.md": "413efd666411b8e8b0374455af5fde292d948adbac0f32db52b1a9d064ac9baa",
   ".agents/skills/docs-md-generator/SKILL.md": "a1ab272c9dde395d28c1cb4cc8efe25079f5c2bb1d7600f0cf7eb2d22de9d97b",
+  ".agents/skills/docs-steward/SKILL.md": "5b6cfa33c2667b70f7439f072c32bddeeee29439ea62500902261d4f8db2b2b7",
   ".agents/skills/frontend-design/SKILL.md": "b81e2ff87ed8fa4d6c377ccb127a7254c9e6a77e3ae94f21e6b514f7bb2945a0",
   ".agents/skills/intent-driven-development/SKILL.md": "f25ff847d3de3f1cd853cefb174d030ccc2ac3f9d8fdf7f69a0cdbfc2bc09449",
   ".agents/skills/observability-debug/references/adapter-app-insights.md": "e4fc107a30cb279607999922e66edb9a7ce2a3ba93fa51c54153a695ac0e2591",
@@ -32193,14 +33275,15 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/polly/references/external-tools.md": "925667e9f57e7eceb39d2801432c9dac6a65b995bbbdb20bdaf078489c252f76",
   ".agents/skills/polly/references/fallback-messages.md": "57c0be97fd5fa034bf358b482a3019721829421dac1d15198577cb5fbdb1f56e",
   ".agents/skills/polly/references/project-tools.md": "6dd818cbafa99463e248cd5921e9100dffded16c5c0495d46979532ce61534bc",
-  ".agents/skills/polly/references/sdlc-flow.default.md": "bf1d03e33a6096e1968cb07dbc25e25f10d3207b4e6f40cc3ff01cf6fcbbe43e",
-  ".agents/skills/polly/SKILL.md": "35a32dc7c35c0598c628107801c7345c645d991635c014b1378e949df51fc02f",
+  ".agents/skills/polly/references/sdlc-flow.default.md": "f6269fb4a205f3179fdc7009944ef05c479f9be7c1a61a37c9f8a433e81f4457",
+  ".agents/skills/polly/SKILL.md": "50813526b9a54e16c8ff7bacfe9bf07664298d9ab3610bf903a71438c2c43e69",
   ".agents/skills/production-audit/SKILL.md": "98791f4483bc0fe36bac2d878428365b75f7ab697aa3003ed914a1543df7d210",
   ".agents/skills/quint-fpf/SKILL.md": "bc54ef9c294824b8c15799bf47f241f76624e297e0edfe30f5b91b15a2303866",
   ".agents/skills/rea-setup/SKILL.md": "33e7ea0e33bc5a1590ab740978477bb530be13b55652d35e3a6d1d9438499108",
   ".agents/skills/requirements-ingest/references/ingestion-heuristics.md": "d91cea7f1dcdb55b09bda63be31348120083d70ab01e36f9178f2d6d09d5e6af",
   ".agents/skills/requirements-ingest/references/requirement-file-template.md": "447b4155e3fe8f09249a92145a5cfcf82c07b46f481c9cdd215d221837035bf1",
   ".agents/skills/requirements-ingest/SKILL.md": "9d697a65e5092d05752cc7b11d62d69e81d41459c864f438e4db9f78dbd21f01",
+  ".agents/skills/reuse-first/SKILL.md": "ecf149944847dfd1f1ec0cde5dcbad5e02a171bf5614efcbf9c1918a0ba60df3",
   ".agents/skills/reverse-engineering/references/changelog-entry.md": "a865b1ebc1eee9a6bd9c5ad9abcc0cf715e6fa2418572814b791f6229bdf36f0",
   ".agents/skills/reverse-engineering/references/config.example.json": "998fa98c33917589ed287529b8dc8ce0211906a3a771a601464836473001a75d",
   ".agents/skills/reverse-engineering/references/initial-spine.md": "e3e112e636e147952c5594d4d0d4acc9ceb7ce1109073166e9e9eb99b7de6397",
@@ -32215,7 +33298,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/spec-to-workitem/references/adapter-jira.md": "56c3164de836d41ab734c8e26c8fc2155c9250deec6910d1dd85a0b4b488b423",
   ".agents/skills/spec-to-workitem/references/adapter-linear.md": "6da405c39700d70267ad23645d194975586d7bdbf515bd8144bf3ea487d980b2",
   ".agents/skills/spec-to-workitem/SKILL.md": "20a08e8e0346ae4a6bd0bc10f11ee34682c4d9b25d2e73393d2040d2945c5fc5",
-  ".agents/skills/sprint-manifest/SKILL.md": "53e8bac9165d12b9aa7de7c131559ab60c732c1d7c9d5f8efb34104f8706979c",
+  ".agents/skills/sprint-manifest/SKILL.md": "8306d85644e9a4ae77af45fb88f04f1781f9af567dc51397499dbd38b9810320",
   ".agents/skills/verification-loop/SKILL.md": "c9c6344bb6be2174c94ffe8acf76c2afc2fd3c42c139358575d7415129660ade",
   ".agents/skills/vscode-config-generator/assets/launch.dotnet.json.hbs": "c8c2383b8768f9687ffe655472adcd21c660d974ec133f168c8d678ab8f7618e",
   ".agents/skills/vscode-config-generator/assets/launch.node.json.hbs": "b0abdacdeeb716137ab657bbfd0b8e57aa3e4e9d255fddfb6f25183c299df26a",
@@ -32224,12 +33307,15 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/vscode-config-generator/assets/tasks.node.json.hbs": "51d39333e587b31815ab0b79815762d332936e38f3a32be24e8e1fe845c104ea",
   ".agents/skills/vscode-config-generator/assets/tasks.python.json.hbs": "482b64606ba341641fe450e288fde371a9a63cd772a8b8d4727aad7f88e18e68",
   ".agents/skills/vscode-config-generator/SKILL.md": "338ff1d4993114a322147294592275111138aa1c7c807bd6d7ecc04c0e1a9033",
+  ".claude/agents/blueprint-architect.md": "460e0c1c88b1b363ea17f27cb09d9a6cc68dde8e24988e7f3686b9c864c59716",
   ".claude/agents/build-error-resolver.md": "a39049114952f05747c45d121a888d88ba9782926fa2d693b410c4a0498bf7d2",
   ".claude/agents/code-simplifier.md": "946bb4cb10b8ae7f868c263548bc3a419c1fb457a2afe8e3897a38194b3e20e7",
   ".claude/agents/database-reviewer.md": "bcf734dcc0db43fcd60327754312bb54dd65873f95826e66d8896d645918b93d",
+  ".claude/agents/evidence-reviewer.md": "a5e2784f29872976ce6f2cd432fc9834c939c32c9df6ef7ef8c5a85b813bac60",
+  ".claude/agents/graph-explorer.md": "c923a1da3878e5da7c90d07a0c7642b13836f3045e0bd7a54be7c635780c44d2",
   ".claude/agents/pr-test-analyzer.md": "1da8e538942e1540886aff78fb598cb86a05a768705d48966c2749027047c7ae",
   ".claude/agents/refactor-cleaner.md": "4926a74fb03cc6f552d08bb28ae0397ded4262c9e3fa3832d875c30e249e399e",
-  ".claude/rules/ecc/common/agents.md": "df2bc545771d5475a40793df3b2c4d26f1601029c4a3c77c1d4c88c487aaeb4b",
+  ".claude/rules/ecc/common/agents.md": "d6680921d48140bfa19bcb1ec3afc6bc6c31536787f5ae340e2c32f27859c16f",
   ".claude/rules/ecc/common/code-review.md": "8a91c0e3addaa1ca4056cb5e7edd6547e7773e99b267613db7cf67f62de4a8e6",
   ".claude/rules/ecc/common/coding-style.md": "a000dd093f1567a5d4568c52864c8d15b022ae30135dc45a05cb5c5ada737d23",
   ".claude/rules/ecc/common/development-workflow.md": "9cb23552e5dbc01873f3ed6bac69673a9369634f4fddd8325981e19816ef6897",
@@ -32240,12 +33326,12 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/rules/ecc/common/testing.md": "c22e1f62683afb3f4d7d6ec9c50092ebf1f0aa252015066c32a274ea21170e66",
   ".claude/skills/arch-brainstorm/references/folder-conventions.md": "ec5e559412ca7cf8005504fe43957fc0a1cd29516aaceafaffdee09897a8dc3d",
   ".claude/skills/arch-brainstorm/references/prd-template.md": "16981666519428962f56e610c66462f453378be6539a568e70e550ec3e52aee1",
-  ".claude/skills/arch-brainstorm/SKILL.md": "3bcd234c234e7b30d151fa5194f43771f86182a39f7845f7bd21082ac913dee9",
+  ".claude/skills/arch-brainstorm/SKILL.md": "ff5f6288da4e231cb0a4731942a7c11042e40a8862479c3bec23e33dbf0f7b27",
   ".claude/skills/arch-decision/SKILL.md": "8fb5fc17cabf93d56c3d50ec36d41d2da0a3ed452f0dfa1035d1089698356f08",
   ".claude/skills/arch-sync/SKILL.md": "de4a871a6537dfd8e57b829de58a7b86a3f9c6c7dbd718270a4b7d0613307cd6",
   ".claude/skills/atr/references/paseo.md": "9a3c23dd259ed25217a064deece22af504e707b7d4f9e7a6672e0cd8c6ecb15f",
   ".claude/skills/atr/references/templates.md": "376178663bbd1fdf78bac5254f8616dd7af33ad3264f49d5b47c99bf4070d1a2",
-  ".claude/skills/atr/SKILL.md": "8a1328527be6b20b63f62b07148ee7288b634d5d85c052db4b75b59d8e375f07",
+  ".claude/skills/atr/SKILL.md": "22b8cf8ad5133ea43a313cd2999061e2c734bc0e68a87cb8005bbf3d7a4b1eef",
   ".claude/skills/bmad-advanced-elicitation/methods.csv": "e08b2e22fec700274982e37be608d6c3d1d4d0c04fa0bae05aa9dba2454e6141",
   ".claude/skills/bmad-advanced-elicitation/SKILL.md": "51562290a395141272901db9899765b35786bead37dacaf76f9a3f87398af53f",
   ".claude/skills/bmad-agent-analyst/SKILL.md": "fc7110bcacb15f8b5a7b476ebf956bc4efa8eb9699b72bb96ecd30802aa8b4aa",
@@ -32265,6 +33351,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/docs-md-generator/references/mode-prompts.md": "bdb28bcb651772eb9b5b9bb04e1f8eb3a82fdcb425d25fe41cb3c69d109e2674",
   ".claude/skills/docs-md-generator/references/output-templates.md": "413efd666411b8e8b0374455af5fde292d948adbac0f32db52b1a9d064ac9baa",
   ".claude/skills/docs-md-generator/SKILL.md": "a1ab272c9dde395d28c1cb4cc8efe25079f5c2bb1d7600f0cf7eb2d22de9d97b",
+  ".claude/skills/docs-steward/SKILL.md": "5b6cfa33c2667b70f7439f072c32bddeeee29439ea62500902261d4f8db2b2b7",
   ".claude/skills/frontend-design/SKILL.md": "b81e2ff87ed8fa4d6c377ccb127a7254c9e6a77e3ae94f21e6b514f7bb2945a0",
   ".claude/skills/intent-driven-development/SKILL.md": "f25ff847d3de3f1cd853cefb174d030ccc2ac3f9d8fdf7f69a0cdbfc2bc09449",
   ".claude/skills/observability-debug/references/adapter-app-insights.md": "e4fc107a30cb279607999922e66edb9a7ce2a3ba93fa51c54153a695ac0e2591",
@@ -32289,14 +33376,15 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/polly/references/external-tools.md": "925667e9f57e7eceb39d2801432c9dac6a65b995bbbdb20bdaf078489c252f76",
   ".claude/skills/polly/references/fallback-messages.md": "57c0be97fd5fa034bf358b482a3019721829421dac1d15198577cb5fbdb1f56e",
   ".claude/skills/polly/references/project-tools.md": "6dd818cbafa99463e248cd5921e9100dffded16c5c0495d46979532ce61534bc",
-  ".claude/skills/polly/references/sdlc-flow.default.md": "bf1d03e33a6096e1968cb07dbc25e25f10d3207b4e6f40cc3ff01cf6fcbbe43e",
-  ".claude/skills/polly/SKILL.md": "35a32dc7c35c0598c628107801c7345c645d991635c014b1378e949df51fc02f",
+  ".claude/skills/polly/references/sdlc-flow.default.md": "f6269fb4a205f3179fdc7009944ef05c479f9be7c1a61a37c9f8a433e81f4457",
+  ".claude/skills/polly/SKILL.md": "50813526b9a54e16c8ff7bacfe9bf07664298d9ab3610bf903a71438c2c43e69",
   ".claude/skills/production-audit/SKILL.md": "98791f4483bc0fe36bac2d878428365b75f7ab697aa3003ed914a1543df7d210",
   ".claude/skills/quint-fpf/SKILL.md": "bc54ef9c294824b8c15799bf47f241f76624e297e0edfe30f5b91b15a2303866",
   ".claude/skills/rea-setup/SKILL.md": "33e7ea0e33bc5a1590ab740978477bb530be13b55652d35e3a6d1d9438499108",
   ".claude/skills/requirements-ingest/references/ingestion-heuristics.md": "d91cea7f1dcdb55b09bda63be31348120083d70ab01e36f9178f2d6d09d5e6af",
   ".claude/skills/requirements-ingest/references/requirement-file-template.md": "447b4155e3fe8f09249a92145a5cfcf82c07b46f481c9cdd215d221837035bf1",
   ".claude/skills/requirements-ingest/SKILL.md": "9d697a65e5092d05752cc7b11d62d69e81d41459c864f438e4db9f78dbd21f01",
+  ".claude/skills/reuse-first/SKILL.md": "ecf149944847dfd1f1ec0cde5dcbad5e02a171bf5614efcbf9c1918a0ba60df3",
   ".claude/skills/reverse-engineering/references/changelog-entry.md": "a865b1ebc1eee9a6bd9c5ad9abcc0cf715e6fa2418572814b791f6229bdf36f0",
   ".claude/skills/reverse-engineering/references/config.example.json": "998fa98c33917589ed287529b8dc8ce0211906a3a771a601464836473001a75d",
   ".claude/skills/reverse-engineering/references/initial-spine.md": "e3e112e636e147952c5594d4d0d4acc9ceb7ce1109073166e9e9eb99b7de6397",
@@ -32311,7 +33399,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/spec-to-workitem/references/adapter-jira.md": "56c3164de836d41ab734c8e26c8fc2155c9250deec6910d1dd85a0b4b488b423",
   ".claude/skills/spec-to-workitem/references/adapter-linear.md": "6da405c39700d70267ad23645d194975586d7bdbf515bd8144bf3ea487d980b2",
   ".claude/skills/spec-to-workitem/SKILL.md": "20a08e8e0346ae4a6bd0bc10f11ee34682c4d9b25d2e73393d2040d2945c5fc5",
-  ".claude/skills/sprint-manifest/SKILL.md": "53e8bac9165d12b9aa7de7c131559ab60c732c1d7c9d5f8efb34104f8706979c",
+  ".claude/skills/sprint-manifest/SKILL.md": "8306d85644e9a4ae77af45fb88f04f1781f9af567dc51397499dbd38b9810320",
   ".claude/skills/verification-loop/SKILL.md": "c9c6344bb6be2174c94ffe8acf76c2afc2fd3c42c139358575d7415129660ade",
   ".claude/skills/vscode-config-generator/assets/launch.dotnet.json.hbs": "c8c2383b8768f9687ffe655472adcd21c660d974ec133f168c8d678ab8f7618e",
   ".claude/skills/vscode-config-generator/assets/launch.node.json.hbs": "b0abdacdeeb716137ab657bbfd0b8e57aa3e4e9d255fddfb6f25183c299df26a",
@@ -32320,17 +33408,23 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/vscode-config-generator/assets/tasks.node.json.hbs": "51d39333e587b31815ab0b79815762d332936e38f3a32be24e8e1fe845c104ea",
   ".claude/skills/vscode-config-generator/assets/tasks.python.json.hbs": "482b64606ba341641fe450e288fde371a9a63cd772a8b8d4727aad7f88e18e68",
   ".claude/skills/vscode-config-generator/SKILL.md": "338ff1d4993114a322147294592275111138aa1c7c807bd6d7ecc04c0e1a9033",
+  ".codex/agents/blueprint-architect.toml": "1e728777c38affaeff3c6b24defff0f28f25cd6f7f221ad5d1a3ebffe0f74680",
   ".codex/agents/build-error-resolver.toml": "9e6fe9b1eb977261bf21d967ef3f3dbbcc8acd572dad030d71f6d637d8a2d02f",
   ".codex/agents/code-simplifier.toml": "8c82d8bd8f8885a74ec9d76135d291070bc3235a15143ce4eb355ececbbe8ea3",
   ".codex/agents/database-reviewer.toml": "1abbe2c681115c93ae50e2c1e63ea7aae9818d642eb82e9c841912412ea1dcdf",
+  ".codex/agents/evidence-reviewer.toml": "a3876838ff1036f937f3ad5bf934bb786d89c0ac86406f390b91709637705adc",
+  ".codex/agents/graph-explorer.toml": "3448663ed6b7ccfa737c2eec81730e449e0a9bced729bd0f1fdd3120d51e4b9b",
   ".codex/agents/pr-test-analyzer.toml": "418eedd659f9d0b5bc881cccde248395cff1c52afe4897049f68f88e775eb09b",
   ".codex/agents/refactor-cleaner.toml": "814695c64f0aae2449cd69f1c99e6cac2a25801381cf7994268050cafbb038ba",
+  ".github/agents/blueprint-architect.agent.md": "92133979acce4d25aec950ad0a1beb455a29765b4b1e217f7747c867992900ef",
   ".github/agents/build-error-resolver.agent.md": "f5f10c5a45c0353000af8f799c953eb2ba3c14c5d14773f8947a4aef1887918e",
   ".github/agents/code-simplifier.agent.md": "0350514a22732af6f749709c01d367f88f7b5a7693e87f2daceb9827965fd24b",
   ".github/agents/database-reviewer.agent.md": "1732b7d4fcf543c7e2444f0c7308c0cb49766ed628c9f790b83a45102a25a2f2",
+  ".github/agents/evidence-reviewer.agent.md": "4d362b2dcdc5b1bd90eba8749bcfc66a093d9711925aec7f4c3423465cff88bd",
+  ".github/agents/graph-explorer.agent.md": "726b5f65a71e07bbd6212fe4c230197138c0d43e5dd49bc2dd8893d8ad539b7b",
   ".github/agents/pr-test-analyzer.agent.md": "682d5c831db1633e79c4babdc4442c2e452967751a04e8b736c19811bfdd422f",
   ".github/agents/refactor-cleaner.agent.md": "10a399d898439ad2d073ef65bc8231248798985f34da79b4eae667c1f16e036b",
-  ".github/instructions/ecc-common-agents.instructions.md": "e6de721889c5abe15d677a17b094b526db7f3ab27963827e7edf2fb282fc7d01",
+  ".github/instructions/ecc-common-agents.instructions.md": "632ac56f848c29af7e85ec42d3df1e5f39a1d2d328c91cf7db763d5f09ea8f37",
   ".github/instructions/ecc-common-code-review.instructions.md": "485814146c4dfce3cd2136ef1a714bab3443ec642b43550f838c694655aeffff",
   ".github/instructions/ecc-common-coding-style.instructions.md": "fe5786c91daeac16b1157c9dc069f35bd2460ece5507338bce90c812e55ef303",
   ".github/instructions/ecc-common-development-workflow.instructions.md": "20902fae681f4701b31bc9cc115d03766cb298e4058662893b4afaa0757e570a",
@@ -32339,10 +33433,10 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".github/instructions/ecc-common-performance.instructions.md": "3a3f80dc9cf32fc77da7328a9e7b7737f690042f6f8b5c908b4075a26161b36b",
   ".github/instructions/ecc-common-security.instructions.md": "5a370848f99f216032b7cb08feb09e401cf10f125a5960b512ad499de5bf00f1",
   ".github/instructions/ecc-common-testing.instructions.md": "854a318310f2e88cd76fb4a8d02cae8c296cc560cfb3e969217ba1dfd24daf93",
-  ".nonoise/ecc/files.json": "baffe9882a8b463151ba61497f96d7e606b03d36e3b41cb20a6e32264e08a3cb",
-  ".nonoise/ecc/index.md": "079401557eccd834ebf0f369394c9005223bd29a924e7babc6dc4d1ff4365ff0",
+  ".nonoise/ecc/files.json": "bcae07885268a75f4829923377850c857b1f7de64628a9ae2fdc4b89fef51099",
+  ".nonoise/ecc/index.md": "7486df1f780cb491276201410328bfc945d5ce508d365b49ef793b7bdba4facd",
   ".nonoise/ecc/LICENSE": "6f421251343cb0ab3467101468bb02dacc8dd498b07a508a2a73dfddfbfd478a",
-  ".nonoise/ecc/rules/common/agents.md": "df2bc545771d5475a40793df3b2c4d26f1601029c4a3c77c1d4c88c487aaeb4b",
+  ".nonoise/ecc/rules/common/agents.md": "d6680921d48140bfa19bcb1ec3afc6bc6c31536787f5ae340e2c32f27859c16f",
   ".nonoise/ecc/rules/common/code-review.md": "8a91c0e3addaa1ca4056cb5e7edd6547e7773e99b267613db7cf67f62de4a8e6",
   ".nonoise/ecc/rules/common/coding-style.md": "a000dd093f1567a5d4568c52864c8d15b022ae30135dc45a05cb5c5ada737d23",
   ".nonoise/ecc/rules/common/development-workflow.md": "9cb23552e5dbc01873f3ed6bac69673a9369634f4fddd8325981e19816ef6897",
@@ -32351,7 +33445,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".nonoise/ecc/rules/common/performance.md": "89a012c7e85236aa75af1e098a20d24bc95c3586b37ecb4a01c788f002ebb149",
   ".nonoise/ecc/rules/common/security.md": "70835c7c6949256f7d683d925e62a61db580bc93f63e20f612cc097e6fefd7bf",
   ".nonoise/ecc/rules/common/testing.md": "c22e1f62683afb3f4d7d6ec9c50092ebf1f0aa252015066c32a274ea21170e66",
-  ".nonoise/ecc/UPSTREAM.md": "5dc78c9e83dc4f1fa641aceaa3fdffa42ff276d0b042ad7634c8244785a640c2"
+  ".nonoise/ecc/UPSTREAM.md": "9083710e0aa023da09cfe4bf33eeb019edf3b7d155ec0e9ae3c840be16dcfcde"
 }
 ",
   ".nonoise/sdlc-flow.md": "---
@@ -32535,6 +33629,8 @@ Fai brainstorming sulla feature <nome>. Requisiti in docs/requirements/<file>.md
 Brainstorm the feature <name>. Requirements at docs/requirements/<file>.md. Known constraints: <…>. Explore 2-3 approaches with trade-offs, pick one, save a spec under docs/superpowers/specs/. Proceed.
 \`\`\`
 
+Start with \`reuse-first\`; in existing code, have \`graph-explorer\` map the area and \`blueprint-architect\` derive the blueprint before the spec is closed.
+
 Skip when: the work is a pure refactor with no new feature.
 
 ## arch-brainstorm
@@ -32546,6 +33642,8 @@ Voglio esplorare opzioni architetturali per <area / feature>. Contesto: <scope, 
 \`\`\`prompt (en)
 I want to explore architectural options for <area / feature>. Context: <scope, constraints, expected canonical patterns>. Produce 2-3 options with trade-offs and a recommendation under docs/architecture/brainstorm/. Proceed.
 \`\`\`
+
+Start with \`reuse-first\`, so the options build on what already exists.
 
 Skip when: the feature fits an already-decided architecture.
 
@@ -32603,6 +33701,8 @@ Devo implementare il task <id> dello Sprint-<N>. Scrivi un plan dettagliato e po
 I need to implement task <id> of Sprint-<N>. Write a detailed plan and execute it via subagent-driven-development with TDD. Proceed.
 \`\`\`
 
+Close each task with \`evidence-reviewer\` (plus the installed language reviewer) before acceptance.
+
 ## acceptance
 
 \`\`\`prompt (it)
@@ -32617,7 +33717,7 @@ Vendor skill identifiers such as \`superpowers:writing-plans\` resolve through t
 
 ## Supporting checks from the ECC snapshot
 
-Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
+Read \`.nonoise/ecc/index.md\` for installed capabilities. Before risky sprint tasks use \`change-impact\`; for brownfield work use \`spec-miner\`, \`inherit-legacy-style\` and, when redesign is requested, \`brownfield-retrospective\`. Before acceptance use \`evidence-reviewer\`, \`module-regression\`, \`pr-test-analyzer\`, \`security-reviewer\`, \`silent-failure-hunter\` and the installed language reviewer through \`atr\`. After \`arch-sync\` and at sprint closure run \`docs-steward\`. Final evidence comes from \`verification-loop\` alongside \`superpowers:verification-before-completion\`; release readiness uses \`production-audit\`. These checks support the existing phases and do not add a lifecycle.
 ",
   ".vscode/extensions.json": "{
   "recommendations": [
@@ -32765,9 +33865,9 @@ If the user is unsure which skill to use, they can invoke \`/polly\` (Claude Cod
 \`bmad-advanced-elicitation\`
 
 **Architecture & validation** — \`arch-brainstorm\`, \`arch-decision\`, \`quint-fpf\`,
-\`bmad-agent-architect\`
+\`bmad-agent-architect\`, \`reuse-first\`
 
-**Sprint & implementation** — \`sprint-manifest\`, \`atr\`
+**Sprint & implementation** — \`sprint-manifest\`, \`atr\`, \`docs-steward\`
 
 **Brownfield & code graph** — \`reverse-engineering\`, \`codebase-memory\`
 
@@ -32779,6 +33879,9 @@ If the user is unsure which skill to use, they can invoke \`/polly\` (Claude Cod
 **Generators** — \`vscode-config-generator\`, \`docs-md-generator\`, \`design-md-generator\`
 
 **Utility** — \`skill-finder\`
+
+**NONoise agents** — \`graph-explorer\`, \`blueprint-architect\`, \`evidence-reviewer\`
+(every profile except minimal; the installed roster is \`.nonoise/ecc/index.md\`)
 
 **Orchestration (Regia mod, native plugin \`regia@claude-regia\`)** — \`/regia long\`,
 \`/regia medium\`, \`/regia quick\`, \`/regia swarm\`, \`/regia doctor\`. Regia makes the main
@@ -33416,6 +34519,8 @@ support/
     "polly",
     "c4-doc-writer",
     "codebase-memory",
+    "reuse-first",
+    "docs-steward",
     "rea-setup",
     "verification-loop",
     "intent-driven-development",
@@ -34412,6 +35517,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".agents/skills/docs-md-generator/references/managed-blocks-protocol.md",
   ".agents/skills/docs-md-generator/references/mode-prompts.md",
   ".agents/skills/docs-md-generator/references/output-templates.md",
+  ".agents/skills/docs-steward/SKILL.md",
   ".agents/skills/frontend-design/SKILL.md",
   ".agents/skills/intent-driven-development/SKILL.md",
   ".agents/skills/observability-debug/SKILL.md",
@@ -34444,6 +35550,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".agents/skills/requirements-ingest/SKILL.md",
   ".agents/skills/requirements-ingest/references/ingestion-heuristics.md",
   ".agents/skills/requirements-ingest/references/requirement-file-template.md",
+  ".agents/skills/reuse-first/SKILL.md",
   ".agents/skills/reverse-engineering/SKILL.md",
   ".agents/skills/reverse-engineering/references/changelog-entry.md",
   ".agents/skills/reverse-engineering/references/config.example.json",
@@ -34468,9 +35575,12 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".agents/skills/vscode-config-generator/assets/tasks.node.json.hbs",
   ".agents/skills/vscode-config-generator/assets/tasks.python.json.hbs",
   ".claude/agents/.gitkeep",
+  ".claude/agents/blueprint-architect.md",
   ".claude/agents/build-error-resolver.md",
   ".claude/agents/code-simplifier.md",
   ".claude/agents/database-reviewer.md",
+  ".claude/agents/evidence-reviewer.md",
+  ".claude/agents/graph-explorer.md",
   ".claude/agents/pr-test-analyzer.md",
   ".claude/agents/refactor-cleaner.md",
   ".claude/commands/.gitkeep",
@@ -34514,6 +35624,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/docs-md-generator/references/managed-blocks-protocol.md",
   ".claude/skills/docs-md-generator/references/mode-prompts.md",
   ".claude/skills/docs-md-generator/references/output-templates.md",
+  ".claude/skills/docs-steward/SKILL.md",
   ".claude/skills/frontend-design/SKILL.md",
   ".claude/skills/intent-driven-development/SKILL.md",
   ".claude/skills/observability-debug/SKILL.md",
@@ -34546,6 +35657,7 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/requirements-ingest/SKILL.md",
   ".claude/skills/requirements-ingest/references/ingestion-heuristics.md",
   ".claude/skills/requirements-ingest/references/requirement-file-template.md",
+  ".claude/skills/reuse-first/SKILL.md",
   ".claude/skills/reverse-engineering/SKILL.md",
   ".claude/skills/reverse-engineering/references/changelog-entry.md",
   ".claude/skills/reverse-engineering/references/config.example.json",
@@ -34570,15 +35682,21 @@ exports[`canonical scaffold snapshot > produces the canonical file tree + conten
   ".claude/skills/vscode-config-generator/assets/tasks.node.json.hbs",
   ".claude/skills/vscode-config-generator/assets/tasks.python.json.hbs",
   ".codex/.gitkeep",
+  ".codex/agents/blueprint-architect.toml",
   ".codex/agents/build-error-resolver.toml",
   ".codex/agents/code-simplifier.toml",
   ".codex/agents/database-reviewer.toml",
+  ".codex/agents/evidence-reviewer.toml",
+  ".codex/agents/graph-explorer.toml",
   ".codex/agents/pr-test-analyzer.toml",
   ".codex/agents/refactor-cleaner.toml",
   ".cursor/rules.md",
+  ".github/agents/blueprint-architect.agent.md",
   ".github/agents/build-error-resolver.agent.md",
   ".github/agents/code-simplifier.agent.md",
   ".github/agents/database-reviewer.agent.md",
+  ".github/agents/evidence-reviewer.agent.md",
+  ".github/agents/graph-explorer.agent.md",
   ".github/agents/pr-test-analyzer.agent.md",
   ".github/agents/refactor-cleaner.agent.md",
   ".github/copilot-instructions.md",

@@ -1,4 +1,6 @@
 // Deliberate, reproducible NONoise adaptations; reviewed alongside snapshot updates.
+const LANGUAGE_FILE = /^(?:agents\/(?:python|go|rust|java|kotlin|cpp|swift|php|ruby|react|vue|flutter|fsharp)-reviewer\.md|agents\/(?:go|rust|java|kotlin|cpp|swift|react|dart)-build-resolver\.md|rules\/(?:python|golang|rust|java|kotlin|cpp|swift|php|ruby|react|vue|dart|fsharp)\/)/;
+const SHIPPED_SKILL = /`(?:superpowers:test-driven-development|api-design|dotnet-patterns|e2e-testing)`/;
 export function adaptEcc(path, text) {
   const replacements = {
     'architecture-decision-records': 'arch-decision',
@@ -25,7 +27,7 @@ export function adaptEcc(path, text) {
   text = text.replace('see skill: `security-reviewer`', 'use the `security-reviewer` agent checklist and the `production-audit` skill');
   text = text.replace('see skills: `database-migrations` and `database-migrations`.', 'see `database-migrations` when installed; otherwise use the checklist above.');
   if (path === 'agents/typescript-reviewer.md') {
-    text = text.replace(/^> \*\*For React-specific review.*$/m, '> For React files, apply the React checklist below; no additional ECC reviewer is required.');
+    text = text.replace(/^> \*\*For React-specific review.*$/m, '> For React files, apply the React checklist below; when the react stack is installed, `react-reviewer` reviews them as well.');
     text = text.replace(/^This repo does not yet ship.*$/m, 'Use the installed TypeScript rules and the project conventions for detailed TypeScript and JavaScript patterns.');
   }
   if (path === 'agents/spec-miner.md' || path === 'skills/brownfield-retrospective/SKILL.md') {
@@ -33,7 +35,7 @@ export function adaptEcc(path, text) {
       .replaceAll('openspec/specs/', 'docs/architecture/specs/').replaceAll('OpenSpec', 'NONoise')
       .replaceAll('If the project uses NONoise,', 'In NONoise,');
   }
-  if (path === 'rules/common/agents.md') text = `# Agent coordination\n\nNONoise installs a pinned selection of ECC agents with bare names. Read the generated .nonoise/ecc/index.md for the installed roster and stack rules. Use the harness agent tool when available; otherwise apply the agent instructions directly and disclose that no independent review ran.\n\nUse security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus csharp-reviewer or typescript-reviewer when installed. Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.\n\nPlanning uses superpowers:writing-plans; architecture decisions use arch-decision and Haft; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.\n\nDelegate only when appropriate to the user's task and harness permissions. Collect and integrate every delegated result before reporting completion. Do not redelegate work that fits one agent's context.\n`;
+  if (path === 'rules/common/agents.md') text = `# Agent coordination\n\nNONoise installs a pinned selection of ECC agents with bare names. Read the generated .nonoise/ecc/index.md for the installed roster and stack rules. Use the harness agent tool when available; otherwise apply the agent instructions directly and disclose that no independent review ran.\n\nNONoise's own agents are listed there too: graph-explorer maps existing code before design, blueprint-architect turns a spec into a file-level blueprint, evidence-reviewer reviews a change and reports only what it can prove.\n\nUse evidence-reviewer, security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus the language reviewer installed for the stack (csharp-reviewer, typescript-reviewer, python-reviewer, go-reviewer and so on). Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver or the stack's own build resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.\n\nPlanning uses superpowers:writing-plans; architecture decisions use arch-decision, with Haft when the FPF gate fires; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.\n\nDelegate only when appropriate to the user's task and harness permissions. Collect and integrate every delegated result before reporting completion. Do not redelegate work that fits one agent's context.\n`;
   if (path === 'rules/common/code-review.md') {
     text = text.split('\n').filter(line => !/^\|.*(?:python-reviewer|go-reviewer|rust-reviewer|code-reviewer|architect|tdd-guide)/.test(line)).join('\n');
   }
@@ -83,6 +85,29 @@ export function adaptEcc(path, text) {
   text = text.replace('Hooks catch issues immediately; this skill provides comprehensive review.', 'Record the actual commands and their results before delivery.');
   text = text.replace('an persistent project-instruction reference', 'a persistent project-instruction reference');
   text = text.replace('- See hooks for automatic detection', '- Check the changed files manually or with the project lint command');
+  // Language stacks ship agents and rules only. Their upstream companion skills,
+  // slash commands and hook rule files are not part of this snapshot, so pointers
+  // to them are removed; capabilities NONoise ships under another stack or profile
+  // are named as conditional, and rule paths point at the installed location.
+  if (LANGUAGE_FILE.test(path)) {
+    text = text.replace('see skill: `dotnet-patterns`.', 'see skill: `dotnet-patterns` when installed.')
+      .replace('See skill: `api-design` for', 'See skill: `api-design`, when installed, for')
+      .replace('See [e2e-testing skill](../../skills/e2e-testing/SKILL.md).', 'See the `e2e-testing` skill when installed.')
+      .replace(/ See also skill: `[^\n]*$/m, '')
+      .replace(', and skill: `rails-patterns`', '')
+      .replace('defer to a future `typescript-build-resolver`', 'defer to `build-error-resolver`')
+      .replace('`rules/vue/hooks.md`, ', '');
+    const pointer = /skills?: `|`skill: |`skills\/|the `[a-z0-9-]+` skill\b/i;
+    text = text.split('\n').filter(line => !(pointer.test(line) && !SHIPPED_SKILL.test(line)) && !/^- Commands: `\//.test(line)).join('\n');
+    text = text.replace(/^For detailed patterns and examples:\n(?!- )/m, '');
+    if (path.startsWith('agents/')) {
+      text = text.replace(/`rules\/(react|vue)\//g, '`.nonoise/ecc/rules/$1/')
+        .replace('see rules: `', 'see the installed rules under `.nonoise/ecc/rules/`: `');
+    }
+    // A reference section whose only content was a removed pointer goes with it.
+    text = text.replace(/^## (?:Skill )?References?\n\s*(?=^#{1,6} |^---$|(?![\s\S]))/gm, '');
+    text = text.replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
+  }
   if (path === 'skills/mcp-dependency-review/SKILL.md') {
     text = text.replace('Use when reviewing .mcp.json, Cursor, VS Code, Claude, Windsurf, or other repo-scoped MCP config.', 'Use when reviewing NONoise project MCP configuration for Claude, Codex, Copilot, or another host.');
     text = text.replace('## When to Activate', '## NONoise host scope\n\nUse the current host’s available file-reading and search tools. No ECC plugin, runtime, slash command, or external scanner is required. In NONoise, inspect project-local `.mcp.json` (Claude and Copilot CLI) and `.codex/config.toml` (Codex `[mcp_servers.<name>]` entries). Parse the actual JSON or TOML format as data; never source it or execute configured commands. Additional supported host paths below are discovery candidates only, not instructions to create configuration.\n\nREA uses an exact `rea-agents@6.5.0` selector; review it using the same rules as every other server. This skill does not install or enable REA. Use `rea-setup` when installed for a requested REA setup. Preserve secret environment values and never include them in reports.\n\n## When to Activate');

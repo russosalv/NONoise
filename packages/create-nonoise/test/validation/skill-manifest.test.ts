@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 const SKILLS_ROOT = resolve(__dirname, '..', '..', '..', '..', 'packages', 'skills');
 
 // Grouping/data directories that don't follow the SKILL.md convention.
-const GROUPING_DIRS = new Set(['vendor', '_shared']);
+const GROUPING_DIRS = new Set(['vendor', '_shared', '_agents']);
 
 describe('skill manifest validation', () => {
   it('every skill has a SKILL.md with valid frontmatter', async () => {

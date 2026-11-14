@@ -8,8 +8,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const SKILLS_ROOT = resolve(__dirname, '..', '..', '..', '..', 'packages', 'skills');
 
-// Vendored / platform-snapshot dirs are upstream-owned and out of scope.
-const EXCLUDED_DIRS = new Set(['vendor', '_shared']);
+// Vendored / platform-snapshot dirs are upstream-owned and out of scope;
+// `_agents` holds NONoise agent sources, validated in skill-host-compat.test.ts.
+const EXCLUDED_DIRS = new Set(['vendor', '_shared', '_agents']);
 
 const COPILOT_DESCRIPTION_LIMIT = 1024;
 

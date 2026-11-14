@@ -73,7 +73,8 @@ export function listShippedSkills(root: string): Array<{ path: string; name: str
   const result: Array<{ path: string; name: string }> = [];
   const dirs = (path: string) => readdirSync(path, { withFileTypes: true }).filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => e.name).sort();
   const add = (dir: string) => { const path = join(dir, 'SKILL.md'); if (existsSync(path)) result.push({ path, name: basename(dir) }); };
-  for (const name of dirs(root)) if (!['vendor', '_shared'].includes(name)) {
+  // `_agents` holds NONoise agent sources (rendered by ecc.ts), not skills.
+  for (const name of dirs(root)) if (!['vendor', '_shared', '_agents'].includes(name)) {
     // Native directories are skill entrypoints; a missing SKILL.md must fail.
     result.push({ path: join(root, name, 'SKILL.md'), name });
   }
