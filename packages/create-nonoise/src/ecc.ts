@@ -5,22 +5,29 @@ import type { AiTools } from './types.js';
 import { nonoiseSkillDirs } from './skill-installer.js';
 import { digest, installManagedAssets, safeAssetPath, readAssetHashes } from './managed-assets.js';
 
-export const STACKS = ['dotnet', 'typescript', 'angular', 'web'] as const;
+export const STACKS = ['dotnet', 'typescript', 'angular', 'web', 'python', 'go', 'rust', 'java', 'kotlin', 'cpp', 'swift', 'php', 'ruby', 'react', 'vue', 'flutter', 'fsharp'] as const;
 export type Stack = typeof STACKS[number];
-export type EccSelection = { agents: string[]; rules: string[]; skills: string[] };
+/** `nonoiseAgents` are the agents NONoise authors itself (skills root `_agents/`); they are not
+ * part of the vendored ECC snapshot but share its per-host conversion and ownership inventory. */
+export type EccSelection = { agents: string[]; rules: string[]; skills: string[]; nonoiseAgents?: string[] };
+export const NONOISE_AGENT_PROVENANCE = 'NONoise agent | MIT | Inspired by ECC (https://github.com/affaan-m/ECC); see the note in the agent body.';
 type Manifest = { repository: string; commit: string; agents: Record<string, Stack[]>; rules: Record<string, Stack[]>; skills: Record<string, Stack[]> };
 export function parseStack(csv: string): Stack[] {
   const values = csv.split(',').map(s => s.trim()).filter(Boolean);
   if (values.length === 1 && ['none', 'nessuno'].includes(values[0]!)) return [];
   const unknown = values.filter(v => !STACKS.includes(v as Stack));
-  if (unknown.length) throw new Error(`Invalid stack: ${unknown.join(', ')}. Use dotnet,typescript,angular,web or none (alone).`);
+  if (unknown.length) throw new Error(`Invalid stack: ${unknown.join(', ')}. Use ${STACKS.join(',')} or none (alone).`);
   return STACKS.filter(s => values.includes(s));
 }
 function manifest(root: string): Manifest { return JSON.parse(readFileSync(join(root, 'vendor/ecc/manifest.json'), 'utf8')); }
-export function selectEcc(root: string, stack: readonly string[]): { agents: string[]; rules: string[]; skills: string[] } {
+export function listNonoiseAgents(root: string): string[] {
+  const dir = join(root, '_agents');
+  return existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.md')).map(f => f.slice(0, -3)).sort() : [];
+}
+export function selectEcc(root: string, stack: readonly string[]): EccSelection {
   const selected = parseStack(stack.join(',')), data = manifest(root);
   const eligible = (map: Record<string, Stack[]>) => Object.entries(map).filter(([, choices]) => !choices.length || choices.some(s => selected.includes(s))).map(([name]) => name);
-  return { agents: eligible(data.agents), rules: eligible(data.rules), skills: eligible(data.skills) };
+  return { agents: eligible(data.agents), rules: eligible(data.rules), skills: eligible(data.skills), nonoiseAgents: listNonoiseAgents(root) };
 }
 function markdown(text: string): { meta: Record<string, unknown>; body: string } {
   const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
@@ -31,26 +38,31 @@ function walk(root: string, prefix = ''): string[] {
   return readdirSync(join(root, prefix), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name)).flatMap(e => e.isDirectory() ? walk(root, posix.join(prefix, e.name)) : e.isFile() ? [posix.join(prefix, e.name)] : []);
 }
 
+/** One per-host agent conversion for both sources: the vendored ECC agents and the NONoise-authored ones. */
+function emitAgent(files: Record<string, string>, ai: AiTools, name: string, source: string, provenance: string, origin: 'ECC' | 'NONoise'): void {
+  const { meta, body } = markdown(source);
+  if (meta.name !== name || typeof meta.description !== 'string' || !meta.description.trim()) throw new Error(`Invalid ${origin} agent metadata: ${name}`);
+  const tools = String(meta.tools).split(',').map(t => t.trim());
+  const instructions = `<!-- ${provenance} -->\n\n${body}`;
+  if (ai.claudeCode) files[`.claude/agents/${name}.md`] = yaml({ name, description: meta.description, tools }, instructions);
+  if (ai.copilot) {
+    const aliases: Record<string, string> = { Read: 'read', Grep: 'search', Glob: 'search', Bash: 'execute', Write: 'edit', Edit: 'edit' };
+    const mapped = tools.map(t => { if (!aliases[t]) throw new Error(`Unsupported ${origin} agent tool: ${t}`); return aliases[t]!; });
+    files[`.github/agents/${name}.agent.md`] = yaml({ name, description: meta.description, tools: [...new Set(mapped)] }, instructions);
+  }
+  if (ai.codex) files[`.codex/agents/${name}.toml`] = `# ${provenance}\nname = ${JSON.stringify(name)}\ndescription = ${JSON.stringify(meta.description)}\ndeveloper_instructions = ${JSON.stringify(instructions)}\n`;
+}
+
 /** Pure conversion from the one pinned source tree; no per-harness copies are maintained. */
 export function renderEccFiles(root: string, ai: AiTools, stack: readonly string[], selected?: EccSelection): Record<string, string> {
   if (!Object.values(ai).some(Boolean)) return {};
   const data = manifest(root), selection = selected ?? selectEcc(root, stack), vendor = join(root, 'vendor/ecc');
   const files: Record<string, string> = {};
   const provenance = `Source: ${data.repository} | Commit: ${data.commit} | MIT | Adapted for NONoise.`;
-  for (const name of selection.agents) {
-    const { meta, body } = markdown(readFileSync(join(vendor, 'agents', name + '.md'), 'utf8'));
-    if (meta.name !== name || typeof meta.description !== 'string' || !meta.description.trim()) throw new Error(`Invalid ECC agent metadata: ${name}`);
-    const tools = String(meta.tools).split(',').map(t => t.trim());
-    const instructions = `<!-- ${provenance} -->\n\n${body}`;
-    if (ai.claudeCode) files[`.claude/agents/${name}.md`] = yaml({ name, description: meta.description, tools }, instructions);
-    if (ai.copilot) {
-      const aliases: Record<string, string> = { Read: 'read', Grep: 'search', Glob: 'search', Bash: 'execute', Write: 'edit', Edit: 'edit' };
-      const mapped = tools.map(t => { if (!aliases[t]) throw new Error(`Unsupported ECC agent tool: ${t}`); return aliases[t]!; });
-      files[`.github/agents/${name}.agent.md`] = yaml({ name, description: meta.description, tools: [...new Set(mapped)] }, instructions);
-    }
-    if (ai.codex) files[`.codex/agents/${name}.toml`] = `# ${provenance}\nname = ${JSON.stringify(name)}\ndescription = ${JSON.stringify(meta.description)}\ndeveloper_instructions = ${JSON.stringify(instructions)}\n`;
-  }
-  const index = [`# NONoise ECC selection`, '', provenance, '', `Stacks: ${stack.join(', ') || 'none'}.`, '', '## Agents', '', ...selection.agents.map(n => `- ${n}`), '', '## Rules', '', 'Read every common rule before work; read each stack rule when its paths match the files being changed. Resolve conflicts in favor of project-specific conventions and user instructions.', ''];
+  for (const name of selection.agents) emitAgent(files, ai, name, readFileSync(join(vendor, 'agents', name + '.md'), 'utf8'), provenance, 'ECC');
+  const own = selection.nonoiseAgents ?? [];
+  for (const name of own) emitAgent(files, ai, name, readFileSync(join(root, '_agents', name + '.md'), 'utf8'), NONOISE_AGENT_PROVENANCE, 'NONoise');
+  const index = [`# NONoise ECC selection`, '', provenance, '', `Stacks: ${stack.join(', ') || 'none'}.`, '', '## Agents', '', ...selection.agents.map(n => `- ${n}`), '', ...(own.length ? ['### NONoise agents', '', NONOISE_AGENT_PROVENANCE, '', ...own.map(n => `- ${n}`), ''] : []), '## Rules', '', 'Read every common rule before work; read each stack rule when its paths match the files being changed. Resolve conflicts in favor of project-specific conventions and user instructions.', ''];
   for (const group of selection.rules) {
     for (const path of walk(join(vendor, 'rules', group))) {
       const rel = `${group}/${path}`;

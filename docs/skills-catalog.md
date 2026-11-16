@@ -1,13 +1,16 @@
 # Skill catalog — what ships in `.claude/skills/`
 
 NONoise selects skills through six [installation profiles](install-profiles.md).
-Core and larger profiles include the historical 27 native skills plus `rea-setup`;
+Core and larger profiles include the 27 native skills of the standard bundle plus `rea-setup`;
 minimal includes five essential skills. ECC contributes 16 available skills,
 selected by profile and stack; REA contributes `reverse-engineer-anything` only
 when enabled. Native skills are copied to `.claude/skills/` and also `.agents/skills/`
 for Codex/Copilot. Other vendor packs use native installers by default or the
 bundled `--vendor-mode embed` fallback; minimal skips those packs. All shipped
 skill frontmatter and converted agents are checked in CI for host discovery.
+
+Agents are not skills. The three NONoise agents and the ECC agents selected by
+profile and `--stack` are described in [`agents.md`](agents.md).
 
 
 This document is organised by **domain**. Each skill entry has:
@@ -28,10 +31,10 @@ Every skill under `packages/skills/` falls into one of three provenance tiers. T
 | Tier | Meaning | Count |
 |---|---|---:|
 | **custom NONoise** | Written for NONoise. Includes skills whose `bmad-*` prefix is a naming convention reference to the BMAD methodology family (persona / handoff / elicitation patterns) — the implementation is NONoise-native. Some bmad-* started from a BMAD draft and were substantially rewritten for the NONoise flow (handoffs, convention mapping, integration with other skills); `bmad-req-validator` is fully NONoise-native and only the name echoes the family. | 26 |
-| **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. The `graphify` tool is installed directly by `create-nonoise` at scaffold time (not a skill wrapper). | 2 |
+| **imported — used as-is** | Taken from the community / Anthropic registry and dropped into the bundle without customization. The skills that fit this tier are `frontend-design` and `playwright-cli`. | 2 |
 | **vendored** | Installed under a namespace from the upstream installer or plugin (native, default) or from a snapshot pinned by commit and refreshed via `scripts/sync-vendor.mjs` (embed). Kept as a trackable upstream dependency. Covers the `superpowers:*` pack (14), the Impeccable design pack (~19), `skill-creator` (Anthropic), and the PPTX tooling. | 35+ |
 
-The `graphify` tool itself is external (not a skill bundled under `packages/skills/`). The `create-nonoise` CLI installs the `graphifyy` Python package and wires the per-tool hooks at scaffold time.
+That is 28 skill sources: 27 ship in scaffolds, and `bmad-req-validator` is distributed only through the `nonoise` plugin (`rea-setup` is installed with every profile and counted separately, as before). The three NONoise agents are not skills and are not in these counts. Orchestration in Claude Code is not a skill either: it is the Regia mod, installed as a plugin (see [Orchestration: Regia](#orchestration-regia)). The code graph engine, `codebase-memory-mcp`, is an external binary (not a skill): the `create-nonoise` CLI installs it and registers its MCP server at scaffold time, and the `codebase-memory` skill tells the AI how to use it.
 
 ---
 
@@ -40,11 +43,11 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 | Domain | Skills | Primary purpose |
 |---|---:|---|
 | [Orchestration](#orchestration) | 1 | Advise on the SDLC |
-| [Multi-model orchestration](#multi-model-orchestration) | 1 | Route/dispatch/fan-out tasks across multiple model CLIs by specialization |
+| [Orchestration: Regia](#orchestration-regia) | plugin | Claude Code only: delegation, model and effort per task, swarms of Claude, Codex, Qwen Code and Copilot agents |
 | [Requirements & discovery](#requirements--discovery) | 4 | Raw input → structured requirements |
-| [Architecture & validation](#architecture--validation) | 5 | Draft and formally validate architecture |
-| [Sprint & implementation](#sprint--implementation) | 2 | Break work down, run acceptance |
-| [Brownfield & knowledge](#brownfield--knowledge) | 2 | Index and document existing code |
+| [Architecture & validation](#architecture--validation) | 7 | Check what can be reused, draft architecture and decide it: formal validation when the FPF gate fires, lightweight decision otherwise |
+| [Sprint & implementation](#sprint--implementation) | 3 | Break work down, run acceptance, audit the documentation |
+| [Brownfield & knowledge](#brownfield--knowledge) | 2 | Query the code graph and document existing code |
 | [Ops & observability](#ops--observability) | 2 | Operate systems and triage incidents |
 | [Integrations](#integrations) | 5 | Trackers, browsers, UI/UX, personas |
 | [Generators](#generators) | 3 | VSCode config, docs MDs, design MD |
@@ -52,7 +55,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 | [Vendored superpowers](#vendored-superpowers) | 14 | Planning / execution / review / worktrees |
 | [Vendored design pack](#vendored-impeccable-design-pack) | ~19 | UI/UX polish, audit, critique |
 | [Vendored skill-creator + tooling](#vendored-skill-creator--tooling) | 2+ | Meta-skill authoring and office tooling |
-| [Vendor plugin — Codex](#vendor-plugin--codex-codexopenai-codex) | plugin | Delegate tasks and reviews from Claude Code to Codex |
+| [Agents](#agents-not-skills) | not skills | Three NONoise agents, plus ECC reviewers and build resolvers per profile and `--stack` |
 
 > **Profiles are available in 1.8.0.** Use `--profile` with `--stack`; selection is saved and respected by upgrades. See [the catalog](install-profiles.md).
 
@@ -63,24 +66,24 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 ### `polly`
 - **SKILL.md:** [`packages/skills/polly/SKILL.md`](../packages/skills/polly/SKILL.md)
 - **Provenance:** custom NONoise.
-- **Purpose:** the NONoise SDLC advisor. Reads `.nonoise/sdlc-flow.md`, detects the current phase from filesystem fingerprints, and produces a one-shot 4-block message: where you are, what to do next, a copy-pasteable prompt, and an offer to delegate. One message per invocation, then terminates. Full dedicated doc: [`polly.md`](polly.md).
-- **Triggers:** `/polly` in Claude Code, *"start polly"* / *"avvia polly"* / *"run polly"* in Copilot and others, confusion-trigger (*"where do I start?"* / *"what's next?"* / *"sono perso"*).
+- **Purpose:** the NONoise SDLC advisor. Reads `.nonoise/sdlc-flow.md`, sizes the work as quick, medium or long (see [`development-modes.md`](development-modes.md)), detects the current phase from filesystem fingerprints, and produces a one-shot 4-block message: where you are, what to do next, a copy-pasteable prompt, and an offer to delegate. One message per invocation, then terminates. Full dedicated doc: [`polly.md`](polly.md).
+- **Triggers:** `/polly` in Claude Code (optionally `/polly quick|medium|long <goal>`), *"start polly"* / *"avvia polly"* / *"run polly"* in Copilot and others, confusion-trigger (*"where do I start?"* / *"what's next?"* / *"sono perso"*).
 - **Reads:** `.nonoise/sdlc-flow.md`, `nonoise.config.json`, `repositories.json`, filesystem fingerprints per phase.
 - **Writes:** nothing; delegates to specialist skills.
 - **Phase:** all.
 
 ---
 
-## Multi-model orchestration
+## Orchestration: Regia
 
-### `swarm-router`
-- **SKILL.md:** [`packages/skills/swarm-router/SKILL.md`](../packages/skills/swarm-router/SKILL.md)
-- **Provenance:** custom NONoise.
-- **Purpose:** routes / dispatches / fans-out / parallelizes a task across Claude / Codex / Gemini / Copilot's many models (Copilot is treated as a multiplexer reaching Opus, Sonnet, Haiku, GPT-5.x, plus free-tier `gpt-4.1` / `gpt-5-mini`). Classifies the task via a specialization matrix (UI → Gemini, review/security/DevOps → Codex, edge-case implementation → Claude, throwaway classification → Copilot free tier) and supports four execution modes: **single** dispatch, **sequential** pipeline, **parallel fan-out** for competing hypotheses, and **parallel-team** that splits a complex feature into N disjoint subtasks with explicit file-ownership boundaries. Cross-harness by design: first-class on Claude Code (native `Agent` + `Skill` tools for Mode 4), best-effort on Copilot / Gemini CLI / Codex CLI via shell-parallel background processes with documented caveats. Hierarchical orchestration only — there is no peer-to-peer messaging between different model CLIs.
-- **Triggers:** explicit user phrases only — `swarm: …`, `/swarm`, `usa lo swarm`, `instrada`, `fan-out`, `scegli il modello migliore per …`, `best model for …`, `second opinion da …`, `team mode`, `parallel-dev`, `sviluppa in parallelo`, `fai team`, `build with a team`. Same trigger phrases regardless of which AI harness is orchestrating; the skill reads its own "Harness-specific dispatch" section to pick the right mechanism.
-- **Reads:** the user's task description plus any context files the task references; per-harness it may shell out to `claude -p`, `gemini -p`, `codex exec`, `copilot -p` (or, on Claude Code, invoke the matching `*-delegate` skills via the `Skill` tool, and Codex through the official `codex@openai-codex` plugin's `/codex:rescue`).
-- **Writes:** a single combined block with verbatim per-model outputs labelled by stage / worker role, an optional **Synthesis** section (mandatory for parallel-fanout and parallel-team), and — for parallel-team — a `file-ownership` block listing the paths each worker may write.
-- **Phase:** Cross-cutting — applicable in any SDLC step where mixing models adds value (UI work to Gemini, review / security to Codex, edge-case implementation to Claude, cheap classification to Copilot's free tier).
+Not a NONoise skill: a Claude Code mod that NONoise installs as the plugin `regia@claude-regia` (native mode installs it at project scope; embed mode declares it in `.claude/settings.json`; the `minimal` profile skips it). Regia is the framework's orchestration layer. Dedicated doc: [`regia.md`](regia.md); full reference: [russosalv/claude-regia](https://github.com/russosalv/claude-regia).
+
+- **Purpose:** makes the main session coordinate instead of doing all the work itself. Picks model and effort per task, runs swarms of Claude, Codex, Qwen Code and Copilot agents on a dependency board with an isolated git worktree for each task that writes, keeps the plan as a task list, brings questions to the user with their context (as notifications when away), detects stuck agents and wakes an idle session while the plan has open items.
+- **Triggers:** `/regia long|medium|quick [goal]` — the same three modes as NONoise's [development modes](development-modes.md); Polly prefixes her example prompt with `/regia <mode>` when Regia is active. Also `/regia` (live pane), `/regia swarm` (swarm boards), `/regia away` / `/regia here` (notifications), `/regia doctor` (what is active).
+- **Codex and Qwen Code:** on its first interactive session Regia installs the Codex plugin `codex@openai-codex` when the `codex` CLI is on the machine, and a Qwen Code plugin when `qwen` is. NONoise no longer installs the Codex plugin itself.
+- **Replaces:** the retired skills `swarm-router`, `copilot-delegate` and `gemini-delegate` (and `codex-delegate`, retired in 1.7). They are no longer shipped; `--upgrade` removes pristine copies and keeps edited ones.
+- **Limits:** Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. Regia's executors are Claude, Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through Regia, and there is none to Gemini CLI.
+- **Phase:** cross-cutting — any medium or long task in Claude Code.
 
 ---
 
@@ -126,6 +129,15 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 
 ## Architecture & validation
 
+### `reuse-first`
+- **SKILL.md:** [`packages/skills/reuse-first/SKILL.md`](../packages/skills/reuse-first/SKILL.md)
+- **Provenance:** custom NONoise — written after studying ECC. The mandatory research step with an adopt / extend / build outcome is inspired by ECC's `search-first` skill ([affaan-m/ECC](https://github.com/affaan-m/ECC), MIT), and the skill says so.
+- **Purpose:** before new code or a new dependency, checks what already solves the problem. States the capability in one sentence, then searches nearest first and stops at the first good answer: this codebase, what the project already depends on, the platform and the standard library, a maintained external package. Ends with one of three decisions: **adopt**, **extend** or **build**. A dependency that is costly to remove is presented to the user with the alternatives; the skill does not install packages and does not choose an architecture.
+- **Triggers:** first step of feature design (medium and long mode) and of `arch-brainstorm` (long mode); any task that introduces a new dependency, utility module or service client. Skipped in quick mode and for work that only changes existing behaviour.
+- **Reads:** the code graph (`search_graph`, `search_code`; Grep without it), the project's manifests (`package.json`, `*.csproj`, `pyproject.toml`, `go.mod`, …), sibling repositories in a multi-repo workspace, package registries through the host's web or documentation tools.
+- **Writes:** a "Reuse check" section in the document the phase is producing — the spec under `docs/superpowers/specs/` or the PRD under `docs/prd/<area>/`. No separate file.
+- **Phase:** Feature design and Architecture.
+
 ### `arch-brainstorm`
 - **SKILL.md:** [`packages/skills/arch-brainstorm/SKILL.md`](../packages/skills/arch-brainstorm/SKILL.md)
 - **Provenance:** custom NONoise.
@@ -137,20 +149,20 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 
 ### `arch-decision`
 - **SKILL.md:** [`packages/skills/arch-decision/SKILL.md`](../packages/skills/arch-decision/SKILL.md)
-- **Purpose:** Review a draft PRD through Haft ProblemCard, variants and parity comparison; Phase 5.5 is the explicit operator request needed to bind a DecisionRecord.
+- **Purpose:** Decide a draft PRD. Step 0 evaluates the **FPF gate**: it fires when the operator asks for formal validation, when the decision is costly to reverse (data model or storage engine, public API or event contract, security or tenancy boundary, infrastructure or deployment topology, vendor/licence lock-in) and the PRD has at least two materially different viable options, or when the PRD supersedes a Haft-bound decision. When it fires, the PRD is reviewed through Haft ProblemCard, variants and parity comparison; Phase 5.5 is the explicit operator request needed to bind a DecisionRecord. When it does not fire, the skill records a **lightweight decision** in the PRD frontmatter and stops, with no Haft run.
 - **Reads:** draft PRD, architectural constraints and exact Haft records when resuming.
-- **Writes:** canonical `.haft/` records through Haft; PRD status and `haft.problems`, `haft.solutions`, `haft.decisions` IDs/root-relative paths. Projects an architecture impact checklist into the PRD after acceptance.
+- **Writes:** gate fires — canonical `.haft/` records through Haft; PRD status and `haft.problems`, `haft.solutions`, `haft.decisions` IDs/root-relative paths. Gate does not fire — PRD `status: validated`, `validated_by: operator (lightweight)` and a `decision` block (`mode: lightweight`, `choice`, `rationale`, `rejected`, `gate`, `revisit_if`); no `.haft/` record. Either way, projects an architecture impact checklist into the PRD when the decision changes `docs/architecture/`.
 - **Gate:** human choice precedes binding; accepting risks cannot bypass kernel gates. No duplicate audit folder and no automatic architecture sync.
 
 ### `quint-fpf`
 - **SKILL.md:** [`packages/skills/quint-fpf/SKILL.md`](../packages/skills/quint-fpf/SKILL.md)
-- **Purpose:** Stable NONoise adapter name for Haft's independent `h-*` capabilities and MCP tools. Requires a connected `haft` server; otherwise stops with installation/doctor commands.
+- **Purpose:** Stable NONoise adapter name for Haft's independent `h-*` capabilities and MCP tools. Loaded by `arch-decision` only when the FPF gate fires. Requires a connected `haft` server; otherwise stops with installation/doctor commands.
 - **Reads:** current question, project records and FPF retrieved from the binary.
 - **Writes:** only the canonical records needed by the current use through Haft; does not copy FPF text or maintain a parallel register.
 
 ### `bmad-agent-architect`
 - **SKILL.md:** [`packages/skills/bmad-agent-architect/SKILL.md`](../packages/skills/bmad-agent-architect/SKILL.md)
-- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (direct integration with `arch-brainstorm` / `arch-decision`, Haft FPF as default validator, bias toward canonical patterns).
+- **Provenance:** custom NONoise — derived from the BMAD suite, customized for the NONoise flow (direct integration with `arch-brainstorm` / `arch-decision`, Haft FPF as the validator when the FPF gate fires, bias toward canonical patterns).
 - **Purpose:** *Alex* persona — system architect. Drives the `arch-brainstorm` → `arch-decision` → source-of-truth loop. Opinionated about canonical patterns, parametric memory, symmetry, local deducibility. Refuses opaque binary dependencies.
 - **Triggers:** Polly's Steps 6-7 (persona layer on top of the skills); manual "engage Alex" / "start the architect".
 - **Reads / writes:** same surface as `arch-brainstorm` and `arch-decision`.
@@ -171,7 +183,7 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **SKILL.md:** [`packages/skills/arch-sync/SKILL.md`](../packages/skills/arch-sync/SKILL.md)
 - **Triggers:** suggested by Polly after `arch-decision` PASS (the architect picks "Sì — invoco arch-sync" at the post-finalize menu); manual phrases like "arch-sync `<prd-path>`", "project the validated PRD into docs/architecture/", "sync architecture from `<prd-path>`", "recepisci il PRD validato `<path>`".
 - **Purpose:** Generic, opt-in projector of the Phase 6 "Impact on `docs/architecture/`" checklist into actual file writes. Reads the validated PRD checklist and its exact Haft decision references, parses bullets in the strict `[file: NN.md]` format, proposes a unified diff per target file, applies only the diffs the architect approves, and writes a sync report under `docs/architecture/sync-reports/`. Stack-neutral — knows no target constraints, never validates anything, never reads source code.
-- **Reads:** the validated PRD and its `haft.decisions` IDs/paths; exact records must support the accepted choice and proposed effects.
+- **Reads:** the validated PRD and its `haft.decisions` IDs/paths (exact records must support the accepted choice and proposed effects), or its `decision.mode: lightweight` block when no formal validation ran.
 - **Writes:** files under `docs/architecture/` (per the parsed checklist, with per-file confirmation); a sync report at `docs/architecture/sync-reports/YYYY-MM-DD-<area>-<study>.md`.
 - **Provenance:** custom NONoise — generic distillation of the Andreani `andreani-arch-docs` mode M (sync-from-validated-prd), stack-neutral and content-agnostic. Project-locked sync skills (with target constraints / registries / debt registers) coexist alongside it.
 
@@ -198,6 +210,15 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **Phase:** Implementation (acceptance sub-phase).
 - **References:** `references/output-templates.md`, `references/paseo-integration.md`.
 
+### `docs-steward`
+- **SKILL.md:** [`packages/skills/docs-steward/SKILL.md`](../packages/skills/docs-steward/SKILL.md)
+- **Provenance:** custom NONoise — written after studying ECC. The four roles and the rule of updating only the role a change affects are inspired by ECC's `living-docs-governance` and `docs-governance` skills ([affaan-m/ECC](https://github.com/affaan-m/ECC), MIT), and the skill says so.
+- **Purpose:** gives each kind of fact one owner document in the NONoise docs hierarchy and checks that the rest points to it instead of repeating it. Constitution: `AGENTS.md` (the other context files are adapters). Map: `docs/architecture/`. Status: `docs/sprints/Sprint-N/` and draft PRDs. History: PRD frontmatter and the `.haft/` records. It audits duplicated facts, drift between map and code and between history and map, the decision index, broken references, adapters out of sync and orphan documents. It audits first and changes nothing; fixes are made only on request, one finding or one group at a time, with a diff shown first.
+- **Triggers:** after `arch-sync`, at sprint closure or acceptance, before a release; manual "the docs are out of date", "audit the docs", "controlla la documentazione".
+- **Reads:** `AGENTS.md` and the context files, `docs/architecture/`, `docs/prd/`, `docs/sprints/`, `docs/requirements/`, `.haft/decisions/`; the code graph for the code side of a drift check.
+- **Writes:** nothing by default — the report is shown in the conversation. On request it is saved as `docs/sprints/Sprint-N/docs-audit.md`, and approved fixes are applied. `.haft/` records are never edited by hand.
+- **Phase:** Architecture (after sync), Sprint closure / acceptance, ongoing.
+
 ---
 
 ## Brownfield & knowledge
@@ -207,9 +228,18 @@ The `graphify` tool itself is external (not a skill bundled under `packages/skil
 - **Provenance:** custom NONoise.
 - **Purpose:** versioned reverse-engineering dossier for any subject — legacy codebase, third-party API, data pipeline. Interactive Q&A with the user; explicit save trigger. Dossiers accumulate under `docs/support/reverse/<subject>/`.
 - **Triggers:** Polly's Step B3; manual "reverse-engineer X", "document how Y works".
-- **Reads:** the target codebase / API / pipeline; graphify output if available.
+- **Reads:** the target codebase / API / pipeline; the code graph (`codebase-memory`) for source repositories.
 - **Writes:** `docs/support/reverse/<subject>/chapters/*.md`, `docs/support/reverse/<subject>/changelog.md`.
 - **Phase:** Brownfield.
+
+### `codebase-memory`
+- **SKILL.md:** [`packages/skills/codebase-memory/SKILL.md`](../packages/skills/codebase-memory/SKILL.md)
+- **Provenance:** custom NONoise. The engine is the external [`codebase-memory-mcp`](https://github.com/DeusData/codebase-memory-mcp) binary (MIT), installed and registered as a project MCP server by `create-nonoise`.
+- **Purpose:** queries and builds the project's code knowledge graph — architecture overview (`get_architecture`), symbol search (`search_graph`, `search_code`), call chains (`trace_path`), change impact (`detect_changes`), source reads (`get_code_snippet`, `get_file_outline`), read-only openCypher (`query_graph`). Checks first that the repository is indexed (`list_projects`, then `index_repository` once) and falls back to `codebase-memory-mcp cli <tool>` when the MCP tools are not connected. Indexing is local and deterministic: no LLM, no API key. The index lives in `~/.cache/codebase-memory-mcp/` and stays in sync while a session is open.
+- **Triggers:** "how does X work", "who calls X", "what breaks if I change X", "where is X defined", "index this repository", "indicizza il grafo", "rebuild the graph", `/index` in Claude Code; before any broad grep or multi-file read of an unfamiliar codebase.
+- **Reads:** the code graph; source files only for the symbols the graph named.
+- **Writes:** nothing in the repository (the optional `.codebase-memory/graph.db.zst` only with `index_repository` `persistence: true`). For a versioned dossier use `reverse-engineering`.
+- **Phase:** Brownfield and ongoing (any codebase question). Not installed by the `minimal` profile.
 
 ---
 
@@ -368,13 +398,6 @@ Use these after `frontend-design` produces the initial implementation to progres
 - **`skill-creator`** — Anthropic's meta-skill for authoring new skills from scratch, editing existing ones, running evals, benchmarking. Used by `ops-skill-builder` in the crystallise phase.
 - **PPTX tooling** (`packages/skills/vendor/pptx/`) — office-file-unpacking utilities (unpack, clean, duplicate-slide, redline-simplifier, slide-operations, merge-runs, schema-validation for DOCX / PPTX / XLSX). Useful when a team needs to manipulate Office artefacts programmatically (common for requirements-ingest on slide-deck source material).
 
-## Vendor plugin — Codex (`codex@openai-codex`)
-
-- **Source:** OpenAI's official Claude Code plugin, marketplace [`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc). Not a NONoise skill; replaces the former `codex-delegate` skill (removed in 1.7.0).
-- **Installation:** Claude Code selected. Native mode installs it at project scope; embed mode only declares it in `.claude/settings.json`. `--upgrade` removes unmodified `codex-delegate` copies and preserves modified ones.
-- **Commands:** `/codex:rescue` (subagent `codex:codex-rescue`), `/codex:review`, `/codex:adversarial-review`, `/codex:status`, `/codex:result`, `/codex:cancel`, `/codex:transfer`, `/codex:setup`.
-- **Used by:** `swarm-router` (Codex dispatch on Claude Code) and any explicit request to hand work to Codex.
-
 ---
 
 ## Authoring a new skill
@@ -405,6 +428,10 @@ Plus an **update** story: `nonoise update --check` (compares local manifest with
 
 Not implemented yet. When implemented, the relevant bits of `nonoise.config.json` will carry a `packs` array with `name` + `version` + `source_commit` per installed pack.
 
+## Agents (not skills)
+
+Agents are specialists the host runs as subagents; they are installed under `.claude/agents/`, `.github/agents/` and `.codex/agents/`, not under the skill directories. NONoise ships three of its own in every profile except minimal — `graph-explorer` (maps existing code through the code graph before design), `blueprint-architect` (turns a spec into a file-level blueprint), `evidence-reviewer` (reports only findings it can prove) — and selects ECC agents by profile and `--stack`. Full description: [`agents.md`](agents.md).
+
 ## ECC — curated manual snapshot
 
 [Selection and harness paths](ecc-integration.md) · [Source and adaptations](../packages/skills/vendor/ecc/UPSTREAM.md). MIT, commit `b92f181b3b748d1abbc2afd94af6aa7d8c8fca29`; no ECC plugin or hooks.
@@ -422,12 +449,12 @@ Not implemented yet. When implemented, the relevant bits of `nonoise.config.json
 | [dotnet-patterns](../packages/skills/vendor/ecc/skills/dotnet-patterns/SKILL.md) | .NET implementation; project conventions → implementation guidance | dotnet; development |
 | [csharp-testing](../packages/skills/vendor/ecc/skills/csharp-testing/SKILL.md) | C# test work; behavior → test strategy and checks | dotnet; verification |
 | [angular-developer](../packages/skills/vendor/ecc/skills/angular-developer/SKILL.md) | Angular work; project version → component/form/router guidance | angular; development |
-| [database-migrations](../packages/skills/vendor/ecc/skills/database-migrations/SKILL.md) | Schema evolution; schema/data → migration and rollback plan | Any stack; development |
-| [api-design](../packages/skills/vendor/ecc/skills/api-design/SKILL.md) | API design; consumers/resources → interface design | Any stack; design |
-| [contract-first](../packages/skills/vendor/ecc/skills/contract-first/SKILL.md) | Cross-boundary change; contract → provider/consumer evidence | Any stack; design |
+| [database-migrations](../packages/skills/vendor/ecc/skills/database-migrations/SKILL.md) | Schema evolution; schema/data → migration and rollback plan | dotnet/typescript/angular/web; development |
+| [api-design](../packages/skills/vendor/ecc/skills/api-design/SKILL.md) | API design; consumers/resources → interface design | dotnet/typescript/angular/web; design |
+| [contract-first](../packages/skills/vendor/ecc/skills/contract-first/SKILL.md) | Cross-boundary change; contract → provider/consumer evidence | dotnet/typescript/angular/web; design |
 | [e2e-testing](../packages/skills/vendor/ecc/skills/e2e-testing/SKILL.md) | Browser journey; acceptance scenario → Playwright checks | typescript/angular/web; acceptance |
 
-The ten imported agents are documented in the selection table, separately from skills. Only the language reviewers selected by `--stack` are installed.
+The 31 imported agents (10 before 1.9) are documented in [`agents.md`](agents.md) and in the selection table, separately from skills. Only the language reviewers and build resolvers selected by `--stack` are installed. The stacks added in 1.9 (`python`, `go`, `rust`, `java`, `kotlin`, `cpp`, `swift`, `php`, `ruby`, `react`, `vue`, `flutter`, `fsharp`) brought agents and rules only: no ECC skills were added for them, so the table above is unchanged.
 
 ## REA and dependency review (1.8.0)
 

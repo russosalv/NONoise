@@ -357,12 +357,14 @@ export const LEGACY_SKILL_HASHES: Record<string, string[]> = {
   ".claude/skills/polly/SKILL.md": [
     "6e7a5bf6728b911a8f91a82c1d21a8d7cc768d00e95ebf52d928b5f9dad948a9",
     "f08ea59bd169e410968580d57d0f16f01e83a60d79fa80ca9b7cfa3a00c71546",
-    "951f2b6f4c032dbfe4b35ea9f6ff167d12e6578c9403206d7c8086b181e7dbb2"
+    "951f2b6f4c032dbfe4b35ea9f6ff167d12e6578c9403206d7c8086b181e7dbb2",
+    "1e4f251e739a85938be3716f7250dfa64584bf6e6d8ffe87c8d2ff52e6c9ce32"
   ],
   ".agents/skills/polly/SKILL.md": [
     "6e7a5bf6728b911a8f91a82c1d21a8d7cc768d00e95ebf52d928b5f9dad948a9",
     "f08ea59bd169e410968580d57d0f16f01e83a60d79fa80ca9b7cfa3a00c71546",
-    "951f2b6f4c032dbfe4b35ea9f6ff167d12e6578c9403206d7c8086b181e7dbb2"
+    "951f2b6f4c032dbfe4b35ea9f6ff167d12e6578c9403206d7c8086b181e7dbb2",
+    "1e4f251e739a85938be3716f7250dfa64584bf6e6d8ffe87c8d2ff52e6c9ce32"
   ],
   ".claude/skills/polly/references/external-tools.md": [
     "925667e9f57e7eceb39d2801432c9dac6a65b995bbbdb20bdaf078489c252f76"
@@ -424,11 +426,13 @@ export const LEGACY_SKILL_HASHES: Record<string, string[]> = {
   ],
   ".claude/skills/reverse-engineering/SKILL.md": [
     "4d97d8531555f26e6701308f5b17ddef37475e15b30c87fb0791acbeeb7a216e",
-    "857d73b4b15c08d2e27bc8c915c1e4970f2ec0f4941c9a76c8c776130ee85538"
+    "857d73b4b15c08d2e27bc8c915c1e4970f2ec0f4941c9a76c8c776130ee85538",
+    "ea56a1c6a5496a96921cfc99baeb573ca5d11536c0c42c5b4464513cadd7c6ea"
   ],
   ".agents/skills/reverse-engineering/SKILL.md": [
     "4d97d8531555f26e6701308f5b17ddef37475e15b30c87fb0791acbeeb7a216e",
-    "857d73b4b15c08d2e27bc8c915c1e4970f2ec0f4941c9a76c8c776130ee85538"
+    "857d73b4b15c08d2e27bc8c915c1e4970f2ec0f4941c9a76c8c776130ee85538",
+    "ea56a1c6a5496a96921cfc99baeb573ca5d11536c0c42c5b4464513cadd7c6ea"
   ],
   ".claude/skills/reverse-engineering/references/changelog-entry.md": [
     "8902aa85111716c877181106073154bbb5ebb298f0f42c426d7077f4f2a551c4"
@@ -647,5 +651,11 @@ export const LEGACY_SKILL_HASHES: Record<string, string[]> = {
   ],
   ".agents/skills/quint-fpf/commands/q5-decide.md": [
     "f3f5f47dc95e533801b8c7b99d174bfedc0891c1251eca7e59011e3a98f577e6"
+  ],
+  ".claude/skills/rea-setup/SKILL.md": [
+    "db8f6de0b5f0be5908068047e787189a3123cd6962288fec6e4507210e9df050"
+  ],
+  ".agents/skills/rea-setup/SKILL.md": [
+    "db8f6de0b5f0be5908068047e787189a3123cd6962288fec6e4507210e9df050"
   ]
 };

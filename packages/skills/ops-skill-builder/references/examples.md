@@ -20,7 +20,7 @@ These are illustrative — not copy-paste recipes. Your project's `docs/architec
 
 ### Phase 2 — Context
 - Read `docs/architecture/01-constraints.md` → "Azure-only, Helm charts under `infra/helm/<svc>/`, appVersion in Chart.yaml drives the image tag."
-- No graphify needed (the user knows the service).
+- No code-graph query needed (the user knows the service).
 - Target probe: `kubectl get deploy auth-service -n dev -o jsonpath='{.spec.template.spec.containers[0].image}'` → current image is `auth-service:2.0.3`.
 - `az acr repository show-tags --name acrfoo --repository auth-service --orderby time_desc --top 5` → `2.1.0`, `2.0.3`, `2.0.2` present.
 

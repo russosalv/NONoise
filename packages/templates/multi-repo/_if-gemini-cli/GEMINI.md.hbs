@@ -23,18 +23,38 @@ Installed skills:
 
 BMAD agent skills (if installed) provide personas: analyst, architect, tech-writer, UX designer, and advanced elicitation.
 
-<!-- >>> graphify (managed by create-nonoise) -->
-## graphify
+<!-- >>> codebase-memory (managed by create-nonoise) -->
+## Code graph — codebase-memory-mcp
 
-This project has a graphify knowledge graph at `graphify-out/`.
+This project's code is indexed as a knowledge graph by the `codebase-memory-mcp` MCP server (skill: `codebase-memory`).
 
 Rules:
-- Before answering architecture or codebase questions, read `graphify-out/GRAPH_REPORT.md` for god nodes and community structure.
-- If `graphify-out/wiki/index.md` exists, navigate it instead of reading raw files.
-- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files.
-- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost).
-- To **rebuild the graph from scratch** (semantic extraction + clusters), always invoke the `/graphify <path>` slash skill — NEVER the bare `graphify extract` CLI. The bare CLI requires an external LLM API key; the slash skill runs through the IDE assistant's own model with no key needed. In Claude Code you can also use the project's `/index` shortcut. Triggers that mean "rebuild the graph": `/index`, `/index-graph`, "indicizza il grafo", "build the knowledge graph", "rebuild the graph".
-<!-- <<< graphify -->
+- Before answering architecture or codebase questions, call `get_architecture`, then `search_graph` — before grep or reading raw files.
+- For "who calls X", "what does X reach" and cross-module "how does X relate to Y" questions, use `trace_path`; for the blast radius of a change, `detect_changes`. Read source with `get_code_snippet` once the graph has named the symbol.
+- If `list_projects` does not show this repository, run `index_repository` once (`repo_path` = the project root). After that the graph stays in sync by itself while a session is open — there is no manual update step.
+- Before treating a missing result as proof of absence, call `check_index_coverage`.
+- If the MCP tools are not available in this host, run the same tools through the CLI: `codebase-memory-mcp cli <tool> --help` (for example `codebase-memory-mcp cli index_repository --repo-path .`).
+- Triggers that mean "build the graph": `/index`, "indicizza il grafo", "index this repository", "build the knowledge graph", "rebuild the graph".
+<!-- <<< codebase-memory -->
+
+<!-- >>> development-modes (managed by create-nonoise) -->
+## Development modes
+
+Size the process to the work. The mode is chosen per task: the user names it (`/polly quick|medium|long <goal>`, "quick mode", "modalità long") or you infer it and say in one line which one you picked and why.
+
+| | quick | medium (default) | long |
+|---|---|---|---|
+| Fits | a fix, a tweak, one or two files, a clear outcome | a feature or refactor inside an already-decided architecture | a new product, an epic, anything that changes the architecture |
+| Phases | implement → verify | short spec → plan → implement → verify | the full flow in `.nonoise/sdlc-flow.md`: requirements → design → architecture → sprint → implementation → acceptance |
+| Documents | none | one spec, one plan | requirements, PRD, sprint manifest, test report |
+| Delegation | none: one agent, direct edits | delegate independent pieces and broad searches | orchestrate: plan first, parallel agents, review every piece |
+| FPF validation | never | only if the FPF gate fires | whenever the FPF gate fires |
+
+Rules:
+- Never run a heavier mode than the work needs. If the task turns out bigger, say so and propose the next mode up; do not expand silently.
+- **FPF gate.** Propose formal validation (`arch-decision` → Haft FPF) only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) and at least two materially different options are viable. Otherwise record the choice in the PRD as a lightweight decision (`decision.mode: lightweight`) and move on.
+- **Regia.** In Claude Code, NONoise installs the Regia mod (`regia@claude-regia`), which owns orchestration: delegation to subagents, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for the user. Its three modes are these same three: start the work with `/regia quick|medium|long <goal>` and keep its plan (`scaletta_scrivi`) and questions (`domanda_scrivi`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
+<!-- <<< development-modes -->
 
 ---
 

@@ -10,6 +10,15 @@ method contracts, project records and enforcement gates. Read the applicable
 installed `h-*/SKILL.md` in `.claude/skills` or `.agents/skills`; do not recreate
 its implementation here.
 
+## When FPF is warranted
+
+FPF is not a mandatory phase. Use it when the operator asks for it, or when a
+decision is costly to reverse and has at least two materially different viable
+options (the FPF gate, defined in `arch-decision` Step 0). For a reversible
+choice, a single viable option, or work in quick mode, do not start an FPF
+operation: the lightweight decision recorded in the PRD is the right tool, and
+it needs no Haft runtime.
+
 ## Required runtime
 
 Before FPF work, verify that the host exposes server `haft` and `haft_query`.

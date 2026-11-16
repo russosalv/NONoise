@@ -1,4 +1,5 @@
 import { parseProfile } from './profiles.js';
+import { STACKS } from './ecc.js';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,7 +15,7 @@ import {
   askExistingProjectAction,
 } from './prompts.js';
 import { printBanner } from './banner.js';
-import { runGraphifyOnly } from './graphify-only.js';
+import { runCodeGraphOnly } from './code-graph-only.js';
 import { doctor } from './native-vendor.js';
 import { runUpgrade } from './upgrade.js';
 import type { CliFlags } from './prompts.js';
@@ -39,14 +40,14 @@ export async function main(): Promise<void> {
     await runUpgradeAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai, vendorMode: flags.vendorMode, stack: flags.stack, profile: flags.profile, withRea: flags.withRea });
     return;
   }
-  if (flags.graphifyOnly) {
-    runGraphifyOnlyAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai, vendorMode: flags.vendorMode });
+  if (flags.codeGraphOnly) {
+    runCodeGraphOnlyAndExit({ targetPath: flags.positionalDir, aiCsv: flags.ai });
     return;
   }
 
   // Auto-detect: if a positional path is given AND it already contains a
   // NONoise project (nonoise.config.json), default to maintenance mode
-  // (upgrade / graphify-only) instead of trying to scaffold over it.
+  // (upgrade / code-graph-only) instead of trying to scaffold over it.
   if (flags.positionalDir) {
     const candidatePath = resolve(process.cwd(), flags.positionalDir);
     if (existsSync(join(candidatePath, 'nonoise.config.json'))) {
@@ -54,8 +55,8 @@ export async function main(): Promise<void> {
         console.error(
           `\nError: ${candidatePath} is already a NONoise project (found nonoise.config.json).\n` +
           `In non-interactive mode (--yes) we don't auto-pick a maintenance action. Either:\n` +
-          `  • create-nonoise --upgrade ${flags.positionalDir}        # refresh skills + graphify\n` +
-          `  • create-nonoise --graphify-only ${flags.positionalDir}  # narrow: only graphify\n` +
+          `  • create-nonoise --upgrade ${flags.positionalDir}        # refresh skills + code graph\n` +
+          `  • create-nonoise --code-graph-only ${flags.positionalDir}  # narrow: only codebase-memory-mcp\n` +
           `  • pick a different (non-NONoise) directory for the new scaffold`,
         );
         process.exit(1);
@@ -69,7 +70,7 @@ export async function main(): Promise<void> {
       if (action === 'upgrade') {
         await runUpgradeAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode, stack: flags.stack, profile: flags.profile, withRea: flags.withRea });
       } else {
-        runGraphifyOnlyAndExit({ targetPath: candidatePath, aiCsv: flags.ai, vendorMode: flags.vendorMode });
+        runCodeGraphOnlyAndExit({ targetPath: candidatePath, aiCsv: flags.ai });
       }
       return;
     }
@@ -79,13 +80,13 @@ export async function main(): Promise<void> {
 
   // Interactive top-level mode pick (skipped on --yes or with a positional dir).
   const mode = await askEntryMode(flags);
-  if (mode === 'graphify-only') {
+  if (mode === 'code-graph-only') {
     const targetPath = await askExistingProjectPath();
     let aiCsv = flags.ai;
     if (!aiCsv && !existsSync(resolve(targetPath, 'nonoise.config.json'))) {
       aiCsv = await askAiCsvForExistingProject();
     }
-    runGraphifyOnlyAndExit({ targetPath, aiCsv, vendorMode: flags.vendorMode });
+    runCodeGraphOnlyAndExit({ targetPath, aiCsv });
     return;
   }
   if (mode === 'upgrade') {
@@ -117,9 +118,9 @@ export async function main(): Promise<void> {
   }
 }
 
-function runGraphifyOnlyAndExit(opts: { targetPath?: string; aiCsv?: string; vendorMode?: 'native' | 'embed' }): void {
+function runCodeGraphOnlyAndExit(opts: { targetPath?: string; aiCsv?: string }): void {
   try {
-    const result = runGraphifyOnly(opts);
+    const result = runCodeGraphOnly(opts);
     if (result.exitCode !== 0) process.exit(result.exitCode);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -142,7 +143,7 @@ async function runUpgradeAndExit(opts: { targetPath?: string; aiCsv?: string; ve
 type ParsedFlags = CliFlags & {
   help?: boolean;
   version?: boolean;
-  graphifyOnly?: boolean;
+  codeGraphOnly?: boolean;
   upgrade?: boolean;
   doctor?: boolean;
 };
@@ -156,7 +157,8 @@ function parseArgv(args: string[]): ParsedFlags {
     else if (a === '--version' || a === '-v') out.version = true;
     else if (a === '--yes' || a === '-y') out.yes = true;
     else if (a === '--no-git') out.noGit = true;
-    else if (a === '--graphify-only') out.graphifyOnly = true;
+    // --graphify-only is the pre-1.9 name, kept so existing scripts and docs keep working.
+    else if (a === '--code-graph-only' || a === '--graphify-only') out.codeGraphOnly = true;
     else if (a === 'doctor' && i === 0) out.doctor = true;
     else if (a === '--upgrade') out.upgrade = true;
     else if (a === '--vendor-mode') {
@@ -214,12 +216,12 @@ Usage:
   create-nonoise [directory] [options]
   create-nonoise doctor [path]
   create-nonoise --upgrade [path] [--ai <csv>]
-  create-nonoise --graphify-only [path] [--ai <csv>]
+  create-nonoise --code-graph-only [path] [--ai <csv>]
 
 When run with no arguments, asks interactively whether you want to:
   1. Create a new NONoise project (full scaffold)
-  2. Upgrade an existing NONoise project (refresh skills + graphify)
-  3. Force-install graphify only (narrow, idempotent fix)
+  2. Upgrade an existing NONoise project (refresh skills + code graph)
+  3. Install the code graph only (codebase-memory-mcp; narrow, idempotent fix)
 
 Options:
   --vendor-mode <mode> native (default): upstream installers; embed: offline bundled copies
@@ -227,7 +229,9 @@ Options:
   --template <name>   Template: single-project | multi-repo (back-compat; inferred from --workspace if present)
   --profile <name>    minimal|core|developer|security|brownfield|full (default core)
   --with-rea          Enable pinned REA MCP and skill in this project only
-  --stack <csv>       dotnet,typescript,angular,web or none (default); saved for upgrades
+  --stack <csv>       Languages/frameworks, or none (default); saved for upgrades:
+                      ${STACKS.slice(0, 9).join(',')},
+                      ${STACKS.slice(9).join(',')}
   --ai <csv>          AI tools: claude-code,copilot,codex,cursor,gemini-cli
   --user-name <name>  Developer name (used by AI to address you; default: git user.name)
   --user-locale <iso> Language for the AI to reply in (ISO 639-1; default: OS locale)
@@ -241,15 +245,16 @@ Maintenance:
   --upgrade [path]
                       Refresh an existing NONoise project to the current version:
                       updates bundled skills whose hashes are unchanged
-                      (preserving user edits) and re-runs the graphify install. Reads aiTools
+                      (preserving user edits) and re-runs the code-graph install. Reads aiTools
                       from nonoise.config.json. Templates (CLAUDE.md,
                       AGENTS.md, etc.) update only their NONoise managed block.
                       User content outside the markers is preserved. Pass --ai to override AI tool selection.
 
-  --graphify-only [path]
-                      Narrow path: only re-runs the graphify install step on
-                      an existing NONoise project. Use this if you only need
-                      to fix the graphify CLI integration without touching
-                      bundled skills.
+  --code-graph-only [path]
+                      Narrow path: only installs codebase-memory-mcp (or updates
+                      it to the latest release), registers its MCP server for the selected AI tools
+                      and retires an unmodified graphify integration. Bundled
+                      skills are not touched. --graphify-only is accepted as an
+                      alias of this flag.
 `);
 }

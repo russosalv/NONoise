@@ -2,7 +2,7 @@
 
 Node.js CLI that converts documents (PDF, DOCX, JPG, JPEG, PNG) into structured Markdown via the **LlamaCloud** parsing service (tier `agentic`). In addition to text, it downloads every image embedded in the document, saves them into a sibling `<basename>-assets/` folder, and rewrites the Markdown image references to point at the local assets folder (`./<basename>-assets/<name>`).
 
-This tool is meant to turn official source documents (PDFs, DOCX specs, images of diagrams) into a Markdown version that can be indexed by `graphify`, consumed by the `reverse-engineering` and `requirements-ingest` skills, or simply grep'd by humans and AI assistants. **The extracted markdown — not the raw PDF — is the canonical source of truth that graphify indexes.**
+This tool is meant to turn official source documents (PDFs, DOCX specs, images of diagrams) into a Markdown version that can be indexed by the code graph (`codebase-memory-mcp`), consumed by the `reverse-engineering` and `requirements-ingest` skills, or simply grep'd by humans and AI assistants. **The extracted markdown — not the raw PDF — is the canonical source of truth that the code graph indexes.**
 
 ## What it does, in short
 
@@ -100,7 +100,7 @@ docs/requirements/billing/sources/
 
 ### What the extracted Markdown is good for
 
-- Feeding `graphify` (it indexes the `.md`, not the `.pdf`).
+- Feeding the code graph, `codebase-memory-mcp` (it indexes the `.md`, not the `.pdf`).
 - Feeding the `reverse-engineering` skill (looks for sibling `.md` next to every `.pdf`).
 - Feeding the `requirements-ingest` skill (source of truth for requirements lives in `docs/requirements/<domain>/sources/*.md`).
 - Being directly readable and grep-able by Claude Code / Copilot / any assistant — no need to open the PDF.

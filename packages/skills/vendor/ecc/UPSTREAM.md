@@ -10,28 +10,50 @@ Refresh: `node scripts/update-ecc.mjs /path/to/ECC <commit>`; preview with `--dr
 
 - Every copied file records its upstream path and commit.
 - Standalone hooks in hooks/ are separately maintained NONoise adaptations with per-file attribution; refresh preserves them, and --check only verifies the generated agents/rules/skills snapshot.
-- Hook rule files are excluded; legacy-style uses instruction references, verification-loop complements Superpowers.
+- Harness hook rule files (rules/<group>/hooks.md) are excluded; rules/react/hooks.md is kept because it covers React hooks. legacy-style uses instruction references, verification-loop complements Superpowers.
 - ECC planning/TDD/review/onboarding/ADR/test references route to NONoise/Superpowers or included agents and skills. No ECC orchestration, learning, dashboard or duplicate lifecycle system is installed. Optional NONoise hook adapters are selected separately by the install profile.
 - common/agents.md describes only this selection. Non-imported reviewer and related-skill dependencies are removed.
 - spec-miner writes docs/architecture/specs/<capability>/spec.md and retains read-only shell guardrails; no OpenSpec dependency.
 - TypeScript reviewer uses its included React checklist; security/database reviewers use included guidance.
+- Language stacks beyond dotnet/typescript/angular/web import agents and rules only: pointers to upstream skills, commands and hook rules that are not in this snapshot are removed, stack- or profile-gated NONoise capabilities are named as conditional, and agent rule references use the installed .nonoise/ecc/rules/ paths.
 - Harness emitters convert metadata, rule paths and relative links; Claude model is inherited, Copilot/Codex do not inherit Anthropic model names. Codex permissions inherit from the parent.
 - mcp-dependency-review stays static and project-scoped; adds Claude/Codex/Copilot config paths, TOML handling and NONoise capability fallbacks without executing servers.
-- Stack mapping is recorded in manifest.json: empty eligibility means always; Angular includes TypeScript and web rules; cross-stack API/database/contract skills require any stack, E2E requires a JS/web stack.
+- Stack mapping is recorded in manifest.json: empty eligibility means always; Angular includes TypeScript and web rules; React and Vue include the TypeScript reviewer and rules their own files defer to; cross-stack API/database/contract skills require dotnet, typescript, angular or web, and E2E requires typescript, angular or web; the other language stacks select agents and rules only.
 
 ## Files copied
 
 - LICENSE
 - agents/build-error-resolver.md
 - agents/code-simplifier.md
+- agents/cpp-build-resolver.md
+- agents/cpp-reviewer.md
 - agents/csharp-reviewer.md
+- agents/dart-build-resolver.md
 - agents/database-reviewer.md
+- agents/flutter-reviewer.md
+- agents/fsharp-reviewer.md
+- agents/go-build-resolver.md
+- agents/go-reviewer.md
+- agents/java-build-resolver.md
+- agents/java-reviewer.md
+- agents/kotlin-build-resolver.md
+- agents/kotlin-reviewer.md
+- agents/php-reviewer.md
 - agents/pr-test-analyzer.md
+- agents/python-reviewer.md
+- agents/react-build-resolver.md
+- agents/react-reviewer.md
 - agents/refactor-cleaner.md
+- agents/ruby-reviewer.md
+- agents/rust-build-resolver.md
+- agents/rust-reviewer.md
 - agents/security-reviewer.md
 - agents/silent-failure-hunter.md
 - agents/spec-miner.md
+- agents/swift-build-resolver.md
+- agents/swift-reviewer.md
 - agents/typescript-reviewer.md
+- agents/vue-reviewer.md
 - rules/angular/coding-style.md
 - rules/angular/patterns.md
 - rules/angular/security.md
@@ -45,14 +67,68 @@ Refresh: `node scripts/update-ecc.mjs /path/to/ECC <commit>`; preview with `--dr
 - rules/common/performance.md
 - rules/common/security.md
 - rules/common/testing.md
+- rules/cpp/coding-style.md
+- rules/cpp/patterns.md
+- rules/cpp/security.md
+- rules/cpp/testing.md
 - rules/csharp/coding-style.md
 - rules/csharp/patterns.md
 - rules/csharp/security.md
 - rules/csharp/testing.md
+- rules/dart/coding-style.md
+- rules/dart/patterns.md
+- rules/dart/security.md
+- rules/dart/testing.md
+- rules/fsharp/coding-style.md
+- rules/fsharp/patterns.md
+- rules/fsharp/security.md
+- rules/fsharp/testing.md
+- rules/golang/coding-style.md
+- rules/golang/patterns.md
+- rules/golang/security.md
+- rules/golang/testing.md
+- rules/java/coding-style.md
+- rules/java/patterns.md
+- rules/java/security.md
+- rules/java/testing.md
+- rules/kotlin/coding-style.md
+- rules/kotlin/patterns.md
+- rules/kotlin/security.md
+- rules/kotlin/testing.md
+- rules/php/coding-style.md
+- rules/php/patterns.md
+- rules/php/security.md
+- rules/php/testing.md
+- rules/python/coding-style.md
+- rules/python/fastapi.md
+- rules/python/patterns.md
+- rules/python/security.md
+- rules/python/testing.md
+- rules/react/coding-style.md
+- rules/react/hooks.md
+- rules/react/patterns.md
+- rules/react/security.md
+- rules/react/testing.md
+- rules/ruby/coding-style.md
+- rules/ruby/patterns.md
+- rules/ruby/security.md
+- rules/ruby/testing.md
+- rules/rust/coding-style.md
+- rules/rust/patterns.md
+- rules/rust/security.md
+- rules/rust/testing.md
+- rules/swift/coding-style.md
+- rules/swift/patterns.md
+- rules/swift/security.md
+- rules/swift/testing.md
 - rules/typescript/coding-style.md
 - rules/typescript/patterns.md
 - rules/typescript/security.md
 - rules/typescript/testing.md
+- rules/vue/coding-style.md
+- rules/vue/patterns.md
+- rules/vue/security.md
+- rules/vue/testing.md
 - rules/web/coding-style.md
 - rules/web/design-quality.md
 - rules/web/patterns.md

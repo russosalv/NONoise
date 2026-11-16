@@ -19,7 +19,7 @@ describe('REA skill activation contracts', () => {
     const meta = load(text.match(/^---\n([\s\S]*?)\n---/)![1]!) as { name: string; description: string };
     expect(meta.name).toBe('rea-setup'); expect(meta.description.length).toBeLessThanOrEqual(1024);
   });
-  it('routes artifact discovery before Graphify and preserves dossier save boundaries', () => {
+  it('routes artifact discovery before the code graph and preserves dossier save boundaries', () => {
     const text = read('reverse-engineering/SKILL.md');
     expect(text.indexOf('## REA artifact routing')).toBeGreaterThan(0);
     expect(text.indexOf('## REA artifact routing')).toBeLessThan(text.indexOf('### Step 0'));

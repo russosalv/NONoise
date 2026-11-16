@@ -12,14 +12,14 @@ vi.mock('../../src/haft.js', () => ({
     return { ok: haftResult.ok, output: 'test' };
   }),
 }));
-vi.mock('../../src/graphify-install.js', () => ({ installGraphify: vi.fn(() => ({})), formatReport: vi.fn(() => '') }));
+vi.mock('../../src/codebase-memory.js', () => ({ installCodebaseMemory: vi.fn(() => ({ binary: 'already-present', configured: [], unchanged: [], preserved: [], legacyKept: [], retired: [], hints: [] })), formatReport: vi.fn(() => '') }));
 vi.mock('../../src/native-vendor.js', () => ({ configureNativeVendors: vi.fn(), installNativeVendors: vi.fn(async () => []) }));
 
 import { scaffold } from '../../src/scaffold.js';
 import type { AiTools } from '../../src/types.js';
 
 const ai: AiTools = { claudeCode: true, copilot: false, codex: false, cursor: false, geminiCli: false };
-const paths = { templatesRoot: resolve('../templates'), skillsRoot: resolve('../skills'), runGraphifyInstall: true };
+const paths = { templatesRoot: resolve('../templates'), skillsRoot: resolve('../skills'), runExternalInstalls: true };
 const git = (cwd: string, cmd: string) => execSync(`git ${cmd}`, { cwd }).toString().trim();
 let dir: string;
 beforeEach(() => {

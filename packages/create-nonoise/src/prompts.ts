@@ -30,13 +30,13 @@ export type CliFlags = {
   reverseEngineering?: boolean;
 };
 
-export type EntryMode = 'new' | 'graphify-only' | 'upgrade';
+export type EntryMode = 'new' | 'code-graph-only' | 'upgrade';
 
 /**
  * Top-level interactive prompt. Decides whether the user wants to:
  *   • create a new NONoise project (full scaffold), or
- *   • upgrade an existing project (refresh bundled skills + graphify), or
- *   • only re-run graphify install (narrow, idempotent fix path).
+ *   • upgrade an existing project (refresh bundled skills + code graph), or
+ *   • only install the code graph (narrow, idempotent fix path).
  *
  * Skipped in non-interactive mode (--yes) and when the user already passed a
  * positional directory (which only makes sense for the scaffold flow).
@@ -56,12 +56,12 @@ export async function askEntryMode(flags: CliFlags): Promise<EntryMode> {
       {
         value: 'upgrade' as EntryMode,
         label: 'Upgrade an existing NONoise project',
-        hint: 'Refresh owned skills and ECC assets + re-install graphify',
+        hint: 'Refresh owned skills and ECC assets + the code graph',
       },
       {
-        value: 'graphify-only' as EntryMode,
-        label: 'Force-install graphify only',
-        hint: 'Narrow path: only the graphify CLI integration (idempotent)',
+        value: 'code-graph-only' as EntryMode,
+        label: 'Install the code graph only',
+        hint: 'Narrow path: only codebase-memory-mcp and its MCP config (idempotent)',
       },
     ],
     initialValue: 'new' as EntryMode,
@@ -71,19 +71,19 @@ export async function askEntryMode(flags: CliFlags): Promise<EntryMode> {
 }
 
 /**
- * Asked when the user picks 'graphify-only' or 'upgrade' from the entry-mode
+ * Asked when the user picks 'code-graph-only' or 'upgrade' from the entry-mode
  * prompt. Returns the target project path (absolute).
  */
-export async function askGraphifyOnlyPath(): Promise<string> {
+export async function askCodeGraphOnlyPath(): Promise<string> {
   return askExistingProjectPath();
 }
 
-export type ExistingProjectAction = 'upgrade' | 'graphify-only' | 'cancel';
+export type ExistingProjectAction = 'upgrade' | 'code-graph-only' | 'cancel';
 
 /**
  * Asked when the user passes a positional path that already contains a
  * `nonoise.config.json`. Lets them pick between upgrading the project
- * (refresh skills + graphify), narrowing to graphify-only, or cancelling.
+ * (refresh skills + code graph), narrowing to code-graph-only, or cancelling.
  *
  * Re-scaffolding over an existing NONoise project is intentionally NOT
  * offered here — that path destroys local customisation and should require
@@ -96,12 +96,12 @@ export async function askExistingProjectAction(targetPath: string): Promise<Exis
       {
         value: 'upgrade' as ExistingProjectAction,
         label: 'Upgrade',
-        hint: 'Refresh owned skills and ECC assets + re-install graphify',
+        hint: 'Refresh owned skills and ECC assets + the code graph',
       },
       {
-        value: 'graphify-only' as ExistingProjectAction,
-        label: 'Force-install graphify only',
-        hint: 'Narrow path: only the graphify CLI integration',
+        value: 'code-graph-only' as ExistingProjectAction,
+        label: 'Install the code graph only',
+        hint: 'Narrow path: only codebase-memory-mcp and its MCP config',
       },
       {
         value: 'cancel' as ExistingProjectAction,
@@ -130,11 +130,11 @@ export async function askExistingProjectPath(): Promise<string> {
 }
 
 /**
- * Asked when the user picks 'graphify-only' or 'upgrade' but the target
+ * Asked when the user picks 'code-graph-only' or 'upgrade' but the target
  * project has no nonoise.config.json. Returns a CSV string compatible with
  * `--ai`.
  */
-export async function askAiCsvForGraphifyOnly(): Promise<string> {
+export async function askAiCsvForCodeGraphOnly(): Promise<string> {
   return askAiCsvForExistingProject();
 }
 
@@ -595,7 +595,7 @@ async function askReverseEngineering(flags: CliFlags, workspaceKind: WorkspaceKi
   if (flags.yes) return workspaceKind !== 'new';
 
   const answer = await confirm({
-    message: 'Will this project use reverse-engineering? (legacy code analysis, vendor API documentation, internal-library audit, anything that needs a graphify knowledge graph)',
+    message: 'Will this project use reverse-engineering? (legacy code analysis, vendor API documentation, internal-library audit, anything that needs the code knowledge graph)',
     initialValue: workspaceKind !== 'new',
   });
   abortIfCancel(answer);
@@ -611,12 +611,16 @@ function abortIfCancel(value: unknown): void {
 
 export { outro, spinner, note };
 
+const STACK_HINTS: Partial<Record<Stack, string>> = { dotnet: '.NET / C#', web: 'HTML, CSS and browser front ends', go: 'Go', cpp: 'C and C++', flutter: 'Flutter and Dart', fsharp: 'F#' };
+
 export async function askStack(flags: CliFlags): Promise<Stack[]> {
   if (flags.stack !== undefined) return parseStack(flags.stack);
   if (flags.yes) return [];
+  // "None" comes first: with 17 stacks the list is long, and pressing enter
+  // straight away must remain the obvious way to skip it.
   const selected = await multiselect({
-    message: 'Stack (space to toggle; none for common guidance only)',
-    options: [...STACKS.map(value => ({ value, label: value })), { value: 'none', label: 'None / nessuno' }],
+    message: 'Stack — languages and frameworks of this project (space to toggle, enter to confirm; none = common guidance only)',
+    options: [{ value: 'none', label: 'None / nessuno', hint: 'common agents and rules only' }, ...STACKS.map(value => ({ value, label: value, ...(STACK_HINTS[value] ? { hint: STACK_HINTS[value] } : {}) }))],
     required: false,
   });
   abortIfCancel(selected);

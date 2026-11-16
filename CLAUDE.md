@@ -51,7 +51,7 @@ branch with `NONOISE_MARKETPLACE_REF=<branch>`. Otherwise the fallback link poin
 `pnpm-workspace.yaml` includes only `packages/*`. Three packages:
 
 - **`packages/create-nonoise/`** — the published CLI. The only package users install.
-- **`packages/skills/`** — 28 NONoise skill sources (27 shipped in scaffolds; `bmad-req-validator` is plugin-only) + `vendor/` (superpowers, impeccable, skill-creator, pptx). Not published; bundled into the CLI at build time.
+- **`packages/skills/`** — 28 NONoise skill sources (27 shipped in scaffolds; `bmad-req-validator` is plugin-only), the three NONoise agent sources in `_agents/` (`docs/agents.md`) + `vendor/` (superpowers, impeccable, skill-creator, pptx). Not published; bundled into the CLI at build time.
 - **`packages/templates/`** — `single-project/` and `multi-repo/` scaffold payloads. Not published; bundled.
 
 ### How a scaffold is produced (the CLI pipeline)
@@ -60,7 +60,7 @@ branch with `NONOISE_MARKETPLACE_REF=<branch>`. Otherwise the fallback link poin
 
 1. **Prompt** (`prompts.ts`) — collect project name, template (`single-project` | `multi-repo`), AI tools (Claude Code, Copilot, Cursor, Gemini CLI, Codex), language hint, preferences.
 2. **Resolve templates** (`template-resolver.ts`) — templates use a conditional-folder convention. `_always/` ships unconditionally; `_if-<tool>/` only if that tool was selected. Files with `.hbs` are rendered via Handlebars against the project context.
-3. **Install skills** (`skill-installer.ts`) — copies `MVP_SKILL_BUNDLE` (hardcoded list in `scaffold.ts`) from `packages/skills/` plus vendored packs from `packages/skills/vendor/` into the scaffolded project's `.claude/skills/`.
+3. **Install skills** (`skill-installer.ts`) — copies `MVP_SKILL_BUNDLE` (the base list in `src/skill-bundle.ts`, composed with profile-specific capabilities by `src/profiles.ts`) from `packages/skills/` plus vendored packs from `packages/skills/vendor/` into the scaffolded project's `.claude/skills/`. For Claude Code, `src/native-vendor.ts` also installs or declares the Regia mod (`regia@claude-regia`), the orchestration layer that replaced the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills (`docs/regia.md`).
 4. **Write context files** — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md`, `.cursor/rules.md`, `GEMINI.md` are all generated from Handlebars templates so the same source of truth feeds every tool.
 5. **Write `.nonoise/sdlc-flow.md`** — the SDLC flow file Polly reads every invocation to detect the current phase and suggest the next skill.
 
@@ -86,12 +86,11 @@ Polly (`packages/skills/polly/SKILL.md`) is the SDLC advisor — a one-shot skil
 
 `docs/` is both local documentation and source material for the public site [NONoise-frmw-site](https://github.com/russosalv/NONoise-frmw-site). Author content in English; the site derives Italian translations. Don't edit the site's `src/content.js` directly — update `docs/` and re-propagate.
 
-## graphify
+## Code graph
 
-This project has a graphify knowledge graph at graphify-out/.
+This repository is indexed by the `codebase-memory-mcp` MCP server (skill: `packages/skills/codebase-memory/SKILL.md`).
 
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
-- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+- Before answering architecture or codebase questions, call `get_architecture`, then `search_graph` — before grep or reading raw files.
+- For "who calls X" and cross-module "how does X relate to Y" questions, use `trace_path`.
+- If `list_projects` does not show this repository, run `index_repository` once (`repo_path` = the repo root). The graph then stays in sync while a session is open; there is no manual update step.
+- If the MCP tools are not available, run the same tools through the CLI: `codebase-memory-mcp cli <tool> --help` (for example `codebase-memory-mcp cli index_repository --repo-path .`).

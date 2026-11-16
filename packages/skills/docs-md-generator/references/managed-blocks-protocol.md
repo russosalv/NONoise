@@ -13,8 +13,8 @@ one to open and one to close:
 <!-- <<< <marker> -->
 ```
 
-- `<marker>` is a short lowercase slug (`polly`, `graphify`,
-  `design-md`, ...).
+- `<marker>` is a short lowercase slug (`polly`, `codebase-memory`,
+  `development-modes`, `design-md`, ...).
 - `(managed by <skill-name> skill)` is informational for humans — the
   parser does not depend on it. When emitting a new block, include it
   for clarity.
@@ -26,11 +26,14 @@ one to open and one to close:
 | Marker | Owning skill | Typical body |
 |---|---|---|
 | `polly` | `polly` | Polly advisor invocation block — trigger phrases (`/polly`, "start polly", "avvia polly", ...) and a pointer to `.nonoise/sdlc-flow.md`. |
-| `graphify` | `create-nonoise` CLI | Rules for reading `graphify-out/GRAPH_REPORT.md`, `graphify-out/wiki/index.md`, and rebuilding the graph after code changes. |
+| `codebase-memory` | `create-nonoise` CLI | Code-graph rules for the `codebase-memory-mcp` MCP server: call `get_architecture` and `search_graph` before grep, `trace_path` and `detect_changes` for call chains and change impact, `index_repository` once, and the `codebase-memory-mcp cli <tool>` fallback. Marker comment: `<!-- >>> codebase-memory (managed by create-nonoise) -->`. |
+| `development-modes` | `create-nonoise` CLI | The quick / medium / long table (fit, phases, documents, delegation, FPF validation) and its rules: never run a heavier mode than the work needs, the FPF gate, Regia. Marker comment: `<!-- >>> development-modes (managed by create-nonoise) -->`. |
 | `design-md` | `design-md-generator` | Pointer telling AI code-generators to read `docs/design.md` before producing UI code. |
 
 This list is authoritative as of the current framework version. New
 skills may introduce new markers — see the extension rule below.
+
+Migration note: `codebase-memory` replaced the `graphify` block in NONoise 1.9; a leftover `graphify` block in an older project is an orphan (see the orphan-marker policy below).
 
 ## Parsing regex
 
@@ -95,14 +98,15 @@ Policy for `docs-md-generator`:
 
 ## Interaction with `AGENTS.md`
 
-`AGENTS.md` may also contain managed blocks (at minimum the `graphify`
-block lives there too). The same rules apply: preserve verbatim, do
-not invent new ones from this skill.
+`AGENTS.md` may also contain managed blocks (at minimum the
+`codebase-memory` and `development-modes` blocks live there too). The
+same rules apply: preserve verbatim, do not invent new ones from this
+skill.
 
 This skill only writes managed blocks that already exist in the
-source file. It does not create `polly` or `graphify` blocks from
-scratch — those are the responsibility of `polly` and the
-`create-nonoise` CLI. If the user's `AGENTS.md` lacks a block that
+source file. It does not create `polly`, `codebase-memory` or
+`development-modes` blocks from scratch — those are the
+responsibility of `polly` and the `create-nonoise` CLI. If the user's `AGENTS.md` lacks a block that
 their tool file clearly needs, tell the user to scaffold the project
 with `create-nonoise` or run the relevant skill (e.g. `polly`) before
 re-running this one.

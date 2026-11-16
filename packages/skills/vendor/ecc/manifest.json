@@ -9,14 +9,79 @@
     ],
     "typescript-reviewer": [
       "typescript",
-      "angular"
+      "angular",
+      "react",
+      "vue"
     ],
     "database-reviewer": [],
     "build-error-resolver": [],
     "pr-test-analyzer": [],
     "spec-miner": [],
     "code-simplifier": [],
-    "refactor-cleaner": []
+    "refactor-cleaner": [],
+    "python-reviewer": [
+      "python"
+    ],
+    "go-reviewer": [
+      "go"
+    ],
+    "go-build-resolver": [
+      "go"
+    ],
+    "rust-reviewer": [
+      "rust"
+    ],
+    "rust-build-resolver": [
+      "rust"
+    ],
+    "java-reviewer": [
+      "java"
+    ],
+    "java-build-resolver": [
+      "java"
+    ],
+    "kotlin-reviewer": [
+      "kotlin"
+    ],
+    "kotlin-build-resolver": [
+      "kotlin"
+    ],
+    "cpp-reviewer": [
+      "cpp"
+    ],
+    "cpp-build-resolver": [
+      "cpp"
+    ],
+    "swift-reviewer": [
+      "swift"
+    ],
+    "swift-build-resolver": [
+      "swift"
+    ],
+    "php-reviewer": [
+      "php"
+    ],
+    "ruby-reviewer": [
+      "ruby"
+    ],
+    "react-reviewer": [
+      "react"
+    ],
+    "react-build-resolver": [
+      "react"
+    ],
+    "vue-reviewer": [
+      "vue"
+    ],
+    "flutter-reviewer": [
+      "flutter"
+    ],
+    "dart-build-resolver": [
+      "flutter"
+    ],
+    "fsharp-reviewer": [
+      "fsharp"
+    ]
   },
   "rules": {
     "common": [],
@@ -25,7 +90,9 @@
     ],
     "typescript": [
       "typescript",
-      "angular"
+      "angular",
+      "react",
+      "vue"
     ],
     "angular": [
       "angular"
@@ -33,6 +100,45 @@
     "web": [
       "web",
       "angular"
+    ],
+    "python": [
+      "python"
+    ],
+    "golang": [
+      "go"
+    ],
+    "rust": [
+      "rust"
+    ],
+    "java": [
+      "java"
+    ],
+    "kotlin": [
+      "kotlin"
+    ],
+    "cpp": [
+      "cpp"
+    ],
+    "swift": [
+      "swift"
+    ],
+    "php": [
+      "php"
+    ],
+    "ruby": [
+      "ruby"
+    ],
+    "react": [
+      "react"
+    ],
+    "vue": [
+      "vue"
+    ],
+    "dart": [
+      "flutter"
+    ],
+    "fsharp": [
+      "fsharp"
     ]
   },
   "skills": {

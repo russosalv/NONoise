@@ -87,9 +87,15 @@ trade-offs explicitly.
 
 ### arch-decision (if ever absent)
 
-Stop architectural validation. Restore the adapter and required Haft runtime:
-`create-nonoise --upgrade .`, then `create-nonoise doctor .` and reconnect the
-host MCP server. Do not substitute a hand-written ADR or conversational FPF.
+If the FPF gate fires (a costly-to-reverse decision with at least two viable
+options, or an explicit request), stop architectural validation and restore the
+adapter and the Haft runtime: `create-nonoise --upgrade .`, then
+`create-nonoise doctor .` and reconnect the host MCP server. Do not substitute a
+hand-written ADR or conversational FPF.
+
+If the gate does not fire, no runtime is needed: record the choice in the PRD
+frontmatter as a lightweight decision (`status: validated`,
+`decision.mode: lightweight`, with `choice`, `rationale` and `gate`).
 
 ### sprint-manifest (if ever absent)
 

@@ -78,7 +78,7 @@ You DO NOT refactor or rewrite code — you report findings only.
 
 ### MEDIUM -- React / Next.js (when applicable)
 
-> For React files, apply the React checklist below; no additional ECC reviewer is required.
+> For React files, apply the React checklist below; when the react stack is installed, `react-reviewer` reviews them as well.
 
 - **Missing dependency arrays**: `useEffect`/`useCallback`/`useMemo` with incomplete deps — use exhaustive-deps lint rule
 - **State mutation**: Mutating state directly instead of returning new objects

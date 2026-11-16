@@ -23,6 +23,11 @@ describe('profile scaffolds', () => {
       expect(existsSync(join(projectPath, '.codex/agents', name + '.toml'))).toBe(selected.ecc.agents.includes(name));
       expect(existsSync(join(projectPath, '.github/agents', name + '.agent.md'))).toBe(selected.ecc.agents.includes(name));
     }
+    for (const name of ['graph-explorer', 'blueprint-architect', 'evidence-reviewer']) {
+      const expected = profile !== 'minimal';
+      expect(selected.ecc.nonoiseAgents!.includes(name)).toBe(expected);
+      for (const path of [`.claude/agents/${name}.md`, `.codex/agents/${name}.toml`, `.github/agents/${name}.agent.md`]) expect(existsSync(join(projectPath, path)), `${profile}: ${path}`).toBe(expected);
+    }
     expect(existsSync(join(projectPath, '.mcp.json'))).toBe(selected.rea);
     if (profile === 'minimal') {
       expect(existsSync(join(projectPath, '.claude/settings.json'))).toBe(false);

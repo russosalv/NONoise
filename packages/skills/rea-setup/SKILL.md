@@ -8,7 +8,8 @@ description: Use when artifact analysis needs REA and its project MCP server is 
 Route these targets to REA: .NET `.dll`/`.exe` without `.csproj` or source;
 `app.asar` or packaged Electron apps; `.har`/`.saz` captures; SQLite databases;
 APK packages; native binaries; firmware; “how does this app/site work without
-code?”. For a complete source repository, use repository tools and Graphify.
+code?”. For a complete source repository, use repository tools and the code graph
+(`codebase-memory` skill).
 
 ## Check the project
 

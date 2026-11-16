@@ -12,6 +12,8 @@ Take any empty folder. Run `npx create-nonoise`, pick which AI assistants your t
 - A **`.claude/skills/`** library of 40+ AI skills covering the full SDLC: requirements elicitation, architectural brainstorming and formal validation, sprint breakdown, test-driven implementation, acceptance running, observability triage, brownfield reverse engineering, UI / UX design, technical writing.
 - **Tool-specific context files** for every AI tool your team uses — `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md` for Copilot (v1 first-class), plus `AGENTS.md` / `.cursor/rules.md` / `GEMINI.md` for Codex, Cursor, Gemini CLI (best-effort in v1) — all generated from one source of truth so they don't drift.
 - **Polly**, an orchestrator skill that auto-triggers on the first session, asks whether you're on a greenfield or brownfield project, and walks the SDLC step-by-step — announcing `[pair]` vs `[solo]` mode for every step and invoking the right specialist skill in the right order.
+- **Regia**, for Claude Code only: a mod NONoise installs as the plugin `regia@claude-regia`. It is the orchestration layer — the main session delegates, model and effort are chosen per task, and swarms of Claude, Codex, Qwen Code and Copilot agents run on a dependency board. Polly says what to do next; Regia runs it. The other tools get no orchestration from NONoise. See [`regia.md`](regia.md).
+- **Agents**, for Claude Code, Copilot and Codex: three written by NONoise — `graph-explorer` maps existing code before design, `blueprint-architect` turns a spec into a file-level blueprint, `evidence-reviewer` reports only findings it can prove — plus reviewers and build resolvers from the ECC snapshot, selected by profile and `--stack`. Cursor and Gemini CLI get none. See [`agents.md`](agents.md).
 - Two **Node CLIs** (`tools/md-extractor/` and `tools/devops-push/`) for the two operations that are painful to do by hand: ingesting raw PDFs / DOCX into structured Markdown, and pushing sprint task breakdowns to Azure DevOps as work items.
 - A **`nonoise.config.json`** that records which tools and skill packs were installed, so a future `nonoise update` can diff against a registry without clobbering local customisation.
 
@@ -23,7 +25,7 @@ That's day one. Every subsequent day, you or any teammate can open the project i
 - **Not a code generator.** None of the skills write production code without human involvement. The architecture skills produce PRDs; the sprint skills produce manifests; the implementation skills wrap `superpowers:*` planning and execution under human review with test-driven development. The framework's job is to tell you *what to do next* and *which skill to engage*, not to pretend it can finish your feature alone.
 - **Not opinionated about your stack.** `src/` is empty on purpose. Pick .NET, Node, Python, Rust, Go, Flutter, Elixir — whatever your team likes. The SDLC flow, the docs hierarchy, and most of the skills are stack-agnostic. A few skills (`vscode-config-generator`, `playwright-cli`, `frontend-design`) are stack-aware and detect what they need.
 - **Not a service.** Everything runs locally inside your AI tool of choice. No server, no telemetry, no account, no API key required for the framework itself. (Your AI tool still needs its own API key; the framework does not add another.)
-- **Not a monolithic methodology.** NONoise integrates several open-source bodies of work — Brian Madigan's `superpowers` skills, a persona extraction inspired by `bmad-method`, Haft as the First Principles Framework engine, the Impeccable design skills — and adds orchestration on top. It is not "yet another proprietary SDLC" invented from scratch.
+- **Not a monolithic methodology.** NONoise integrates several open-source bodies of work — Brian Madigan's `superpowers` skills, a persona extraction inspired by `bmad-method`, Haft as the First Principles Framework engine, the Impeccable design skills, Regia as the orchestration layer in Claude Code, a pinned snapshot of ECC agents, rules and skills — and adds the SDLC flow and its advisor on top. It is not "yet another proprietary SDLC" invented from scratch.
 
 ## Who it's for
 
@@ -51,7 +53,7 @@ Some people prefer the framing *"project operating system"* — you install it o
 Across every design decision, three levers recur:
 
 1. **Skill > prompt.** A prompt dies with the window. A skill is a named, versioned, discoverable artifact with a Markdown body and YAML frontmatter that any AI tool can load. NONoise ships skills exclusively — no hidden prompt libraries, no proprietary templates. If your team wants to customise, they edit the Markdown. If another team wants to reuse, they copy the folder.
-2. **Canonical > exotic.** Every frontier LLM has read the Repository pattern, CQRS, Clean Architecture, DDD, standard REST, MVC, observer, strategy, event-sourcing thousands of times. Those patterns cost zero context tokens because they are already in the weights. NONoise's architectural skills (`arch-brainstorm`, `arch-decision`, `quint-fpf`) actively reward canonical choices and formally validate anything exotic. The LLM you pay for is not a replacement for the patterns the community has already written down — it is a machine that works spectacularly well when you feed it patterns it already knows.
+2. **Canonical > exotic.** Every frontier LLM has read the Repository pattern, CQRS, Clean Architecture, DDD, standard REST, MVC, observer, strategy, event-sourcing thousands of times. Those patterns cost zero context tokens because they are already in the weights. NONoise's architectural skills (`arch-brainstorm`, `arch-decision`, `quint-fpf`) actively reward canonical choices and make exotic ones justify themselves — through a formal validation when the FPF gate fires (a costly-to-reverse decision with real alternatives), through a lightweight decision recorded in the PRD otherwise. The LLM you pay for is not a replacement for the patterns the community has already written down — it is a machine that works spectacularly well when you feed it patterns it already knows.
 3. **Team > solo.** Every step is annotated `[pair]` or `[solo]`. Pair work is high-bandwidth work on a large model (analyst + senior dev, or architect + lead, or whatever the project needs). Solo work is parallelisable, repeatable, smaller-model work. The value of labelling the mode is that *nobody wastes the wrong model on the wrong problem* — a solo dev does not convene a three-person architecture meeting for a string-format bug, and a pair of seniors does not use a 2-billion-parameter model to argue about event-sourcing.
 
 ## What changes day-to-day
@@ -70,7 +72,7 @@ After NONoise:
 - `npx create-nonoise` gives every new project the same starting shape, regardless of who scaffolds it.
 - The context files are generated from one source of truth, stay coherent, and are reviewed in PR.
 - Requirements go into `docs/requirements/` via the `requirements-ingest` skill; meeting transcripts go into `docs/calls/`.
-- Architecture decisions are PRDs under `docs/prd/<area>/` with frontmatter showing `draft` → `validated` / `rejected`; validation goes through the Haft FPF.
+- Architecture decisions are PRDs under `docs/prd/<area>/` with frontmatter showing `draft` → `validated` / `rejected`; the decision is a formal Haft FPF validation when the FPF gate fires, a lightweight decision recorded in the same frontmatter otherwise.
 - Every skill is in `.claude/skills/` in every project. If a senior develops a new skill, it propagates by being committed, not by Slack screenshot.
 - "How do we start?" is a three-word answer: `npx create-nonoise`.
 
@@ -80,7 +82,7 @@ After NONoise:
 NONoise-frmw/
 ├── packages/
 │   ├── create-nonoise/              # The CLI
-│   ├── skills/                      # 27 NONoise-native skills + vendor/
+│   ├── skills/                      # 28 NONoise-native skills + _agents/ + vendor/
 │   └── templates/single-project/    # What gets scaffolded into user projects
 ├── docs/                            # This documentation (and site source material)
 ├── scripts/                         # Vendor sync, release tooling
@@ -94,15 +96,16 @@ See [`installation.md`](installation.md) §Repository layout for the full tree.
 This documentation explicitly incorporates feedback from an independent review (`todo.txt` at the repository root) that flagged four issues in the prior README:
 
 1. **Messaging.** The earlier framing called NONoise a "framework". We now use **bootstrapper** (primary) and "project operating system" (secondary). The word *framework* is retained only where it refers generically to a body of conventions, not to a runtime framework.
-2. **Doc coherence.** Earlier drafts mentioned "3 skill bundles" while the scaffold actually installs 27+14 = 41+ skills. This documentation reflects the actual count and organises them by domain (see [`skills-catalog.md`](skills-catalog.md)).
+2. **Doc coherence.** Earlier drafts mentioned "3 skill bundles" while the scaffold actually installs 27+14 = 41 skills before the design pack and the tooling. This documentation reflects the actual count and organises them by domain (see [`skills-catalog.md`](skills-catalog.md)).
 3. **Overreach risk.** The review flagged that if NONoise keeps bundling more and more skills, it becomes "noise itself". The response is to move toward a **core + optional packs** model: core always installed (Polly + requirements + architecture + sprint + dev trio), optional packs explicitly selected at scaffold time (frontend pack, docs/analysis pack, ops pack, PM/architecture pack). That split is planned, not yet implemented — see [`skills-catalog.md`](skills-catalog.md) §Roadmap.
 4. **Vendor drift.** Since 1.7.0, vendor packs are installed by their upstream installers by default (native mode); the offline `--vendor-mode embed` snapshots (superpowers, impeccable, skill-creator, pptx tooling, Polly's own vendored payloads) pin a commit in `VENDOR.json`. Snapshot tests fail when the vendored material changes; the response is a deliberate `node scripts/sync-vendor.mjs` + updated snapshot, reviewed in PR. Automatic updates on the user side are **not** enabled by design: the compromise is *automatic check, manual apply* (a future `nonoise update --check` + `nonoise update`).
 
 ## Where to read next
 
 - If you want the **principles**: [`philosophy.md`](philosophy.md).
-- If you want the **flow**: [`sdlc.md`](sdlc.md).
-- If you want the **catalog**: [`skills-catalog.md`](skills-catalog.md).
+- If you want the **flow**: [`sdlc.md`](sdlc.md), and [`development-modes.md`](development-modes.md) for how it is sized to a task (quick / medium / long).
+- If you want the **orchestration** in Claude Code: [`regia.md`](regia.md).
+- If you want the **catalog**: [`skills-catalog.md`](skills-catalog.md), and [`agents.md`](agents.md) for the agents.
 - If you want the **mechanics**: [`installation.md`](installation.md).
 
 Everything else in this folder is a deeper dive into one of those four spines.

@@ -11,7 +11,7 @@ This document describes the roles NONoise assumes, the pair-vs-solo mapping per 
 A "full" NONoise team has (approximately):
 
 - **Analyst / Product Manager.** Owns `docs/requirements/`. Drives the requirements phase. In BMAD personas, this is *Isa*.
-- **Architect / Lead.** Owns `docs/architecture/`. Drives `arch-brainstorm`, `arch-decision`, and the Haft FPF audit. In BMAD personas, this is *Alex*. Alex has opinions, and those opinions are the architectural spine of the project — parametric memory, symmetry, local deducibility, no opaque binary deps.
+- **Architect / Lead.** Owns `docs/architecture/`. Drives `arch-brainstorm`, `arch-decision`, and — when the FPF gate fires — the Haft FPF audit. In BMAD personas, this is *Alex*. Alex has opinions, and those opinions are the architectural spine of the project — parametric memory, symmetry, local deducibility, no opaque binary deps.
 - **Two or more implementers.** Execute the dev trio. One task at a time per dev; tasks parallelise naturally when the sprint manifest slices them vertically.
 - **UX designer** (optional but recommended). Owns interaction design and `DESIGN.md`. In BMAD personas, this is *Giulia*.
 - **Tech writer** (optional). Owns READMEs, user guides, and public-facing API docs. In BMAD personas, this is *Daniel*.
@@ -46,7 +46,7 @@ Every SDLC step is tagged with a mode:
 | UX design / DESIGN.md | `[pair]` | Designer + product + lead dev |
 | Frontend-design (high-level) | `[pair]` | The visual direction is a team decision |
 | Architecture options | `[pair]` | Architects + seniors; the whole point |
-| Architecture decision (arch-decision + Haft) | `[pair]` | Formal audit benefits from challenge |
+| Architecture decision (arch-decision; Haft when the FPF gate fires) | `[pair]` | The choice, formal or lightweight, benefits from challenge |
 | Living C4 diagrams (c4-doc-writer) | `[solo]` | Mechanical sync with an already-validated PRD |
 | Sprint breakdown | `[pair]` | Task slicing + CL assignment benefits from group |
 | Spec-to-workitem push | `[solo]` | Mechanical translation |
@@ -82,7 +82,7 @@ Implementation of a well-specified task is:
 
 - **Parallelisable.** Five developers can work on five tasks independently because the sprint manifest sliced vertically.
 - **Repeatable.** `writing-plans` → `executing-plans` with TDD is the same loop every time. A smaller model is competent at this loop because the hard parts (architecture, acceptance criteria, API shape) are already decided upstream.
-- **Reviewable.** The plan was reviewed before execution; the code is reviewed after execution; the acceptance test is reviewed by the shadow tester. Three review gates catch what a pair session wouldn't.
+- **Reviewable.** The plan was reviewed before execution; the code is reviewed after execution; the acceptance test is reviewed by the shadow tester. Three review gates catch what a pair session wouldn't. Since 1.9 the review after execution has a fixed first step: each task closes with the `evidence-reviewer` agent, which reports only findings it can prove, and the language reviewer installed for the stack (see [`agents.md`](agents.md)).
 
 Moving implementation to solo is what makes NONoise scale. A six-person team that pair-programmed every task would finish one task a day; the same six people each doing their own task with the dev trio finishes six — with better coverage.
 

@@ -22,7 +22,7 @@ for easy review.
 
 **Inputs**:
 - Document folders indexed: {{DOC_FOLDERS_WITH_STATS}}
-  <!-- e.g. "docs/sprints/Sprint-3 (33 files, ~150k tokens) — re-indexed with --update"
+  <!-- e.g. "docs/sprints/Sprint-3 (33 files, ~150k tokens) — re-indexed with index_repository"
               "docs/calls/2026-04-10-billing-kickoff (1 file) — initial" -->
 - Subject source graph: {{SUBJECT_SOURCE_DESC}}
   <!-- e.g. "<local_path>/legacy-billing (4210 nodes, 18930 edges) — reused"

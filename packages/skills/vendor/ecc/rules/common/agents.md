@@ -4,8 +4,10 @@
 
 NONoise installs a pinned selection of ECC agents with bare names. Read the generated .nonoise/ecc/index.md for the installed roster and stack rules. Use the harness agent tool when available; otherwise apply the agent instructions directly and disclose that no independent review ran.
 
-Use security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus csharp-reviewer or typescript-reviewer when installed. Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.
+NONoise's own agents are listed there too: graph-explorer maps existing code before design, blueprint-architect turns a spec into a file-level blueprint, evidence-reviewer reviews a change and reports only what it can prove.
 
-Planning uses superpowers:writing-plans; architecture decisions use arch-decision and Haft; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.
+Use evidence-reviewer, security-reviewer, pr-test-analyzer and silent-failure-hunter before delivery, plus the language reviewer installed for the stack (csharp-reviewer, typescript-reviewer, python-reviewer, go-reviewer and so on). Use database-reviewer for SQL and migrations, spec-miner for brownfield specifications, build-error-resolver or the stack's own build resolver for build failures, code-simplifier and refactor-cleaner for scoped cleanup.
+
+Planning uses superpowers:writing-plans; architecture decisions use arch-decision, with Haft when the FPF gate fires; testing uses superpowers:test-driven-development and atr. E2E work uses e2e-testing when installed.
 
 Delegate only when appropriate to the user's task and harness permissions. Collect and integrate every delegated result before reporting completion. Do not redelegate work that fits one agent's context.

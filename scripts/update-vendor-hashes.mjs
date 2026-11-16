@@ -26,8 +26,7 @@ addTree(join(vendor, 'superpowers/skills'), '.claude/skills/superpowers');
 for (const dir of ['hooks', 'commands', 'agents']) addTree(join(vendor, 'superpowers', dir), `.claude/${dir}/superpowers`);
 addTree(join(vendor, 'impeccable/impeccable'), '.claude/skills/impeccable');
 for (const name of ['pptx', 'skill-creator']) addTree(join(vendor, name), `.claude/skills/${name}`);
-for (const [harness, file] of [['.claude', 'skill.md'], ['.copilot', 'skill-copilot.md'], ['.agents', 'skill-codex.md']]) {
-  addFile(join(root, 'packages/skills/graphify-platform-skills', file), `${harness}/skills/graphify/SKILL.md`);
-}
+// graphify was retired in 1.9.0 (replaced by codebase-memory-mcp); its historical
+// hashes stay in the table so upgrades can still remove unmodified copies.
 writeFileSync(target, previous.slice(0, previous.indexOf('=') + 1) + ' ' + JSON.stringify(hashes, null, 2) + ';\n');
 console.log(`Preserved historical hashes and recorded current embed files: ${Object.keys(hashes).length} paths`);

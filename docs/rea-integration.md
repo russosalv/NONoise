@@ -58,7 +58,7 @@ analysis recipes and evidence guidance are retained.
 
 For source-less .NET DLL/EXE, Electron/app.asar, HAR/SAZ, SQLite, APK, native
 binaries, firmware, or questions about an app/site without source, the analysis
-skill checks project REA registration before requiring Graphify. With REA
+skill checks project REA registration before requiring the code graph. With REA
 connected, it uses the server directly within the authorized task scope.
 
 If registration is missing, `rea-setup` gives one sentence explaining why REA
@@ -75,7 +75,7 @@ The agent then asks the user to restart/reconnect and approve the project server
 if the client requires it. A configured but disconnected server needs connection
 repair, not another installation. Polly only recommends this handoff; it does
 not install while advising. Complete source repositories retain ordinary
-repository/Graphify analysis. REA Evidence feeds the incremental dossier without
+repository/code-graph analysis. REA Evidence feeds the incremental dossier without
 pretending binaries were source-indexed or bypassing its explicit save trigger.
 
 The upstream disclaimer distinguishes artifact inspection from execution,

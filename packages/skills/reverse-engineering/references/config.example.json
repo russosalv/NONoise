@@ -17,7 +17,7 @@
     }
   },
   "_notes": {
-    "file_purpose": "Per-developer local config for the reverse-engineering skill. Holds absolute/relative paths to each subject's source that the skill indexes with graphify.",
+    "file_purpose": "Per-developer local config for the reverse-engineering skill. Holds absolute/relative paths to each subject's source that the skill indexes in the codebase-memory-mcp code graph (`index_repository`).",
     "subjects.<slug>.source_path": "Path (absolute or repo-relative) where the subject's code/artifacts live. On Windows use double backslashes as shown. On Linux/macOS use forward slashes. The skill validates the path exists before indexing.",
     "subjects.<slug>.last_run": "ISO 8601 timestamp of the last successful save. Auto-updated in Step 6.3.",
     "subjects.<slug>.last_source_indexed": "Path of the first Q2 document folder used in the previous run. Used as the default suggestion for Q2 on the next run for the same subject.",

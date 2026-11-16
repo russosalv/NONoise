@@ -37,7 +37,7 @@ and rewriting the Markdown image references to point at that folder.
 
 **Why it exists.** The sibling `.md` is the de-facto contract with the
 downstream skills:
-- `graphify` indexes the `.md`, not the `.pdf`
+- the code graph (`codebase-memory`) indexes the `.md`, not the `.pdf`
 - `reverse-engineering` looks for a sibling `.md` next to every `.pdf`
   under `docs/support/reverse/<subject>/.meta/raw/`
 - `requirements-ingest` consumes `docs/requirements/<domain>/sources/*.md`
@@ -46,13 +46,13 @@ downstream skills:
 - During Step 2.2 / 3.4 ("existing source material?") if the user
   names PDFs, DOCX, scanned specs, contracts, or briefs saved as PDF
 - During brownfield Step 3.2 if there are legacy PDF documents that
-  need to be indexed by `graphify`
+  need to be indexed in the code graph (`codebase-memory`)
 - Any time the conversation mentions "I have a PDF with the specs"
 
 **Sample line Polly can say (EN):**
 
 > Got PDFs or DOCX? Before passing them to `requirements-ingest` or
-> `graphify`, run `tools/md-extractor` — it extracts the content into
+> indexing them in the code graph, run `tools/md-extractor` — it extracts the content into
 > Markdown (+ images) next to the original. The downstream skills read
 > that `.md`, not the PDF. Needs `LLAMA_CLOUD_API_KEY` (the tool asks
 > if missing). Command: `node tools/md-extractor/extract.js <path>`.
@@ -60,7 +60,7 @@ downstream skills:
 Italian adaptation:
 
 > Hai documenti in PDF/DOCX? Prima di passarli a `requirements-ingest`
-> o a `graphify`, lancia `tools/md-extractor` — estrae in Markdown
+> o di indicizzarli nel grafo del codice, lancia `tools/md-extractor` — estrae in Markdown
 > (+ immagini) accanto al file originale. Le skill a valle leggono quel
 > `.md`, non il PDF. Serve `LLAMA_CLOUD_API_KEY` (il tool la chiede se
 > manca). Comando: `node tools/md-extractor/extract.js <path>`.

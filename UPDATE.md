@@ -65,12 +65,38 @@ What `--upgrade` does, so you can explain the diff to the user:
 - Refreshes NONoise skills in `.claude/skills/` (and `.agents/skills/` when Codex or Copilot is
   selected). Files the user modified are **preserved** and listed; retired skills are removed only
   if unmodified.
+- Removes the hand-over skills that are no longer shipped: `swarm-router`, `copilot-delegate`
+  and `gemini-delegate` (and `codex-delegate`, retired in 1.7). Pristine copies are removed;
+  edited ones are kept and listed. Orchestration in Claude Code now belongs to the Regia mod
+  ([`docs/regia.md`](docs/regia.md)).
+- Installs the agents of the saved profile and stack for Claude Code (`.claude/agents/`),
+  Copilot (`.github/agents/`) and Codex (`.codex/agents/`). Since 1.9 these include three
+  NONoise agents (`graph-explorer`, `blueprint-architect`, `evidence-reviewer`) in every
+  profile except `minimal`, and two new skills join the bundle (`reuse-first`,
+  `docs-steward`). Cursor and Gemini CLI get no agent files. The installed roster is
+  `.nonoise/ecc/index.md` ([`docs/agents.md`](docs/agents.md)).
 - Rewrites only the text between `<!-- nonoise:begin vX.Y.Z -->` and `<!-- nonoise:end -->` in
   `AGENTS.md`, `CLAUDE.md` (Claude Code) and `.github/copilot-instructions.md` (Copilot). Everything outside the
-  markers is kept. Files without markers get a block inserted after their title.
+  markers is kept. Files without markers get a block inserted after their title. The block
+  carries the `codebase-memory` (code graph) and `development-modes` (quick / medium / long)
+  sections.
 - Re-installs vendor packs (native mode: Claude/Codex/Copilot plugins such as
-  `superpowers@nonoise`, `codex@openai-codex`, `skill-creator`, plus `impeccable`), graphify
-  (`graphifyy==0.9.91`), Haft, profile hooks and, if enabled, REA.
+  `superpowers@nonoise`, `skill-creator` and, for Claude Code, `regia@claude-regia`, plus
+  `impeccable`), Haft, profile hooks and, if enabled, REA. In embed mode Regia is declared in
+  `.claude/settings.json` and Claude Code offers it when the project is trusted. NONoise no
+  longer installs the Codex plugin `codex@openai-codex`: Regia installs it when the `codex`
+  CLI is on the machine.
+- Updates the code graph: `codebase-memory-mcp` is not pinned, and `--upgrade` runs
+  `npm install -g codebase-memory-mcp@latest` (no Python or `uv`). If the update fails, the
+  working binary stays in use and the CLI prints why. NONoise never downgrades it. The
+  upgrade also registers its MCP server in the
+  project-local config of the selected tools (`.mcp.json`, `.vscode/mcp.json`,
+  `.codex/config.toml`, `.cursor/mcp.json`, `.gemini/settings.json`). An existing entry is
+  never rewritten; a conflicting one is listed as preserved.
+- Retires the graphify integration earlier versions installed, when it is unmodified:
+  graphify skill folders, graphify hooks in `.claude/settings.json` and
+  `.nonoise/native-graphify.json`. `graphify-out/` and the graphify CLI are left alone
+  (see §5). The `minimal` profile installs no code graph.
 - Rewrites `nonoise.config.json` with the new `frameworkVersion`.
 
 Optional flags (only if the user asks for them):
@@ -79,10 +105,10 @@ Optional flags (only if the user asks for them):
 |---|---|
 | Add/override AI tools | `--ai claude-code,copilot,codex,cursor,gemini-cli` (merged with config) |
 | Change capability profile | `--profile minimal\|core\|developer\|security\|brownfield\|full` |
-| Change stack | `--stack dotnet,typescript,angular,web` |
+| Change stack | `--stack <csv>` with any of `dotnet`, `typescript`, `angular`, `web`, `python`, `go`, `rust`, `java`, `kotlin`, `cpp`, `swift`, `php`, `ruby`, `react`, `vue`, `flutter`, `fsharp`, or `none` alone. An explicit `--stack` replaces the saved selection |
 | Enable REA | `--with-rea` |
 | Offline / no upstream installers | `--vendor-mode embed` (produces a large diff; warn the user) |
-| Only fix graphify | `--graphify-only .` instead of `--upgrade .` |
+| Only repair the code graph | `--code-graph-only .` instead of `--upgrade .` (`--graphify-only` is still accepted as an alias) |
 
 A profile-less 1.6/1.7 project is upgraded with `legacyProfileCompatibility` and keeps all its
 old files. Only an explicit `--profile` opts it into the new catalog and its cleanup.
@@ -128,23 +154,28 @@ Do these in order and tell the user which ones need their action:
 1. **Read the CLI output.** Every failed installer prints an exact retry command — run it (or
    give it to the user if it needs credentials or an interactive harness).
 2. **Run `doctor` again** and fix anything still reported `missing`, `missing/unverified` or
-   `wrong version` using the command printed on the same line.
-3. **Refresh the knowledge graph** if the project uses graphify (`graphify-out/` exists):
-   `graphify update .` (AST-only, no API cost). If graphify was just installed and there is no
-   graph yet, tell the user they can build it from their harness with the graphify skill.
-4. **`.gitignore`:** make sure `*.graphify-bak` is ignored (new scaffolds do this; older
-   projects need it added by hand).
-5. **Restart the AI harness** (Claude Code, Copilot, Codex…) so new skills, plugins, hooks and
+   `wrong version` using the command printed on the same line. For the code graph, `doctor`
+   prints the installed `codebase-memory-mcp` version and flags one older than 0.12.0.
+3. **Code graph: nothing to refresh.** `codebase-memory-mcp` keeps the graph in sync by
+   itself while a session is open. If the project has never been indexed, it is built once:
+   `/index` or "index this repository" in the harness, or
+   `codebase-memory-mcp cli index_repository --repo-path .`. If the project still has
+   `graphify-out/`, it is left in place and can be deleted; `uv tool uninstall graphifyy`
+   removes the old graphify CLI. Both are the user's call.
+4. **Restart the AI harness** (Claude Code, Copilot, Codex…) so new skills, agents, plugins, hooks and
    MCP servers are loaded. In Claude Code the user may have to approve the project's declared
-   plugins/marketplaces; in Codex, impeccable hooks must be approved in `/hooks`; REA needs its
-   MCP server approved/restarted.
-6. **Rebuild the project's own code only if a NONoise-managed tool changed** — e.g. run
+   plugins/marketplaces (Regia among them) and the `codebase-memory-mcp` project MCP server; in Codex, impeccable
+   hooks must be approved in `/hooks`; REA needs its MCP server approved/restarted.
+5. **Rebuild the project's own code only if a NONoise-managed tool changed** — e.g. run
    `npm install` inside `tools/md-extractor/` or `tools/devops-push/` if those folders changed in
    the diff. NONoise does not touch the user's application code or its build.
-7. **Review the diff with the user** (`git status`, `git diff --stat`), point out preserved
+6. **Review the diff with the user** (`git status`, `git diff --stat`), point out preserved
    (user-modified) files listed by the CLI, then commit with a message like
    `chore: upgrade NONoise to vX.Y.Z` — only if the user asks you to commit.
-8. Suggest running `/polly` (Claude Code) or "start polly" (Copilot) to continue the SDLC.
+7. Suggest running `/polly` (Claude Code) or "start polly" (Copilot) to continue the SDLC.
+   `/polly quick|medium|long <goal>` sizes the process to the task
+   ([development modes](docs/development-modes.md)). In Claude Code the prompt Polly hands
+   back starts with `/regia <mode>` when Regia is active ([Regia](docs/regia.md)).
 
 ## 6. The target is a clone of this repo (contributors)
 
@@ -169,6 +200,6 @@ To test an unreleased CLI against a project:
 npx --yes create-nonoise@latest doctor <path>                 # read-only health check
 npx --yes create-nonoise@latest --upgrade <path>              # update existing NONoise project
 npx --yes create-nonoise@latest --upgrade <path> --ai <csv>   # install into an existing repo
-npx --yes create-nonoise@latest --graphify-only <path>        # repair graphify only
+npx --yes create-nonoise@latest --code-graph-only <path>      # repair the code graph only
 npx --yes create-nonoise@latest <new-dir>                     # new project (interactive)
 ```

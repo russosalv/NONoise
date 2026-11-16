@@ -7,9 +7,20 @@ const here = dirname(fileURLToPath(import.meta.url));
 const pkgRoot = resolve(here, '..', '..');
 
 describe('bundle-assets', () => {
-  it('does NOT bundle the reference-only vendor/graphify directory', () => {
-    const bundled = resolve(pkgRoot, 'skills', 'vendor', 'graphify');
-    expect(existsSync(bundled)).toBe(false);
+  it('no longer ships graphify in any form, and ships the codebase-memory skill', () => {
+    expect(existsSync(resolve(pkgRoot, 'skills', 'vendor', 'graphify'))).toBe(false);
+    expect(existsSync(resolve(pkgRoot, 'skills', 'graphify-platform-skills'))).toBe(false);
+    expect(existsSync(resolve(pkgRoot, 'skills', 'codebase-memory', 'SKILL.md'))).toBe(true);
+  });
+
+  it('bundles the NONoise agent sources and the new skills', () => {
+    for (const name of ['evidence-reviewer', 'graph-explorer', 'blueprint-architect']) {
+      expect(existsSync(resolve(pkgRoot, 'skills', '_agents', `${name}.md`)), name).toBe(true);
+    }
+    expect(existsSync(resolve(pkgRoot, 'skills', '_agents', 'SKILL.md'))).toBe(false);
+    for (const name of ['reuse-first', 'docs-steward']) {
+      expect(existsSync(resolve(pkgRoot, 'skills', name, 'SKILL.md')), name).toBe(true);
+    }
   });
 
   it('still bundles the other vendor packs', () => {

@@ -1,6 +1,6 @@
 ---
 name: arch-decision
-description: Validate an existing draft PRD through Haft ProblemCard, solution variants and parity comparison, then route the operator's explicit Phase 5.5 choice through h-decide and project the result into PRD frontmatter. Use for architectural PRD validation; creates no duplicate FPF audit register.
+description: Validate an existing draft PRD through Haft ProblemCard, solution variants and parity comparison, then route the operator's explicit Phase 5.5 choice through h-decide and project the result into PRD frontmatter. Use for architectural PRD validation when the FPF gate fires; otherwise records a lightweight decision in the PRD with no Haft run. Creates no duplicate FPF audit register.
 ---
 
 # arch-decision — PRD review with Haft
@@ -10,6 +10,66 @@ already supplied by the operator. Input is an existing `draft` PRD at
 `docs/prd/<area>/NN-<study>.md`; use `arch-brainstorm` if the PRD is absent.
 For an already validated PRD, inspect the referenced decision before any
 operator-requested supersession; do not silently replace a binding choice.
+
+## Step 0 — FPF gate: does this decision need formal validation?
+
+Formal validation costs time and attention. Decide whether it is warranted
+before loading any runtime, from the PRD and the constraints it cites.
+
+The gate **fires** when at least one holds:
+
+1. The operator asked for formal validation ("validate with FPF", "run
+   arch-decision with Haft", "I want a DecisionRecord").
+2. The decision is **costly to reverse** — it fixes a data model or storage
+   engine, a public API or event contract, a security or tenancy boundary,
+   infrastructure or deployment topology, or a vendor/licence commitment —
+   **and** the PRD shows **at least two materially different options** that
+   survive the hard constraints.
+3. The PRD supersedes a decision that was itself bound through Haft.
+
+The gate **does not fire** when the choice is cheap to undo, when the hard
+constraints leave a single viable option, when it follows an architecture that
+is already validated, or when the work runs in quick mode. An option list
+padded with strawmen does not count as "materially different".
+
+Report the outcome in two or three lines: which facts you relied on, and what
+would change the answer. Then:
+
+- **Fires** → continue with *Runtime and current basis*.
+- **Does not fire** → follow *Lightweight decision* and stop. Do not load
+  `quint-fpf`, do not require Haft.
+- **Borderline** → state the tipping fact, recommend one path, and let the
+  operator pick. An explicit "validate it anyway" always fires the gate; an
+  explicit "keep it lightweight" is honoured unless condition 3 holds.
+
+## Lightweight decision
+
+For a decision that does not need FPF. It is still the operator's choice: name
+the option, the reason and what was not chosen, and ask for a direct
+confirmation unless the operator already stated the choice.
+
+Preserve unrelated PRD fields and write:
+
+```yaml
+status: validated
+validated_at: YYYY-MM-DD
+validated_by: operator (lightweight)
+decision:
+  mode: lightweight
+  choice: <the option, one line>
+  rationale: <one or two lines>
+  rejected: [<other options considered, if any>]
+  gate: <why FPF was not needed: reversible / single viable option / follows <PRD>>
+  revisit_if: <the fact that would make this worth a formal validation>
+```
+
+No `haft` block, no `.haft/` record, no audit folder. If the decision changes
+`docs/architecture/`, add the same `## Impact on docs/architecture/` checklist
+described below, citing `decision.mode: lightweight` in place of Haft refs.
+Return the choice, the remaining risks and the next step (`arch-sync` if there
+is a checklist, then `sprint-manifest`, or `implementation` in medium mode).
+A lightweight decision can be promoted later: run `arch-decision` again when
+`revisit_if` becomes true.
 
 ## Runtime and current basis
 
