@@ -16088,7 +16088,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
       "source": {
         "source": "github",
         "repo": "russosalv/NONoise",
-        "ref": "v1.8.0"
+        "ref": "v1.9.0"
       }
     },
     "anthropic-agent-skills": {

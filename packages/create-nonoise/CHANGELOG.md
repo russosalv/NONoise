@@ -1,5 +1,17 @@
 # create-nonoise
 
+## 1.9.0
+
+### Minor Changes
+
+- Replace graphify with codebase-memory-mcp: a scaffold installs the latest release when no binary answers and registers its MCP server in project-local config for every selected tool (Claude Code, Codex, Copilot, Cursor, Gemini CLI); `--upgrade` and `--code-graph-only` move it to the latest release, never downgrade, and keep a working binary if the update fails. `--upgrade` retires an unmodified graphify integration and leaves `graphify-out/` alone; `--graphify-only` stays as an alias. Every skill now queries the code graph through codebase-memory.
+- Add quick/medium/long development modes: `.nonoise/sdlc-flow.md` version 2 tags each phase with its modes, Polly sizes the work (`/polly quick|medium|long <goal>`), and every context template carries a development-modes block.
+- Add the FPF gate: arch-decision first decides whether formal Haft FPF validation is warranted, otherwise records a lightweight decision that arch-sync and sprint-manifest accept without the Haft runtime.
+- Make Regia (`regia@claude-regia`) the orchestration layer in native and embed mode, replacing the Codex plugin in the Claude plugin list; retire swarm-router, copilot-delegate and gemini-delegate (`--upgrade` removes pristine copies, keeps edited ones).
+- Add three NONoise agents (graph-explorer, blueprint-architect, evidence-reviewer) for Claude Code, Copilot and Codex in every profile except minimal, and the reuse-first and docs-steward skills.
+- `--stack` accepts python, go, rust, java, kotlin, cpp, swift, php, ruby, react, vue, flutter and fsharp, with ECC reviewers, build resolvers and rule groups from the pinned commit.
+- Scaffolded context files gain an "Updating NONoise" section, backed by the new UPDATE.md runbook.
+
 ## 1.8.0
 
 ### Minor Changes
