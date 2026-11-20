@@ -43,7 +43,7 @@ That is 28 skill sources: 27 ship in scaffolds, and `bmad-req-validator` is dist
 | Domain | Skills | Primary purpose |
 |---|---:|---|
 | [Orchestration](#orchestration) | 1 | Advise on the SDLC |
-| [Orchestration: Regia](#orchestration-regia) | plugin | Claude Code only: delegation, model and effort per task, swarms of Claude, Codex, Qwen Code and Copilot agents |
+| [Orchestration: Regia](#orchestration-regia) | plugin | Claude Code only: delegation, model and effort per task, swarms of Claude, Codex, Qwen/Qoder and Copilot agents |
 | [Requirements & discovery](#requirements--discovery) | 4 | Raw input → structured requirements |
 | [Architecture & validation](#architecture--validation) | 7 | Check what can be reused, draft architecture and decide it: formal validation when the FPF gate fires, lightweight decision otherwise |
 | [Sprint & implementation](#sprint--implementation) | 3 | Break work down, run acceptance, audit the documentation |
@@ -78,11 +78,11 @@ That is 28 skill sources: 27 ship in scaffolds, and `bmad-req-validator` is dist
 
 Not a NONoise skill: a Claude Code mod that NONoise installs as the plugin `regia@claude-regia` (native mode installs it at project scope; embed mode declares it in `.claude/settings.json`; the `minimal` profile skips it). Regia is the framework's orchestration layer. Dedicated doc: [`regia.md`](regia.md); full reference: [russosalv/claude-regia](https://github.com/russosalv/claude-regia).
 
-- **Purpose:** makes the main session coordinate instead of doing all the work itself. Picks model and effort per task, runs swarms of Claude, Codex, Qwen Code and Copilot agents on a dependency board with an isolated git worktree for each task that writes, keeps the plan as a task list, brings questions to the user with their context (as notifications when away), detects stuck agents and wakes an idle session while the plan has open items.
+- **Purpose:** makes the main session coordinate instead of doing all the work itself. Picks model and effort per task, runs swarms of Claude, Codex, Qwen/Qoder and Copilot agents on a dependency board with an isolated git worktree for each task that writes, keeps the plan as a task list, brings questions to the user with their context (as notifications when away), detects stuck agents and wakes an idle session while the plan has open items.
 - **Triggers:** `/regia long|medium|quick [goal]` — the same three modes as NONoise's [development modes](development-modes.md); Polly prefixes her example prompt with `/regia <mode>` when Regia is active. Also `/regia` (live pane), `/regia swarm` (swarm boards), `/regia away` / `/regia here` (notifications), `/regia doctor` (what is active).
-- **Codex and Qwen Code:** on its first interactive session Regia installs the Codex plugin `codex@openai-codex` when the `codex` CLI is on the machine, and a Qwen Code plugin when `qwen` is. NONoise no longer installs the Codex plugin itself.
+- **Codex and Qwen/Qoder:** on its first interactive session Regia installs the Codex plugin `codex@openai-codex` when the `codex` CLI is on the machine, and the Qwen companion when either `qwen` or `qoder` exposes the required headless options. The executor/config value remains `qwen`, and resumed jobs retain their original CLI family. NONoise no longer installs the Codex plugin itself.
 - **Replaces:** the retired skills `swarm-router`, `copilot-delegate` and `gemini-delegate` (and `codex-delegate`, retired in 1.7). They are no longer shipped; `--upgrade` removes pristine copies and keeps edited ones.
-- **Limits:** Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. Regia's executors are Claude, Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through Regia, and there is none to Gemini CLI.
+- **Limits:** Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. Regia's executors are Claude, Codex, Qwen/Qoder and Copilot: delegation to Copilot CLI exists again, through Regia, and there is none to Gemini CLI.
 - **Phase:** cross-cutting — any medium or long task in Claude Code.
 
 ---

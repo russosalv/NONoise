@@ -56,7 +56,7 @@ Keep the section spine; reshape the content of each.
 | 3 | Skills | Catalog | **REPLACE 5 pilot domains with bootstrapper catalog**: Orchestration / Requirements & discovery / Architecture & validation / Sprint & implementation / Brownfield / Ops & observability / Integrations / Generators / Vendored superpowers / Vendored design pack — ≥ 40 skills |
 | 4 | Metrics | **Reframe: "Evidence from the pilot"** | Keep the numbers; add 3-4 bootstrapper-level numbers (40+ skills, 6 SDLC phases, 5 tools supported, 2 first-class, docs tree 6 folders) |
 | NEW | **Polly** | Orchestrator deep-dive | **NEW SECTION** — pair/solo modes, dev trio, greenfield/brownfield decision tree |
-| NEW | **Regia** | Orchestration layer (Claude Code) | **NEW SECTION** — three modes, model and effort per task, swarms of Claude / Codex / Qwen Code / Copilot agents, Claude-Code-only limit |
+| NEW | **Regia** | Orchestration layer (Claude Code) | **NEW SECTION** — three modes, model and effort per task, swarms of Claude / Codex / Qwen/Qoder / Copilot agents, Claude-Code-only limit |
 | NEW | **Cross-tool** | Support matrix | **NEW SECTION** — Claude/Copilot first-class; others best-effort |
 | 5 | Roadmap | Trajectory | **UPDATE** — recent items (Polly v1, docs refactor, bootstrapper migration, core+pack split, multi-repo template) |
 | 6 | Author | Author | Reframe bio to "lesson-learned, packaged and open-sourced" |
@@ -365,7 +365,7 @@ polly: {
 
 **Anchor:** `#regia`. **Placement:** right after Polly, before Skills.
 
-Regia is not a skill: it is a Claude Code mod that `create-nonoise` installs as the plugin `regia@claude-regia`. It replaces the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills. The section must state the limit as clearly as the features: Claude Code only, and no delegation to Gemini CLI. Delegation to Copilot CLI exists again, through Regia: its executors are Claude, Codex, Qwen Code and Copilot.
+Regia is not a skill: it is a Claude Code mod that `create-nonoise` installs as the plugin `regia@claude-regia`. It replaces the retired `swarm-router`, `copilot-delegate` and `gemini-delegate` skills. The section must state the limit as clearly as the features: Claude Code only, and no delegation to Gemini CLI. Delegation to Copilot CLI exists again, through Regia: its executors are Claude, Codex, Qwen/Qoder and Copilot.
 
 ```js
 regia: {
@@ -395,8 +395,8 @@ regia: {
       k: "swarms",
       t: { it: "Sciami di agenti", en: "Swarms of agents" },
       d: {
-        it: "Agenti Claude, Codex, Qwen Code e Copilot su una board con dipendenze e limite di parallelismo. Ogni task che scrive ha il proprio git worktree isolato.",
-        en: "Claude, Codex, Qwen Code and Copilot agents on a board with dependencies and a parallelism limit. Every task that writes gets its own isolated git worktree.",
+        it: "Agenti Claude, Codex, Qwen/Qoder e Copilot su una board con dipendenze e limite di parallelismo. Ogni task che scrive ha il proprio git worktree isolato.",
+        en: "Claude, Codex, Qwen/Qoder and Copilot agents on a board with dependencies and a parallelism limit. Every task that writes gets its own isolated git worktree.",
       },
     },
     {
@@ -419,8 +419,8 @@ regia: {
       k: "limits",
       t: { it: "I limiti, detti chiaramente", en: "The limits, stated plainly" },
       d: {
-        it: "Solo Claude Code. Codex, Copilot, Cursor e Gemini CLI ricevono la tabella delle modalità nel loro context file e usano i propri subagent. Gli esecutori sono Claude, Codex, Qwen Code e Copilot: la delega a Copilot CLI esiste di nuovo, tramite Regia; nessuna delega a Gemini CLI.",
-        en: "Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the modes table in their context file and use their own subagents. The executors are Claude, Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through Regia; there is none to Gemini CLI.",
+        it: "Solo Claude Code. Codex, Copilot, Cursor e Gemini CLI ricevono la tabella delle modalità nel loro context file e usano i propri subagent. Gli esecutori sono Claude, Codex, Qwen/Qoder e Copilot: la delega a Copilot CLI esiste di nuovo, tramite Regia; nessuna delega a Gemini CLI.",
+        en: "Claude Code only. Codex, Copilot, Cursor and Gemini CLI get the modes table in their context file and use their own subagents. The executors are Claude, Codex, Qwen/Qoder and Copilot: delegation to Copilot CLI exists again, through Regia; there is none to Gemini CLI.",
       },
     },
   ],
@@ -745,7 +745,7 @@ A visitor scrolling through the reworked site should verify, within 30 seconds o
 - [ ] Nav includes `SDLC`, `Polly`, `Regia`, `Cross-tool` entries.
 - [ ] SDLC section lists 6 phases, each with a `[pair]` / `[solo]` badge.
 - [ ] Polly section explains orchestrator + pair/solo + greenfield/brownfield.
-- [ ] Regia section explains the three modes, model and effort per task and swarms, and states that it is **Claude Code only**, that its executors are Claude, Codex, Qwen Code and Copilot, and that there is no delegation to Gemini CLI.
+- [ ] Regia section explains the three modes, model and effort per task and swarms, and states that it is **Claude Code only**, that its executors are Claude, Codex, Qwen/Qoder and Copilot, and that there is no delegation to Gemini CLI.
 - [ ] Skills section shows **10 domains**, at least **40 skill entries** total.
 - [ ] Cross-tool section distinguishes **first-class** (Claude Code + Copilot) from **best-effort** (Cursor / Gemini / Codex).
 - [ ] Metrics split into **bootstrapper** (40+ / 6 / 6 / 2 / 1) and **pilot** (9.4× / 93 / 0 / 550× / 2-3m).

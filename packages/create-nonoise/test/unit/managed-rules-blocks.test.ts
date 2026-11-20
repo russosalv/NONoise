@@ -12,6 +12,11 @@ const blocks = [
 const contextTemplates = ['_always/AGENTS.md.hbs', '_if-claude-code/CLAUDE.md.hbs', '_if-copilot/.github/copilot-instructions.md.hbs', '_if-cursor/.cursor/rules.md.hbs', '_if-gemini-cli/GEMINI.md.hbs'];
 
 describe('managed rules blocks', () => {
+  it('the Regia rule presents Qwen and Qoder as one stable qwen executor', async () => {
+    const text = await readFile(resolve(monoRoot, 'packages/create-nonoise/src/assets/development-modes-block.md'), 'utf8');
+    expect(text).toContain('Qwen/Qoder');
+    expect(text).toContain('executor `qwen` uses either a compatible `qwen` or `qoder` command');
+  });
   it.each(blocks)('every context template carries the canonical $name block verbatim', async ({ name, asset }) => {
     const canonical = (await readFile(resolve(monoRoot, 'packages/create-nonoise/src/assets', asset), 'utf8')).replace(/\r\n/g, '\n');
     const expected = `<!-- >>> ${name} (managed by create-nonoise) -->\n${canonical}<!-- <<< ${name} -->`;

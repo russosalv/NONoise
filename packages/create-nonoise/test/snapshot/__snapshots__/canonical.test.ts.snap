@@ -10088,7 +10088,7 @@ Signals for inferring the mode: number of files and modules touched, whether req
 
 **FPF gate.** Formal validation (\`arch-decision\` → Haft FPF) is proposed only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) **and** at least two materially different options are viable. In every other case the choice is recorded in the PRD as a lightweight decision (\`decision.mode: lightweight\`) and the flow continues with \`sprint-manifest\` or \`implementation\`.
 
-**Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for you. Its three modes are these same three. Prefix the phase prompt with \`/regia quick|medium|long\` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
+**Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation, model and effort per task, swarms of Claude, Codex, Qwen/Qoder and Copilot agents, the plan list and the questions for you. Its stable \`qwen\` executor accepts a compatible \`qwen\` or \`qoder\` command. Its three modes are these same three. Prefix the phase prompt with \`/regia quick|medium|long\` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
 
 ### quick
 
@@ -26205,7 +26205,7 @@ Signals for inferring the mode: number of files and modules touched, whether req
 
 **FPF gate.** Formal validation (\`arch-decision\` → Haft FPF) is proposed only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) **and** at least two materially different options are viable. In every other case the choice is recorded in the PRD as a lightweight decision (\`decision.mode: lightweight\`) and the flow continues with \`sprint-manifest\` or \`implementation\`.
 
-**Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for you. Its three modes are these same three. Prefix the phase prompt with \`/regia quick|medium|long\` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
+**Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation, model and effort per task, swarms of Claude, Codex, Qwen/Qoder and Copilot agents, the plan list and the questions for you. Its stable \`qwen\` executor accepts a compatible \`qwen\` or \`qoder\` command. Its three modes are these same three. Prefix the phase prompt with \`/regia quick|medium|long\` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
 
 ### quick
 
@@ -30905,7 +30905,7 @@ Size the process to the work. The mode is chosen per task: the user names it (\`
 Rules:
 - Never run a heavier mode than the work needs. If the task turns out bigger, say so and propose the next mode up; do not expand silently.
 - **FPF gate.** Propose formal validation (\`arch-decision\` → Haft FPF) only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) and at least two materially different options are viable. Otherwise record the choice in the PRD as a lightweight decision (\`decision.mode: lightweight\`) and move on.
-- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
+- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, and swarms of Claude, Codex, Qwen/Qoder and Copilot agents. The executor \`qwen\` uses either a compatible \`qwen\` or \`qoder\` command. Regia also owns the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
 <!-- <<< development-modes -->
 
 ---
@@ -31773,7 +31773,7 @@ Size the process to the work. The mode is chosen per task: the user names it (\`
 Rules:
 - Never run a heavier mode than the work needs. If the task turns out bigger, say so and propose the next mode up; do not expand silently.
 - **FPF gate.** Propose formal validation (\`arch-decision\` → Haft FPF) only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) and at least two materially different options are viable. Otherwise record the choice in the PRD as a lightweight decision (\`decision.mode: lightweight\`) and move on.
-- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
+- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, and swarms of Claude, Codex, Qwen/Qoder and Copilot agents. The executor \`qwen\` uses either a compatible \`qwen\` or \`qoder\` command. Regia also owns the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
 <!-- <<< development-modes -->
 
 ---
@@ -33275,7 +33275,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".agents/skills/polly/references/external-tools.md": "925667e9f57e7eceb39d2801432c9dac6a65b995bbbdb20bdaf078489c252f76",
   ".agents/skills/polly/references/fallback-messages.md": "57c0be97fd5fa034bf358b482a3019721829421dac1d15198577cb5fbdb1f56e",
   ".agents/skills/polly/references/project-tools.md": "6dd818cbafa99463e248cd5921e9100dffded16c5c0495d46979532ce61534bc",
-  ".agents/skills/polly/references/sdlc-flow.default.md": "4e391b41e07ef97689ac10a899486d4e5260e9978098223af5ca9c0fca25e5e6",
+  ".agents/skills/polly/references/sdlc-flow.default.md": "f63631e8a5e50c1adeb93440e1c6444d99f4100120eb5e3dc099e6caef016059",
   ".agents/skills/polly/SKILL.md": "50813526b9a54e16c8ff7bacfe9bf07664298d9ab3610bf903a71438c2c43e69",
   ".agents/skills/production-audit/SKILL.md": "98791f4483bc0fe36bac2d878428365b75f7ab697aa3003ed914a1543df7d210",
   ".agents/skills/quint-fpf/SKILL.md": "bc54ef9c294824b8c15799bf47f241f76624e297e0edfe30f5b91b15a2303866",
@@ -33376,7 +33376,7 @@ test('falls back to substring search when Redis is unavailable', () => {})
   ".claude/skills/polly/references/external-tools.md": "925667e9f57e7eceb39d2801432c9dac6a65b995bbbdb20bdaf078489c252f76",
   ".claude/skills/polly/references/fallback-messages.md": "57c0be97fd5fa034bf358b482a3019721829421dac1d15198577cb5fbdb1f56e",
   ".claude/skills/polly/references/project-tools.md": "6dd818cbafa99463e248cd5921e9100dffded16c5c0495d46979532ce61534bc",
-  ".claude/skills/polly/references/sdlc-flow.default.md": "4e391b41e07ef97689ac10a899486d4e5260e9978098223af5ca9c0fca25e5e6",
+  ".claude/skills/polly/references/sdlc-flow.default.md": "f63631e8a5e50c1adeb93440e1c6444d99f4100120eb5e3dc099e6caef016059",
   ".claude/skills/polly/SKILL.md": "50813526b9a54e16c8ff7bacfe9bf07664298d9ab3610bf903a71438c2c43e69",
   ".claude/skills/production-audit/SKILL.md": "98791f4483bc0fe36bac2d878428365b75f7ab697aa3003ed914a1543df7d210",
   ".claude/skills/quint-fpf/SKILL.md": "bc54ef9c294824b8c15799bf47f241f76624e297e0edfe30f5b91b15a2303866",
@@ -33564,7 +33564,7 @@ Signals for inferring the mode: number of files and modules touched, whether req
 
 **FPF gate.** Formal validation (\`arch-decision\` → Haft FPF) is proposed only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) **and** at least two materially different options are viable. In every other case the choice is recorded in the PRD as a lightweight decision (\`decision.mode: lightweight\`) and the flow continues with \`sprint-manifest\` or \`implementation\`.
 
-**Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for you. Its three modes are these same three. Prefix the phase prompt with \`/regia quick|medium|long\` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
+**Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation, model and effort per task, swarms of Claude, Codex, Qwen/Qoder and Copilot agents, the plan list and the questions for you. Its stable \`qwen\` executor accepts a compatible \`qwen\` or \`qoder\` command. Its three modes are these same three. Prefix the phase prompt with \`/regia quick|medium|long\` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
 
 ### quick
 
@@ -33792,7 +33792,7 @@ Size the process to the work. The mode is chosen per task: the user names it (\`
 Rules:
 - Never run a heavier mode than the work needs. If the task turns out bigger, say so and propose the next mode up; do not expand silently.
 - **FPF gate.** Propose formal validation (\`arch-decision\` → Haft FPF) only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) and at least two materially different options are viable. Otherwise record the choice in the PRD as a lightweight decision (\`decision.mode: lightweight\`) and move on.
-- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
+- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, and swarms of Claude, Codex, Qwen/Qoder and Copilot agents. The executor \`qwen\` uses either a compatible \`qwen\` or \`qoder\` command. Regia also owns the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
 <!-- <<< development-modes -->
 
 ---
@@ -33885,8 +33885,8 @@ If the user is unsure which skill to use, they can invoke \`/polly\` (Claude Cod
 
 **Orchestration (Regia mod, native plugin \`regia@claude-regia\`)** — \`/regia long\`,
 \`/regia medium\`, \`/regia quick\`, \`/regia swarm\`, \`/regia doctor\`. Regia makes the main
-session delegate, picks model and effort per task and runs swarms of Claude, Codex, Qwen
-and Copilot agents. It replaces the former \`swarm-router\`, \`copilot-delegate\`, \`gemini-delegate\`
+session delegate, picks model and effort per task and runs swarms of Claude, Codex, Qwen/Qoder
+and Copilot agents. The stable \`qwen\` executor accepts a compatible \`qwen\` or \`qoder\` command. It replaces the former \`swarm-router\`, \`copilot-delegate\`, \`gemini-delegate\`
 and \`codex-delegate\` skills.
 
 **Superpowers (native plugin from \`obra/superpowers\`)** — \`superpowers:brainstorming\`,
@@ -33947,7 +33947,7 @@ Size the process to the work. The mode is chosen per task: the user names it (\`
 Rules:
 - Never run a heavier mode than the work needs. If the task turns out bigger, say so and propose the next mode up; do not expand silently.
 - **FPF gate.** Propose formal validation (\`arch-decision\` → Haft FPF) only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) and at least two materially different options are viable. Otherwise record the choice in the PRD as a lightweight decision (\`decision.mode: lightweight\`) and move on.
-- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
+- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, and swarms of Claude, Codex, Qwen/Qoder and Copilot agents. The executor \`qwen\` uses either a compatible \`qwen\` or \`qoder\` command. Regia also owns the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
 <!-- <<< development-modes -->
 
 ---
@@ -34045,7 +34045,7 @@ Size the process to the work. The mode is chosen per task: the user names it (\`
 Rules:
 - Never run a heavier mode than the work needs. If the task turns out bigger, say so and propose the next mode up; do not expand silently.
 - **FPF gate.** Propose formal validation (\`arch-decision\` → Haft FPF) only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) and at least two materially different options are viable. Otherwise record the choice in the PRD as a lightweight decision (\`decision.mode: lightweight\`) and move on.
-- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
+- **Regia.** In Claude Code, NONoise installs the Regia mod (\`regia@claude-regia\`), which owns orchestration: delegation to subagents, model and effort per task, and swarms of Claude, Codex, Qwen/Qoder and Copilot agents. The executor \`qwen\` uses either a compatible \`qwen\` or \`qoder\` command. Regia also owns the plan list and the questions for the user. Its three modes are these same three: start the work with \`/regia quick|medium|long <goal>\` and keep its plan (\`scaletta_scrivi\`) and questions (\`domanda_scrivi\`) as the single source of progress. Codex, Copilot and the other tools have no Regia: apply this table directly.
 <!-- <<< development-modes -->
 
 ---

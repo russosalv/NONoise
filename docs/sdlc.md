@@ -31,7 +31,7 @@ The flow is sized to the work. Every task runs in one of three modes, chosen wit
 
 The phases described in this document are the **long** flow. Medium uses Phase 2 (a short spec) and Phase 5; quick uses Phase 5 only, without a plan document. Each phase in `.nonoise/sdlc-flow.md` lists its `modes`, and `default_mode` applies when nothing else decides. Full description, including how Codex and Copilot apply the same modes: [`development-modes.md`](development-modes.md).
 
-In Claude Code the mode also sets how the session works: NONoise installs the [Regia](regia.md) mod, whose `/regia quick|medium|long` are the same three modes. In medium the main session delegates the independent pieces; in long it orchestrates. In both, Regia picks model and effort for each delegated task and can run swarms of Claude, Codex, Qwen Code and Copilot agents. The other tools get the table above in their context file and use their own subagent features.
+In Claude Code the mode also sets how the session works: NONoise installs the [Regia](regia.md) mod, whose `/regia quick|medium|long` are the same three modes. In medium the main session delegates the independent pieces; in long it orchestrates. In both, Regia picks model and effort for each delegated task and can run swarms of Claude, Codex, Qwen/Qoder and Copilot agents. The other tools get the table above in their context file and use their own subagent features.
 
 ## Phases
 

@@ -14,7 +14,7 @@ NONoise targets multiple AI coding assistants. Some are **first-class** (fully v
 | **Scaffold writes context file** | `CLAUDE.md` (plus `.claude/skills/`, `.claude/commands/`, `.claude/settings.json`) | `.github/copilot-instructions.md` |
 | **Launch Polly** | `/polly` slash command (wired via `.claude/commands/polly.md`) | Phrase trigger: "start polly" / "avvia polly" / "run polly" |
 | **Pick a development mode** | `/polly quick\|medium\|long <goal>`; the prompt Polly returns starts with `/regia <mode>` | Phrase trigger: `start polly quick <goal>`; the `development-modes` block in `.github/copilot-instructions.md` |
-| **Orchestration** | [Regia](regia.md) mod (`regia@claude-regia`), installed by NONoise: delegation, model and effort per task, swarms of Claude, Codex, Qwen Code and Copilot agents | None from NONoise: the `development-modes` block says when to delegate, Copilot's own subagent features do it |
+| **Orchestration** | [Regia](regia.md) mod (`regia@claude-regia`), installed by NONoise: delegation, model and effort per task, swarms of Claude, Codex, Qwen/Qoder and Copilot agents | None from NONoise: the `development-modes` block says when to delegate, Copilot's own subagent features do it |
 | **Invoke a specialist skill** | `Skill` tool by name — e.g. `arch-brainstorm`, `superpowers:writing-plans` | Read the SKILL.md file inline and follow its instructions |
 | **Agents** ([`agents.md`](agents.md)) | `.claude/agents/<name>.md` — the three NONoise agents plus the ECC agents of the profile and stack | `.github/agents/<name>.agent.md` — the same agents, tools mapped to Copilot's aliases |
 | **Optional NONoise hooks** | Project `.claude/settings.json` | CLI project `.github/hooks/nonoise.json` (version 1); see verified limits below |
@@ -108,10 +108,10 @@ Orchestration is the one capability NONoise does not deliver as cross-tool Markd
 | **Modes** | `/regia long\|medium\|quick [goal]`, enforced by the mod's rule in the system prompt | The `development-modes` table in the context file, as plain instructions |
 | **Delegation** | The main session delegates (medium) or orchestrates (long) | Whatever subagent feature the tool has; nothing is enforced |
 | **Model and effort per task** | Chosen for each subagent call | Not provided |
-| **Swarms** | Claude, Codex, Qwen Code and Copilot agents on a dependency board, one git worktree per task that writes | Not provided |
+| **Swarms** | Claude, Codex, Qwen/Qoder and Copilot agents on a dependency board, one git worktree per task that writes | Not provided |
 | **Plan, questions, surveillance, live pane** | Provided by Regia | Not provided |
 
-Until 1.8 the `swarm-router` skill covered this for every harness from one SKILL.md, with shell-outs to peer CLIs (`gemini -p`, `codex exec`, `copilot -p`) on the best-effort tools. It is retired together with `copilot-delegate` and `gemini-delegate`, and it has no cross-harness successor: no NONoise skill fans work out from Copilot, Gemini CLI or Codex to other model CLIs. Delegation to Copilot CLI exists again, but only through Regia and therefore only from Claude Code: Regia's executors are Claude, Codex, Qwen Code and Copilot. Nothing delegates to Gemini CLI.
+Until 1.8 the `swarm-router` skill covered this for every harness from one SKILL.md, with shell-outs to peer CLIs (`gemini -p`, `codex exec`, `copilot -p`) on the best-effort tools. It is retired together with `copilot-delegate` and `gemini-delegate`, and it has no cross-harness successor: no NONoise skill fans work out from Copilot, Gemini CLI or Codex to other model CLIs. Delegation to Copilot CLI exists again, but only through Regia and therefore only from Claude Code: Regia's executors are Claude, Codex, Qwen/Qoder and Copilot. Nothing delegates to Gemini CLI.
 
 Where the superpowers pack is installed, `superpowers:dispatching-parallel-agents` and `superpowers:subagent-driven-development` still describe parallel work in any tool.
 

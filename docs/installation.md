@@ -169,11 +169,15 @@ has no ref syntax and reads the default branch. Maintainers validating an
 untagged branch can override the ref with `NONOISE_MARKETPLACE_REF=<branch>`.
 
 Regia is the orchestration layer for Claude Code: `/regia long|medium|quick`,
-model and effort per task, swarms of Claude, Codex, Qwen Code and Copilot agents (see
+model and effort per task, swarms of Claude, Codex, Qwen/Qoder and Copilot agents (see
 [`regia.md`](regia.md)). It has no ref: like any Claude plugin it follows its own
 marketplace and updates on its own. Embed mode stays offline: the plugin is only
 declared in `.claude/settings.json`, and Claude Code offers it when the project is
 trusted. Regia is Claude-Code-only; the other tools get no orchestration plugin.
+
+Its stable executor value `qwen` accepts either a compatible `qwen` or `qoder`
+command. Regia checks the headless option contract, prefers `qwen`, falls back to
+`qoder`, and keeps the chosen family when resuming a job.
 
 NONoise no longer installs the Codex plugin `codex@openai-codex`. Regia installs
 it on its first interactive session when the `codex` CLI is on the machine. A
@@ -704,15 +708,19 @@ For Claude Code, scaffold and `--upgrade` install the
 installs it at project scope, embed mode declares it in `.claude/settings.json`,
 the `minimal` profile skips it. Regia is not pinned and updates through its own
 marketplace. It makes the main session delegate, picks model and effort per task
-and runs swarms of Claude, Codex, Qwen Code and Copilot agents; its three modes are
+and runs swarms of Claude, Codex, Qwen/Qoder and Copilot agents; its three modes are
 NONoise's three development modes. Restart Claude Code after the installation and
 run `/regia doctor`.
+
+The Qwen/Qoder executor remains named `qwen` in tools and config. Regia uses the
+first compatible command between `qwen` and `qoder` and installs its companion
+plugin when either is available.
 
 Upgrade note: the skills Regia replaces — `swarm-router`, `copilot-delegate`,
 `gemini-delegate` and `codex-delegate` — are no longer shipped. `--upgrade`
 removes pristine copies from `.claude/skills/` and `.agents/skills/` and keeps
 edited ones, which it lists. Regia is Claude-Code-only. Its executors are Claude,
-Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through
+Codex, Qwen/Qoder and Copilot: delegation to Copilot CLI exists again, through
 Regia, and there is none to Gemini CLI. Full description: [`regia.md`](regia.md).
 
 ## FPF gate and development modes (1.9)

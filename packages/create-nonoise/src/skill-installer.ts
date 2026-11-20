@@ -131,7 +131,8 @@ async function isSkillDir(path: string): Promise<boolean> {
  * shipped. Hashes recorded in LEGACY_SKILL_HASHES count as shipped too. */
 const RETIRED_SKILLS: Record<string, string[]> = {
   // Delegation and orchestration now belong to the Regia mod (regia@claude-regia),
-  // which also installs the Codex and Qwen plugins when their CLIs are present.
+  // which also installs the Codex plugin and the Qwen companion (for a compatible
+  // `qwen` or `qoder` command) itself.
   'codex-delegate': ['06711719de4393b9d4e7b4959ddf58a04bdd996ef02f5b601223c3ba9e6d4345'],
   'copilot-delegate': [],
   'gemini-delegate': [],

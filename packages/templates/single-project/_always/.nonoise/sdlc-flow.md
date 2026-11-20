@@ -114,7 +114,7 @@ Signals for inferring the mode: number of files and modules touched, whether req
 
 **FPF gate.** Formal validation (`arch-decision` → Haft FPF) is proposed only when the user asks for it, or when the decision is costly to reverse (data model, public contract, security or tenancy boundary, infrastructure, vendor lock-in) **and** at least two materially different options are viable. In every other case the choice is recorded in the PRD as a lightweight decision (`decision.mode: lightweight`) and the flow continues with `sprint-manifest` or `implementation`.
 
-**Regia.** In Claude Code, NONoise installs the Regia mod (`regia@claude-regia`), which owns orchestration: delegation, model and effort per task, swarms of Claude, Codex, Qwen and Copilot agents, the plan list and the questions for you. Its three modes are these same three. Prefix the phase prompt with `/regia quick|medium|long` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
+**Regia.** In Claude Code, NONoise installs the Regia mod (`regia@claude-regia`), which owns orchestration: delegation, model and effort per task, swarms of Claude, Codex, Qwen/Qoder and Copilot agents, the plan list and the questions for you. Its stable `qwen` executor accepts a compatible `qwen` or `qoder` command. Its three modes are these same three. Prefix the phase prompt with `/regia quick|medium|long` and let Regia hold the plan and the questions. Codex, Copilot and the other tools have no Regia: use the prompts as they are.
 
 ### quick
 

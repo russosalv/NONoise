@@ -84,7 +84,7 @@ In a borderline case the assistant names the fact that would tip the answer and 
 
 ## Regia
 
-In Claude Code the three modes are also the modes of [Regia](regia.md), the mod NONoise installs as its orchestration layer (`regia@claude-regia`): `/regia quick|medium|long <goal>`. The mapping is 1:1 — a NONoise quick is a Regia quick, and so on. The "Delegation" row of the table above is what Regia enforces: in medium the main session delegates the independent pieces, in long it orchestrates. In both, Regia picks model and effort for each delegated task and can run swarms of Claude, Codex, Qwen Code and Copilot agents.
+In Claude Code the three modes are also the modes of [Regia](regia.md), the mod NONoise installs as its orchestration layer (`regia@claude-regia`): `/regia quick|medium|long <goal>`. The mapping is 1:1 — a NONoise quick is a Regia quick, and so on. The "Delegation" row of the table above is what Regia enforces: in medium the main session delegates the independent pieces, in long it orchestrates. In both, Regia picks model and effort for each delegated task and can run swarms of Claude, Codex, Qwen/Qoder and Copilot agents.
 
 When Regia is active in the session, Polly prefixes the example prompt with `/regia <mode>` and says that Regia will hold the plan (`scaletta_scrivi`) and the questions (`domanda_scrivi`). Polly does not call Regia's tools herself.
 

@@ -28,7 +28,7 @@ The CLI asks which AI tools your team uses (Claude Code, GitHub Copilot), then s
 - **`docs/`** — six-folder source-of-truth hierarchy (architecture, requirements, calls, support, prd, sprints).
 - **`.claude/skills/`** (and `.agents/skills/` for Codex / Copilot CLI) — 27 NONoise skills plus vendor packs, 40+ in total: Polly advisor, BMAD personas, Haft FPF validator (`quint-fpf` adapter), the `codebase-memory` code graph, `reuse-first` and `docs-steward`, native [superpowers](https://github.com/obra/superpowers), design and ops packs.
 - **Agents** (`.claude/agents/`, `.github/agents/`, `.codex/agents/`) — three NONoise agents (`graph-explorer`, `blueprint-architect`, `evidence-reviewer`) plus the reviewers and build resolvers selected by profile and `--stack`. See [Agents](#agents).
-- **Regia** (Claude Code only) — the orchestration layer, installed as the plugin `regia@claude-regia`: the main session delegates, model and effort are chosen per task, and swarms of Claude, Codex, Qwen Code and Copilot agents run on a dependency board. See [Orchestration (Regia)](#orchestration-regia).
+- **Regia** (Claude Code only) — the orchestration layer, installed as the plugin `regia@claude-regia`: the main session delegates, model and effort are chosen per task, and swarms of Claude, Codex, Qwen/Qoder and Copilot agents run on a dependency board. See [Orchestration (Regia)](#orchestration-regia).
 - **Context files** for each selected tool — `CLAUDE.md`, `.github/copilot-instructions.md`, `AGENTS.md` — generated from one source of truth.
 - **`tools/md-extractor/`** and **`tools/devops-push/`** — Node CLIs.
 - **`.nonoise/sdlc-flow.md`** — the SDLC flow Polly reads to detect where you are and suggest the next skill, sized per task as quick, medium or long.
@@ -113,11 +113,13 @@ The flow is sized to the work. `/polly quick <goal>` goes straight to the change
 
 ## Orchestration (Regia)
 
-For Claude Code, NONoise installs [Regia](https://github.com/russosalv/claude-regia), a Claude Code mod, as the plugin `regia@claude-regia` (all profiles except `minimal`). Regia is the framework's orchestration layer: the main session coordinates instead of doing all the work itself, each task gets the model and effort it needs, and swarms of Claude, Codex, Qwen Code and Copilot agents run on a dependency board with an isolated git worktree for every task that writes. It also keeps the plan as a task list, brings you questions with their context (as notifications when you are away), detects stuck agents, wakes an idle session while the plan has open items, and shows everything in a live pane (`/regia`). `/regia doctor` reports what is active.
+For Claude Code, NONoise installs [Regia](https://github.com/russosalv/claude-regia), a Claude Code mod, as the plugin `regia@claude-regia` (all profiles except `minimal`). Regia is the framework's orchestration layer: the main session coordinates instead of doing all the work itself, each task gets the model and effort it needs, and swarms of Claude, Codex, Qwen/Qoder and Copilot agents run on a dependency board with an isolated git worktree for every task that writes. It also keeps the plan as a task list, brings you questions with their context (as notifications when you are away), detects stuck agents, wakes an idle session while the plan has open items, and shows everything in a live pane (`/regia`). `/regia doctor` reports what is active.
+
+The Qwen/Qoder executor keeps the stable name `qwen`: Regia prefers a compatible `qwen` command, falls back to `qoder`, and resumes each job with the family that created its session.
 
 Its three modes are NONoise's three development modes: `/regia long|medium|quick [goal]`. `/polly long <goal>` hands back a prompt that starts with `/regia long`, so the mode is chosen once.
 
-Regia replaces the `swarm-router`, `copilot-delegate` and `gemini-delegate` skills, which are no longer shipped. It is Claude-Code-only: Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. Its executors are Claude, Codex, Qwen Code and Copilot: delegation to Copilot CLI exists again, through Regia, while there is none to Gemini CLI. Details: [Regia in NONoise](https://github.com/russosalv/NONoise/blob/main/docs/regia.md).
+Regia replaces the `swarm-router`, `copilot-delegate` and `gemini-delegate` skills, which are no longer shipped. It is Claude-Code-only: Codex, Copilot, Cursor and Gemini CLI get the development-modes table in their context file and use their own subagent features. Its executors are Claude, Codex, Qwen/Qoder and Copilot: delegation to Copilot CLI exists again, through Regia, while there is none to Gemini CLI. Details: [Regia in NONoise](https://github.com/russosalv/NONoise/blob/main/docs/regia.md).
 
 ## Agents
 
